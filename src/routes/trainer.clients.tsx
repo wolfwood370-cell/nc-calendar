@@ -49,7 +49,10 @@ function ClientsPage() {
 
   async function load() {
     setLoading(true);
-    let cq = supabase.from("profiles").select("id, full_name, email, phone");
+    let cq = supabase
+      .from("profiles")
+      .select("id, full_name, email, phone")
+      .is("deleted_at", null);
     if (!isAdmin && user) cq = cq.eq("coach_id", user.id);
     const { data: cs } = await cq;
     setClients((cs as ClientRow[]) ?? []);
@@ -102,6 +105,21 @@ function ClientsPage() {
       return;
     }
     toast.success("Invito annullato");
+    load();
+  }
+
+  async function archiveClient(id: string) {
+    const { error } = await supabase
+      .from("profiles")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) {
+      toast.error("Errore", { description: error.message });
+      return;
+    }
+    toast.success("Cliente archiviato", {
+      description: "I dati storici restano disponibili.",
+    });
     load();
   }
 
