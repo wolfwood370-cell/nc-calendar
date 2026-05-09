@@ -31,7 +31,7 @@ function ClientsPage() {
       ...cur,
       { id: `c${cur.length + 1}`, role: "client", full_name: data.name, email: data.email, phone_number: data.phone },
     ]);
-    toast.success("Client added");
+    toast.success("Cliente aggiunto");
     setOpen(false);
   };
 
@@ -39,12 +39,12 @@ function ClientsPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-display text-3xl font-semibold tracking-tight">Clients</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage your roster and active blocks.</p>
+          <h1 className="font-display text-3xl font-semibold tracking-tight">Clienti</h1>
+          <p className="text-sm text-muted-foreground mt-1">Gestisci il roster e i blocchi attivi.</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button><Plus className="size-4" /> Add client</Button>
+            <Button><Plus className="size-4" /> Aggiungi cliente</Button>
           </DialogTrigger>
           <AddClientDialog onSubmit={addClient} />
         </Dialog>
@@ -57,18 +57,18 @@ function ClientsPage() {
             <Input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Search clients…"
+              placeholder="Cerca clienti…"
               className="border-0 shadow-none focus-visible:ring-0 px-0"
             />
           </div>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
+                <TableHead>Nome</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Active block</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>Telefono</TableHead>
+                <TableHead>Blocco attivo</TableHead>
+                <TableHead className="text-right">Azioni</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -81,13 +81,13 @@ function ClientsPage() {
                     <TableCell className="text-muted-foreground">{c.phone_number}</TableCell>
                     <TableCell>
                       {hasBlock ? (
-                        <Badge variant="secondary" className="bg-success/10 text-success border-success/20">Active</Badge>
+                        <Badge variant="secondary" className="bg-success/10 text-success border-success/20">Attivo</Badge>
                       ) : (
-                        <Badge variant="outline">None</Badge>
+                        <Badge variant="outline">Nessuno</Badge>
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm">Edit</Button>
+                      <Button variant="ghost" size="sm">Modifica</Button>
                     </TableCell>
                   </TableRow>
                 );
@@ -107,7 +107,7 @@ function AddClientDialog({ onSubmit }: { onSubmit: (d: { name: string; email: st
   return (
     <DialogContent>
       <DialogHeader>
-        <DialogTitle>Add client</DialogTitle>
+        <DialogTitle>Aggiungi cliente</DialogTitle>
       </DialogHeader>
       <form
         className="space-y-4"
@@ -117,7 +117,7 @@ function AddClientDialog({ onSubmit }: { onSubmit: (d: { name: string; email: st
         }}
       >
         <div className="space-y-2">
-          <Label>Full name</Label>
+          <Label>Nome completo</Label>
           <Input value={name} onChange={(e) => setName(e.target.value)} required />
         </div>
         <div className="space-y-2">
@@ -125,11 +125,11 @@ function AddClientDialog({ onSubmit }: { onSubmit: (d: { name: string; email: st
           <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
         </div>
         <div className="space-y-2">
-          <Label>Phone</Label>
+          <Label>Telefono</Label>
           <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
         </div>
         <DialogFooter>
-          <Button type="submit">Save</Button>
+          <Button type="submit">Salva</Button>
         </DialogFooter>
       </form>
     </DialogContent>
