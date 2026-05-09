@@ -18,6 +18,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TrainerIndexRouteImport } from './routes/trainer.index'
 import { Route as ClientIndexRouteImport } from './routes/client.index'
+import { Route as TrainerIntegrationsRouteImport } from './routes/trainer.integrations'
 import { Route as TrainerClientsRouteImport } from './routes/trainer.clients'
 import { Route as TrainerCalendarRouteImport } from './routes/trainer.calendar'
 import { Route as TrainerBlocksRouteImport } from './routes/trainer.blocks'
@@ -68,6 +69,11 @@ const ClientIndexRoute = ClientIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ClientRoute,
 } as any)
+const TrainerIntegrationsRoute = TrainerIntegrationsRouteImport.update({
+  id: '/integrations',
+  path: '/integrations',
+  getParentRoute: () => TrainerRoute,
+} as any)
 const TrainerClientsRoute = TrainerClientsRouteImport.update({
   id: '/clients',
   path: '/clients',
@@ -101,6 +107,7 @@ export interface FileRoutesByFullPath {
   '/trainer/blocks': typeof TrainerBlocksRoute
   '/trainer/calendar': typeof TrainerCalendarRoute
   '/trainer/clients': typeof TrainerClientsRoute
+  '/trainer/integrations': typeof TrainerIntegrationsRoute
   '/client/': typeof ClientIndexRoute
   '/trainer/': typeof TrainerIndexRoute
 }
@@ -114,6 +121,7 @@ export interface FileRoutesByTo {
   '/trainer/blocks': typeof TrainerBlocksRoute
   '/trainer/calendar': typeof TrainerCalendarRoute
   '/trainer/clients': typeof TrainerClientsRoute
+  '/trainer/integrations': typeof TrainerIntegrationsRoute
   '/client': typeof ClientIndexRoute
   '/trainer': typeof TrainerIndexRoute
 }
@@ -130,6 +138,7 @@ export interface FileRoutesById {
   '/trainer/blocks': typeof TrainerBlocksRoute
   '/trainer/calendar': typeof TrainerCalendarRoute
   '/trainer/clients': typeof TrainerClientsRoute
+  '/trainer/integrations': typeof TrainerIntegrationsRoute
   '/client/': typeof ClientIndexRoute
   '/trainer/': typeof TrainerIndexRoute
 }
@@ -147,6 +156,7 @@ export interface FileRouteTypes {
     | '/trainer/blocks'
     | '/trainer/calendar'
     | '/trainer/clients'
+    | '/trainer/integrations'
     | '/client/'
     | '/trainer/'
   fileRoutesByTo: FileRoutesByTo
@@ -160,6 +170,7 @@ export interface FileRouteTypes {
     | '/trainer/blocks'
     | '/trainer/calendar'
     | '/trainer/clients'
+    | '/trainer/integrations'
     | '/client'
     | '/trainer'
   id:
@@ -175,6 +186,7 @@ export interface FileRouteTypes {
     | '/trainer/blocks'
     | '/trainer/calendar'
     | '/trainer/clients'
+    | '/trainer/integrations'
     | '/client/'
     | '/trainer/'
   fileRoutesById: FileRoutesById
@@ -254,6 +266,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClientIndexRouteImport
       parentRoute: typeof ClientRoute
     }
+    '/trainer/integrations': {
+      id: '/trainer/integrations'
+      path: '/integrations'
+      fullPath: '/trainer/integrations'
+      preLoaderRoute: typeof TrainerIntegrationsRouteImport
+      parentRoute: typeof TrainerRoute
+    }
     '/trainer/clients': {
       id: '/trainer/clients'
       path: '/clients'
@@ -302,6 +321,7 @@ interface TrainerRouteChildren {
   TrainerBlocksRoute: typeof TrainerBlocksRoute
   TrainerCalendarRoute: typeof TrainerCalendarRoute
   TrainerClientsRoute: typeof TrainerClientsRoute
+  TrainerIntegrationsRoute: typeof TrainerIntegrationsRoute
   TrainerIndexRoute: typeof TrainerIndexRoute
 }
 
@@ -309,6 +329,7 @@ const TrainerRouteChildren: TrainerRouteChildren = {
   TrainerBlocksRoute: TrainerBlocksRoute,
   TrainerCalendarRoute: TrainerCalendarRoute,
   TrainerClientsRoute: TrainerClientsRoute,
+  TrainerIntegrationsRoute: TrainerIntegrationsRoute,
   TrainerIndexRoute: TrainerIndexRoute,
 }
 
@@ -327,3 +348,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
