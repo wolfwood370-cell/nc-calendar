@@ -60,6 +60,7 @@ export type Database = {
           created_at: string
           deleted_at: string | null
           id: string
+          meeting_link: string | null
           notes: string | null
           scheduled_at: string
           session_type: Database["public"]["Enums"]["session_type"]
@@ -73,6 +74,7 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           id?: string
+          meeting_link?: string | null
           notes?: string | null
           scheduled_at: string
           session_type: Database["public"]["Enums"]["session_type"]
@@ -86,6 +88,7 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           id?: string
+          meeting_link?: string | null
           notes?: string | null
           scheduled_at?: string
           session_type?: Database["public"]["Enums"]["session_type"]
@@ -285,7 +288,12 @@ export type Database = {
     Enums: {
       app_role: "admin" | "coach" | "client"
       block_status: "active" | "completed" | "cancelled"
-      booking_status: "scheduled" | "completed" | "cancelled"
+      booking_status:
+        | "scheduled"
+        | "completed"
+        | "cancelled"
+        | "late_cancelled"
+        | "no_show"
       session_type: "PT Session" | "BIA" | "Functional Test"
     }
     CompositeTypes: {
@@ -416,7 +424,13 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "coach", "client"],
       block_status: ["active", "completed", "cancelled"],
-      booking_status: ["scheduled", "completed", "cancelled"],
+      booking_status: [
+        "scheduled",
+        "completed",
+        "cancelled",
+        "late_cancelled",
+        "no_show",
+      ],
       session_type: ["PT Session", "BIA", "Functional Test"],
     },
   },
