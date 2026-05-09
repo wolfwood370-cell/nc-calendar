@@ -4,8 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { ChevronLeft, Check, Loader2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { ChevronLeft, Check, Loader2, Video } from "lucide-react";
 import { availability, getActiveBlock, getCurrentClient, sessionLabel, trainer, type SessionType } from "@/lib/mock-data";
+import { useStoreBlocks, addBooking } from "@/lib/booking-store";
+import { generateMockMeetLink } from "@/components/join-video-call-button";
 import { toast } from "sonner";
 import { sendBookingConfirmationEmail } from "@/lib/email";
 
@@ -41,9 +45,13 @@ function generateSlots(daysAhead: number): Slot[] {
 
 function BookFlow() {
   const me = getCurrentClient();
+  // sottoscrive lo store così le quantità rimanenti sono live
+  useStoreBlocks();
   const block = getActiveBlock(me.id);
   const navigate = useNavigate();
   const [picked, setPicked] = useState<Record<string, SessionType>>({});
+  const [online, setOnline] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   const slots = useMemo(() => generateSlots(28), []);
   const grouped = useMemo(() => {
@@ -92,35 +100,33 @@ function BookFlow() {
 
   const totalPicked = Object.keys(picked).length;
 
-  const [confirming, setConfirming] = useState(false);
-
   const confirm = async () => {
     setConfirming(true);
     try {
-      await Promise.all(
-        Object.entries(picked).map(([iso, type]) =>
-          Promise.all([
-            sendBookingConfirmationEmail({
-              to: me.email,
-              recipientName: me.full_name,
-              sessionLabel: sessionLabel(type),
-              scheduledAt: new Date(iso),
-              coachName: trainer.full_name,
-              clientName: me.full_name,
-            }),
-            sendBookingConfirmationEmail({
-              to: trainer.email,
-              recipientName: trainer.full_name,
-              sessionLabel: sessionLabel(type),
-              scheduledAt: new Date(iso),
-              coachName: trainer.full_name,
-              clientName: me.full_name,
-            }),
-          ])
-        )
-      );
+      for (const [iso, type] of Object.entries(picked)) {
+        const meetingLink = online ? generateMockMeetLink() : null;
+        addBooking({ clientId: me.id, type, scheduledAt: iso, meetingLink });
+        await Promise.all([
+          sendBookingConfirmationEmail({
+            to: me.email,
+            recipientName: me.full_name,
+            sessionLabel: sessionLabel(type),
+            scheduledAt: new Date(iso),
+            coachName: trainer.full_name,
+            clientName: me.full_name,
+          }),
+          sendBookingConfirmationEmail({
+            to: trainer.email,
+            recipientName: trainer.full_name,
+            sessionLabel: sessionLabel(type),
+            scheduledAt: new Date(iso),
+            coachName: trainer.full_name,
+            clientName: me.full_name,
+          }),
+        ]);
+      }
       toast.success(`${totalPicked} ${totalPicked === 1 ? "sessione prenotata" : "sessioni prenotate"}`, {
-        description: "Email di conferma inviata a te e al coach.",
+        description: online ? "Link videochiamata generato e inviato via email." : "Email di conferma inviata a te e al coach.",
       });
       navigate({ to: "/client" });
     } finally {
@@ -150,11 +156,17 @@ function BookFlow() {
               {sessionLabel(t)}: <span className="ml-1 tabular-nums font-medium">{remainingByType[t] - pickedCounts[t]}</span> rimanenti
             </Badge>
           ))}
-          <div className="ml-auto" />
-          <Button onClick={confirm} disabled={totalPicked === 0 || confirming}>
-            {confirming ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
-            Conferma {totalPicked > 0 && `(${totalPicked})`}
-          </Button>
+          <div className="ml-auto flex items-center gap-3">
+            <div className="flex items-center gap-2 rounded-md border px-3 py-1.5">
+              <Video className="size-4 text-primary" />
+              <Label htmlFor="online-toggle" className="text-sm cursor-pointer">Sessione Online</Label>
+              <Switch id="online-toggle" checked={online} onCheckedChange={setOnline} />
+            </div>
+            <Button onClick={confirm} disabled={totalPicked === 0 || confirming}>
+              {confirming ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+              Conferma {totalPicked > 0 && `(${totalPicked})`}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
