@@ -39,7 +39,7 @@ function AdminPage() {
   async function load() {
     setBusy(true);
     const [{ data: ps }, { data: rs }] = await Promise.all([
-      supabase.from("profiles").select("id, full_name, email, coach_id"),
+      supabase.from("profiles").select("id, full_name, email, coach_id").is("deleted_at", null),
       supabase.from("user_roles").select("user_id, role"),
     ]);
     setProfiles((ps as ProfileRow[]) ?? []);

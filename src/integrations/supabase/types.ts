@@ -14,6 +14,108 @@ export type Database = {
   }
   public: {
     Tables: {
+      block_allocations: {
+        Row: {
+          block_id: string
+          created_at: string
+          id: string
+          quantity_assigned: number
+          quantity_booked: number
+          session_type: Database["public"]["Enums"]["session_type"]
+          week_number: number
+        }
+        Insert: {
+          block_id: string
+          created_at?: string
+          id?: string
+          quantity_assigned?: number
+          quantity_booked?: number
+          session_type: Database["public"]["Enums"]["session_type"]
+          week_number: number
+        }
+        Update: {
+          block_id?: string
+          created_at?: string
+          id?: string
+          quantity_assigned?: number
+          quantity_booked?: number
+          session_type?: Database["public"]["Enums"]["session_type"]
+          week_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "block_allocations_block_id_fkey"
+            columns: ["block_id"]
+            isOneToOne: false
+            referencedRelation: "training_blocks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bookings: {
+        Row: {
+          block_id: string | null
+          client_id: string
+          coach_id: string
+          created_at: string
+          deleted_at: string | null
+          id: string
+          notes: string | null
+          scheduled_at: string
+          session_type: Database["public"]["Enums"]["session_type"]
+          status: Database["public"]["Enums"]["booking_status"]
+          updated_at: string
+        }
+        Insert: {
+          block_id?: string | null
+          client_id: string
+          coach_id: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          notes?: string | null
+          scheduled_at: string
+          session_type: Database["public"]["Enums"]["session_type"]
+          status?: Database["public"]["Enums"]["booking_status"]
+          updated_at?: string
+        }
+        Update: {
+          block_id?: string | null
+          client_id?: string
+          coach_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          notes?: string | null
+          scheduled_at?: string
+          session_type?: Database["public"]["Enums"]["session_type"]
+          status?: Database["public"]["Enums"]["booking_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bookings_block_id_fkey"
+            columns: ["block_id"]
+            isOneToOne: false
+            referencedRelation: "training_blocks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_invitations: {
         Row: {
           accepted_at: string | null
@@ -59,6 +161,7 @@ export type Database = {
         Row: {
           coach_id: string | null
           created_at: string
+          deleted_at: string | null
           email: string | null
           full_name: string | null
           id: string
@@ -67,6 +170,7 @@ export type Database = {
         Insert: {
           coach_id?: string | null
           created_at?: string
+          deleted_at?: string | null
           email?: string | null
           full_name?: string | null
           id: string
@@ -75,6 +179,7 @@ export type Database = {
         Update: {
           coach_id?: string | null
           created_at?: string
+          deleted_at?: string | null
           email?: string | null
           full_name?: string | null
           id?: string
@@ -83,6 +188,57 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "profiles_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_blocks: {
+        Row: {
+          client_id: string
+          coach_id: string
+          created_at: string
+          deleted_at: string | null
+          end_date: string
+          id: string
+          start_date: string
+          status: Database["public"]["Enums"]["block_status"]
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          coach_id: string
+          created_at?: string
+          deleted_at?: string | null
+          end_date: string
+          id?: string
+          start_date: string
+          status?: Database["public"]["Enums"]["block_status"]
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          coach_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          end_date?: string
+          id?: string
+          start_date?: string
+          status?: Database["public"]["Enums"]["block_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_blocks_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_blocks_coach_id_fkey"
             columns: ["coach_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -128,6 +284,9 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "coach" | "client"
+      block_status: "active" | "completed" | "cancelled"
+      booking_status: "scheduled" | "completed" | "cancelled"
+      session_type: "PT Session" | "BIA" | "Functional Test"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -256,6 +415,9 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "coach", "client"],
+      block_status: ["active", "completed", "cancelled"],
+      booking_status: ["scheduled", "completed", "cancelled"],
+      session_type: ["PT Session", "BIA", "Functional Test"],
     },
   },
 } as const

@@ -9,7 +9,11 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Search, Loader2, Mail, X } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Plus, Search, Loader2, Mail, X, Archive } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
@@ -45,7 +49,10 @@ function ClientsPage() {
 
   async function load() {
     setLoading(true);
-    let cq = supabase.from("profiles").select("id, full_name, email, phone");
+    let cq = supabase
+      .from("profiles")
+      .select("id, full_name, email, phone")
+      .is("deleted_at", null);
     if (!isAdmin && user) cq = cq.eq("coach_id", user.id);
     const { data: cs } = await cq;
     setClients((cs as ClientRow[]) ?? []);
@@ -98,6 +105,21 @@ function ClientsPage() {
       return;
     }
     toast.success("Invito annullato");
+    load();
+  }
+
+  async function archiveClient(id: string) {
+    const { error } = await supabase
+      .from("profiles")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) {
+      toast.error("Errore", { description: error.message });
+      return;
+    }
+    toast.success("Cliente archiviato", {
+      description: "I dati storici restano disponibili.",
+    });
     load();
   }
 
@@ -181,12 +203,13 @@ function ClientsPage() {
                   <TableHead>Email</TableHead>
                   <TableHead>Telefono</TableHead>
                   <TableHead>Stato</TableHead>
+                  <TableHead className="text-right">Azioni</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                       Nessun cliente registrato. Invia un invito per iniziare.
                     </TableCell>
                   </TableRow>
@@ -197,6 +220,30 @@ function ClientsPage() {
                     <TableCell className="text-muted-foreground">{c.phone ?? "—"}</TableCell>
                     <TableCell>
                       <Badge variant="secondary" className="bg-success/10 text-success border-success/20">Attivo</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="sm" variant="ghost">
+                            <Archive className="size-4" /> Archivia
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Sei sicuro di voler eliminare questo cliente?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Il cliente {c.full_name ?? c.email} verrà archiviato. I dati storici (blocchi, prenotazioni)
+                              restano conservati nel sistema e non saranno persi.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Annulla</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => archiveClient(c.id)}>
+                              Archivia
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </TableCell>
                   </TableRow>
                 ))}
