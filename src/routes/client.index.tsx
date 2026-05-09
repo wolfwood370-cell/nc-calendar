@@ -3,10 +3,17 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CalendarPlus, Activity, Flame } from "lucide-react";
-import { getActiveBlock, getCurrentClient, getCurrentWeek, sessionLabel, type SessionType, bookings, trainer } from "@/lib/mock-data";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { CalendarPlus, Activity, Flame, AlertTriangle } from "lucide-react";
+import { getActiveBlock, getCurrentClient, getCurrentWeek, sessionLabel, type SessionType, trainer, type Booking } from "@/lib/mock-data";
+import { useStoreBookings, useStoreBlocks, cancelBooking } from "@/lib/booking-store";
+import { useMemo, useState } from "react";
 import { AddToCalendarButton } from "@/components/add-to-calendar-button";
-import { useMemo } from "react";
+import { JoinVideoCallButton } from "@/components/join-video-call-button";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/client/")({
   component: ClientHome,
@@ -16,7 +23,10 @@ const TYPES: SessionType[] = ["PT Session", "BIA", "Functional Test"];
 
 function ClientHome() {
   const me = getCurrentClient();
+  useStoreBlocks();
+  const allBookings = useStoreBookings();
   const block = getActiveBlock(me.id);
+  const [pendingLate, setPendingLate] = useState<Booking | null>(null);
 
   if (!block) {
     return (
@@ -32,12 +42,29 @@ function ClientHome() {
   const totals = useMemo(() => {
     const assigned = block.allocations.reduce((s, a) => s + a.quantity_assigned, 0);
     const booked = block.allocations.reduce((s, a) => s + a.quantity_booked, 0);
-    return { assigned, booked, pct: Math.round((booked / assigned) * 100) };
+    return { assigned, booked, pct: assigned ? Math.round((booked / assigned) * 100) : 0 };
   }, [block]);
 
-  const upcoming = bookings
+  const upcoming = allBookings
     .filter((b) => b.client_id === me.id && b.status === "scheduled" && new Date(b.scheduled_at) >= new Date())
     .sort((a, b) => +new Date(a.scheduled_at) - +new Date(b.scheduled_at));
+
+  const handleCancel = (b: Booking) => {
+    const hoursAway = (new Date(b.scheduled_at).getTime() - Date.now()) / (1000 * 60 * 60);
+    if (hoursAway >= 24) {
+      cancelBooking(b.id, { late: false });
+      toast.success("Prenotazione annullata", { description: "Il credito è stato restituito al tuo blocco." });
+    } else {
+      setPendingLate(b);
+    }
+  };
+
+  const confirmLate = () => {
+    if (!pendingLate) return;
+    cancelBooking(pendingLate.id, { late: true });
+    toast.error("Cancellazione tardiva", { description: "Il credito di questa sessione è stato perso." });
+    setPendingLate(null);
+  };
 
   return (
     <div className="space-y-6">
@@ -115,16 +142,14 @@ function ClientHome() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Prossime sessioni</CardTitle>
-          <CardDescription>Le cancellazioni entro 24 ore non sono consentite.</CardDescription>
+          <CardDescription>Le cancellazioni entro 24 ore comportano la perdita del credito.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
           {upcoming.length === 0 && <p className="text-sm text-muted-foreground">Nessuna prenotazione attiva.</p>}
           {upcoming.map((b) => {
             const d = new Date(b.scheduled_at);
-            const hoursAway = (d.getTime() - Date.now()) / (1000 * 60 * 60);
-            const canCancel = hoursAway >= 24;
             return (
-              <div key={b.id} className="flex items-center justify-between rounded-lg border p-3">
+              <div key={b.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3">
                 <div>
                   <p className="text-sm font-medium">{sessionLabel(b.session_type)}</p>
                   <p className="text-xs text-muted-foreground">
@@ -132,15 +157,16 @@ function ClientHome() {
                     {d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {b.meeting_link && <JoinVideoCallButton url={b.meeting_link} />}
                   <AddToCalendarButton
                     sessionLabel={sessionLabel(b.session_type)}
                     startsAt={d}
                     coachName={trainer.full_name}
                     clientName={me.full_name}
                   />
-                  <Button variant="ghost" size="sm" disabled={!canCancel}>
-                    {canCancel ? "Annulla" : "Bloccata (<24h)"}
+                  <Button variant="ghost" size="sm" onClick={() => handleCancel(b)}>
+                    Cancella
                   </Button>
                 </div>
               </div>
@@ -148,6 +174,26 @@ function ClientHome() {
           })}
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!pendingLate} onOpenChange={(o) => !o && setPendingLate(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="size-5 text-destructive" />
+              Attenzione: cancellazione tardiva
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Stai disdicendo a meno di 24 ore. Il credito di questa sessione verrà perso e non sarà restituito al tuo blocco.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Indietro</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmLate} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Cancella comunque
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
