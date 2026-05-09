@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate, Link, Navigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Dumbbell, ArrowRight, Activity, Users, Loader2 } from "lucide-react";
-import { useAuth, TRAINER_EMAIL } from "@/lib/auth";
+import { useAuth, pathForRole } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +24,7 @@ function AuthPage() {
   const [busy, setBusy] = useState(false);
 
   if (!loading && session && role) {
-    return <Navigate to={role === "trainer" ? "/trainer" : "/client"} />;
+    return <Navigate to={pathForRole(role)} />;
   }
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -37,7 +37,8 @@ function AuthPage() {
       return;
     }
     toast.success("Accesso effettuato");
-    navigate({ to: email.toLowerCase() === TRAINER_EMAIL ? "/trainer" : "/client" });
+    // role will be fetched by AuthProvider; navigate to root which redirects by role
+    navigate({ to: "/" });
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -172,6 +173,12 @@ function traduciErrore(msg: string): string {
   if (m.includes("invalid login")) return "Email o password non corrette.";
   if (m.includes("user already registered")) return "Questa email è già registrata.";
   if (m.includes("email not confirmed")) return "Conferma la tua email prima di accedere.";
+  if (m.includes("non invitata") || m.includes("not invited")) {
+    return "Questa email non è stata invitata da un Coach. Chiedi al tuo coach di inviarti un invito.";
+  }
+  if (m.includes("database error") || m.includes("unexpected_failure")) {
+    return "Email non invitata da un Coach. Contatta il tuo coach per ricevere un invito.";
+  }
   if (m.includes("password")) return "La password non soddisfa i requisiti.";
   return msg;
 }

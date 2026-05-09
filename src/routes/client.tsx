@@ -14,7 +14,8 @@ function ClientLayout() {
 
   if (loading) return null;
   if (!session) return <Navigate to="/auth" />;
-  if (role && role !== "client") return <Navigate to="/trainer" />;
+  if (role === "admin") return <Navigate to="/admin" />;
+  if (role === "coach") return <Navigate to="/trainer" />;
 
   const tabs = [
     { to: "/client", label: "Blocco", icon: Home, exact: true },
