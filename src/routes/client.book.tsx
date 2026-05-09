@@ -12,6 +12,7 @@ import { useStoreBlocks, addBooking } from "@/lib/booking-store";
 import { generateMockMeetLink } from "@/components/join-video-call-button";
 import { toast } from "sonner";
 import { sendBookingConfirmationEmail } from "@/lib/email";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/client/book")({
   component: BookFlow,
