@@ -32,7 +32,7 @@ function TrainerLayout() {
           <header className="h-14 flex items-center gap-3 border-b px-4 sticky top-0 bg-background/80 backdrop-blur z-10">
             <SidebarTrigger />
             <div className="h-5 w-px bg-border" />
-            <p className="text-sm text-muted-foreground">Trainer Studio</p>
+            <p className="text-sm text-muted-foreground">Studio Trainer</p>
           </header>
           <main className="p-6">
             <Outlet />

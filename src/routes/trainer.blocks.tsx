@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight, Check, Sparkles } from "lucide-react";
-import { clients, type SessionType } from "@/lib/mock-data";
+import { clients, sessionLabel, type SessionType } from "@/lib/mock-data";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/trainer/blocks")({
@@ -45,7 +45,7 @@ function BlockBuilder() {
   endDate.setDate(endDate.getDate() + 28);
 
   const finalize = () => {
-    toast.success("Training block created", { description: `${grand} sessions across 4 weeks.` });
+    toast.success("Blocco di allenamento creato", { description: `${grand} sessioni in 4 settimane.` });
     setStep(1);
     setClientId("");
     setWeeks([emptyWeek(), emptyWeek(), emptyWeek(), emptyWeek()]);
@@ -54,8 +54,8 @@ function BlockBuilder() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-3xl font-semibold tracking-tight">Block builder</h1>
-        <p className="text-sm text-muted-foreground mt-1">Create a 4-week training block with weekly quotas.</p>
+        <h1 className="font-display text-3xl font-semibold tracking-tight">Crea blocco</h1>
+        <p className="text-sm text-muted-foreground mt-1">Crea un blocco di allenamento di 4 settimane con quote settimanali.</p>
       </div>
 
       <Stepper step={step} />
@@ -65,19 +65,19 @@ function BlockBuilder() {
           {step === 1 && (
             <div className="space-y-5 max-w-lg">
               <div className="space-y-2">
-                <Label>Client</Label>
+                <Label>Cliente</Label>
                 <Select value={clientId} onValueChange={setClientId}>
-                  <SelectTrigger><SelectValue placeholder="Select a client" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Seleziona un cliente" /></SelectTrigger>
                   <SelectContent>
                     {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Start date</Label>
+                <Label>Data di inizio</Label>
                 <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
                 <p className="text-xs text-muted-foreground">
-                  Block ends {endDate.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}
+                  Il blocco termina il {endDate.toLocaleDateString("it-IT", { month: "long", day: "numeric", year: "numeric" })}
                 </p>
               </div>
             </div>
@@ -85,17 +85,17 @@ function BlockBuilder() {
 
           {step === 2 && (
             <div className="space-y-5">
-              <CardDescription>Assign session quotas per week. Numbers can be zero.</CardDescription>
+              <CardDescription>Assegna le quote di sessioni per settimana. I valori possono essere zero.</CardDescription>
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 {weeks.map((w, i) => (
                   <Card key={i} className="border-dashed">
                     <CardHeader>
-                      <CardTitle className="text-base">Week {i + 1}</CardTitle>
+                      <CardTitle className="text-base">Settimana {i + 1}</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
                       {TYPES.map((t) => (
                         <div key={t} className="flex items-center justify-between gap-2">
-                          <Label className="text-xs font-normal text-muted-foreground">{t}</Label>
+                          <Label className="text-xs font-normal text-muted-foreground">{sessionLabel(t)}</Label>
                           <Input
                             type="number"
                             min={0}
@@ -117,27 +117,27 @@ function BlockBuilder() {
               <div className="rounded-lg border bg-accent/40 p-5">
                 <div className="flex items-center gap-2">
                   <Sparkles className="size-4 text-primary" />
-                  <p className="text-sm font-medium">Block summary</p>
+                  <p className="text-sm font-medium">Riepilogo blocco</p>
                 </div>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  {clients.find((c) => c.id === clientId)?.full_name ?? "Client"} ·{" "}
-                  {new Date(startDate).toLocaleDateString()} → {endDate.toLocaleDateString()}
+                  {clients.find((c) => c.id === clientId)?.full_name ?? "Cliente"} ·{" "}
+                  {new Date(startDate).toLocaleDateString("it-IT")} → {endDate.toLocaleDateString("it-IT")}
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {TYPES.map((t) => (
-                    <Badge key={t} variant="secondary">{t}: {totals[t]}</Badge>
+                    <Badge key={t} variant="secondary">{sessionLabel(t)}: {totals[t]}</Badge>
                   ))}
-                  <Badge>Total: {grand}</Badge>
+                  <Badge>Totale: {grand}</Badge>
                 </div>
               </div>
               <div className="grid gap-3 md:grid-cols-4">
                 {weeks.map((w, i) => (
                   <Card key={i}>
-                    <CardHeader><CardTitle className="text-sm">Week {i + 1}</CardTitle></CardHeader>
+                    <CardHeader><CardTitle className="text-sm">Settimana {i + 1}</CardTitle></CardHeader>
                     <CardContent className="space-y-1 text-sm">
                       {TYPES.map((t) => (
                         <div key={t} className="flex justify-between text-muted-foreground">
-                          <span>{t}</span><span className="text-foreground tabular-nums">{w[t]}</span>
+                          <span>{sessionLabel(t)}</span><span className="text-foreground tabular-nums">{w[t]}</span>
                         </div>
                       ))}
                     </CardContent>
@@ -149,14 +149,14 @@ function BlockBuilder() {
 
           <div className="mt-8 flex items-center justify-between border-t pt-4">
             <Button variant="ghost" onClick={() => setStep((s) => Math.max(1, s - 1))} disabled={step === 1}>
-              <ChevronLeft className="size-4" /> Back
+              <ChevronLeft className="size-4" /> Indietro
             </Button>
             {step < 3 ? (
               <Button onClick={() => setStep((s) => s + 1)} disabled={step === 1 && !clientId}>
-                Next <ChevronRight className="size-4" />
+                Avanti <ChevronRight className="size-4" />
               </Button>
             ) : (
-              <Button onClick={finalize}><Check className="size-4" /> Create block</Button>
+              <Button onClick={finalize}><Check className="size-4" /> Crea blocco</Button>
             )}
           </div>
         </CardContent>
@@ -166,7 +166,7 @@ function BlockBuilder() {
 }
 
 function Stepper({ step }: { step: number }) {
-  const steps = ["Client & dates", "Weekly quotas", "Review"];
+  const steps = ["Cliente e date", "Quote settimanali", "Riepilogo"];
   return (
     <div className="flex items-center gap-3">
       {steps.map((label, i) => {

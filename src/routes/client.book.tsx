@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { ChevronLeft, Check } from "lucide-react";
-import { availability, getActiveBlock, getCurrentClient, type SessionType } from "@/lib/mock-data";
+import { availability, getActiveBlock, getCurrentClient, sessionLabel, type SessionType } from "@/lib/mock-data";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/client/book")({
@@ -31,7 +31,7 @@ function generateSlots(daysAhead: number): Slot[] {
     for (let h = sh; h < eh; h++) {
       const slot = new Date(day);
       slot.setHours(h, sm, 0, 0);
-      if (slot.getTime() - now.getTime() < 24 * 60 * 60 * 1000) continue; // 24h rule
+      if (slot.getTime() - now.getTime() < 24 * 60 * 60 * 1000) continue; // regola 24h
       slots.push({ iso: slot.toISOString(), date: slot });
     }
   }
@@ -42,7 +42,7 @@ function BookFlow() {
   const me = getCurrentClient();
   const block = getActiveBlock(me.id);
   const navigate = useNavigate();
-  const [picked, setPicked] = useState<Record<string, SessionType>>({}); // iso -> type
+  const [picked, setPicked] = useState<Record<string, SessionType>>({});
 
   const slots = useMemo(() => generateSlots(28), []);
   const grouped = useMemo(() => {
@@ -56,10 +56,9 @@ function BookFlow() {
   }, [slots]);
 
   if (!block) {
-    return <p className="text-sm text-muted-foreground">No active block.</p>;
+    return <p className="text-sm text-muted-foreground">Nessun blocco attivo.</p>;
   }
 
-  // remaining per type across all weeks
   const remainingByType: Record<SessionType, number> = {
     "PT Session": 0,
     BIA: 0,
@@ -82,7 +81,7 @@ function BookFlow() {
       }
       const used = pickedCounts[type] - (cur[iso] === type ? 1 : 0);
       if (used >= remainingByType[type]) {
-        toast.error(`No ${type} slots remaining in your block.`);
+        toast.error(`Nessuna sessione di tipo ${sessionLabel(type)} rimanente nel tuo blocco.`);
         return cur;
       }
       next[iso] = type;
@@ -93,7 +92,7 @@ function BookFlow() {
   const totalPicked = Object.keys(picked).length;
 
   const confirm = () => {
-    toast.success(`${totalPicked} session${totalPicked === 1 ? "" : "s"} booked`);
+    toast.success(`${totalPicked} ${totalPicked === 1 ? "sessione prenotata" : "sessioni prenotate"}`);
     navigate({ to: "/client" });
   };
 
@@ -101,14 +100,14 @@ function BookFlow() {
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={() => navigate({ to: "/client" })}>
-          <ChevronLeft className="size-4" /> Back
+          <ChevronLeft className="size-4" /> Indietro
         </Button>
       </div>
 
       <div>
-        <h1 className="font-display text-3xl font-semibold tracking-tight">Book your block</h1>
+        <h1 className="font-display text-3xl font-semibold tracking-tight">Prenota il tuo blocco</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Pick slots and assign a session type. Bookings inside 24 hours are disabled.
+          Scegli gli slot e assegna un tipo di sessione. Le prenotazioni entro 24 ore sono disabilitate.
         </p>
       </div>
 
@@ -116,12 +115,12 @@ function BookFlow() {
         <CardContent className="p-4 flex flex-wrap items-center gap-3">
           {(Object.keys(remainingByType) as SessionType[]).map((t) => (
             <Badge key={t} variant="outline" className="font-normal">
-              {t}: <span className="ml-1 tabular-nums font-medium">{remainingByType[t] - pickedCounts[t]}</span> left
+              {sessionLabel(t)}: <span className="ml-1 tabular-nums font-medium">{remainingByType[t] - pickedCounts[t]}</span> rimanenti
             </Badge>
           ))}
           <div className="ml-auto" />
           <Button onClick={confirm} disabled={totalPicked === 0}>
-            <Check className="size-4" /> Confirm {totalPicked > 0 && `(${totalPicked})`}
+            <Check className="size-4" /> Conferma {totalPicked > 0 && `(${totalPicked})`}
           </Button>
         </CardContent>
       </Card>
@@ -131,9 +130,9 @@ function BookFlow() {
           <Card key={day}>
             <CardHeader>
               <CardTitle className="text-base">
-                {new Date(day).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
+                {new Date(day).toLocaleDateString("it-IT", { weekday: "long", month: "long", day: "numeric" })}
               </CardTitle>
-              <CardDescription>{daySlots.length} slots available</CardDescription>
+              <CardDescription>{daySlots.length} slot disponibili</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
@@ -146,21 +145,21 @@ function BookFlow() {
                     >
                       <div className="flex items-center justify-between">
                         <p className="font-display font-semibold tabular-nums">
-                          {s.date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          {s.date.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
                         </p>
-                        {chosen && <Badge>{chosen}</Badge>}
+                        {chosen && <Badge>{sessionLabel(chosen)}</Badge>}
                       </div>
                       <Select
                         value={chosen ?? ""}
                         onValueChange={(v) => togglePick(s.iso, v as SessionType | "")}
                       >
                         <SelectTrigger className="mt-2 h-8 text-xs">
-                          <SelectValue placeholder="Add session…" />
+                          <SelectValue placeholder="Aggiungi sessione…" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="PT Session">PT Session</SelectItem>
+                          <SelectItem value="PT Session">Sessione PT</SelectItem>
                           <SelectItem value="BIA">BIA</SelectItem>
-                          <SelectItem value="Functional Test">Functional Test</SelectItem>
+                          <SelectItem value="Functional Test">Test Funzionale</SelectItem>
                         </SelectContent>
                       </Select>
                       {chosen && (
@@ -170,7 +169,7 @@ function BookFlow() {
                           className="mt-1 h-7 text-xs w-full"
                           onClick={() => togglePick(s.iso, "")}
                         >
-                          Remove
+                          Rimuovi
                         </Button>
                       )}
                     </div>

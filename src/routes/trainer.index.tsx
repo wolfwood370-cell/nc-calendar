@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { AlertTriangle, ArrowRight, CalendarCheck, Users, Activity, Clock } from "lucide-react";
-import { blocks, bookings, clients, getCurrentWeek, clientName } from "@/lib/mock-data";
+import { blocks, bookings, clients, getCurrentWeek, clientName, sessionLabel } from "@/lib/mock-data";
 import { useMemo } from "react";
 
 export const Route = createFileRoute("/trainer/")({
@@ -31,7 +31,7 @@ function Overview() {
           result.push({
             client: clientName(block.client_id),
             week: a.week_number,
-            type: a.session_type,
+            type: sessionLabel(a.session_type),
             remaining,
           });
         }
@@ -47,30 +47,30 @@ function Overview() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-3xl font-semibold tracking-tight">Studio overview</h1>
-        <p className="text-sm text-muted-foreground mt-1">Today, {new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</p>
+        <h1 className="font-display text-3xl font-semibold tracking-tight">Panoramica studio</h1>
+        <p className="text-sm text-muted-foreground mt-1">Oggi, {new Date().toLocaleDateString("it-IT", { weekday: "long", month: "long", day: "numeric" })}</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <Stat icon={Users} label="Active clients" value={clients.length.toString()} hint="all rostered" />
-        <Stat icon={Activity} label="Active blocks" value={blocks.length.toString()} hint="this cycle" />
-        <Stat icon={CalendarCheck} label="Upcoming sessions" value={upcoming.length.toString()} hint="next 14 days" />
-        <Stat icon={Clock} label="Block utilization" value={`${utilization}%`} hint="booked vs assigned" progress={utilization} />
+        <Stat icon={Users} label="Clienti attivi" value={clients.length.toString()} hint="totale roster" />
+        <Stat icon={Activity} label="Blocchi attivi" value={blocks.length.toString()} hint="ciclo corrente" />
+        <Stat icon={CalendarCheck} label="Sessioni in arrivo" value={upcoming.length.toString()} hint="prossimi 14 giorni" />
+        <Stat icon={Clock} label="Utilizzo blocchi" value={`${utilization}%`} hint="prenotate vs assegnate" progress={utilization} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader className="flex-row items-center justify-between">
             <div>
-              <CardTitle>Upcoming bookings</CardTitle>
-              <CardDescription>Scheduled across all clients</CardDescription>
+              <CardTitle>Prossime prenotazioni</CardTitle>
+              <CardDescription>Programmate per tutti i clienti</CardDescription>
             </div>
             <Button variant="ghost" size="sm" asChild>
-              <Link to="/trainer/calendar">Open calendar <ArrowRight className="size-4" /></Link>
+              <Link to="/trainer/calendar">Apri calendario <ArrowRight className="size-4" /></Link>
             </Button>
           </CardHeader>
           <CardContent className="space-y-2">
-            {upcoming.length === 0 && <p className="text-sm text-muted-foreground">No upcoming bookings.</p>}
+            {upcoming.length === 0 && <p className="text-sm text-muted-foreground">Nessuna prenotazione in arrivo.</p>}
             {upcoming.map((b) => {
               const d = new Date(b.scheduled_at);
               return (
@@ -78,18 +78,18 @@ function Overview() {
                   <div className="flex items-center gap-3">
                     <div className="size-10 rounded-md bg-accent grid place-items-center">
                       <span className="font-display text-sm font-semibold">
-                        {d.toLocaleDateString(undefined, { day: "2-digit" })}
+                        {d.toLocaleDateString("it-IT", { day: "2-digit" })}
                       </span>
                     </div>
                     <div>
                       <p className="text-sm font-medium">{clientName(b.client_id)}</p>
                       <p className="text-xs text-muted-foreground">
-                        {d.toLocaleDateString(undefined, { weekday: "short", month: "short" })} ·{" "}
-                        {d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        {d.toLocaleDateString("it-IT", { weekday: "short", month: "short" })} ·{" "}
+                        {d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
                       </p>
                     </div>
                   </div>
-                  <Badge variant="secondary">{b.session_type}</Badge>
+                  <Badge variant="secondary">{sessionLabel(b.session_type)}</Badge>
                 </div>
               );
             })}
@@ -103,21 +103,21 @@ function Overview() {
                 <AlertTriangle className="size-4" />
               </div>
               <div>
-                <CardTitle className="text-base">Unbooked allocations</CardTitle>
-                <CardDescription>This week & next</CardDescription>
+                <CardTitle className="text-base">Quote non prenotate</CardTitle>
+                <CardDescription>Questa settimana e la prossima</CardDescription>
               </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-2">
-            {alerts.length === 0 && <p className="text-sm text-muted-foreground">All caught up.</p>}
+            {alerts.length === 0 && <p className="text-sm text-muted-foreground">Tutto in regola.</p>}
             {alerts.map((a, i) => (
               <div key={i} className="flex items-center justify-between rounded-lg border p-3">
                 <div>
                   <p className="text-sm font-medium">{a.client}</p>
-                  <p className="text-xs text-muted-foreground">Week {a.week} · {a.type}</p>
+                  <p className="text-xs text-muted-foreground">Settimana {a.week} · {a.type}</p>
                 </div>
                 <Badge variant="outline" className="border-warning/40 text-warning">
-                  {a.remaining} left
+                  {a.remaining} rimanenti
                 </Badge>
               </div>
             ))}

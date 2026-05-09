@@ -146,5 +146,12 @@ export function getCurrentWeek(block: TrainingBlock): 1 | 2 | 3 | 4 {
 }
 
 export function clientName(id: string) {
-  return clients.find((c) => c.id === id)?.full_name ?? "Unknown";
+  return clients.find((c) => c.id === id)?.full_name ?? "Sconosciuto";
 }
+
+export function sessionLabel(t: SessionType): string {
+  if (t === "PT Session") return "Sessione PT";
+  if (t === "Functional Test") return "Test Funzionale";
+  return "BIA";
+}
+
