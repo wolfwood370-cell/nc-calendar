@@ -4,8 +4,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { AlertTriangle, ArrowRight, CalendarCheck, Users, Activity, Clock } from "lucide-react";
-import { blocks, bookings, clients, getCurrentWeek, clientName, sessionLabel, trainer } from "@/lib/mock-data";
+import { blocks, clients, getCurrentWeek, clientName, sessionLabel, trainer } from "@/lib/mock-data";
+import { useStoreBookings } from "@/lib/booking-store";
 import { AddToCalendarButton } from "@/components/add-to-calendar-button";
+import { JoinVideoCallButton } from "@/components/join-video-call-button";
+import { BookingStatusBadge } from "@/components/booking-status-badge";
 import { useMemo } from "react";
 
 export const Route = createFileRoute("/trainer/")({
@@ -13,13 +16,14 @@ export const Route = createFileRoute("/trainer/")({
 });
 
 function Overview() {
+  const bookings = useStoreBookings();
   const upcoming = useMemo(
     () =>
       bookings
         .filter((b) => b.status === "scheduled" && new Date(b.scheduled_at) >= new Date())
         .sort((a, b) => +new Date(a.scheduled_at) - +new Date(b.scheduled_at))
         .slice(0, 6),
-    []
+    [bookings]
   );
 
   const alerts = useMemo(() => {
@@ -75,7 +79,7 @@ function Overview() {
             {upcoming.map((b) => {
               const d = new Date(b.scheduled_at);
               return (
-                <div key={b.id} className="flex items-center justify-between rounded-lg border bg-card p-3">
+                <div key={b.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-card p-3">
                   <div className="flex items-center gap-3">
                     <div className="size-10 rounded-md bg-accent grid place-items-center">
                       <span className="font-display text-sm font-semibold">
@@ -90,8 +94,10 @@ function Overview() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Badge variant="secondary">{sessionLabel(b.session_type)}</Badge>
+                    <BookingStatusBadge status={b.status} />
+                    {b.meeting_link && <JoinVideoCallButton url={b.meeting_link} variant="outline" />}
                     <AddToCalendarButton
                       sessionLabel={sessionLabel(b.session_type)}
                       startsAt={d}

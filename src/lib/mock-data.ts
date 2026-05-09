@@ -34,12 +34,15 @@ export interface AvailabilitySlot {
   end_time: string;
 }
 
+export type BookingStatus = "scheduled" | "cancelled" | "completed" | "late_cancelled" | "no_show";
+
 export interface Booking {
   id: string;
   client_id: string;
   session_type: SessionType;
   scheduled_at: string; // ISO datetime
-  status: "scheduled" | "cancelled" | "completed";
+  status: BookingStatus;
+  meeting_link?: string | null;
 }
 
 const today = new Date();
