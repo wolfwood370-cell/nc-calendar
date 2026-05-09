@@ -16,10 +16,10 @@ import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 
 const items = [
-  { title: "Overview", url: "/trainer", icon: LayoutDashboard, exact: true },
-  { title: "Calendar", url: "/trainer/calendar", icon: CalendarDays },
-  { title: "Clients", url: "/trainer/clients", icon: Users },
-  { title: "Block builder", url: "/trainer/blocks", icon: LayersIcon },
+  { title: "Panoramica", url: "/trainer", icon: LayoutDashboard, exact: true },
+  { title: "Calendario", url: "/trainer/calendar", icon: CalendarDays },
+  { title: "Clienti", url: "/trainer/clients", icon: Users },
+  { title: "Crea blocco", url: "/trainer/blocks", icon: LayersIcon },
 ];
 
 export function TrainerSidebar() {
@@ -43,7 +43,7 @@ export function TrainerSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Workspace</SidebarGroupLabel>
+          <SidebarGroupLabel>Area di lavoro</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => {
