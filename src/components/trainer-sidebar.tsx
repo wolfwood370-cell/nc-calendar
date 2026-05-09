@@ -14,6 +14,7 @@ import {
 import { LayoutDashboard, CalendarDays, Users, LayersIcon, Dumbbell, LogOut } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import { InstallPwaButton } from "@/components/install-pwa-button";
 
 const items = [
   { title: "Panoramica", url: "/trainer", icon: LayoutDashboard, exact: true },
@@ -68,14 +69,17 @@ export function TrainerSidebar() {
           <div className="rounded-lg border bg-card p-3">
             <p className="text-sm font-medium truncate">{displayName}</p>
             <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="mt-2 w-full justify-start"
-              onClick={async () => { await signOut(); navigate({ to: "/auth" }); }}
-            >
-              <LogOut className="size-4" /> Esci
-            </Button>
+            <div className="mt-2 flex flex-col gap-1">
+              <InstallPwaButton className="w-full justify-start" />
+              <Button
+                size="sm"
+                variant="ghost"
+                className="w-full justify-start"
+                onClick={async () => { await signOut(); navigate({ to: "/auth" }); }}
+              >
+                <LogOut className="size-4" /> Esci
+              </Button>
+            </div>
           </div>
         </div>
       </SidebarFooter>

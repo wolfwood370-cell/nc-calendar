@@ -3,7 +3,8 @@ import { useMemo, useState } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { bookings, clientName, sessionLabel } from "@/lib/mock-data";
+import { bookings, clientName, sessionLabel, trainer } from "@/lib/mock-data";
+import { AddToCalendarButton } from "@/components/add-to-calendar-button";
 
 export const Route = createFileRoute("/trainer/calendar")({
   component: CalendarPage,
@@ -77,7 +78,15 @@ function CalendarPage() {
                       <p className="text-xs text-muted-foreground">{sessionLabel(b.session_type)}</p>
                     </div>
                   </div>
-                  <Badge variant={b.status === "completed" ? "secondary" : "default"}>{statusLabel(b.status)}</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={b.status === "completed" ? "secondary" : "default"}>{statusLabel(b.status)}</Badge>
+                    <AddToCalendarButton
+                      sessionLabel={sessionLabel(b.session_type)}
+                      startsAt={d}
+                      coachName={trainer.full_name}
+                      clientName={clientName(b.client_id)}
+                    />
+                  </div>
                 </div>
               );
             })}

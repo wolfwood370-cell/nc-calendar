@@ -17,6 +17,7 @@ import { Plus, Search, Loader2, Mail, X, Archive } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
+import { sendInvitationEmail } from "@/lib/email";
 
 export const Route = createFileRoute("/trainer/clients")({
   component: ClientsPage,
@@ -90,7 +91,11 @@ function ClientsPage() {
       toast.error("Invito non riuscito", { description: error.message });
       return;
     }
-    toast.success("Invito creato", { description: `Comunica a ${data.email} di registrarsi.` });
+    const coachName = (user.user_metadata?.full_name as string) || user.email || "il tuo Coach";
+    await sendInvitationEmail({ to: data.email, clientName: data.name, coachName });
+    toast.success("Invito creato", {
+      description: `Email di invito inviata a ${data.email}.`,
+    });
     setOpen(false);
     load();
   }

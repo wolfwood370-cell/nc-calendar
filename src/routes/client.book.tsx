@@ -4,9 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { ChevronLeft, Check } from "lucide-react";
-import { availability, getActiveBlock, getCurrentClient, sessionLabel, type SessionType } from "@/lib/mock-data";
+import { ChevronLeft, Check, Loader2 } from "lucide-react";
+import { availability, getActiveBlock, getCurrentClient, sessionLabel, trainer, type SessionType } from "@/lib/mock-data";
 import { toast } from "sonner";
+import { sendBookingConfirmationEmail } from "@/lib/email";
 
 export const Route = createFileRoute("/client/book")({
   component: BookFlow,
@@ -91,9 +92,40 @@ function BookFlow() {
 
   const totalPicked = Object.keys(picked).length;
 
-  const confirm = () => {
-    toast.success(`${totalPicked} ${totalPicked === 1 ? "sessione prenotata" : "sessioni prenotate"}`);
-    navigate({ to: "/client" });
+  const [confirming, setConfirming] = useState(false);
+
+  const confirm = async () => {
+    setConfirming(true);
+    try {
+      await Promise.all(
+        Object.entries(picked).map(([iso, type]) =>
+          Promise.all([
+            sendBookingConfirmationEmail({
+              to: me.email,
+              recipientName: me.full_name,
+              sessionLabel: sessionLabel(type),
+              scheduledAt: new Date(iso),
+              coachName: trainer.full_name,
+              clientName: me.full_name,
+            }),
+            sendBookingConfirmationEmail({
+              to: trainer.email,
+              recipientName: trainer.full_name,
+              sessionLabel: sessionLabel(type),
+              scheduledAt: new Date(iso),
+              coachName: trainer.full_name,
+              clientName: me.full_name,
+            }),
+          ])
+        )
+      );
+      toast.success(`${totalPicked} ${totalPicked === 1 ? "sessione prenotata" : "sessioni prenotate"}`, {
+        description: "Email di conferma inviata a te e al coach.",
+      });
+      navigate({ to: "/client" });
+    } finally {
+      setConfirming(false);
+    }
   };
 
   return (
@@ -119,8 +151,9 @@ function BookFlow() {
             </Badge>
           ))}
           <div className="ml-auto" />
-          <Button onClick={confirm} disabled={totalPicked === 0}>
-            <Check className="size-4" /> Conferma {totalPicked > 0 && `(${totalPicked})`}
+          <Button onClick={confirm} disabled={totalPicked === 0 || confirming}>
+            {confirming ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+            Conferma {totalPicked > 0 && `(${totalPicked})`}
           </Button>
         </CardContent>
       </Card>
