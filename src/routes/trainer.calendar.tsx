@@ -2,9 +2,17 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { bookings, clientName, sessionLabel, trainer } from "@/lib/mock-data";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { MoreHorizontal, UserX } from "lucide-react";
+import { clientName, sessionLabel, trainer } from "@/lib/mock-data";
+import { useStoreBookings, markNoShow } from "@/lib/booking-store";
 import { AddToCalendarButton } from "@/components/add-to-calendar-button";
+import { JoinVideoCallButton } from "@/components/join-video-call-button";
+import { BookingStatusBadge } from "@/components/booking-status-badge";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/trainer/calendar")({
   component: CalendarPage,
@@ -14,19 +22,13 @@ function sameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
-function statusLabel(s: string) {
-  if (s === "completed") return "completata";
-  if (s === "scheduled") return "programmata";
-  if (s === "cancelled") return "annullata";
-  return s;
-}
-
 function CalendarPage() {
   const [selected, setSelected] = useState<Date | undefined>(new Date());
+  const bookings = useStoreBookings();
 
   const bookedDates = useMemo(
-    () => bookings.filter((b) => b.status !== "cancelled").map((b) => new Date(b.scheduled_at)),
-    []
+    () => bookings.filter((b) => b.status === "scheduled" || b.status === "completed").map((b) => new Date(b.scheduled_at)),
+    [bookings]
   );
 
   const dayBookings = useMemo(() => {
@@ -34,7 +36,12 @@ function CalendarPage() {
     return bookings
       .filter((b) => b.status !== "cancelled" && sameDay(new Date(b.scheduled_at), selected))
       .sort((a, b) => +new Date(a.scheduled_at) - +new Date(b.scheduled_at));
-  }, [selected]);
+  }, [selected, bookings]);
+
+  const handleNoShow = (id: string) => {
+    markNoShow(id);
+    toast.error("Sessione segnata come No Show", { description: "Il credito non viene restituito." });
+  };
 
   return (
     <div className="space-y-6">
@@ -68,7 +75,7 @@ function CalendarPage() {
             {dayBookings.map((b) => {
               const d = new Date(b.scheduled_at);
               return (
-                <div key={b.id} className="flex items-center justify-between rounded-lg border p-4">
+                <div key={b.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-4">
                   <div className="flex items-center gap-4">
                     <div className="font-display text-lg font-semibold tabular-nums">
                       {d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
@@ -78,14 +85,27 @@ function CalendarPage() {
                       <p className="text-xs text-muted-foreground">{sessionLabel(b.session_type)}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={b.status === "completed" ? "secondary" : "default"}>{statusLabel(b.status)}</Badge>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <BookingStatusBadge status={b.status} />
+                    {b.meeting_link && <JoinVideoCallButton url={b.meeting_link} variant="outline" />}
                     <AddToCalendarButton
                       sessionLabel={sessionLabel(b.session_type)}
                       startsAt={d}
                       coachName={trainer.full_name}
                       clientName={clientName(b.client_id)}
                     />
+                    {b.status === "scheduled" && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="sm" variant="ghost"><MoreHorizontal className="size-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleNoShow(b.id)} className="text-destructive">
+                            <UserX className="size-4" /> Segna Cliente assente
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </div>
                 </div>
               );

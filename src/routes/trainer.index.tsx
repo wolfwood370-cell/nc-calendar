@@ -4,8 +4,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { AlertTriangle, ArrowRight, CalendarCheck, Users, Activity, Clock } from "lucide-react";
-import { blocks, bookings, clients, getCurrentWeek, clientName, sessionLabel, trainer } from "@/lib/mock-data";
+import { blocks, clients, getCurrentWeek, clientName, sessionLabel, trainer } from "@/lib/mock-data";
+import { useStoreBookings } from "@/lib/booking-store";
 import { AddToCalendarButton } from "@/components/add-to-calendar-button";
+import { JoinVideoCallButton } from "@/components/join-video-call-button";
+import { BookingStatusBadge } from "@/components/booking-status-badge";
 import { useMemo } from "react";
 
 export const Route = createFileRoute("/trainer/")({
@@ -13,13 +16,14 @@ export const Route = createFileRoute("/trainer/")({
 });
 
 function Overview() {
+  const bookings = useStoreBookings();
   const upcoming = useMemo(
     () =>
       bookings
         .filter((b) => b.status === "scheduled" && new Date(b.scheduled_at) >= new Date())
         .sort((a, b) => +new Date(a.scheduled_at) - +new Date(b.scheduled_at))
         .slice(0, 6),
-    []
+    [bookings]
   );
 
   const alerts = useMemo(() => {
