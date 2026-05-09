@@ -1,46 +1,69 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import type { Role } from "./mock-data";
+import type { Session, User } from "@supabase/supabase-js";
+import { supabase } from "@/integrations/supabase/client";
 
-interface Session {
-  role: Role;
-  name: string;
-  email: string;
-}
+export type Role = "trainer" | "client";
+export const TRAINER_EMAIL = "nctrainingsystems@gmail.com";
 
 interface AuthCtx {
   session: Session | null;
-  signIn: (role: Role) => void;
-  signOut: () => void;
+  user: User | null;
+  role: Role | null;
+  loading: boolean;
+  signOut: () => Promise<void>;
 }
 
 const Ctx = createContext<AuthCtx | null>(null);
-const KEY = "pt_demo_session";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [role, setRole] = useState<Role | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(KEY);
-      if (raw) setSession(JSON.parse(raw));
-    } catch {}
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+      setSession(s);
+      setUser(s?.user ?? null);
+      if (s?.user) {
+        // Defer role fetch
+        setTimeout(() => fetchRole(s.user.id), 0);
+      } else {
+        setRole(null);
+      }
+    });
+
+    supabase.auth.getSession().then(({ data: { session: s } }) => {
+      setSession(s);
+      setUser(s?.user ?? null);
+      if (s?.user) fetchRole(s.user.id).finally(() => setLoading(false));
+      else setLoading(false);
+    });
+
+    return () => sub.subscription.unsubscribe();
   }, []);
 
-  const signIn = (role: Role) => {
-    const s: Session =
-      role === "trainer"
-        ? { role, name: "Alex Morgan", email: "trainer@demo.app" }
-        : { role, name: "Jordan Chen", email: "client@demo.app" };
-    setSession(s);
-    localStorage.setItem(KEY, JSON.stringify(s));
-  };
+  async function fetchRole(userId: string) {
+    const { data } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .maybeSingle();
+    setRole((data?.role as Role) ?? "client");
+  }
 
-  const signOut = () => {
+  const signOut = async () => {
+    await supabase.auth.signOut();
     setSession(null);
-    localStorage.removeItem(KEY);
+    setUser(null);
+    setRole(null);
   };
 
-  return <Ctx.Provider value={{ session, signIn, signOut }}>{children}</Ctx.Provider>;
+  return (
+    <Ctx.Provider value={{ session, user, role, loading, signOut }}>
+      {children}
+    </Ctx.Provider>
+  );
 }
 
 export function useAuth() {

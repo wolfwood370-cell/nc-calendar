@@ -24,7 +24,8 @@ const items = [
 
 export function TrainerSidebar() {
   const path = useRouterState({ select: (s) => s.location.pathname });
-  const { session, signOut } = useAuth();
+  const { user, signOut } = useAuth();
+  const displayName = (user?.user_metadata?.full_name as string) || user?.email || "";
   const navigate = useNavigate();
 
   return (
@@ -65,15 +66,15 @@ export function TrainerSidebar() {
       <SidebarFooter>
         <div className="px-2 pb-2 group-data-[collapsible=icon]:hidden">
           <div className="rounded-lg border bg-card p-3">
-            <p className="text-sm font-medium truncate">{session?.name}</p>
-            <p className="text-xs text-muted-foreground truncate">{session?.email}</p>
+            <p className="text-sm font-medium truncate">{displayName}</p>
+            <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
             <Button
               size="sm"
               variant="ghost"
               className="mt-2 w-full justify-start"
-              onClick={() => { signOut(); navigate({ to: "/auth" }); }}
+              onClick={async () => { await signOut(); navigate({ to: "/auth" }); }}
             >
-              <LogOut className="size-4" /> Sign out
+              <LogOut className="size-4" /> Esci
             </Button>
           </div>
         </div>
