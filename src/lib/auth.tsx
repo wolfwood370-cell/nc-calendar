@@ -2,8 +2,10 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-export type Role = "trainer" | "client";
-export const TRAINER_EMAIL = "nctrainingsystems@gmail.com";
+export type Role = "admin" | "coach" | "client";
+export const ADMIN_EMAIL = "nctrainingsystems@gmail.com";
+// Backwards-compat export (used by some routes)
+export const TRAINER_EMAIL = ADMIN_EMAIL;
 
 interface AuthCtx {
   session: Session | null;
@@ -26,7 +28,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user) {
-        // Defer role fetch
         setTimeout(() => fetchRole(s.user.id), 0);
       } else {
         setRole(null);
@@ -70,4 +71,10 @@ export function useAuth() {
   const v = useContext(Ctx);
   if (!v) throw new Error("AuthProvider missing");
   return v;
+}
+
+export function pathForRole(role: Role | null): string {
+  if (role === "admin") return "/admin";
+  if (role === "coach") return "/trainer";
+  return "/client";
 }

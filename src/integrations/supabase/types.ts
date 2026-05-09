@@ -14,26 +14,81 @@ export type Database = {
   }
   public: {
     Tables: {
+      client_invitations: {
+        Row: {
+          accepted_at: string | null
+          coach_id: string
+          created_at: string
+          email: string
+          full_name: string | null
+          id: string
+          phone: string | null
+          status: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          coach_id: string
+          created_at?: string
+          email: string
+          full_name?: string | null
+          id?: string
+          phone?: string | null
+          status?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          coach_id?: string
+          created_at?: string
+          email?: string
+          full_name?: string | null
+          id?: string
+          phone?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_invitations_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
+          coach_id: string | null
           created_at: string
           email: string | null
           full_name: string | null
           id: string
+          phone: string | null
         }
         Insert: {
+          coach_id?: string | null
           created_at?: string
           email?: string | null
           full_name?: string | null
           id: string
+          phone?: string | null
         }
         Update: {
+          coach_id?: string | null
           created_at?: string
           email?: string | null
           full_name?: string | null
           id?: string
+          phone?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -58,6 +113,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_coach_for: { Args: { _user_id: string }; Returns: string }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -71,7 +127,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "trainer" | "client"
+      app_role: "admin" | "coach" | "client"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -199,7 +255,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["trainer", "client"],
+      app_role: ["admin", "coach", "client"],
     },
   },
 } as const

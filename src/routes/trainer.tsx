@@ -2,7 +2,7 @@ import { createFileRoute, Outlet, Navigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { TrainerSidebar } from "@/components/trainer-sidebar";
-import { useAuth, TRAINER_EMAIL } from "@/lib/auth";
+import { useAuth, pathForRole } from "@/lib/auth";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -11,18 +11,18 @@ export const Route = createFileRoute("/trainer")({
 });
 
 function TrainerLayout() {
-  const { session, role, user, loading } = useAuth();
-  const isTrainer = role === "trainer" && user?.email?.toLowerCase() === TRAINER_EMAIL;
+  const { session, role, loading } = useAuth();
+  const allowed = role === "coach" || role === "admin";
 
   useEffect(() => {
-    if (!loading && session && !isTrainer) {
-      toast.error("Accesso negato", { description: "Quest'area è riservata al trainer." });
+    if (!loading && session && !allowed) {
+      toast.error("Accesso negato", { description: "Quest'area è riservata ai coach." });
     }
-  }, [loading, session, isTrainer]);
+  }, [loading, session, allowed]);
 
   if (loading) return <div className="min-h-screen grid place-items-center"><Loader2 className="size-5 animate-spin text-muted-foreground" /></div>;
   if (!session) return <Navigate to="/auth" />;
-  if (!isTrainer) return <Navigate to="/client" />;
+  if (!allowed) return <Navigate to={pathForRole(role)} />;
 
   return (
     <SidebarProvider>
