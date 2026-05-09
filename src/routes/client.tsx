@@ -2,6 +2,7 @@ import { createFileRoute, Link, Outlet, useNavigate, useRouterState, Navigate } 
 import { Dumbbell, Home, CalendarPlus, LogOut } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import { InstallPwaButton } from "@/components/install-pwa-button";
 
 export const Route = createFileRoute("/client")({
   component: ClientLayout,
@@ -32,9 +33,12 @@ function ClientLayout() {
             </div>
             <span className="font-display font-semibold">Stride</span>
           </div>
-          <Button variant="ghost" size="sm" onClick={async () => { await signOut(); navigate({ to: "/auth" }); }}>
-            <LogOut className="size-4" /> Esci
-          </Button>
+          <div className="flex items-center gap-2">
+            <InstallPwaButton />
+            <Button variant="ghost" size="sm" onClick={async () => { await signOut(); navigate({ to: "/auth" }); }}>
+              <LogOut className="size-4" /> Esci
+            </Button>
+          </div>
         </div>
       </header>
 
