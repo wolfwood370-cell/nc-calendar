@@ -124,6 +124,18 @@ function BookFlow() {
             coachName: trainer.full_name,
             clientName: me.full_name,
           }),
+          supabase.functions
+            .invoke("booking-notifications", {
+              body: {
+                coach_id: trainer.id,
+                client_name: me.full_name,
+                client_phone: me.phone ?? null,
+                scheduled_at: iso,
+                session_label: sessionLabel(type),
+                meeting_link: meetingLink,
+              },
+            })
+            .catch((err) => console.error("booking-notifications failed", err)),
         ]);
       }
       toast.success(`${totalPicked} ${totalPicked === 1 ? "sessione prenotata" : "sessioni prenotate"}`, {
