@@ -8,16 +8,17 @@ export const Route = createFileRoute("/client")({
 });
 
 function ClientLayout() {
-  const { session, signOut } = useAuth();
+  const { session, role, loading, signOut } = useAuth();
   const navigate = useNavigate();
   const path = useRouterState({ select: (s) => s.location.pathname });
 
+  if (loading) return null;
   if (!session) return <Navigate to="/auth" />;
-  if (session.role !== "client") return <Navigate to="/trainer" />;
+  if (role && role !== "client") return <Navigate to="/trainer" />;
 
   const tabs = [
-    { to: "/client", label: "Block", icon: Home, exact: true },
-    { to: "/client/book", label: "Book", icon: CalendarPlus },
+    { to: "/client", label: "Blocco", icon: Home, exact: true },
+    { to: "/client/book", label: "Prenota", icon: CalendarPlus },
   ];
 
   return (
@@ -30,8 +31,8 @@ function ClientLayout() {
             </div>
             <span className="font-display font-semibold">Stride</span>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => { signOut(); navigate({ to: "/auth" }); }}>
-            <LogOut className="size-4" /> Sign out
+          <Button variant="ghost" size="sm" onClick={async () => { await signOut(); navigate({ to: "/auth" }); }}>
+            <LogOut className="size-4" /> Esci
           </Button>
         </div>
       </header>

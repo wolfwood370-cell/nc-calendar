@@ -10,6 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TrainerRouteImport } from './routes/trainer'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as ClientRouteImport } from './routes/client'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
@@ -23,6 +25,16 @@ import { Route as ClientBookRouteImport } from './routes/client.book'
 const TrainerRoute = TrainerRouteImport.update({
   id: '/trainer',
   path: '/trainer',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ClientRoute = ClientRouteImport.update({
@@ -75,6 +87,8 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/client': typeof ClientRouteWithChildren
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/trainer': typeof TrainerRouteWithChildren
   '/client/book': typeof ClientBookRoute
   '/trainer/blocks': typeof TrainerBlocksRoute
@@ -86,6 +100,8 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/client/book': typeof ClientBookRoute
   '/trainer/blocks': typeof TrainerBlocksRoute
   '/trainer/calendar': typeof TrainerCalendarRoute
@@ -98,6 +114,8 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/client': typeof ClientRouteWithChildren
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/trainer': typeof TrainerRouteWithChildren
   '/client/book': typeof ClientBookRoute
   '/trainer/blocks': typeof TrainerBlocksRoute
@@ -112,6 +130,8 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/client'
+    | '/forgot-password'
+    | '/reset-password'
     | '/trainer'
     | '/client/book'
     | '/trainer/blocks'
@@ -123,6 +143,8 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/forgot-password'
+    | '/reset-password'
     | '/client/book'
     | '/trainer/blocks'
     | '/trainer/calendar'
@@ -134,6 +156,8 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/client'
+    | '/forgot-password'
+    | '/reset-password'
     | '/trainer'
     | '/client/book'
     | '/trainer/blocks'
@@ -147,6 +171,8 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
   ClientRoute: typeof ClientRouteWithChildren
+  ForgotPasswordRoute: typeof ForgotPasswordRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   TrainerRoute: typeof TrainerRouteWithChildren
 }
 
@@ -157,6 +183,20 @@ declare module '@tanstack/react-router' {
       path: '/trainer'
       fullPath: '/trainer'
       preLoaderRoute: typeof TrainerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/client': {
@@ -259,6 +299,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
   ClientRoute: ClientRouteWithChildren,
+  ForgotPasswordRoute: ForgotPasswordRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   TrainerRoute: TrainerRouteWithChildren,
 }
 export const routeTree = rootRouteImport
