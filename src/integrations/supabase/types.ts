@@ -160,6 +160,50 @@ export type Database = {
           },
         ]
       }
+      integration_settings: {
+        Row: {
+          coach_id: string
+          created_at: string
+          gcal_enabled: boolean
+          gcal_webhook_url: string | null
+          id: string
+          updated_at: string
+          wa_access_token: string | null
+          wa_enabled: boolean
+          wa_phone_id: string | null
+        }
+        Insert: {
+          coach_id: string
+          created_at?: string
+          gcal_enabled?: boolean
+          gcal_webhook_url?: string | null
+          id?: string
+          updated_at?: string
+          wa_access_token?: string | null
+          wa_enabled?: boolean
+          wa_phone_id?: string | null
+        }
+        Update: {
+          coach_id?: string
+          created_at?: string
+          gcal_enabled?: boolean
+          gcal_webhook_url?: string | null
+          id?: string
+          updated_at?: string
+          wa_access_token?: string | null
+          wa_enabled?: boolean
+          wa_phone_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_settings_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           coach_id: string | null
