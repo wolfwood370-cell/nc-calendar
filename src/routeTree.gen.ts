@@ -9,38 +9,170 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TrainerRouteImport } from './routes/trainer'
+import { Route as ClientRouteImport } from './routes/client'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as TrainerIndexRouteImport } from './routes/trainer.index'
+import { Route as ClientIndexRouteImport } from './routes/client.index'
+import { Route as TrainerClientsRouteImport } from './routes/trainer.clients'
+import { Route as TrainerCalendarRouteImport } from './routes/trainer.calendar'
+import { Route as TrainerBlocksRouteImport } from './routes/trainer.blocks'
+import { Route as ClientBookRouteImport } from './routes/client.book'
 
+const TrainerRoute = TrainerRouteImport.update({
+  id: '/trainer',
+  path: '/trainer',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClientRoute = ClientRouteImport.update({
+  id: '/client',
+  path: '/client',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TrainerIndexRoute = TrainerIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => TrainerRoute,
+} as any)
+const ClientIndexRoute = ClientIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ClientRoute,
+} as any)
+const TrainerClientsRoute = TrainerClientsRouteImport.update({
+  id: '/clients',
+  path: '/clients',
+  getParentRoute: () => TrainerRoute,
+} as any)
+const TrainerCalendarRoute = TrainerCalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
+  getParentRoute: () => TrainerRoute,
+} as any)
+const TrainerBlocksRoute = TrainerBlocksRouteImport.update({
+  id: '/blocks',
+  path: '/blocks',
+  getParentRoute: () => TrainerRoute,
+} as any)
+const ClientBookRoute = ClientBookRouteImport.update({
+  id: '/book',
+  path: '/book',
+  getParentRoute: () => ClientRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/client': typeof ClientRouteWithChildren
+  '/trainer': typeof TrainerRouteWithChildren
+  '/client/book': typeof ClientBookRoute
+  '/trainer/blocks': typeof TrainerBlocksRoute
+  '/trainer/calendar': typeof TrainerCalendarRoute
+  '/trainer/clients': typeof TrainerClientsRoute
+  '/client/': typeof ClientIndexRoute
+  '/trainer/': typeof TrainerIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/client/book': typeof ClientBookRoute
+  '/trainer/blocks': typeof TrainerBlocksRoute
+  '/trainer/calendar': typeof TrainerCalendarRoute
+  '/trainer/clients': typeof TrainerClientsRoute
+  '/client': typeof ClientIndexRoute
+  '/trainer': typeof TrainerIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/client': typeof ClientRouteWithChildren
+  '/trainer': typeof TrainerRouteWithChildren
+  '/client/book': typeof ClientBookRoute
+  '/trainer/blocks': typeof TrainerBlocksRoute
+  '/trainer/calendar': typeof TrainerCalendarRoute
+  '/trainer/clients': typeof TrainerClientsRoute
+  '/client/': typeof ClientIndexRoute
+  '/trainer/': typeof TrainerIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/client'
+    | '/trainer'
+    | '/client/book'
+    | '/trainer/blocks'
+    | '/trainer/calendar'
+    | '/trainer/clients'
+    | '/client/'
+    | '/trainer/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/auth'
+    | '/client/book'
+    | '/trainer/blocks'
+    | '/trainer/calendar'
+    | '/trainer/clients'
+    | '/client'
+    | '/trainer'
+  id:
+    | '__root__'
+    | '/'
+    | '/auth'
+    | '/client'
+    | '/trainer'
+    | '/client/book'
+    | '/trainer/blocks'
+    | '/trainer/calendar'
+    | '/trainer/clients'
+    | '/client/'
+    | '/trainer/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthRoute: typeof AuthRoute
+  ClientRoute: typeof ClientRouteWithChildren
+  TrainerRoute: typeof TrainerRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/trainer': {
+      id: '/trainer'
+      path: '/trainer'
+      fullPath: '/trainer'
+      preLoaderRoute: typeof TrainerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/client': {
+      id: '/client'
+      path: '/client'
+      fullPath: '/client'
+      preLoaderRoute: typeof ClientRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,22 +180,87 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/trainer/': {
+      id: '/trainer/'
+      path: '/'
+      fullPath: '/trainer/'
+      preLoaderRoute: typeof TrainerIndexRouteImport
+      parentRoute: typeof TrainerRoute
+    }
+    '/client/': {
+      id: '/client/'
+      path: '/'
+      fullPath: '/client/'
+      preLoaderRoute: typeof ClientIndexRouteImport
+      parentRoute: typeof ClientRoute
+    }
+    '/trainer/clients': {
+      id: '/trainer/clients'
+      path: '/clients'
+      fullPath: '/trainer/clients'
+      preLoaderRoute: typeof TrainerClientsRouteImport
+      parentRoute: typeof TrainerRoute
+    }
+    '/trainer/calendar': {
+      id: '/trainer/calendar'
+      path: '/calendar'
+      fullPath: '/trainer/calendar'
+      preLoaderRoute: typeof TrainerCalendarRouteImport
+      parentRoute: typeof TrainerRoute
+    }
+    '/trainer/blocks': {
+      id: '/trainer/blocks'
+      path: '/blocks'
+      fullPath: '/trainer/blocks'
+      preLoaderRoute: typeof TrainerBlocksRouteImport
+      parentRoute: typeof TrainerRoute
+    }
+    '/client/book': {
+      id: '/client/book'
+      path: '/book'
+      fullPath: '/client/book'
+      preLoaderRoute: typeof ClientBookRouteImport
+      parentRoute: typeof ClientRoute
+    }
   }
 }
 
+interface ClientRouteChildren {
+  ClientBookRoute: typeof ClientBookRoute
+  ClientIndexRoute: typeof ClientIndexRoute
+}
+
+const ClientRouteChildren: ClientRouteChildren = {
+  ClientBookRoute: ClientBookRoute,
+  ClientIndexRoute: ClientIndexRoute,
+}
+
+const ClientRouteWithChildren =
+  ClientRoute._addFileChildren(ClientRouteChildren)
+
+interface TrainerRouteChildren {
+  TrainerBlocksRoute: typeof TrainerBlocksRoute
+  TrainerCalendarRoute: typeof TrainerCalendarRoute
+  TrainerClientsRoute: typeof TrainerClientsRoute
+  TrainerIndexRoute: typeof TrainerIndexRoute
+}
+
+const TrainerRouteChildren: TrainerRouteChildren = {
+  TrainerBlocksRoute: TrainerBlocksRoute,
+  TrainerCalendarRoute: TrainerCalendarRoute,
+  TrainerClientsRoute: TrainerClientsRoute,
+  TrainerIndexRoute: TrainerIndexRoute,
+}
+
+const TrainerRouteWithChildren =
+  TrainerRoute._addFileChildren(TrainerRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthRoute: AuthRoute,
+  ClientRoute: ClientRouteWithChildren,
+  TrainerRoute: TrainerRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
