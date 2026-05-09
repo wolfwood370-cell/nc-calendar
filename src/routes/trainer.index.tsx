@@ -4,7 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { AlertTriangle, ArrowRight, CalendarCheck, Users, Activity, Clock } from "lucide-react";
-import { blocks, bookings, clients, getCurrentWeek, clientName, sessionLabel } from "@/lib/mock-data";
+import { blocks, bookings, clients, getCurrentWeek, clientName, sessionLabel, trainer } from "@/lib/mock-data";
+import { AddToCalendarButton } from "@/components/add-to-calendar-button";
 import { useMemo } from "react";
 
 export const Route = createFileRoute("/trainer/")({
@@ -89,7 +90,17 @@ function Overview() {
                       </p>
                     </div>
                   </div>
-                  <Badge variant="secondary">{sessionLabel(b.session_type)}</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary">{sessionLabel(b.session_type)}</Badge>
+                    <AddToCalendarButton
+                      sessionLabel={sessionLabel(b.session_type)}
+                      startsAt={d}
+                      coachName={trainer.full_name}
+                      clientName={clientName(b.client_id)}
+                      variant="ghost"
+                      label=""
+                    />
+                  </div>
                 </div>
               );
             })}

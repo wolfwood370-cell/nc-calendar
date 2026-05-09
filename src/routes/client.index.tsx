@@ -4,7 +4,8 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CalendarPlus, Activity, Flame } from "lucide-react";
-import { getActiveBlock, getCurrentClient, getCurrentWeek, sessionLabel, type SessionType, bookings } from "@/lib/mock-data";
+import { getActiveBlock, getCurrentClient, getCurrentWeek, sessionLabel, type SessionType, bookings, trainer } from "@/lib/mock-data";
+import { AddToCalendarButton } from "@/components/add-to-calendar-button";
 import { useMemo } from "react";
 
 export const Route = createFileRoute("/client/")({
@@ -131,9 +132,17 @@ function ClientHome() {
                     {d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
                   </p>
                 </div>
-                <Button variant="ghost" size="sm" disabled={!canCancel}>
-                  {canCancel ? "Annulla" : "Bloccata (<24h)"}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <AddToCalendarButton
+                    sessionLabel={sessionLabel(b.session_type)}
+                    startsAt={d}
+                    coachName={trainer.full_name}
+                    clientName={me.full_name}
+                  />
+                  <Button variant="ghost" size="sm" disabled={!canCancel}>
+                    {canCancel ? "Annulla" : "Bloccata (<24h)"}
+                  </Button>
+                </div>
               </div>
             );
           })}
