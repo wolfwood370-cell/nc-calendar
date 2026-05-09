@@ -11,7 +11,7 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, CalendarDays, Users, LayersIcon, Dumbbell, LogOut } from "lucide-react";
+import { LayoutDashboard, CalendarDays, Users, LayersIcon, Dumbbell, LogOut, Plug } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { InstallPwaButton } from "@/components/install-pwa-button";
