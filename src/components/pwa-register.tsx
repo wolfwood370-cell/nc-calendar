@@ -30,9 +30,9 @@ export function PwaRegister() {
     }
 
     // Dynamic import: virtual module fornito da vite-plugin-pwa
-    import(/* @vite-ignore */ "virtual:pwa-register")
-      .then(({ registerSW }) => {
-        registerSW({ immediate: true });
+    import(/* @vite-ignore */ ("virtual:pwa-register" as string))
+      .then((mod: { registerSW: (opts?: { immediate?: boolean }) => void }) => {
+        mod.registerSW?.({ immediate: true });
       })
       .catch(() => {
         /* plugin non disponibile in questo ambiente */
