@@ -129,7 +129,7 @@ function BookFlow() {
               body: {
                 coach_id: trainer.id,
                 client_name: me.full_name,
-                client_phone: me.phone ?? null,
+                client_phone: me.phone_number ?? null,
                 scheduled_at: iso,
                 session_label: sessionLabel(type),
                 meeting_link: meetingLink,
