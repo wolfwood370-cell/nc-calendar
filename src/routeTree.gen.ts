@@ -10,16 +10,24 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TrainerRouteImport } from './routes/trainer'
+import { Route as ClientRouteImport } from './routes/client'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TrainerIndexRouteImport } from './routes/trainer.index'
+import { Route as ClientIndexRouteImport } from './routes/client.index'
 import { Route as TrainerClientsRouteImport } from './routes/trainer.clients'
 import { Route as TrainerCalendarRouteImport } from './routes/trainer.calendar'
 import { Route as TrainerBlocksRouteImport } from './routes/trainer.blocks'
+import { Route as ClientBookRouteImport } from './routes/client.book'
 
 const TrainerRoute = TrainerRouteImport.update({
   id: '/trainer',
   path: '/trainer',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClientRoute = ClientRouteImport.update({
+  id: '/client',
+  path: '/client',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -37,6 +45,11 @@ const TrainerIndexRoute = TrainerIndexRouteImport.update({
   path: '/',
   getParentRoute: () => TrainerRoute,
 } as any)
+const ClientIndexRoute = ClientIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ClientRoute,
+} as any)
 const TrainerClientsRoute = TrainerClientsRouteImport.update({
   id: '/clients',
   path: '/clients',
@@ -52,32 +65,45 @@ const TrainerBlocksRoute = TrainerBlocksRouteImport.update({
   path: '/blocks',
   getParentRoute: () => TrainerRoute,
 } as any)
+const ClientBookRoute = ClientBookRouteImport.update({
+  id: '/book',
+  path: '/book',
+  getParentRoute: () => ClientRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/client': typeof ClientRouteWithChildren
   '/trainer': typeof TrainerRouteWithChildren
+  '/client/book': typeof ClientBookRoute
   '/trainer/blocks': typeof TrainerBlocksRoute
   '/trainer/calendar': typeof TrainerCalendarRoute
   '/trainer/clients': typeof TrainerClientsRoute
+  '/client/': typeof ClientIndexRoute
   '/trainer/': typeof TrainerIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/client/book': typeof ClientBookRoute
   '/trainer/blocks': typeof TrainerBlocksRoute
   '/trainer/calendar': typeof TrainerCalendarRoute
   '/trainer/clients': typeof TrainerClientsRoute
+  '/client': typeof ClientIndexRoute
   '/trainer': typeof TrainerIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/client': typeof ClientRouteWithChildren
   '/trainer': typeof TrainerRouteWithChildren
+  '/client/book': typeof ClientBookRoute
   '/trainer/blocks': typeof TrainerBlocksRoute
   '/trainer/calendar': typeof TrainerCalendarRoute
   '/trainer/clients': typeof TrainerClientsRoute
+  '/client/': typeof ClientIndexRoute
   '/trainer/': typeof TrainerIndexRoute
 }
 export interface FileRouteTypes {
@@ -85,33 +111,42 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/client'
     | '/trainer'
+    | '/client/book'
     | '/trainer/blocks'
     | '/trainer/calendar'
     | '/trainer/clients'
+    | '/client/'
     | '/trainer/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
+    | '/client/book'
     | '/trainer/blocks'
     | '/trainer/calendar'
     | '/trainer/clients'
+    | '/client'
     | '/trainer'
   id:
     | '__root__'
     | '/'
     | '/auth'
+    | '/client'
     | '/trainer'
+    | '/client/book'
     | '/trainer/blocks'
     | '/trainer/calendar'
     | '/trainer/clients'
+    | '/client/'
     | '/trainer/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
+  ClientRoute: typeof ClientRouteWithChildren
   TrainerRoute: typeof TrainerRouteWithChildren
 }
 
@@ -122,6 +157,13 @@ declare module '@tanstack/react-router' {
       path: '/trainer'
       fullPath: '/trainer'
       preLoaderRoute: typeof TrainerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/client': {
+      id: '/client'
+      path: '/client'
+      fullPath: '/client'
+      preLoaderRoute: typeof ClientRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -145,6 +187,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TrainerIndexRouteImport
       parentRoute: typeof TrainerRoute
     }
+    '/client/': {
+      id: '/client/'
+      path: '/'
+      fullPath: '/client/'
+      preLoaderRoute: typeof ClientIndexRouteImport
+      parentRoute: typeof ClientRoute
+    }
     '/trainer/clients': {
       id: '/trainer/clients'
       path: '/clients'
@@ -166,8 +215,28 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TrainerBlocksRouteImport
       parentRoute: typeof TrainerRoute
     }
+    '/client/book': {
+      id: '/client/book'
+      path: '/book'
+      fullPath: '/client/book'
+      preLoaderRoute: typeof ClientBookRouteImport
+      parentRoute: typeof ClientRoute
+    }
   }
 }
+
+interface ClientRouteChildren {
+  ClientBookRoute: typeof ClientBookRoute
+  ClientIndexRoute: typeof ClientIndexRoute
+}
+
+const ClientRouteChildren: ClientRouteChildren = {
+  ClientBookRoute: ClientBookRoute,
+  ClientIndexRoute: ClientIndexRoute,
+}
+
+const ClientRouteWithChildren =
+  ClientRoute._addFileChildren(ClientRouteChildren)
 
 interface TrainerRouteChildren {
   TrainerBlocksRoute: typeof TrainerBlocksRoute
@@ -189,6 +258,7 @@ const TrainerRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
+  ClientRoute: ClientRouteWithChildren,
   TrainerRoute: TrainerRouteWithChildren,
 }
 export const routeTree = rootRouteImport
