@@ -470,13 +470,13 @@ function BookFlow() {
                     return (
                       <div
                         key={s.iso}
-                        className={`rounded-lg border p-3 transition ${chosen ? "border-primary bg-primary/5" : "hover:border-primary/40"}`}
+                        className={`rounded-lg border p-3 transition ${chosen ? "border-primary bg-primary/5" : s.recommended ? "border-success/40 bg-success/5 hover:border-success/60" : "hover:border-primary/40"}`}
                       >
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between gap-2">
                           <p className="font-display font-semibold tabular-nums">
                             {s.date.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
                           </p>
-                          {chosen && (() => {
+                          {chosen ? (() => {
                             const ev = chosen.eventTypeId
                               ? customTypes.find((e) => e.id === chosen.eventTypeId)
                               : null;
@@ -485,7 +485,11 @@ function BookFlow() {
                                 {ev?.name ?? sessionLabel(chosen.type)}
                               </Badge>
                             );
-                          })()}
+                          })() : s.recommended ? (
+                            <Badge variant="secondary" className="bg-success/10 text-success border-success/20 text-[10px] px-1.5 py-0">
+                              Consigliato
+                            </Badge>
+                          ) : null}
                         </div>
                         <Select
                           value={chosen ? (chosen.eventTypeId ? `${chosen.type}::${chosen.eventTypeId}` : chosen.type) : ""}
