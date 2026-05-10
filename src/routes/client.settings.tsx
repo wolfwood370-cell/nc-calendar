@@ -131,20 +131,14 @@ function ClientSettings() {
     navigate({ to: "/auth" });
   };
 
-  const handleConnectGoogle = async () => {
+  const handleSignOutToLinkGoogle = async () => {
     if (googleLinked || googleLinking) return;
     setGoogleLinking(true);
-    try {
-      const { error } = await supabase.auth.linkIdentity({
-        provider: "google",
-        options: { redirectTo: window.location.origin + "/client/settings" },
-      });
-      if (error) throw error;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Riprova";
-      toast.error("Collegamento non riuscito", { description: msg });
-      setGoogleLinking(false);
-    }
+    toast.info("Accedi con Google usando la stessa email", {
+      description: email || "Il tuo account verrà collegato automaticamente.",
+    });
+    await signOut();
+    navigate({ to: "/auth" });
   };
 
   const fullName = profile?.full_name ?? user?.email ?? "Cliente";
@@ -232,33 +226,51 @@ function ClientSettings() {
             Integrazioni
           </h3>
           <div className="bg-surface-container-lowest rounded-[1.5rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-outline-variant/30 overflow-hidden">
-            <button
-              type="button"
-              onClick={handleConnectGoogle}
-              disabled={googleLinked || googleLinking || loading}
-              className="w-full flex items-center gap-4 px-5 py-4 text-left hover:bg-surface-container-high transition-colors active:scale-[0.99] disabled:opacity-100 disabled:cursor-default"
-            >
-              <span className="size-10 rounded-full bg-primary-container/10 text-primary-container grid place-items-center">
-                <Calendar className="size-5" />
-              </span>
-              <span className="flex-1 min-w-0">
-                <span className="block text-base font-medium text-on-surface">
-                  {googleLinked ? "Account Google Collegato" : "Collega Account Google"}
+            {googleLinked ? (
+              <div className="w-full flex items-center gap-4 px-5 py-4">
+                <span className="size-10 rounded-full bg-primary-container/10 text-primary-container grid place-items-center">
+                  <Calendar className="size-5" />
                 </span>
-                <span className="block text-sm text-on-surface-variant">
-                  {googleLinked
-                    ? "Il tuo account è collegato a Google"
-                    : "Accedi anche con Google"}
+                <span className="flex-1 min-w-0">
+                  <span className="block text-base font-medium text-on-surface">
+                    Account Google collegato
+                  </span>
+                  <span className="block text-sm text-on-surface-variant">
+                    Puoi accedere anche con Google
+                  </span>
                 </span>
-              </span>
-              {googleLinking ? (
-                <Loader2 className="size-5 text-on-surface-variant animate-spin" />
-              ) : googleLinked ? (
                 <CheckCircle className="size-5 text-emerald-600" />
-              ) : (
-                <LinkIcon className="size-5 text-on-surface-variant" />
-              )}
-            </button>
+              </div>
+            ) : (
+              <div className="px-5 py-4 flex flex-col gap-3">
+                <div className="flex items-center gap-4">
+                  <span className="size-10 rounded-full bg-primary-container/10 text-primary-container grid place-items-center">
+                    <Calendar className="size-5" />
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-base font-medium text-on-surface">
+                      Collega Account Google
+                    </p>
+                    <p className="text-sm text-on-surface-variant">
+                      Per collegarlo, esci e accedi con Google usando la stessa email{email ? ` (${email})` : ""}. Il tuo account verrà collegato automaticamente, mantenendo prenotazioni e dati.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSignOutToLinkGoogle}
+                  disabled={googleLinking || loading}
+                  className="w-full bg-primary-container/10 text-on-surface font-medium text-sm py-3 rounded-full hover:bg-primary-container/20 transition active:scale-95 flex items-center justify-center gap-2 disabled:opacity-60"
+                >
+                  {googleLinking ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <LinkIcon className="size-4" />
+                  )}
+                  Esci e collega Google
+                </button>
+              </div>
+            )}
           </div>
         </section>
 
