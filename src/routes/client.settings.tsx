@@ -149,7 +149,7 @@ function ClientSettings() {
       {/* Top App Bar */}
       <header className="bg-surface/80 backdrop-blur-xl sticky top-0 shadow-[0_8px_30px_rgba(0,0,0,0.04)] z-40">
         <div className="flex items-center w-full px-margin-mobile py-stack-md">
-          <h1 className="text-[28px] leading-9 font-bold text-[#003e62]">Profilo</h1>
+          <h1 className="text-2xl font-bold text-[#003e62]">Profilo</h1>
         </div>
       </header>
 

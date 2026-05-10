@@ -85,7 +85,7 @@ function ClientHome() {
             <div className="w-10 h-10 rounded-full bg-primary-container text-on-primary-container grid place-items-center border-2 border-surface-container-lowest shadow-sm font-semibold">
               {firstName.charAt(0).toUpperCase()}
             </div>
-            <h1 className="text-[28px] leading-9 font-bold text-[#003e62]">Ciao {firstName}</h1>
+            <h1 className="text-2xl font-bold text-[#003e62]">Ciao {firstName}</h1>
           </div>
           <button
             type="button"
@@ -101,7 +101,7 @@ function ClientHome() {
         {/* Hero: Progressi */}
         <section className="bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-stack-lg border border-outline-variant/30 relative overflow-hidden">
           <div className="absolute -top-10 -right-10 w-32 h-32 bg-[#003e62]/5 rounded-full blur-3xl pointer-events-none" />
-          <h2 className="text-2xl font-semibold text-on-surface mb-6">I Tuoi Progressi</h2>
+          <h2 className="text-lg font-semibold text-on-surface mb-6">I Tuoi Progressi</h2>
 
           {isLoading ? (
             <div className="flex justify-around"><Skeleton className="h-24 w-24 rounded-full" /><Skeleton className="h-24 w-24 rounded-full" /></div>
@@ -125,42 +125,37 @@ function ClientHome() {
         </section>
 
         {/* Prossimo Appuntamento */}
-        <section>
-          <h3 className="text-sm font-semibold text-on-surface-variant uppercase tracking-wider mb-stack-sm ml-2">
-            Prossimo Appuntamento
-          </h3>
-          {isLoading ? (
-            <Skeleton className="h-32 w-full rounded-[32px]" />
-          ) : nextBooking ? (
-            <NextAppointmentCard
-              bookingId={nextBooking.id}
-              date={new Date(nextBooking.scheduled_at)}
-              durationMin={nextEventType?.duration ?? 60}
-              label={nextEventType?.name ?? sessionLabel(nextBooking.session_type)}
-              color={nextEventType?.color ?? "#039BE5"}
-              calendarUrl={generateGoogleCalendarLink(
-                nextBooking,
-                nextEventType
-                  ? {
-                      name: nextEventType.name,
-                      duration: nextEventType.duration,
-                      location_type: nextEventType.location_type,
-                      location_address: nextEventType.location_address,
-                    }
-                  : null,
-                fullName,
-              )}
-            />
-          ) : (
-            <EmptyAppointment onBook={() => navigate({ to: "/client/book" })} />
-          )}
-        </section>
+        {isLoading ? (
+          <Skeleton className="h-40 w-full rounded-[32px]" />
+        ) : nextBooking ? (
+          <NextAppointmentCard
+            bookingId={nextBooking.id}
+            date={new Date(nextBooking.scheduled_at)}
+            durationMin={nextEventType?.duration ?? 60}
+            label={nextEventType?.name ?? sessionLabel(nextBooking.session_type)}
+            color={nextEventType?.color ?? "#039BE5"}
+            calendarUrl={generateGoogleCalendarLink(
+              nextBooking,
+              nextEventType
+                ? {
+                    name: nextEventType.name,
+                    duration: nextEventType.duration,
+                    location_type: nextEventType.location_type,
+                    location_address: nextEventType.location_address,
+                  }
+                : null,
+              fullName,
+            )}
+          />
+        ) : (
+          <EmptyAppointment onBook={() => navigate({ to: "/client/book" })} />
+        )}
 
         {/* Quick Actions */}
         <section className="flex flex-col gap-stack-md mt-4">
           <Link
             to="/client/book"
-            className="w-full bg-primary-container text-white font-semibold text-base py-4 rounded-full shadow-md hover:opacity-90 transition active:scale-95 flex items-center justify-center gap-2"
+            className="w-full bg-primary-container text-white font-semibold text-base py-4 rounded-full shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:opacity-90 transition active:scale-95 flex items-center justify-center gap-2"
           >
             <Plus className="size-5" />
             Prenota Nuova Sessione
@@ -180,7 +175,7 @@ function ClientHome() {
 
         {/* Storico */}
         <section id="storico" className="pb-8">
-          <h3 className="text-sm font-semibold text-on-surface-variant uppercase tracking-wider mb-stack-sm ml-2">
+          <h3 className="text-lg font-semibold text-on-surface mb-stack-md ml-1">
             Storico Sessioni
           </h3>
           <HistoryList />
@@ -214,30 +209,27 @@ function NextAppointmentCard({
     <Link
       to="/client/bookings/$bookingId"
       params={{ bookingId }}
-      className="block bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-6 border border-outline-variant/30 flex flex-col gap-4 hover:bg-surface-container-low transition-colors"
+      className="block bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-stack-lg border border-outline-variant/30 hover:bg-surface-container-low transition-colors"
     >
-      <div className="flex justify-between items-start">
-        <div className="flex gap-4 items-center">
-          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
-            <Calendar className="size-8" />
-          </div>
-          <div className="flex flex-col gap-1">
-            <h4 className="text-2xl font-semibold text-on-surface capitalize">{dayLabel}</h4>
-            <div className="flex items-center gap-2 text-on-surface-variant">
-              <Clock className="size-[18px]" />
-              <span className="text-base">{startStr} - {endStr}</span>
-            </div>
-          </div>
-        </div>
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-lg font-semibold text-on-surface">Prossimo Appuntamento</h3>
         <span
-          className="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-semibold w-fit shrink-0"
+          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold shrink-0"
           style={{ backgroundColor: `${color}1a`, color }}
         >
+          <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
           {label}
         </span>
       </div>
+      <div className="flex flex-col gap-2">
+        <h4 className="text-2xl font-semibold text-on-surface capitalize leading-tight">{dayLabel}</h4>
+        <div className="flex items-center gap-2 text-on-surface-variant">
+          <Clock className="size-[18px]" />
+          <span className="text-base">{startStr} - {endStr}</span>
+        </div>
+      </div>
       {isFuture && (
-        <div className="pt-4 border-t border-surface-container-high flex justify-end">
+        <div className="mt-6 pt-4 border-t border-surface-container-high flex justify-end">
           <a
             href={calendarUrl}
             target="_blank"
@@ -256,15 +248,23 @@ function NextAppointmentCard({
 
 function EmptyAppointment({ onBook }: { onBook: () => void }) {
   return (
-    <div className="bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-6 border border-outline-variant/30 text-center flex flex-col items-center gap-3">
-      <div className="w-12 h-12 rounded-full bg-surface-container-high grid place-items-center text-on-surface-variant">
-        <CalendarPlus className="size-6" />
+    <div className="bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-stack-lg border border-outline-variant/30">
+      <h3 className="text-lg font-semibold text-on-surface mb-6">Prossimo Appuntamento</h3>
+      <div className="text-center flex flex-col items-center gap-3">
+        <div className="w-12 h-12 rounded-full bg-surface-container-high grid place-items-center text-on-surface-variant">
+          <CalendarPlus className="size-6" />
+        </div>
+        <div>
+          <p className="text-base font-semibold text-on-surface">Nessuna sessione in programma</p>
+          <p className="text-sm text-on-surface-variant">Prenota la tua prossima sessione per iniziare.</p>
+        </div>
+        <Button
+          onClick={onBook}
+          className="rounded-full font-semibold text-base py-4 px-8 h-auto shadow-[0_8px_30px_rgba(0,0,0,0.04)]"
+        >
+          Prenota ora
+        </Button>
       </div>
-      <div>
-        <p className="text-base font-semibold text-on-surface">Nessuna sessione in programma</p>
-        <p className="text-sm text-on-surface-variant">Prenota la tua prossima sessione per iniziare.</p>
-      </div>
-      <Button onClick={onBook} className="rounded-full">Prenota ora</Button>
     </div>
   );
 }
@@ -282,29 +282,43 @@ function HistoryList() {
   if (bookingsQ.isLoading) return <Skeleton className="h-24 w-full rounded-[1rem]" />;
   if (past.length === 0) {
     return (
-      <div className="bg-surface-container-lowest rounded-[1rem] p-5 text-sm text-on-surface-variant text-center border border-outline-variant/20">
+      <div className="bg-surface-container-lowest rounded-[1rem] p-5 text-base text-on-surface-variant text-center border border-outline-variant/20">
         Nessuna sessione passata.
       </div>
     );
   }
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
       {past.map((b) => {
         const d = new Date(b.scheduled_at);
+        const statusLabel =
+          b.status === "completed" ? "Completata"
+          : b.status === "cancelled" ? "Annullata"
+          : b.status === "late_cancelled" ? "Cancellazione tardiva"
+          : b.status === "no_show" ? "No Show"
+          : "In programma";
+        const statusClass =
+          b.status === "completed"
+            ? "bg-success/10 text-success"
+            : b.status === "cancelled" || b.status === "late_cancelled" || b.status === "no_show"
+              ? "bg-destructive/10 text-destructive"
+              : "bg-primary/10 text-primary";
         return (
           <Link
             key={b.id}
             to="/client/bookings/$bookingId"
             params={{ bookingId: b.id }}
-            className="bg-surface-container-lowest rounded-[1rem] p-4 border border-outline-variant/20 flex items-center justify-between hover:bg-surface-container-low transition-colors active:scale-[0.99]"
+            className="bg-surface-container-lowest rounded-[1.25rem] p-5 border border-outline-variant/20 flex items-center justify-between gap-4 hover:bg-surface-container-low transition-colors active:scale-[0.99]"
           >
-            <div>
-              <p className="text-sm font-semibold text-on-surface">{sessionLabel(b.session_type)}</p>
-              <p className="text-xs text-on-surface-variant">
+            <div className="min-w-0 flex flex-col gap-1">
+              <p className="text-lg font-semibold text-on-surface truncate">{sessionLabel(b.session_type)}</p>
+              <p className="text-base text-on-surface-variant">
                 {d.toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short" })} · {d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
               </p>
             </div>
-            <span className="text-xs text-on-surface-variant capitalize">{b.status.replace("_", " ")}</span>
+            <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-semibold shrink-0 ${statusClass}`}>
+              {statusLabel}
+            </span>
           </Link>
         );
       })}
