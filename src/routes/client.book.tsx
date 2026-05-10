@@ -5,11 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { ChevronLeft, Check, Loader2, Video } from "lucide-react";
+import { ChevronLeft, Check, Loader2, Video, MapPin } from "lucide-react";
 import { sessionLabel, type SessionType } from "@/lib/mock-data";
-import { useClientBlocks, useClientBookings, useCoachAvailability, useCoachEventTypes, type AvailabilityRow, type EventTypeRow } from "@/lib/queries";
+import { useClientBlocks, useClientBookings, useCoachAvailability, useCoachEventTypes, type AvailabilityRow, type EventTypeRow, type BookingRow } from "@/lib/queries";
 import { generateMockMeetLink } from "@/components/join-video-call-button";
 import { toast } from "sonner";
 import { sendBookingConfirmationEmail } from "@/lib/email";
@@ -34,7 +32,13 @@ function parseHM(t: string): { h: number; m: number } {
   return { h: parseInt(h, 10), m: parseInt(m, 10) };
 }
 
-function generateSlots(daysAhead: number, takenISO: Set<string>, availability: AvailabilityRow[]): Slot[] {
+interface BlockedRange { start: number; end: number; }
+
+function generateSlots(
+  daysAhead: number,
+  blockedRanges: BlockedRange[],
+  availability: AvailabilityRow[],
+): Slot[] {
   const slots: Slot[] = [];
   const now = new Date();
   for (let i = 0; i < daysAhead; i++) {
@@ -51,9 +55,12 @@ function generateSlots(daysAhead: number, takenISO: Set<string>, availability: A
         const slot = new Date(day);
         slot.setHours(Math.floor(mm / 60), mm % 60, 0, 0);
         if (slot.getTime() - now.getTime() < 24 * 60 * 60 * 1000) continue;
-        const iso = slot.toISOString();
-        if (takenISO.has(iso)) continue;
-        slots.push({ iso, date: slot });
+        const slotStart = slot.getTime();
+        const slotEnd = slotStart + 60 * 60 * 1000;
+        // blocca lo slot se interseca un range già occupato (durata + buffer)
+        const overlaps = blockedRanges.some((r) => slotStart < r.end && slotEnd > r.start);
+        if (overlaps) continue;
+        slots.push({ iso: slot.toISOString(), date: slot });
       }
     }
   }
