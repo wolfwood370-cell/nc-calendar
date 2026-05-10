@@ -191,9 +191,9 @@ function ClientHome() {
 }
 
 function NextAppointmentCard({
-  date, durationMin, label, color, onReschedule,
+  bookingId, date, durationMin, label, color, calendarUrl,
 }: {
-  date: Date; durationMin: number; label: string; color: string; onReschedule: () => void;
+  bookingId: string; date: Date; durationMin: number; label: string; color: string; calendarUrl: string;
 }) {
   const end = new Date(date.getTime() + durationMin * 60_000);
   const startStr = date.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
@@ -208,9 +208,13 @@ function NextAppointmentCard({
   else if (sameDay(date, tomorrow)) dayLabel = "Domani";
   else dayLabel = date.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" });
 
+  const isFuture = date.getTime() > Date.now();
+
   return (
-    <div
-      className="bg-surface-container-lowest rounded-[1rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-6 border-l-4 border-y border-r border-outline-variant/20 flex flex-col gap-4"
+    <Link
+      to="/client/bookings/$bookingId"
+      params={{ bookingId }}
+      className="block bg-surface-container-lowest rounded-[1rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-6 border-l-4 border-y border-r border-outline-variant/20 flex flex-col gap-4 hover:bg-surface-container-low transition-colors"
       style={{ borderLeftColor: color }}
     >
       <div className="flex justify-between items-start">
@@ -231,16 +235,21 @@ function NextAppointmentCard({
           <Dumbbell className="size-6" />
         </div>
       </div>
-      <div className="pt-4 border-t border-surface-container-high flex justify-end">
-        <button
-          type="button"
-          onClick={onReschedule}
-          className="text-sm font-semibold text-[#003e62] border border-[#003e62] px-6 py-2 rounded-full hover:bg-[#003e62]/5 active:scale-95 transition-all"
-        >
-          Riprogramma
-        </button>
-      </div>
-    </div>
+      {isFuture && (
+        <div className="pt-4 border-t border-surface-container-high flex justify-end">
+          <a
+            href={calendarUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex items-center gap-2 text-sm font-semibold text-[#003e62] border border-[#003e62] px-6 py-2 rounded-full hover:bg-[#003e62]/5 active:scale-95 transition-all"
+          >
+            <CalendarPlus className="size-4" />
+            Aggiungi al Calendario
+          </a>
+        </div>
+      )}
+    </Link>
   );
 }
 
