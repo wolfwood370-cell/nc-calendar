@@ -214,12 +214,12 @@ function ClientHome() {
         <CardContent className="p-4 space-y-3">
           {remainingByType.length > 0 && (
             <div className="rounded-lg bg-accent/40 p-3">
-              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Crediti residui</p>
+              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Crediti Residui nel Blocco</p>
               <div className="flex flex-wrap gap-1.5">
                 {remainingByType.map((r) => (
                   <Badge key={r.key} variant="outline" className="font-normal" style={{ borderColor: r.color }}>
                     <span className="size-2 rounded-full mr-1.5" style={{ backgroundColor: r.color }} />
-                    Hai ancora <span className="mx-1 font-semibold tabular-nums">{r.remaining}</span> {r.name}
+                    <span className="mr-1 font-semibold tabular-nums">{r.remaining}</span> {r.name}
                   </Badge>
                 ))}
               </div>
