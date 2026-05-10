@@ -217,8 +217,23 @@ function BookingDetailView({ booking }: { booking: BookingDetail }) {
         </div>
       </section>
 
-      {/* Action button */}
-      <div className="pt-stack-lg pb-stack-lg">
+      {/* Action buttons */}
+      <div className="pt-stack-lg pb-stack-lg space-y-stack-md">
+        {booking.status === "scheduled" && start.getTime() > Date.now() && (
+          <a
+            href={generateGoogleCalendarLink(
+              { scheduled_at: booking.scheduled_at },
+              booking.event_type,
+              booking.coach?.full_name ?? null,
+            )}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 w-full py-4 rounded-full bg-primary-container text-white font-semibold shadow-md hover:opacity-90 active:scale-95 transition"
+          >
+            <CalendarPlus className="size-5" />
+            Aggiungi a Google Calendar
+          </a>
+        )}
         <Link
           to="/client/book"
           className="block w-full py-4 rounded-full border border-outline-variant text-primary font-semibold bg-transparent hover:bg-surface-container-low transition-colors text-center"
