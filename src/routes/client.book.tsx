@@ -234,6 +234,7 @@ function BookFlow() {
   const meEmail = profile?.email ?? user?.email ?? "";
   const mePhone = profile?.phone ?? null;
   const coachId = profile?.coach_id;
+  const emailNotificationsEnabled = profile?.email_notifications ?? true;
 
   const confirm = async () => {
     if (!coachId) {
