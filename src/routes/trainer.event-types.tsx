@@ -226,11 +226,15 @@ function EventTypeDialog({
   const [description, setDescription] = useState(initial?.description ?? "");
   const [color, setColor] = useState(initial?.color ?? COLOR_PRESETS[0]);
   const [duration, setDuration] = useState<number>(initial?.duration ?? 60);
-  const [baseType, setBaseType] = useState<SessionType>(initial?.base_type ?? "PT Session");
+  const [locationType, setLocationType] = useState<"physical" | "online">(initial?.location_type ?? "physical");
+  const [bufferMinutes, setBufferMinutes] = useState<number>(initial?.buffer_minutes ?? 0);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const parsed = schema.safeParse({ name, description, color, duration, base_type: baseType });
+    const parsed = schema.safeParse({
+      name, description, color, duration,
+      location_type: locationType, buffer_minutes: bufferMinutes,
+    });
     if (!parsed.success) {
       toast.error("Dati non validi", { description: parsed.error.issues[0]?.message });
       return;
@@ -261,16 +265,30 @@ function EventTypeDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label>Tipologia Sessione</Label>
-            <Select value={baseType} onValueChange={(v) => setBaseType(v as SessionType)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {SESSION_TYPES.map((t) => (
-                  <SelectItem key={t} value={t}>{sessionLabel(t)}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Margine di tempo dopo la sessione (minuti)</Label>
+            <Input
+              type="number" min={0} max={240} step={5}
+              value={bufferMinutes}
+              onChange={(e) => setBufferMinutes(parseInt(e.target.value) || 0)}
+            />
           </div>
+        </div>
+        <div className="space-y-2">
+          <Label>Luogo della Sessione</Label>
+          <RadioGroup
+            value={locationType}
+            onValueChange={(v) => setLocationType(v as "physical" | "online")}
+            className="grid grid-cols-2 gap-2"
+          >
+            <Label htmlFor="loc-physical" className="flex items-center gap-2 rounded-md border p-3 cursor-pointer hover:bg-accent/50">
+              <RadioGroupItem value="physical" id="loc-physical" />
+              <MapPin className="size-4" /> Fisico
+            </Label>
+            <Label htmlFor="loc-online" className="flex items-center gap-2 rounded-md border p-3 cursor-pointer hover:bg-accent/50">
+              <RadioGroupItem value="online" id="loc-online" />
+              <Video className="size-4" /> Online
+            </Label>
+          </RadioGroup>
         </div>
         <div className="space-y-2">
           <Label>Colore</Label>
