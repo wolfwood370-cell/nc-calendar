@@ -40,6 +40,27 @@ function CalendarPage() {
   const clientsQ = useCoachClients(user?.id);
   const eventTypesQ = useCoachEventTypes(user?.id);
   const noShow = useMarkNoShow();
+  const updateNotes = useUpdateTrainerNotes();
+  const [activeBooking, setActiveBooking] = useState<BookingRow | null>(null);
+  const [notesDraft, setNotesDraft] = useState("");
+
+  const openNotes = (b: BookingRow) => {
+    setActiveBooking(b);
+    setNotesDraft(b.trainer_notes ?? "");
+  };
+  const saveNotes = () => {
+    if (!activeBooking) return;
+    updateNotes.mutate(
+      { id: activeBooking.id, notes: notesDraft },
+      {
+        onSuccess: () => {
+          toast.success("Note salvate");
+          setActiveBooking(null);
+        },
+        onError: (e: unknown) => toast.error("Errore", { description: (e as Error).message }),
+      }
+    );
+  };
 
   const bookings = bookingsQ.data ?? [];
   const clientsMap = useMemo(() => {
