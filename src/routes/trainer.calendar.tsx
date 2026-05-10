@@ -84,10 +84,10 @@ function CalendarPage() {
       rangeStartISO: start, rangeEndISO: end,
     })
       .then(({ data }) => {
-        const r = data as { ok?: boolean; cancelled?: number; moved?: number; skipped?: boolean } | null;
-        if (r?.ok && ((r.cancelled ?? 0) > 0 || (r.moved ?? 0) > 0)) {
+        const r = data as { ok?: boolean; cancelled?: number; moved?: number; remapped?: number; skipped?: boolean } | null;
+        if (r?.ok && ((r.cancelled ?? 0) > 0 || (r.moved ?? 0) > 0 || (r.remapped ?? 0) > 0)) {
           toast.info("Calendario aggiornato", {
-            description: `${r.cancelled ?? 0} annullate · ${r.moved ?? 0} spostate da Google Calendar`,
+            description: `${r.cancelled ?? 0} annullate · ${r.moved ?? 0} spostate · ${r.remapped ?? 0} ri-mappate`,
           });
           qc.invalidateQueries({ queryKey: ["bookings"] });
         }
