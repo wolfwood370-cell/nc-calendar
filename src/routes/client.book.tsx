@@ -3,59 +3,94 @@ import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { ChevronLeft, Check, Loader2, Video } from "lucide-react";
-import { availability, getActiveBlock, getCurrentClient, sessionLabel, trainer, type SessionType } from "@/lib/mock-data";
-import { useStoreBlocks, addBooking } from "@/lib/booking-store";
+import { sessionLabel, type SessionType } from "@/lib/mock-data";
+import { useClientBlocks, useClientBookings } from "@/lib/queries";
 import { generateMockMeetLink } from "@/components/join-video-call-button";
 import { toast } from "sonner";
 import { sendBookingConfirmationEmail } from "@/lib/email";
 import { supabase } from "@/integrations/supabase/client";
 import { syncCalendar } from "@/lib/sync-calendar";
+import { useAuth } from "@/lib/auth";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/client/book")({
   component: BookFlow,
 });
 
-interface Slot {
-  iso: string;
-  date: Date;
-}
+interface Slot { iso: string; date: Date; }
 
-function generateSlots(daysAhead: number): Slot[] {
+// Disponibilità default del coach (Lun-Sab, 07:00-12:00 / Mer 14:00-19:00).
+// In una versione futura sarà letta da una tabella `availability_slots` per coach.
+const DEFAULT_AVAILABILITY: Array<{ dow: number; start: number; end: number }> = [
+  { dow: 1, start: 7, end: 12 },
+  { dow: 2, start: 7, end: 12 },
+  { dow: 3, start: 14, end: 19 },
+  { dow: 4, start: 7, end: 12 },
+  { dow: 5, start: 7, end: 16 },
+  { dow: 6, start: 8, end: 11 },
+];
+
+function generateSlots(daysAhead: number, takenISO: Set<string>): Slot[] {
   const slots: Slot[] = [];
   const now = new Date();
   for (let i = 0; i < daysAhead; i++) {
     const day = new Date(now);
     day.setDate(now.getDate() + i);
-    const dow = day.getDay();
-    const av = availability.find((a) => a.day_of_week === dow);
+    const av = DEFAULT_AVAILABILITY.find((a) => a.dow === day.getDay());
     if (!av) continue;
-    const [sh, sm] = av.start_time.split(":").map(Number);
-    const [eh] = av.end_time.split(":").map(Number);
-    for (let h = sh; h < eh; h++) {
+    for (let h = av.start; h < av.end; h++) {
       const slot = new Date(day);
-      slot.setHours(h, sm, 0, 0);
-      if (slot.getTime() - now.getTime() < 24 * 60 * 60 * 1000) continue; // regola 24h
-      slots.push({ iso: slot.toISOString(), date: slot });
+      slot.setHours(h, 0, 0, 0);
+      if (slot.getTime() - now.getTime() < 24 * 60 * 60 * 1000) continue;
+      const iso = slot.toISOString();
+      if (takenISO.has(iso)) continue;
+      slots.push({ iso, date: slot });
     }
   }
   return slots;
 }
 
 function BookFlow() {
-  const me = getCurrentClient();
-  // sottoscrive lo store così le quantità rimanenti sono live
-  useStoreBlocks();
-  const block = getActiveBlock(me.id);
+  const { user } = useAuth();
+  const meId = user?.id;
   const navigate = useNavigate();
+  const qc = useQueryClient();
+  const blocksQ = useClientBlocks(meId);
+  const bookingsQ = useClientBookings(meId);
+
+  const profileQ = useQuery({
+    queryKey: ["profile", meId],
+    enabled: !!meId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, email, phone, coach_id")
+        .eq("id", meId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const [picked, setPicked] = useState<Record<string, SessionType>>({});
   const [online, setOnline] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
-  const slots = useMemo(() => generateSlots(28), []);
+  const block = (blocksQ.data ?? []).find((b) => b.status === "active");
+  const taken = useMemo(() => {
+    const s = new Set<string>();
+    (bookingsQ.data ?? [])
+      .filter((b) => b.status === "scheduled" || b.status === "completed")
+      .forEach((b) => s.add(new Date(b.scheduled_at).toISOString()));
+    return s;
+  }, [bookingsQ.data]);
+
+  const slots = useMemo(() => generateSlots(28, taken), [taken]);
   const grouped = useMemo(() => {
     const m = new Map<string, Slot[]>();
     for (const s of slots) {
@@ -66,15 +101,14 @@ function BookFlow() {
     return m;
   }, [slots]);
 
+  if (blocksQ.isLoading || bookingsQ.isLoading) {
+    return <div className="space-y-4"><Skeleton className="h-12 w-1/2" /><Skeleton className="h-40 w-full" /></div>;
+  }
   if (!block) {
     return <p className="text-sm text-muted-foreground">Nessun blocco attivo.</p>;
   }
 
-  const remainingByType: Record<SessionType, number> = {
-    "PT Session": 0,
-    BIA: 0,
-    "Functional Test": 0,
-  };
+  const remainingByType: Record<SessionType, number> = { "PT Session": 0, BIA: 0, "Functional Test": 0 };
   for (const a of block.allocations) {
     remainingByType[a.session_type] += a.quantity_assigned - a.quantity_booked;
   }
@@ -86,10 +120,7 @@ function BookFlow() {
   const togglePick = (iso: string, type: SessionType | "") => {
     setPicked((cur) => {
       const next = { ...cur };
-      if (!type) {
-        delete next[iso];
-        return next;
-      }
+      if (!type) { delete next[iso]; return next; }
       const used = pickedCounts[type] - (cur[iso] === type ? 1 : 0);
       if (used >= remainingByType[type]) {
         toast.error(`Nessuna sessione di tipo ${sessionLabel(type)} rimanente nel tuo blocco.`);
@@ -102,54 +133,103 @@ function BookFlow() {
 
   const totalPicked = Object.keys(picked).length;
 
+  // Per ogni tipo, alloca al settore della settimana corrispondente con credito disponibile.
+  const findAllocationForWeek = (type: SessionType, isoDate: string): { id: string; remaining: number } | null => {
+    const slotDate = new Date(isoDate);
+    const weeksFromStart = Math.floor((slotDate.getTime() - new Date(block.start_date).getTime()) / (1000 * 60 * 60 * 24 * 7));
+    const wn = Math.min(4, Math.max(1, weeksFromStart + 1));
+    const a = block.allocations.find(
+      (x) => x.session_type === type && x.week_number === wn && x.quantity_assigned - x.quantity_booked > 0
+    );
+    if (a) return { id: a.id, remaining: a.quantity_assigned - a.quantity_booked };
+    // fallback: qualsiasi settimana con credito
+    const any = block.allocations.find((x) => x.session_type === type && x.quantity_assigned - x.quantity_booked > 0);
+    return any ? { id: any.id, remaining: any.quantity_assigned - any.quantity_booked } : null;
+  };
+
+  const profile = profileQ.data;
+  const meName = profile?.full_name ?? user?.email ?? "Cliente";
+  const meEmail = profile?.email ?? user?.email ?? "";
+  const mePhone = profile?.phone ?? null;
+  const coachId = profile?.coach_id;
+
   const confirm = async () => {
+    if (!coachId) {
+      toast.error("Coach non assegnato. Contatta il tuo coach.");
+      return;
+    }
     setConfirming(true);
     try {
+      // tracker locale per non sforare quando si prenotano più slot dello stesso tipo
+      const localUsed: Record<string, number> = {}; // alloc_id -> count
+
       for (const [iso, type] of Object.entries(picked)) {
+        const alloc = findAllocationForWeek(type, iso);
+        if (!alloc) {
+          toast.error(`Credito esaurito per ${sessionLabel(type)}.`);
+          continue;
+        }
+        const used = localUsed[alloc.id] ?? 0;
+        if (used >= alloc.remaining) {
+          toast.error(`Credito esaurito per ${sessionLabel(type)} questa settimana.`);
+          continue;
+        }
         const meetingLink = online ? generateMockMeetLink() : null;
-        addBooking({ clientId: me.id, type, scheduledAt: iso, meetingLink });
-        syncCalendar({
-          action: "create",
-          coachId: trainer.id,
-          clientName: me.full_name,
-          sessionLabel: sessionLabel(type),
-          startISO: iso,
-          meetingLink,
+
+        // INSERT booking
+        const { error: bErr } = await supabase.from("bookings").insert({
+          client_id: meId!,
+          coach_id: coachId,
+          block_id: block.id,
+          session_type: type,
+          scheduled_at: iso,
+          status: "scheduled",
+          meeting_link: meetingLink,
         });
-        await Promise.all([
+        if (bErr) {
+          toast.error("Errore prenotazione", { description: bErr.message });
+          continue;
+        }
+
+        // increment quantity_booked sull'allocation
+        const { data: cur } = await supabase
+          .from("block_allocations")
+          .select("quantity_booked")
+          .eq("id", alloc.id)
+          .maybeSingle();
+        if (cur) {
+          await supabase
+            .from("block_allocations")
+            .update({ quantity_booked: cur.quantity_booked + 1 })
+            .eq("id", alloc.id);
+        }
+        localUsed[alloc.id] = used + 1;
+
+        // notifications (fire and forget)
+        syncCalendar({
+          action: "create", coachId, clientName: meName,
+          sessionLabel: sessionLabel(type), startISO: iso, meetingLink,
+        });
+        void Promise.all([
           sendBookingConfirmationEmail({
-            to: me.email,
-            recipientName: me.full_name,
-            sessionLabel: sessionLabel(type),
-            scheduledAt: new Date(iso),
-            coachName: trainer.full_name,
-            clientName: me.full_name,
-          }),
-          sendBookingConfirmationEmail({
-            to: trainer.email,
-            recipientName: trainer.full_name,
-            sessionLabel: sessionLabel(type),
-            scheduledAt: new Date(iso),
-            coachName: trainer.full_name,
-            clientName: me.full_name,
-          }),
-          supabase.functions
-            .invoke("booking-notifications", {
-              body: {
-                coach_id: trainer.id,
-                client_name: me.full_name,
-                client_phone: me.phone_number ?? null,
-                scheduled_at: iso,
-                session_label: sessionLabel(type),
-                meeting_link: meetingLink,
-              },
-            })
-            .catch((err) => console.error("booking-notifications failed", err)),
+            to: meEmail, recipientName: meName,
+            sessionLabel: sessionLabel(type), scheduledAt: new Date(iso),
+            coachName: "Coach", clientName: meName,
+          }).catch((e) => console.error("email failed", e)),
+          supabase.functions.invoke("booking-notifications", {
+            body: {
+              coach_id: coachId, client_name: meName, client_phone: mePhone,
+              scheduled_at: iso, session_label: sessionLabel(type), meeting_link: meetingLink,
+            },
+          }).catch((e) => console.error("booking-notifications failed", e)),
         ]);
       }
+
       toast.success(`${totalPicked} ${totalPicked === 1 ? "sessione prenotata" : "sessioni prenotate"}`, {
-        description: online ? "Link videochiamata generato e inviato via email." : "Email di conferma inviata a te e al coach.",
+        description: online ? "Link videochiamata generato e inviato via email." : "Email di conferma inviata.",
       });
+      qc.invalidateQueries({ queryKey: ["bookings"] });
+      qc.invalidateQueries({ queryKey: ["blocks"] });
       navigate({ to: "/client" });
     } finally {
       setConfirming(false);
