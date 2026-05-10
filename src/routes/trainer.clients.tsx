@@ -23,6 +23,9 @@ import { toast } from "sonner";
 import { sendInvitationEmail } from "@/lib/email";
 import { BlockAssignmentWizard } from "@/components/block-assignment-wizard";
 import { CsvImportClients } from "@/components/csv-import-clients";
+import { useClientBlocks, useCoachBookings } from "@/lib/queries";
+import { DeleteBlockButton } from "@/routes/trainer.blocks";
+import { Separator } from "@/components/ui/separator";
 
 export const Route = createFileRoute("/trainer/clients")({
   component: ClientsPage,
