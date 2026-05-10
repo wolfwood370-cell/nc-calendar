@@ -73,53 +73,65 @@ function AuthPage() {
     toast.success("Account creato", { description: "Benvenuto!" });
   };
 
+  const handleGoogleLogin = async () => {
+    setBusy(true);
+    try {
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin,
+      });
+      if (result.error) {
+        toast.error("Accesso con Google non riuscito", {
+          description: traduciErrore(String((result.error as any)?.message ?? result.error)),
+        });
+        setBusy(false);
+        return;
+      }
+      if (result.redirected) return;
+      navigate({ to: "/" });
+    } catch (err: any) {
+      toast.error("Accesso con Google non riuscito", { description: traduciErrore(err?.message ?? "") });
+      setBusy(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen grid lg:grid-cols-2">
-      <div className="relative hidden lg:flex flex-col justify-between p-12 bg-gradient-to-br from-primary/10 via-background to-accent/40 border-r">
-        <div className="flex items-center gap-2">
-          <div className="size-9 rounded-lg bg-primary text-primary-foreground grid place-items-center">
-            <Dumbbell className="size-5" />
+    <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 bg-surface">
+      <div className="w-full max-w-md">
+        <div className="flex flex-col items-center gap-3 mb-8">
+          <div className="size-12 rounded-2xl bg-primary text-primary-foreground grid place-items-center shadow-sm">
+            <Dumbbell className="size-6" />
           </div>
           <span className="font-display text-xl font-semibold tracking-tight">Stride</span>
         </div>
-        <div className="space-y-6 max-w-md">
-          <h1 className="font-display text-4xl font-semibold leading-tight tracking-tight">
-            Programmato in blocchi di 4 settimane. Prenotato in pochi secondi.
-          </h1>
-          <p className="text-muted-foreground">
-            Uno studio essenziale per personal trainer e clienti — quote, calendari e
-            valutazioni in un unico spazio di lavoro.
-          </p>
-          <div className="grid grid-cols-2 gap-3 pt-4">
-            <Card className="p-4">
-              <Users className="size-5 text-primary" />
-              <p className="mt-3 text-sm font-medium">Roster clienti</p>
-              <p className="text-xs text-muted-foreground">Gestisci ogni blocco e quota.</p>
-            </Card>
-            <Card className="p-4">
-              <Activity className="size-5 text-primary" />
-              <p className="mt-3 text-sm font-medium">Valutazioni</p>
-              <p className="text-xs text-muted-foreground">PT, BIA, Test Funzionale.</p>
-            </Card>
-          </div>
-        </div>
-        <p className="text-xs text-muted-foreground">© Stride Studio</p>
-      </div>
 
-      <div className="flex items-center justify-center p-6 sm:p-12">
-        <div className="w-full max-w-md space-y-8">
-          <div className="lg:hidden flex items-center gap-2">
-            <div className="size-9 rounded-lg bg-primary text-primary-foreground grid place-items-center">
-              <Dumbbell className="size-5" />
-            </div>
-            <span className="font-display text-xl font-semibold">Stride</span>
-          </div>
-
-          <div>
+        <div className="rounded-[24px] border border-outline-variant/40 bg-surface-container-lowest shadow-[0_8px_32px_-12px_rgba(0,0,0,0.08)] p-6 sm:p-8 space-y-6">
+          <div className="text-center space-y-1">
             <h2 className="font-display text-2xl font-semibold tracking-tight">Bentornato</h2>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-sm text-muted-foreground">
               Accedi al tuo account o registrati per iniziare.
             </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleGoogleLogin}
+            disabled={busy}
+            className="w-full h-12 rounded-full border border-outline-variant bg-white text-on-surface font-medium text-sm flex items-center justify-center gap-3 hover:bg-surface-container transition-colors disabled:opacity-60 disabled:pointer-events-none"
+          >
+            {busy ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <>
+                <GoogleIcon className="size-5" />
+                Continua con Google
+              </>
+            )}
+          </button>
+
+          <div className="flex items-center gap-3">
+            <Separator className="flex-1" />
+            <span className="text-xs text-muted-foreground whitespace-nowrap">oppure con email</span>
+            <Separator className="flex-1" />
           </div>
 
           <Tabs value={tab} onValueChange={(v) => setTab(v as "login" | "register")}>
@@ -175,13 +187,15 @@ function AuthPage() {
             </TabsContent>
           </Tabs>
         </div>
+
+        <p className="text-xs text-muted-foreground text-center mt-6">© Stride Studio</p>
       </div>
     </div>
   );
 }
 
 function traduciErrore(msg: string): string {
-  const m = msg.toLowerCase();
+  const m = (msg || "").toLowerCase();
   if (m.includes("invalid login")) return "Email o password non corrette.";
   if (m.includes("user already registered")) return "Questa email è già registrata.";
   if (m.includes("email not confirmed")) return "Conferma la tua email prima di accedere.";
