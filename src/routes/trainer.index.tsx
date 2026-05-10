@@ -29,6 +29,8 @@ function Overview() {
   const clientsQ = useCoachClients(coachId);
   const bookingsQ = useCoachBookings(coachId);
   const blocksQ = useCoachBlocks(coachId);
+  const eventTypesQ = useCoachEventTypes(coachId);
+  const eventTypes = eventTypesQ.data ?? [];
 
   const clients = clientsQ.data ?? [];
   const bookings = bookingsQ.data ?? [];
