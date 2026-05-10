@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { ChevronLeft, Check, Loader2, Video, MapPin } from "lucide-react";
+import { ChevronLeft, Check, Loader2, Video, MapPin, Sparkles } from "lucide-react";
 import { sessionLabel, type SessionType } from "@/lib/mock-data";
 import { useClientBlocks, useClientBookings, useCoachAvailability, useCoachAvailabilityExceptions, useCoachEventTypes, useCoachOptimizationEnabled, type AvailabilityRow, type AvailabilityExceptionRow, type EventTypeRow, type BookingRow } from "@/lib/queries";
 import { generateMockMeetLink } from "@/components/join-video-call-button";
