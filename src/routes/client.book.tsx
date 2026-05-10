@@ -536,26 +536,12 @@ function BookFlow() {
     }
   };
 
-  // ===== Aura UI helpers =====
-  const todayStart = startOfDay(new Date());
-  const daysWithSlots = useMemo(() => {
-    const set = new Set<string>();
-    for (const s of slots) set.add(format(s.date, "yyyy-MM-dd"));
-    return set;
-  }, [slots]);
-
   const monthStart = startOfMonth(calendarMonth);
   const monthEnd = endOfMonth(calendarMonth);
   const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 });
   const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
   const calendarDays: Date[] = [];
   for (let d = gridStart; d <= gridEnd; d = addDays(d, 1)) calendarDays.push(d);
-
-  const slotsForSelectedDay = useMemo(() => {
-    if (!selectedDate) return [];
-    const key = format(selectedDate, "yyyy-MM-dd");
-    return slots.filter((s) => format(s.date, "yyyy-MM-dd") === key);
-  }, [slots, selectedDate]);
 
   const selectedSlot = selectedISO ? slots.find((s) => s.iso === selectedISO) ?? null : null;
 
