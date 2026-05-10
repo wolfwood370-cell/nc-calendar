@@ -33,6 +33,7 @@ export default defineConfig({
         },
         workbox: {
           navigateFallbackDenylist: [/^\/~oauth/, /^\/api/, /^\/lovable/],
+          importScripts: ["/push-sw.js"],
           runtimeCaching: [
             {
               urlPattern: ({ request }) => request.mode === "navigate",
