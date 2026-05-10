@@ -347,14 +347,18 @@ function BookFlow() {
         });
       }
 
-      toast.success(`${totalPicked} ${totalPicked === 1 ? "sessione prenotata" : "sessioni prenotate"}`, {
-        description: emailNotificationsEnabled
-          ? "Email di conferma inviata. I link videochiamata sono generati automaticamente per le sessioni online."
-          : "I link videochiamata sono generati automaticamente per le sessioni online.",
-      });
-      qc.invalidateQueries({ queryKey: ["bookings"] });
-      qc.invalidateQueries({ queryKey: ["blocks"] });
-      navigate({ to: "/client" });
+      if (bookedCount === 0) {
+        toast.warning("Nessuna sessione prenotata", { description: "Verifica i crediti residui o la disponibilità." });
+      } else {
+        toast.success(`${bookedCount} ${bookedCount === 1 ? "sessione prenotata" : "sessioni prenotate"}`, {
+          description: emailNotificationsEnabled
+            ? "Email di conferma inviata. I link videochiamata sono generati automaticamente per le sessioni online."
+            : "I link videochiamata sono generati automaticamente per le sessioni online.",
+        });
+        qc.invalidateQueries({ queryKey: ["bookings"] });
+        qc.invalidateQueries({ queryKey: ["blocks"] });
+        navigate({ to: "/client" });
+      }
     } finally {
       setConfirming(false);
     }
