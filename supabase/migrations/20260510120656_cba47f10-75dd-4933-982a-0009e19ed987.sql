@@ -1,0 +1,1 @@
+ALTER TABLE public.integration_settings ADD COLUMN IF NOT EXISTS calendar_optimization_enabled boolean NOT NULL DEFAULT true;
