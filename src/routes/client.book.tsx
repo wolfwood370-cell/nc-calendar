@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { ChevronLeft, Check, Loader2, Video } from "lucide-react";
 import { sessionLabel, type SessionType } from "@/lib/mock-data";
-import { useClientBlocks, useClientBookings, useCoachAvailability, type AvailabilityRow } from "@/lib/queries";
+import { useClientBlocks, useClientBookings, useCoachAvailability, useCoachEventTypes, type AvailabilityRow, type EventTypeRow } from "@/lib/queries";
 import { generateMockMeetLink } from "@/components/join-video-call-button";
 import { toast } from "sonner";
 import { sendBookingConfirmationEmail } from "@/lib/email";
