@@ -3,31 +3,137 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { CalendarPlus, Activity, Flame, AlertTriangle } from "lucide-react";
-import { getActiveBlock, getCurrentClient, getCurrentWeek, sessionLabel, type SessionType, trainer, type Booking } from "@/lib/mock-data";
-import { useStoreBookings, useStoreBlocks, cancelBooking } from "@/lib/booking-store";
+import { sessionLabel, SESSION_TYPES, type SessionType } from "@/lib/mock-data";
+import { useClientBlocks, useClientBookings, useCancelBooking, type BookingRow } from "@/lib/queries";
 import { useMemo, useState } from "react";
 import { AddToCalendarButton } from "@/components/add-to-calendar-button";
 import { JoinVideoCallButton } from "@/components/join-video-call-button";
 import { toast } from "sonner";
 import { syncCalendar } from "@/lib/sync-calendar";
+import { useAuth } from "@/lib/auth";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/client/")({
   component: ClientHome,
 });
 
-const TYPES: SessionType[] = ["PT Session", "BIA", "Functional Test"];
+function getCurrentWeek(start: string): number {
+  const s = new Date(start).getTime();
+  const days = Math.floor((Date.now() - s) / (1000 * 60 * 60 * 24));
+  return Math.min(4, Math.max(1, Math.floor(days / 7) + 1));
+}
 
 function ClientHome() {
-  const me = getCurrentClient();
-  useStoreBlocks();
-  const allBookings = useStoreBookings();
-  const block = getActiveBlock(me.id);
-  const [pendingLate, setPendingLate] = useState<Booking | null>(null);
+  const { user } = useAuth();
+  const meId = user?.id;
+  const blocksQ = useClientBlocks(meId);
+  const bookingsQ = useClientBookings(meId);
+  const cancelM = useCancelBooking();
+  const [pendingLate, setPendingLate] = useState<BookingRow | null>(null);
+
+  // profilo per recuperare coach + nome
+  const profileQ = useQuery({
+    queryKey: ["profile", meId],
+    enabled: !!meId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, email, coach_id")
+        .eq("id", meId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const meName = profileQ.data?.full_name ?? user?.email ?? "Cliente";
+  const meEmail = profileQ.data?.email ?? user?.email ?? "";
+  const coachId = profileQ.data?.coach_id ?? null;
+
+  const block = (blocksQ.data ?? []).find((b) => b.status === "active");
+
+  const totals = useMemo(() => {
+    if (!block) return { assigned: 0, booked: 0, pct: 0 };
+    const assigned = block.allocations.reduce((s, a) => s + a.quantity_assigned, 0);
+    const booked = block.allocations.reduce((s, a) => s + a.quantity_booked, 0);
+    return { assigned, booked, pct: assigned ? Math.round((booked / assigned) * 100) : 0 };
+  }, [block]);
+
+  const upcoming = useMemo(
+    () =>
+      (bookingsQ.data ?? [])
+        .filter((b) => b.status === "scheduled" && new Date(b.scheduled_at) >= new Date())
+        .sort((a, b) => +new Date(a.scheduled_at) - +new Date(b.scheduled_at)),
+    [bookingsQ.data]
+  );
+
+  const findAllocationId = (b: BookingRow): string | null => {
+    if (!block) return null;
+    const cw = getCurrentWeek(block.start_date);
+    const a = block.allocations.find((x) => x.week_number === cw && x.session_type === b.session_type);
+    return a?.id ?? null;
+  };
+
+  const handleCancel = (b: BookingRow) => {
+    const hoursAway = (new Date(b.scheduled_at).getTime() - Date.now()) / (1000 * 60 * 60);
+    if (hoursAway >= 24) {
+      cancelM.mutate(
+        { id: b.id, late: false, allocationId: findAllocationId(b) },
+        {
+          onSuccess: () => {
+            if (coachId) {
+              syncCalendar({
+                action: "cancel", coachId, clientName: meName,
+                sessionLabel: sessionLabel(b.session_type), startISO: b.scheduled_at,
+              });
+            }
+            toast.success("Prenotazione annullata", { description: "Il credito è stato restituito al tuo blocco." });
+          },
+          onError: (e: unknown) => toast.error("Errore", { description: (e as Error).message }),
+        }
+      );
+    } else {
+      setPendingLate(b);
+    }
+  };
+
+  const confirmLate = () => {
+    if (!pendingLate) return;
+    const b = pendingLate;
+    cancelM.mutate(
+      { id: b.id, late: true },
+      {
+        onSuccess: () => {
+          if (coachId) {
+            syncCalendar({
+              action: "cancel", coachId, clientName: meName,
+              sessionLabel: sessionLabel(b.session_type), startISO: b.scheduled_at,
+            });
+          }
+          toast.error("Cancellazione tardiva", { description: "Il credito di questa sessione è stato perso." });
+          setPendingLate(null);
+        },
+        onError: (e: unknown) => toast.error("Errore", { description: (e as Error).message }),
+      }
+    );
+  };
+
+  if (blocksQ.isLoading || bookingsQ.isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-8 w-1/2" />
+        <Skeleton className="h-40 w-full" />
+        <Skeleton className="h-32 w-full" />
+      </div>
+    );
+  }
 
   if (!block) {
     return (
@@ -39,52 +145,13 @@ function ClientHome() {
     );
   }
 
-  const cw = getCurrentWeek(block);
-  const totals = useMemo(() => {
-    const assigned = block.allocations.reduce((s, a) => s + a.quantity_assigned, 0);
-    const booked = block.allocations.reduce((s, a) => s + a.quantity_booked, 0);
-    return { assigned, booked, pct: assigned ? Math.round((booked / assigned) * 100) : 0 };
-  }, [block]);
-
-  const upcoming = allBookings
-    .filter((b) => b.client_id === me.id && b.status === "scheduled" && new Date(b.scheduled_at) >= new Date())
-    .sort((a, b) => +new Date(a.scheduled_at) - +new Date(b.scheduled_at));
-
-  const handleCancel = (b: Booking) => {
-    const hoursAway = (new Date(b.scheduled_at).getTime() - Date.now()) / (1000 * 60 * 60);
-    if (hoursAway >= 24) {
-      cancelBooking(b.id, { late: false });
-      syncCalendar({
-        action: "cancel",
-        coachId: trainer.id,
-        clientName: me.full_name,
-        sessionLabel: sessionLabel(b.session_type),
-        startISO: b.scheduled_at,
-      });
-      toast.success("Prenotazione annullata", { description: "Il credito è stato restituito al tuo blocco." });
-    } else {
-      setPendingLate(b);
-    }
-  };
-
-  const confirmLate = () => {
-    if (!pendingLate) return;
-    cancelBooking(pendingLate.id, { late: true });
-    syncCalendar({
-      action: "cancel",
-      coachId: trainer.id,
-      clientName: me.full_name,
-      sessionLabel: sessionLabel(pendingLate.session_type),
-      startISO: pendingLate.scheduled_at,
-    });
-    toast.error("Cancellazione tardiva", { description: "Il credito di questa sessione è stato perso." });
-    setPendingLate(null);
-  };
+  const cw = getCurrentWeek(block.start_date);
+  void meEmail;
 
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-sm text-muted-foreground">Ciao, {me.full_name.split(" ")[0]}</p>
+        <p className="text-sm text-muted-foreground">Ciao, {meName.split(" ")[0]}</p>
         <h1 className="font-display text-3xl font-semibold tracking-tight mt-1">Il tuo blocco di allenamento</h1>
       </div>
 
@@ -133,7 +200,7 @@ function ClientHome() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
-                {TYPES.map((t) => {
+                {SESSION_TYPES.map((t: SessionType) => {
                   const a = wAlloc.find((x) => x.session_type === t);
                   if (!a || a.quantity_assigned === 0) return null;
                   const pct = Math.round((a.quantity_booked / a.quantity_assigned) * 100);
@@ -160,7 +227,7 @@ function ClientHome() {
           <CardDescription>Le cancellazioni entro 24 ore comportano la perdita del credito.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
-          {upcoming.length === 0 && <p className="text-sm text-muted-foreground">Nessuna prenotazione attiva.</p>}
+          {upcoming.length === 0 && <p className="text-sm text-muted-foreground">Nessuna sessione in programma.</p>}
           {upcoming.map((b) => {
             const d = new Date(b.scheduled_at);
             return (
@@ -177,10 +244,10 @@ function ClientHome() {
                   <AddToCalendarButton
                     sessionLabel={sessionLabel(b.session_type)}
                     startsAt={d}
-                    coachName={trainer.full_name}
-                    clientName={me.full_name}
+                    coachName="Coach"
+                    clientName={meName}
                   />
-                  <Button variant="ghost" size="sm" onClick={() => handleCancel(b)}>
+                  <Button variant="ghost" size="sm" onClick={() => handleCancel(b)} disabled={cancelM.isPending}>
                     Cancella
                   </Button>
                 </div>
