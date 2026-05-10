@@ -372,13 +372,25 @@ function BookFlow() {
       toast.error("Coach non assegnato. Contatta il tuo coach.");
       return;
     }
+    if (!selectedISO || !selectedPoolKey) {
+      toast.error("Seleziona data e orario.");
+      return;
+    }
+    const pool = pools.find((p) => p.key === selectedPoolKey);
+    if (!pool) {
+      toast.error("Tipologia non disponibile.");
+      return;
+    }
     setConfirming(true);
     try {
       // tracker locale per non sforare quando si prenotano più slot dello stesso tipo
       const localUsed: Record<string, number> = {}; // alloc_id -> count
       let bookedCount = 0;
 
-      for (const [iso, pick] of Object.entries(picked)) {
+      const entries: [string, { type: SessionType; eventTypeId: string | null }][] = [
+        [selectedISO, { type: pool.type, eventTypeId: pool.eventTypeId }],
+      ];
+      for (const [iso, pick] of entries) {
         const type = pick.type;
         const eventType = pick.eventTypeId
           ? customTypes.find((e) => e.id === pick.eventTypeId)
