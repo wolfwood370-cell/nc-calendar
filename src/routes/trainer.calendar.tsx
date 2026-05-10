@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,13 +8,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, UserX } from "lucide-react";
+import { Loader2, MoreHorizontal, UserX } from "lucide-react";
 import { sessionLabel } from "@/lib/mock-data";
 import { useCoachBookings, useCoachClients, useMarkNoShow } from "@/lib/queries";
 import { AddToCalendarButton } from "@/components/add-to-calendar-button";
 import { JoinVideoCallButton } from "@/components/join-video-call-button";
 import { BookingStatusBadge } from "@/components/booking-status-badge";
 import { useAuth } from "@/lib/auth";
+import { syncCalendarAwait } from "@/lib/sync-calendar";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/trainer/calendar")({
