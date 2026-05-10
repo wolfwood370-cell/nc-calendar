@@ -22,6 +22,7 @@ import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { sendInvitationEmail } from "@/lib/email";
 import { BlockAssignmentWizard } from "@/components/block-assignment-wizard";
+import { CsvImportClients } from "@/components/csv-import-clients";
 
 export const Route = createFileRoute("/trainer/clients")({
   component: ClientsPage,
