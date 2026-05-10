@@ -91,17 +91,15 @@ export function BlockAssignmentWizard({ clientId, clientName, onCreated }: Props
           quantity_assigned: number;
         }> = [];
         for (const et of eventTypes) {
-          const weekly = quotas[et.id] ?? 0;
-          if (weekly <= 0) continue;
-          for (let wn = 1; wn <= 4; wn++) {
-            rows.push({
-              block_id: block.id,
-              week_number: wn,
-              session_type: et.base_type as SessionType,
-              event_type_id: et.id,
-              quantity_assigned: weekly,
-            });
-          }
+          const total = quotas[et.id] ?? 0;
+          if (total <= 0) continue;
+          rows.push({
+            block_id: block.id,
+            week_number: 1,
+            session_type: et.base_type as SessionType,
+            event_type_id: et.id,
+            quantity_assigned: total,
+          });
         }
         if (rows.length > 0) {
           const { error: aerr } = await supabase.from("block_allocations").insert(rows);
