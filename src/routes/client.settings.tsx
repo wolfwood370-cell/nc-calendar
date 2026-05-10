@@ -86,6 +86,29 @@ function ClientSettings() {
         <h1 className="font-display text-3xl font-semibold tracking-tight">Impostazioni</h1>
         <p className="text-sm text-muted-foreground mt-1">Gestisci le tue preferenze di notifica.</p>
       </div>
+      <Alert>
+        <BellRing className="size-4" />
+        <AlertTitle>Rimani Aggiornato</AlertTitle>
+        <AlertDescription className="space-y-3">
+          <p>
+            {pushEnabled
+              ? "Le notifiche push sono attive su questo dispositivo."
+              : "Attiva le notifiche per ricevere conferme e promemoria direttamente sul telefono."}
+          </p>
+          {!pushEnabled && (
+            <Button size="sm" onClick={enablePush} disabled={!pushSupported || pushBusy}>
+              <Bell className="size-4" />
+              {pushBusy ? "Attivazione..." : "Attiva Notifiche sul Telefono"}
+            </Button>
+          )}
+          {!pushSupported && (
+            <p className="text-xs text-muted-foreground">
+              Il tuo dispositivo o browser non supporta le notifiche push.
+            </p>
+          )}
+        </AlertDescription>
+      </Alert>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Notifiche</CardTitle>
