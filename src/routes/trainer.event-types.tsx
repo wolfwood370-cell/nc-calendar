@@ -22,16 +22,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import type { SessionType } from "@/lib/mock-data";
 import { toast } from "sonner";
+import { GCAL_COLORS, GCAL_DEFAULT, nameForColor } from "@/lib/event-colors";
 
 export const Route = createFileRoute("/trainer/event-types")({
   component: EventTypesPage,
 });
-
-const COLOR_PRESETS = [
-  "#3b82f6", "#22c55e", "#ef4444", "#f59e0b",
-  "#8b5cf6", "#ec4899", "#14b8a6", "#0ea5e9",
-  "#a855f7", "#64748b",
-];
 
 const schema = z.object({
   name: z.string().trim().min(1, "Nome obbligatorio").max(60),
@@ -224,7 +219,7 @@ function EventTypeDialog({
 }) {
   const [name, setName] = useState(initial?.name ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
-  const [color, setColor] = useState(initial?.color ?? COLOR_PRESETS[0]);
+  const [color, setColor] = useState(initial?.color ?? GCAL_DEFAULT);
   const [duration, setDuration] = useState<number>(initial?.duration ?? 60);
   const [locationType, setLocationType] = useState<"physical" | "online">(initial?.location_type ?? "physical");
   const [bufferMinutes, setBufferMinutes] = useState<number>(initial?.buffer_minutes ?? 0);
@@ -291,23 +286,26 @@ function EventTypeDialog({
           </RadioGroup>
         </div>
         <div className="space-y-2">
-          <Label>Colore</Label>
-          <div className="flex flex-wrap gap-2">
-            {COLOR_PRESETS.map((c) => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => setColor(c)}
-                className={`size-8 rounded-md border-2 transition ${color === c ? "border-foreground scale-110" : "border-transparent"}`}
-                style={{ backgroundColor: c }}
-                aria-label={c}
-              />
-            ))}
-            <Input
-              type="text" value={color} onChange={(e) => setColor(e.target.value)}
-              className="w-28 font-mono text-xs" placeholder="#3b82f6"
-            />
+          <Label>Colore (palette Google Calendar)</Label>
+          <div className="grid grid-cols-6 gap-2 sm:grid-cols-11">
+            {GCAL_COLORS.map((c) => {
+              const selected = color.toLowerCase() === c.hex.toLowerCase();
+              return (
+                <button
+                  key={c.hex}
+                  type="button"
+                  onClick={() => setColor(c.hex)}
+                  title={c.name}
+                  aria-label={c.name}
+                  className={`size-8 rounded-full border-2 transition ${selected ? "border-foreground scale-110 ring-2 ring-offset-2 ring-offset-background ring-foreground/20" : "border-transparent hover:scale-105"}`}
+                  style={{ backgroundColor: c.hex }}
+                />
+              );
+            })}
           </div>
+          <p className="text-xs text-muted-foreground">
+            Selezionato: <span className="font-medium">{nameForColor(color) ?? color}</span>
+          </p>
         </div>
         <DialogFooter>
           <Button type="submit" disabled={submitting}>

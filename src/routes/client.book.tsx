@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { ChevronLeft, Check, Loader2, Video, MapPin } from "lucide-react";
+import { ChevronLeft, Check, Loader2, Video, MapPin, Sparkles } from "lucide-react";
 import { sessionLabel, type SessionType } from "@/lib/mock-data";
 import { useClientBlocks, useClientBookings, useCoachAvailability, useCoachAvailabilityExceptions, useCoachEventTypes, useCoachOptimizationEnabled, type AvailabilityRow, type AvailabilityExceptionRow, type EventTypeRow, type BookingRow } from "@/lib/queries";
 import { generateMockMeetLink } from "@/components/join-video-call-button";
@@ -328,6 +328,33 @@ function BookFlow() {
         const isOnline = eventType?.location_type === "online";
         const meetingLink = isOnline ? generateMockMeetLink() : null;
 
+        // Hard conflict check (server-side ricontrollo: nessuna sovrapposizione)
+        const newDuration = eventType?.duration ?? 60;
+        const newBuffer = eventType?.buffer_minutes ?? 0;
+        const slotStartMs = new Date(iso).getTime();
+        const slotEndMs = slotStartMs + (newDuration + newBuffer) * 60_000;
+        const winStartIso = new Date(slotStartMs - 4 * 60 * 60_000).toISOString();
+        const winEndIso = new Date(slotEndMs + 4 * 60 * 60_000).toISOString();
+        const { data: nearby } = await supabase
+          .from("bookings")
+          .select("scheduled_at, event_type_id, status")
+          .eq("coach_id", coachId)
+          .in("status", ["scheduled", "completed"])
+          .gte("scheduled_at", winStartIso)
+          .lte("scheduled_at", winEndIso);
+        const conflict = (nearby ?? []).some((b) => {
+          const et = b.event_type_id ? customTypes.find((e) => e.id === b.event_type_id) : null;
+          const dur = et?.duration ?? 60;
+          const buf = et?.buffer_minutes ?? 0;
+          const bStart = new Date(b.scheduled_at).getTime();
+          const bEnd = bStart + (dur + buf) * 60_000;
+          return slotStartMs < bEnd && slotEndMs > bStart;
+        });
+        if (conflict) {
+          toast.error("Questo orario è stato appena occupato. Scegli un altro slot.");
+          continue;
+        }
+
         // INSERT booking
         const { error: bErr } = await supabase.from("bookings").insert({
           client_id: meId!,
@@ -486,8 +513,12 @@ function BookFlow() {
                               </Badge>
                             );
                           })() : s.recommended ? (
-                            <Badge variant="secondary" className="bg-success/10 text-success border-success/20 text-[10px] px-1.5 py-0">
-                              Consigliato
+                            <Badge
+                              variant="secondary"
+                              className="text-[10px] px-1.5 py-0 inline-flex items-center gap-1 border"
+                              style={{ backgroundColor: "rgba(51,184,100,0.10)", color: "#0B8043", borderColor: "rgba(51,184,100,0.30)" }}
+                            >
+                              <Sparkles className="size-2.5" /> Consigliato
                             </Badge>
                           ) : null}
                         </div>
