@@ -5,12 +5,16 @@ import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Loader2, MoreHorizontal, UserX } from "lucide-react";
+import { Loader2, MoreHorizontal, UserX, NotebookPen, Save } from "lucide-react";
 import { sessionLabel } from "@/lib/mock-data";
-import { useCoachBookings, useCoachClients, useCoachEventTypes, useMarkNoShow } from "@/lib/queries";
+import { useCoachBookings, useCoachClients, useCoachEventTypes, useMarkNoShow, useUpdateTrainerNotes, type BookingRow } from "@/lib/queries";
 import { AddToCalendarButton } from "@/components/add-to-calendar-button";
 import { JoinVideoCallButton } from "@/components/join-video-call-button";
 import { BookingStatusBadge } from "@/components/booking-status-badge";
@@ -36,6 +40,27 @@ function CalendarPage() {
   const clientsQ = useCoachClients(user?.id);
   const eventTypesQ = useCoachEventTypes(user?.id);
   const noShow = useMarkNoShow();
+  const updateNotes = useUpdateTrainerNotes();
+  const [activeBooking, setActiveBooking] = useState<BookingRow | null>(null);
+  const [notesDraft, setNotesDraft] = useState("");
+
+  const openNotes = (b: BookingRow) => {
+    setActiveBooking(b);
+    setNotesDraft(b.trainer_notes ?? "");
+  };
+  const saveNotes = () => {
+    if (!activeBooking) return;
+    updateNotes.mutate(
+      { id: activeBooking.id, notes: notesDraft },
+      {
+        onSuccess: () => {
+          toast.success("Note salvate");
+          setActiveBooking(null);
+        },
+        onError: (e: unknown) => toast.error("Errore", { description: (e as Error).message }),
+      }
+    );
+  };
 
   const bookings = bookingsQ.data ?? [];
   const clientsMap = useMemo(() => {
@@ -181,6 +206,10 @@ function CalendarPage() {
                       coachName={coachName}
                       clientName={displayName}
                     />
+                    <Button size="sm" variant="outline" onClick={() => openNotes(b)}>
+                      <NotebookPen className="size-4" />
+                      {b.trainer_notes ? "Note" : "Aggiungi note"}
+                    </Button>
                     {b.status === "scheduled" && !isUnmatchedSync && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -200,6 +229,37 @@ function CalendarPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={!!activeBooking} onOpenChange={(o) => !o && setActiveBooking(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Dettagli sessione</DialogTitle>
+            <DialogDescription>
+              {activeBooking && (() => {
+                const dd = new Date(activeBooking.scheduled_at);
+                const cli = clientsMap.get(activeBooking.client_id) ?? "Cliente";
+                return `${cli} · ${dd.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" })} · ${dd.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}`;
+              })()}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Note di Sessione (visibili solo al Coach)</label>
+            <Textarea
+              rows={6}
+              placeholder="Esercizi svolti, carichi, feedback…"
+              value={notesDraft}
+              onChange={(e) => setNotesDraft(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setActiveBooking(null)}>Annulla</Button>
+            <Button onClick={saveNotes} disabled={updateNotes.isPending}>
+              {updateNotes.isPending ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+              Salva note
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

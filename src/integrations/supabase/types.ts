@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      availability_exceptions: {
+        Row: {
+          coach_id: string
+          created_at: string
+          date: string
+          end_time: string | null
+          id: string
+          reason: string
+          start_time: string | null
+          updated_at: string
+        }
+        Insert: {
+          coach_id: string
+          created_at?: string
+          date: string
+          end_time?: string | null
+          id?: string
+          reason?: string
+          start_time?: string | null
+          updated_at?: string
+        }
+        Update: {
+          coach_id?: string
+          created_at?: string
+          date?: string
+          end_time?: string | null
+          id?: string
+          reason?: string
+          start_time?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       block_allocations: {
         Row: {
           block_id: string
@@ -70,6 +103,7 @@ export type Database = {
           scheduled_at: string
           session_type: Database["public"]["Enums"]["session_type"]
           status: Database["public"]["Enums"]["booking_status"]
+          trainer_notes: string | null
           updated_at: string
         }
         Insert: {
@@ -86,6 +120,7 @@ export type Database = {
           scheduled_at: string
           session_type: Database["public"]["Enums"]["session_type"]
           status?: Database["public"]["Enums"]["booking_status"]
+          trainer_notes?: string | null
           updated_at?: string
         }
         Update: {
@@ -102,6 +137,7 @@ export type Database = {
           scheduled_at?: string
           session_type?: Database["public"]["Enums"]["session_type"]
           status?: Database["public"]["Enums"]["booking_status"]
+          trainer_notes?: string | null
           updated_at?: string
         }
         Relationships: [

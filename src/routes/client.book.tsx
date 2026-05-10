@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { ChevronLeft, Check, Loader2, Video, MapPin } from "lucide-react";
 import { sessionLabel, type SessionType } from "@/lib/mock-data";
-import { useClientBlocks, useClientBookings, useCoachAvailability, useCoachEventTypes, type AvailabilityRow, type EventTypeRow, type BookingRow } from "@/lib/queries";
+import { useClientBlocks, useClientBookings, useCoachAvailability, useCoachAvailabilityExceptions, useCoachEventTypes, type AvailabilityRow, type AvailabilityExceptionRow, type EventTypeRow, type BookingRow } from "@/lib/queries";
 import { generateMockMeetLink } from "@/components/join-video-call-button";
 import { toast } from "sonner";
 import { sendBookingConfirmationEmail } from "@/lib/email";
@@ -38,13 +38,24 @@ function generateSlots(
   daysAhead: number,
   blockedRanges: BlockedRange[],
   availability: AvailabilityRow[],
+  exceptions: AvailabilityExceptionRow[],
 ): Slot[] {
   const slots: Slot[] = [];
   const now = new Date();
+  // Pre-index exceptions by YYYY-MM-DD
+  const excByDate = new Map<string, AvailabilityExceptionRow[]>();
+  for (const ex of exceptions) {
+    if (!excByDate.has(ex.date)) excByDate.set(ex.date, []);
+    excByDate.get(ex.date)!.push(ex);
+  }
   for (let i = 0; i < daysAhead; i++) {
     const day = new Date(now);
     day.setDate(now.getDate() + i);
     const dow = jsDowToIso(day.getDay());
+    const dateKey = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+    const dayExceptions = excByDate.get(dateKey) ?? [];
+    // Se esiste un'eccezione full-day (start_time/end_time entrambi null), salta tutto il giorno
+    if (dayExceptions.some((ex) => !ex.start_time || !ex.end_time)) continue;
     const blocks = availability.filter((a) => a.day_of_week === dow);
     for (const b of blocks) {
       const s = parseHM(b.start_time);
@@ -60,6 +71,18 @@ function generateSlots(
         // blocca lo slot se interseca un range già occupato (durata + buffer)
         const overlaps = blockedRanges.some((r) => slotStart < r.end && slotEnd > r.start);
         if (overlaps) continue;
+        // blocca lo slot se interseca un'eccezione parziale del giorno
+        const inException = dayExceptions.some((ex) => {
+          if (!ex.start_time || !ex.end_time) return false;
+          const exS = parseHM(ex.start_time);
+          const exE = parseHM(ex.end_time);
+          const exStart = new Date(day);
+          exStart.setHours(exS.h, exS.m, 0, 0);
+          const exEnd = new Date(day);
+          exEnd.setHours(exE.h, exE.m, 0, 0);
+          return slotStart < exEnd.getTime() && slotEnd > exStart.getTime();
+        });
+        if (inException) continue;
         slots.push({ iso: slot.toISOString(), date: slot });
       }
     }
@@ -97,6 +120,7 @@ function BookFlow() {
   const block = (blocksQ.data ?? []).find((b) => b.status === "active");
   const coachIdForAvail = profileQ.data?.coach_id ?? null;
   const availQ = useCoachAvailability(coachIdForAvail);
+  const exceptionsQ = useCoachAvailabilityExceptions(coachIdForAvail);
   const eventTypesQ = useCoachEventTypes(coachIdForAvail);
 
   // Tipologie evento personalizzate del coach (fallback alle 3 default se vuoto).
@@ -119,8 +143,8 @@ function BookFlow() {
   }, [bookingsQ.data, customTypes]);
 
   const slots = useMemo(
-    () => generateSlots(28, blockedRanges, availQ.data ?? []),
-    [blockedRanges, availQ.data]
+    () => generateSlots(28, blockedRanges, availQ.data ?? [], exceptionsQ.data ?? []),
+    [blockedRanges, availQ.data, exceptionsQ.data]
   );
   const grouped = useMemo(() => {
     const m = new Map<string, Slot[]>();

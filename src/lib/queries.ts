@@ -14,7 +14,17 @@ export interface BookingRow {
   deleted_at: string | null;
   event_type_id: string | null;
   notes: string | null;
+  trainer_notes: string | null;
   google_event_id: string | null;
+}
+
+export interface AvailabilityExceptionRow {
+  id: string;
+  coach_id: string;
+  date: string; // YYYY-MM-DD
+  start_time: string | null; // HH:MM:SS
+  end_time: string | null;
+  reason: string;
 }
 
 export interface AllocationRow {
@@ -71,7 +81,7 @@ export function useCoachBookings(coachId?: string) {
     queryFn: async (): Promise<BookingRow[]> => {
       const { data, error } = await supabase
         .from("bookings")
-        .select("id, client_id, coach_id, block_id, session_type, scheduled_at, status, meeting_link, deleted_at, event_type_id, notes, google_event_id")
+        .select("id, client_id, coach_id, block_id, session_type, scheduled_at, status, meeting_link, deleted_at, event_type_id, notes, trainer_notes, google_event_id")
         .eq("coach_id", coachId!)
         .is("deleted_at", null)
         .order("scheduled_at", { ascending: true });
@@ -88,7 +98,7 @@ export function useClientBookings(clientId?: string) {
     queryFn: async (): Promise<BookingRow[]> => {
       const { data, error } = await supabase
         .from("bookings")
-        .select("id, client_id, coach_id, block_id, session_type, scheduled_at, status, meeting_link, deleted_at, event_type_id, notes, google_event_id")
+        .select("id, client_id, coach_id, block_id, session_type, scheduled_at, status, meeting_link, deleted_at, event_type_id, notes, trainer_notes, google_event_id")
         .eq("client_id", clientId!)
         .is("deleted_at", null)
         .order("scheduled_at", { ascending: true });
@@ -233,6 +243,36 @@ export function useMarkNoShow() {
         .from("bookings")
         .update({ status: "no_show" as BookingStatus })
         .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["bookings"] }),
+  });
+}
+
+export function useCoachAvailabilityExceptions(coachId?: string | null) {
+  return useQuery({
+    queryKey: ["availability_exceptions", coachId],
+    enabled: !!coachId,
+    queryFn: async (): Promise<AvailabilityExceptionRow[]> => {
+      const { data, error } = await supabase
+        .from("availability_exceptions")
+        .select("id, coach_id, date, start_time, end_time, reason")
+        .eq("coach_id", coachId!)
+        .order("date", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as AvailabilityExceptionRow[];
+    },
+  });
+}
+
+export function useUpdateTrainerNotes() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; notes: string }) => {
+      const { error } = await supabase
+        .from("bookings")
+        .update({ trainer_notes: input.notes })
+        .eq("id", input.id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["bookings"] }),

@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, ArrowRight, CalendarCheck, Users, Activity, Clock } from "lucide-react";
+import { AlertTriangle, ArrowRight, CalendarCheck, Users, Activity, Clock, PhoneCall, UserCheck } from "lucide-react";
 import { sessionLabel } from "@/lib/mock-data";
 import { useCoachBlocks, useCoachBookings, useCoachClients } from "@/lib/queries";
 import { AddToCalendarButton } from "@/components/add-to-calendar-button";
@@ -66,6 +66,40 @@ function Overview() {
     }
     return result;
   }, [blocks, clientNameById]);
+
+  // Clienti a rischio: hanno crediti residui in un blocco attivo ma nessuna prenotazione futura.
+  const atRisk = useMemo(() => {
+    const now = Date.now();
+    const futureByClient = new Map<string, number>();
+    for (const b of bookings) {
+      if (b.status === "scheduled" && new Date(b.scheduled_at).getTime() >= now) {
+        futureByClient.set(b.client_id, (futureByClient.get(b.client_id) ?? 0) + 1);
+      }
+    }
+    const remainingByClient = new Map<string, number>();
+    for (const block of blocks) {
+      if (block.status !== "active") continue;
+      const remaining = block.allocations.reduce(
+        (s, a) => s + Math.max(0, a.quantity_assigned - a.quantity_booked),
+        0
+      );
+      if (remaining > 0) {
+        remainingByClient.set(block.client_id, (remainingByClient.get(block.client_id) ?? 0) + remaining);
+      }
+    }
+    const list: { clientId: string; name: string; phone: string | null; missing: number }[] = [];
+    for (const [clientId, missing] of remainingByClient.entries()) {
+      if ((futureByClient.get(clientId) ?? 0) > 0) continue;
+      const c = clients.find((x) => x.id === clientId);
+      list.push({
+        clientId,
+        name: c?.full_name ?? c?.email ?? "Cliente",
+        phone: c?.phone ?? null,
+        missing,
+      });
+    }
+    return list.sort((a, b) => b.missing - a.missing);
+  }, [bookings, blocks, clients]);
 
   const totalAssigned = blocks.flatMap((b) => b.allocations).reduce((s, a) => s + a.quantity_assigned, 0);
   const totalBooked = blocks.flatMap((b) => b.allocations).reduce((s, a) => s + a.quantity_booked, 0);
@@ -167,6 +201,52 @@ function Overview() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <div className="size-8 rounded-md bg-destructive/10 text-destructive grid place-items-center">
+              <PhoneCall className="size-4" />
+            </div>
+            <div>
+              <CardTitle className="text-base">Clienti da ricontattare</CardTitle>
+              <CardDescription>
+                Hanno crediti residui ma nessuna prenotazione futura.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {loading && <Skeleton className="h-12 w-full" />}
+          {!loading && atRisk.length === 0 && (
+            <p className="text-sm text-muted-foreground flex items-center gap-2">
+              <UserCheck className="size-4 text-success" /> Nessun cliente da ricontattare. Ottimo lavoro!
+            </p>
+          )}
+          {!loading && atRisk.map((c) => (
+            <div key={c.clientId} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3">
+              <div>
+                <p className="text-sm font-medium">{c.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {c.phone ?? "Telefono non disponibile"}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="border-destructive/40 text-destructive">
+                  {c.missing} {c.missing === 1 ? "sessione mancante" : "sessioni mancanti"}
+                </Badge>
+                {c.phone && (
+                  <Button size="sm" variant="outline" asChild>
+                    <a href={`tel:${c.phone}`}>
+                      <PhoneCall className="size-4" /> Chiama
+                    </a>
+                  </Button>
+                )}
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
     </div>
   );
 }
