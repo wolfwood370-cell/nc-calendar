@@ -164,6 +164,7 @@ function BookFlow() {
   const availQ = useCoachAvailability(coachIdForAvail);
   const exceptionsQ = useCoachAvailabilityExceptions(coachIdForAvail);
   const eventTypesQ = useCoachEventTypes(coachIdForAvail);
+  const optimizationQ = useCoachOptimizationEnabled(coachIdForAvail);
   const coachProfileQ = useQuery({
     queryKey: ["coach-profile", coachIdForAvail],
     enabled: !!coachIdForAvail,
