@@ -226,11 +226,20 @@ export function useCancelBooking() {
   return useMutation({
     mutationFn: async (input: { id: string; late: boolean; allocationId?: string | null }) => {
       const status: BookingStatus = input.late ? "late_cancelled" : "cancelled";
+
+      // Recupera info per Google Calendar sync prima di marcare deleted_at
+      const { data: bk } = await supabase
+        .from("bookings")
+        .select("id, coach_id, client_id, google_event_id, scheduled_at, session_type, event_type_id")
+        .eq("id", input.id)
+        .maybeSingle();
+
       const { error } = await supabase
         .from("bookings")
         .update({ status, deleted_at: new Date().toISOString() })
         .eq("id", input.id);
       if (error) throw error;
+
       // se la cancellazione è in tempo, restituisci il credito
       if (!input.late && input.allocationId) {
         const { data: alloc } = await supabase
@@ -243,6 +252,36 @@ export function useCancelBooking() {
             .from("block_allocations")
             .update({ quantity_booked: Math.max(0, alloc.quantity_booked - 1) })
             .eq("id", input.allocationId);
+        }
+      }
+
+      // Sync Google Calendar: late => patch (mantieni evento grigio), free => delete
+      if (bk?.google_event_id && bk.coach_id) {
+        try {
+          let clientName: string | undefined;
+          let sessionLabel: string | undefined;
+          if (input.late) {
+            const [clientRes, etRes] = await Promise.all([
+              supabase.from("profiles").select("full_name").eq("id", bk.client_id).maybeSingle(),
+              bk.event_type_id
+                ? supabase.from("event_types").select("name").eq("id", bk.event_type_id).maybeSingle()
+                : Promise.resolve({ data: null }),
+            ]);
+            clientName = (clientRes.data as { full_name: string | null } | null)?.full_name ?? "Cliente";
+            sessionLabel = (etRes.data as { name: string } | null)?.name ?? "Sessione";
+          }
+          await supabase.functions.invoke("sync-calendar", {
+            body: {
+              action: "cancel",
+              coach_id: bk.coach_id,
+              google_event_id: bk.google_event_id,
+              late: input.late,
+              client_name: clientName,
+              session_label: sessionLabel,
+            },
+          });
+        } catch (err) {
+          console.error("sync-calendar cancel failed", err);
         }
       }
     },
