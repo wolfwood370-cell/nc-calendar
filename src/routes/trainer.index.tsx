@@ -3,25 +3,46 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import { AlertTriangle, ArrowRight, CalendarCheck, Users, Activity, Clock } from "lucide-react";
-import { blocks, clients, getCurrentWeek, clientName, sessionLabel, trainer } from "@/lib/mock-data";
-import { useStoreBookings } from "@/lib/booking-store";
+import { sessionLabel } from "@/lib/mock-data";
+import { useCoachBlocks, useCoachBookings, useCoachClients } from "@/lib/queries";
 import { AddToCalendarButton } from "@/components/add-to-calendar-button";
 import { JoinVideoCallButton } from "@/components/join-video-call-button";
 import { BookingStatusBadge } from "@/components/booking-status-badge";
+import { useAuth } from "@/lib/auth";
 import { useMemo } from "react";
 
 export const Route = createFileRoute("/trainer/")({
   component: Overview,
 });
 
+function getCurrentWeek(start: string, end: string): number {
+  const s = new Date(start).getTime();
+  const days = Math.floor((Date.now() - s) / (1000 * 60 * 60 * 24));
+  return Math.min(4, Math.max(1, Math.floor(days / 7) + 1));
+}
+
 function Overview() {
-  const bookings = useStoreBookings();
+  const { user } = useAuth();
+  const coachId = user?.id;
+  const clientsQ = useCoachClients(coachId);
+  const bookingsQ = useCoachBookings(coachId);
+  const blocksQ = useCoachBlocks(coachId);
+
+  const clients = clientsQ.data ?? [];
+  const bookings = bookingsQ.data ?? [];
+  const blocks = blocksQ.data ?? [];
+  const clientNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    clients.forEach((c) => m.set(c.id, c.full_name ?? c.email ?? "Cliente"));
+    return m;
+  }, [clients]);
+
   const upcoming = useMemo(
     () =>
       bookings
         .filter((b) => b.status === "scheduled" && new Date(b.scheduled_at) >= new Date())
-        .sort((a, b) => +new Date(a.scheduled_at) - +new Date(b.scheduled_at))
         .slice(0, 6),
     [bookings]
   );
@@ -29,12 +50,13 @@ function Overview() {
   const alerts = useMemo(() => {
     const result: { client: string; week: number; type: string; remaining: number }[] = [];
     for (const block of blocks) {
-      const cw = getCurrentWeek(block);
+      if (block.status !== "active") continue;
+      const cw = getCurrentWeek(block.start_date, block.end_date);
       for (const a of block.allocations) {
         const remaining = a.quantity_assigned - a.quantity_booked;
         if (remaining > 0 && (a.week_number === cw || a.week_number === cw + 1)) {
           result.push({
-            client: clientName(block.client_id),
+            client: clientNameById.get(block.client_id) ?? "Cliente",
             week: a.week_number,
             type: sessionLabel(a.session_type),
             remaining,
@@ -43,11 +65,13 @@ function Overview() {
       }
     }
     return result;
-  }, []);
+  }, [blocks, clientNameById]);
 
   const totalAssigned = blocks.flatMap((b) => b.allocations).reduce((s, a) => s + a.quantity_assigned, 0);
   const totalBooked = blocks.flatMap((b) => b.allocations).reduce((s, a) => s + a.quantity_booked, 0);
-  const utilization = Math.round((totalBooked / totalAssigned) * 100);
+  const utilization = totalAssigned ? Math.round((totalBooked / totalAssigned) * 100) : 0;
+
+  const loading = clientsQ.isLoading || bookingsQ.isLoading || blocksQ.isLoading;
 
   return (
     <div className="space-y-6">
@@ -57,10 +81,10 @@ function Overview() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <Stat icon={Users} label="Clienti attivi" value={clients.length.toString()} hint="totale roster" />
-        <Stat icon={Activity} label="Blocchi attivi" value={blocks.length.toString()} hint="ciclo corrente" />
-        <Stat icon={CalendarCheck} label="Sessioni in arrivo" value={upcoming.length.toString()} hint="prossimi 14 giorni" />
-        <Stat icon={Clock} label="Utilizzo blocchi" value={`${utilization}%`} hint="prenotate vs assegnate" progress={utilization} />
+        <Stat icon={Users} label="Clienti attivi" value={loading ? "—" : clients.length.toString()} hint="totale roster" />
+        <Stat icon={Activity} label="Blocchi attivi" value={loading ? "—" : blocks.filter((b) => b.status === "active").length.toString()} hint="ciclo corrente" />
+        <Stat icon={CalendarCheck} label="Sessioni in arrivo" value={loading ? "—" : upcoming.length.toString()} hint="prossimi appuntamenti" />
+        <Stat icon={Clock} label="Utilizzo blocchi" value={loading ? "—" : `${utilization}%`} hint="prenotate vs assegnate" progress={utilization} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -75,8 +99,9 @@ function Overview() {
             </Button>
           </CardHeader>
           <CardContent className="space-y-2">
-            {upcoming.length === 0 && <p className="text-sm text-muted-foreground">Nessuna prenotazione in arrivo.</p>}
-            {upcoming.map((b) => {
+            {loading && <><Skeleton className="h-14 w-full" /><Skeleton className="h-14 w-full" /></>}
+            {!loading && upcoming.length === 0 && <p className="text-sm text-muted-foreground">Nessuna prenotazione in arrivo.</p>}
+            {!loading && upcoming.map((b) => {
               const d = new Date(b.scheduled_at);
               return (
                 <div key={b.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-card p-3">
@@ -87,7 +112,7 @@ function Overview() {
                       </span>
                     </div>
                     <div>
-                      <p className="text-sm font-medium">{clientName(b.client_id)}</p>
+                      <p className="text-sm font-medium">{clientNameById.get(b.client_id) ?? "Cliente"}</p>
                       <p className="text-xs text-muted-foreground">
                         {d.toLocaleDateString("it-IT", { weekday: "short", month: "short" })} ·{" "}
                         {d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
@@ -101,8 +126,8 @@ function Overview() {
                     <AddToCalendarButton
                       sessionLabel={sessionLabel(b.session_type)}
                       startsAt={d}
-                      coachName={trainer.full_name}
-                      clientName={clientName(b.client_id)}
+                      coachName={user?.user_metadata?.full_name ?? user?.email ?? "Coach"}
+                      clientName={clientNameById.get(b.client_id) ?? "Cliente"}
                       variant="ghost"
                       label=""
                     />
@@ -126,8 +151,9 @@ function Overview() {
             </div>
           </CardHeader>
           <CardContent className="space-y-2">
-            {alerts.length === 0 && <p className="text-sm text-muted-foreground">Tutto in regola.</p>}
-            {alerts.map((a, i) => (
+            {loading && <Skeleton className="h-12 w-full" />}
+            {!loading && alerts.length === 0 && <p className="text-sm text-muted-foreground">Tutto in regola.</p>}
+            {!loading && alerts.map((a, i) => (
               <div key={i} className="flex items-center justify-between rounded-lg border p-3">
                 <div>
                   <p className="text-sm font-medium">{a.client}</p>
@@ -146,17 +172,10 @@ function Overview() {
 }
 
 function Stat({
-  icon: Icon,
-  label,
-  value,
-  hint,
-  progress,
+  icon: Icon, label, value, hint, progress,
 }: {
   icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: string;
-  hint: string;
-  progress?: number;
+  label: string; value: string; hint: string; progress?: number;
 }) {
   return (
     <Card>
