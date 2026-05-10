@@ -16,6 +16,7 @@ import { AddToCalendarButton } from "@/components/add-to-calendar-button";
 import { JoinVideoCallButton } from "@/components/join-video-call-button";
 import { toast } from "sonner";
 import { syncCalendar } from "@/lib/sync-calendar";
+import { sendPush } from "@/lib/push";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
