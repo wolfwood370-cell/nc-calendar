@@ -97,8 +97,14 @@ function ClientHome() {
   const findAllocationId = (b: BookingRow): string | null => {
     if (!block) return null;
     const cw = getCurrentWeek(block.start_date);
-    const a = block.allocations.find((x) => x.week_number === cw && x.session_type === b.session_type);
-    return a?.id ?? null;
+    const matchPool = (a: typeof block.allocations[number]) =>
+      b.event_type_id
+        ? a.event_type_id === b.event_type_id
+        : a.event_type_id === null && a.session_type === b.session_type;
+    const sameWeek = block.allocations.find((a) => matchPool(a) && a.week_number === cw);
+    if (sameWeek) return sameWeek.id;
+    const any = block.allocations.find(matchPool);
+    return any?.id ?? null;
   };
 
   const handleCancel = (b: BookingRow) => {
