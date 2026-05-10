@@ -255,6 +255,39 @@ function CalendarPage() {
                       <NotebookPen className="size-4" />
                       {b.trainer_notes ? "Note" : "Aggiungi note"}
                     </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-destructive hover:text-destructive"
+                          disabled={cancelBooking.isPending}
+                        >
+                          {cancelBooking.isPending ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+                          Cancella
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Cancellare l'appuntamento?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            L'evento verrà rimosso dalla piattaforma e da Google Calendar. Il credito verrà rimborsato al cliente (se presente).
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Indietro</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => cancelBooking.mutate(b, {
+                              onSuccess: () => toast.success("Appuntamento cancellato."),
+                              onError: (e: unknown) => toast.error("Errore", { description: (e as Error).message }),
+                            })}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Sì, cancella
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                     {b.status === "scheduled" && !isUnmatchedSync && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
