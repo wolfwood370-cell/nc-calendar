@@ -341,6 +341,42 @@ function IntegrationsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Calendar Optimization */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="size-10 rounded-md bg-primary/10 text-primary grid place-items-center">
+                <CalendarRange className="size-5" />
+              </div>
+              <div>
+                <CardTitle>Ottimizzazione Calendario</CardTitle>
+                <CardDescription>
+                  Suggerisce ai clienti gli orari adiacenti a sessioni esistenti per ridurre i tempi morti.
+                </CardDescription>
+              </div>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
+            <div className="flex items-center gap-3">
+              <Switch
+                id="calendar-optimization"
+                checked={settings.calendar_optimization_enabled}
+                onCheckedChange={toggleOptimization}
+              />
+              <Label htmlFor="calendar-optimization" className="cursor-pointer">
+                Attiva Ottimizzazione Calendario
+              </Label>
+            </div>
+            <p className="text-xs text-muted-foreground max-w-md">
+              Quando attiva, gli slot consigliati appaiono per primi e sono evidenziati nel flusso di prenotazione del cliente.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
