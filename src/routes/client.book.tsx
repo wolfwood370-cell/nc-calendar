@@ -308,36 +308,35 @@ function BookFlow() {
       poolLabel[k] = et?.name ?? sessionLabel(a.session_type);
     }
   }
-  const pickedCountsByPool = Object.values(picked).reduce<Record<string, number>>(
-    (acc, p) => {
-      const k = allocKey(p.eventTypeId, p.type);
-      acc[k] = (acc[k] ?? 0) + 1;
-      return acc;
-    },
-    {}
-  );
+  // Pools list (one entry per credit pool: event_type_id or legacy session_type).
+  interface Pool { key: string; label: string; type: SessionType; eventTypeId: string | null; remaining: number; color?: string | null; }
+  const poolsMap = new Map<string, Pool>();
+  for (const a of block.allocations) {
+    const k = allocKey(a.event_type_id, a.session_type);
+    const remaining = a.quantity_assigned - a.quantity_booked;
+    if (poolsMap.has(k)) {
+      poolsMap.get(k)!.remaining += remaining;
+    } else {
+      const et = a.event_type_id ? customTypes.find((e) => e.id === a.event_type_id) : null;
+      poolsMap.set(k, {
+        key: k,
+        label: et?.name ?? sessionLabel(a.session_type),
+        type: a.session_type as SessionType,
+        eventTypeId: a.event_type_id ?? null,
+        remaining,
+        color: et?.color ?? null,
+      });
+    }
+  }
+  const pools = Array.from(poolsMap.values()).filter((p) => p.remaining > 0);
 
-  const togglePick = (iso: string, value: string) => {
-    setPicked((cur) => {
-      const next = { ...cur };
-      if (!value) { delete next[iso]; return next; }
-      // value format: "<base_type>" or "<base_type>::<event_type_id>"
-      const [type, eventTypeId] = value.split("::") as [SessionType, string | undefined];
-      const newKey = allocKey(eventTypeId ?? null, type);
-      const prev = cur[iso];
-      const prevKey = prev ? allocKey(prev.eventTypeId, prev.type) : null;
-      const used = (pickedCountsByPool[newKey] ?? 0) - (prevKey === newKey ? 1 : 0);
-      const remaining = remainingByPool[newKey] ?? 0;
-      if (used >= remaining) {
-        toast.error(`Nessuna sessione di tipo ${poolLabel[newKey] ?? sessionLabel(type)} rimanente nel tuo blocco.`);
-        return cur;
-      }
-      next[iso] = { type, eventTypeId: eventTypeId ?? null };
-      return next;
-    });
-  };
+  // Auto-select first available pool
+  useEffect(() => {
+    if (!selectedPoolKey && pools.length > 0) setSelectedPoolKey(pools[0].key);
+  }, [selectedPoolKey, pools]);
 
-  const totalPicked = Object.keys(picked).length;
+  const totalPicked = selectedISO ? 1 : 0;
+  void totalPicked;
 
   // Cerca un'allocation con credito disponibile, prima per event_type_id+settimana, poi qualunque.
   const findAllocationForWeek = (
