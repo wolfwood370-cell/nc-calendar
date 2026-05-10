@@ -393,6 +393,22 @@ Deno.serve(async (req) => {
         const eventTypeId = match.eventType?.id ?? null;
         const status = new Date(startIso).getTime() < now ? "completed" : "scheduled";
 
+        // Fallback dedup: stesso cliente + stesso orario senza google_event_id
+        if (match.client) {
+          const { data: localTwin } = await supabase
+            .from("bookings")
+            .select("id")
+            .eq("coach_id", body.coach_id)
+            .eq("client_id", clientId)
+            .eq("scheduled_at", startIso)
+            .is("google_event_id", null)
+            .maybeSingle();
+          if (localTwin) {
+            await supabase.from("bookings").update({ google_event_id: id }).eq("id", localTwin.id);
+            continue;
+          }
+        }
+
         let blockId: string | null = null;
         if (match.client) {
           blockId = await consumeCreditFor(clientId, eventTypeId, sessionType, startIso);
