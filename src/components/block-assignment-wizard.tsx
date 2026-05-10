@@ -224,7 +224,7 @@ export function BlockAssignmentWizard({ clientId, clientName, onCreated }: Props
                 return (
                   <Badge key={et.id} variant="secondary" style={{ borderColor: et.color }}>
                     <span className="size-2 rounded-full mr-1.5" style={{ backgroundColor: et.color }} />
-                    {et.name}: {w * 4}/blocco
+                    {et.name}: {w}/blocco
                   </Badge>
                 );
               })}
@@ -251,12 +251,12 @@ export function BlockAssignmentWizard({ clientId, clientName, onCreated }: Props
         {step < 3 ? (
           <Button
             onClick={() => setStep((s) => s + 1)}
-            disabled={(step === 2 && (noEventTypes || weeklyTotal === 0))}
+            disabled={(step === 2 && (noEventTypes || blockTotal === 0))}
           >
             Avanti <ChevronRight className="size-4" />
           </Button>
         ) : (
-          <Button onClick={() => createBlocks.mutate()} disabled={createBlocks.isPending || weeklyTotal === 0}>
+          <Button onClick={() => createBlocks.mutate()} disabled={createBlocks.isPending || blockTotal === 0}>
             {createBlocks.isPending ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
             Crea {numBlocks === 1 ? "blocco" : `${numBlocks} blocchi`}
           </Button>
