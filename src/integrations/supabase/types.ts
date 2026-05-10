@@ -164,7 +164,9 @@ export type Database = {
         Row: {
           coach_id: string
           created_at: string
+          gcal_calendar_id: string | null
           gcal_enabled: boolean
+          gcal_service_account_json: string | null
           gcal_webhook_url: string | null
           id: string
           updated_at: string
@@ -175,7 +177,9 @@ export type Database = {
         Insert: {
           coach_id: string
           created_at?: string
+          gcal_calendar_id?: string | null
           gcal_enabled?: boolean
+          gcal_service_account_json?: string | null
           gcal_webhook_url?: string | null
           id?: string
           updated_at?: string
@@ -186,7 +190,9 @@ export type Database = {
         Update: {
           coach_id?: string
           created_at?: string
+          gcal_calendar_id?: string | null
           gcal_enabled?: boolean
+          gcal_service_account_json?: string | null
           gcal_webhook_url?: string | null
           id?: string
           updated_at?: string
