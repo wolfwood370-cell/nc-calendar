@@ -113,12 +113,28 @@ function Overview() {
 
   const loading = clientsQ.isLoading || bookingsQ.isLoading || blocksQ.isLoading;
 
+  const nextToday = useMemo(() => {
+    const now = Date.now();
+    const tomorrow = new Date(); tomorrow.setHours(23, 59, 59, 999);
+    return bookings
+      .filter((b) => b.status === "scheduled")
+      .map((b) => ({ b, t: new Date(b.scheduled_at).getTime() }))
+      .filter(({ t }) => t >= now && t <= tomorrow.getTime())
+      .sort((a, b) => a.t - b.t)[0]?.b ?? null;
+  }, [bookings]);
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="font-display text-3xl font-semibold tracking-tight">Panoramica studio</h1>
         <p className="text-sm text-muted-foreground mt-1">Oggi, {new Date().toLocaleDateString("it-IT", { weekday: "long", month: "long", day: "numeric" })}</p>
       </div>
+
+      <NextAppointmentCountdown
+        booking={nextToday}
+        clientName={nextToday ? clientNameById.get(nextToday.client_id) ?? "Cliente" : null}
+        sessionLabelText={nextToday ? sessionLabel(nextToday.session_type) : null}
+      />
 
       <div className="grid gap-4 md:grid-cols-4">
         <Stat icon={Users} label="Clienti attivi" value={loading ? "—" : clients.length.toString()} hint="totale roster" />
