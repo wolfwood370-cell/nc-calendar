@@ -118,6 +118,14 @@ function ClientHome() {
             if (coachId) {
               syncCalendar({ action: "cancel", coachId, googleEventId: b.google_event_id });
             }
+            if (user?.id) {
+              sendPush({
+                profileId: user.id,
+                title: "Prenotazione annullata",
+                body: new Date(b.scheduled_at).toLocaleString("it-IT", { dateStyle: "medium", timeStyle: "short" }),
+                url: "/client",
+              });
+            }
             toast.success("Prenotazione annullata", { description: "Il credito è stato restituito al tuo blocco." });
           },
           onError: (e: unknown) => toast.error("Errore", { description: (e as Error).message }),
