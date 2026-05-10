@@ -40,6 +40,9 @@ function ClientSettings() {
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
 
+  const [googleLinked, setGoogleLinked] = useState(false);
+  const [googleLinking, setGoogleLinking] = useState(false);
+
   useEffect(() => {
     setPushSupported(isPushSupported());
     void getCurrentPushSubscription().then((s) => setPushEnabled(!!s));
