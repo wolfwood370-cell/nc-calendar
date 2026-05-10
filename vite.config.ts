@@ -19,16 +19,16 @@ export default defineConfig({
         registerType: "autoUpdate",
         devOptions: { enabled: false },
         manifest: {
-          name: "NC Training Systems",
-          short_name: "NC Training",
+          name: "NC Calendar",
+          short_name: "NC Calendar",
           description: "Studio personal trainer — prenotazioni e blocchi di allenamento.",
-          theme_color: "#ffffff",
-          background_color: "#ffffff",
+          theme_color: "#3b82f6",
+          background_color: "#3b82f6",
           display: "standalone",
           start_url: "/",
           scope: "/",
           icons: [
-            { src: "/favicon.ico", sizes: "64x64", type: "image/x-icon" },
+            { src: "/favicon.png", sizes: "512x512", type: "image/png", purpose: "any maskable" },
           ],
         },
         workbox: {

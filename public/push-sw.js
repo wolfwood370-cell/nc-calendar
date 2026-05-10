@@ -1,6 +1,6 @@
 // Custom push handler appended via workbox importScripts.
 self.addEventListener("push", (event) => {
-  let data = { title: "NC Training", body: "" };
+  let data = { title: "NC Calendar", body: "" };
   try {
     if (event.data) data = { ...data, ...event.data.json() };
   } catch {
@@ -9,8 +9,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
-      icon: "/favicon.ico",
-      badge: "/favicon.ico",
+      icon: "/favicon.png",
+      badge: "/favicon.png",
       data: data.url ? { url: data.url } : undefined,
     }),
   );

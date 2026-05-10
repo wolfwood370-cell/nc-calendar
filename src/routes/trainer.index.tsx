@@ -126,7 +126,10 @@ function Overview() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-3xl font-semibold tracking-tight">Panoramica studio</h1>
+        <p className="text-xs uppercase tracking-widest text-muted-foreground">Benvenuto</p>
+        <h1 className="font-display text-3xl font-bold mt-1 bg-gradient-to-r from-primary to-[#003e62] bg-clip-text text-transparent">
+          {(user?.user_metadata?.full_name as string) || user?.email || "Coach"}
+        </h1>
         <p className="text-sm text-muted-foreground mt-1">Oggi, {new Date().toLocaleDateString("it-IT", { weekday: "long", month: "long", day: "numeric" })}</p>
       </div>
 
