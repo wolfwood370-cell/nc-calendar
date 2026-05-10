@@ -418,6 +418,11 @@ function BookFlow() {
         <p className="text-sm text-muted-foreground mt-1">
           Scegli gli slot e assegna un tipo di sessione. Le prenotazioni entro 24 ore sono disabilitate.
         </p>
+        {(optimizationQ.data ?? true) && (
+          <p className="text-xs text-muted-foreground mt-2">
+            ✨ Scegli gli orari evidenziati come <span className="font-medium text-foreground">Consigliato</span> per aiutarci a ottimizzare il calendario!
+          </p>
+        )}
       </div>
 
       <Card>
