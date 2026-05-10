@@ -1,326 +1,285 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { CalendarPlus, Activity, AlertTriangle } from "lucide-react";
-import { sessionLabel } from "@/lib/mock-data";
-import { useClientBlocks, useClientBookings, useCancelBooking, useCoachEventTypes, type BookingRow } from "@/lib/queries";
-import { useMemo, useState } from "react";
-import { AddToCalendarButton } from "@/components/add-to-calendar-button";
-import { JoinVideoCallButton } from "@/components/join-video-call-button";
-import { toast } from "sonner";
-import { syncCalendar } from "@/lib/sync-calendar";
-import { sendPush } from "@/lib/push";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useMemo } from "react";
+import { Bell, Plus, History, Clock, Dumbbell, CalendarPlus } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+import { useClientBlocks, useClientBookings, useCoachEventTypes } from "@/lib/queries";
+import { sessionLabel } from "@/lib/mock-data";
+import { CircularProgress } from "@/components/circular-progress";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/client/")({
   component: ClientHome,
 });
 
-function getCurrentWeek(start: string): number {
-  const s = new Date(start).getTime();
-  const days = Math.floor((Date.now() - s) / (1000 * 60 * 60 * 24));
-  return Math.min(4, Math.max(1, Math.floor(days / 7) + 1));
-}
-
 function ClientHome() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const meId = user?.id;
-  const blocksQ = useClientBlocks(meId);
-  const bookingsQ = useClientBookings(meId);
-  const cancelM = useCancelBooking();
-  const [pendingLate, setPendingLate] = useState<BookingRow | null>(null);
 
-  // profilo per recuperare coach + nome
   const profileQ = useQuery({
     queryKey: ["profile", meId],
     enabled: !!meId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("profiles")
         .select("id, full_name, email, coach_id")
         .eq("id", meId!)
         .maybeSingle();
-      if (error) throw error;
       return data;
     },
   });
 
-  const meName = profileQ.data?.full_name ?? user?.email ?? "Cliente";
-  const meEmail = profileQ.data?.email ?? user?.email ?? "";
+  const fullName = profileQ.data?.full_name ?? user?.email ?? "Cliente";
+  const firstName = fullName.split(" ")[0];
   const coachId = profileQ.data?.coach_id ?? null;
+
+  const blocksQ = useClientBlocks(meId);
+  const bookingsQ = useClientBookings(meId);
   const eventTypesQ = useCoachEventTypes(coachId);
-  const coachProfileQ = useQuery({
-    queryKey: ["coach-profile", coachId],
-    enabled: !!coachId,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("profiles").select("full_name, email").eq("id", coachId!).maybeSingle();
-      return data;
-    },
-  });
-  const coachName = coachProfileQ.data?.full_name ?? coachProfileQ.data?.email ?? "il tuo Coach";
 
   const block = (blocksQ.data ?? []).find((b) => b.status === "active");
 
-  // Riepilogo crediti residui per tipologia (event_type), con fallback al base session_type per blocchi legacy
-  const remainingByType = useMemo(() => {
-    if (!block) return [] as Array<{ key: string; name: string; color: string; remaining: number; assigned: number }>;
-    const map = new Map<string, { name: string; color: string; remaining: number; assigned: number }>();
+  // Aggrega per event_type (o session_type fallback)
+  const rings = useMemo(() => {
+    if (!block) return [] as Array<{ key: string; name: string; color: string; booked: number; assigned: number }>;
+    const map = new Map<string, { name: string; color: string; booked: number; assigned: number }>();
     for (const a of block.allocations) {
       const et = a.event_type_id ? (eventTypesQ.data ?? []).find((e) => e.id === a.event_type_id) : null;
       const key = a.event_type_id ?? a.session_type;
       const cur = map.get(key) ?? {
         name: et?.name ?? sessionLabel(a.session_type),
-        color: et?.color ?? "hsl(var(--primary))",
-        remaining: 0, assigned: 0,
+        color: et?.color ?? "#003e62",
+        booked: 0,
+        assigned: 0,
       };
-      cur.remaining += Math.max(0, a.quantity_assigned - a.quantity_booked);
+      cur.booked += a.quantity_booked;
       cur.assigned += a.quantity_assigned;
       map.set(key, cur);
     }
     return [...map.entries()].map(([key, v]) => ({ key, ...v }));
   }, [block, eventTypesQ.data]);
 
-  const totals = useMemo(() => {
-    if (!block) return { assigned: 0, booked: 0, pct: 0 };
-    const assigned = block.allocations.reduce((s, a) => s + a.quantity_assigned, 0);
-    const booked = block.allocations.reduce((s, a) => s + a.quantity_booked, 0);
-    return { assigned, booked, pct: assigned ? Math.round((booked / assigned) * 100) : 0 };
-  }, [block]);
+  const nextBooking = useMemo(() => {
+    const now = Date.now();
+    return (bookingsQ.data ?? [])
+      .filter((b) => b.status === "scheduled" && new Date(b.scheduled_at).getTime() > now)
+      .sort((a, b) => +new Date(a.scheduled_at) - +new Date(b.scheduled_at))[0];
+  }, [bookingsQ.data]);
 
-  const upcoming = useMemo(
-    () =>
-      (bookingsQ.data ?? [])
-        .filter((b) => b.status === "scheduled" && new Date(b.scheduled_at) >= new Date())
-        .sort((a, b) => +new Date(a.scheduled_at) - +new Date(b.scheduled_at)),
-    [bookingsQ.data]
-  );
+  const nextEventType = nextBooking?.event_type_id
+    ? (eventTypesQ.data ?? []).find((e) => e.id === nextBooking.event_type_id)
+    : null;
 
-  const findAllocationId = (b: BookingRow): string | null => {
-    if (!block) return null;
-    const cw = getCurrentWeek(block.start_date);
-    const matchPool = (a: typeof block.allocations[number]) =>
-      b.event_type_id
-        ? a.event_type_id === b.event_type_id
-        : a.event_type_id === null && a.session_type === b.session_type;
-    const sameWeek = block.allocations.find((a) => matchPool(a) && a.week_number === cw);
-    if (sameWeek) return sameWeek.id;
-    const any = block.allocations.find(matchPool);
-    return any?.id ?? null;
-  };
-
-  const handleCancel = (b: BookingRow) => {
-    const hoursAway = (new Date(b.scheduled_at).getTime() - Date.now()) / (1000 * 60 * 60);
-    if (hoursAway >= 24) {
-      cancelM.mutate(
-        { id: b.id, late: false, allocationId: findAllocationId(b) },
-        {
-          onSuccess: () => {
-            if (coachId) {
-              syncCalendar({ action: "cancel", coachId, googleEventId: b.google_event_id });
-            }
-            if (user?.id) {
-              sendPush({
-                profileId: user.id,
-                title: "Prenotazione annullata",
-                body: new Date(b.scheduled_at).toLocaleString("it-IT", { dateStyle: "medium", timeStyle: "short" }),
-                url: "/client",
-              });
-            }
-            toast.success("Prenotazione annullata", { description: "Il credito è stato restituito al tuo blocco." });
-          },
-          onError: (e: unknown) => toast.error("Errore", { description: (e as Error).message }),
-        }
-      );
-    } else {
-      setPendingLate(b);
-    }
-  };
-
-  const confirmLate = () => {
-    if (!pendingLate) return;
-    const b = pendingLate;
-    cancelM.mutate(
-      { id: b.id, late: true },
-      {
-        onSuccess: () => {
-          if (coachId) {
-            syncCalendar({ action: "cancel", coachId, googleEventId: b.google_event_id });
-          }
-          toast.error("Cancellazione tardiva", { description: "Il credito di questa sessione è stato perso." });
-          setPendingLate(null);
-        },
-        onError: (e: unknown) => toast.error("Errore", { description: (e as Error).message }),
-      }
-    );
-  };
-
-  if (blocksQ.isLoading || bookingsQ.isLoading) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-8 w-1/2" />
-        <Skeleton className="h-40 w-full" />
-        <Skeleton className="h-32 w-full" />
-      </div>
-    );
-  }
-
-  if (!block) {
-    return (
-      <Card>
-        <CardContent className="p-10 text-center">
-          <p className="text-sm text-muted-foreground">Nessun blocco attivo. Il tuo trainer te ne assegnerà uno a breve.</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const cw = getCurrentWeek(block.start_date);
-  
+  const isLoading = blocksQ.isLoading || bookingsQ.isLoading || profileQ.isLoading;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <p className="text-sm text-muted-foreground">Ciao, {meName.split(" ")[0]}</p>
-        <h1 className="font-display text-3xl font-semibold tracking-tight mt-1">Il tuo blocco di allenamento</h1>
-      </div>
+    <div className="max-w-md mx-auto bg-surface min-h-screen">
+      {/* Top App Bar */}
+      <header className="bg-surface/80 backdrop-blur-xl sticky top-0 shadow-[0_8px_30px_rgba(0,0,0,0.04)] z-40">
+        <div className="flex justify-between items-center w-full px-margin-mobile py-stack-md">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-full bg-primary-container text-on-primary-container grid place-items-center border-2 border-surface-container-lowest shadow-sm font-semibold">
+              {firstName.charAt(0).toUpperCase()}
+            </div>
+            <h1 className="text-[28px] leading-9 font-bold text-[#003e62]">Ciao {firstName}</h1>
+          </div>
+          <button
+            type="button"
+            aria-label="Notifiche"
+            className="text-[#003e62] hover:bg-surface-container-high transition-colors active:scale-95 duration-200 p-2 rounded-full"
+          >
+            <Bell className="size-6" />
+          </button>
+        </div>
+      </header>
 
-      <Card className="overflow-hidden">
-        <div className="bg-gradient-to-br from-primary/10 via-accent/40 to-background p-6 border-b">
-          <div className="flex items-center justify-between flex-wrap gap-3">
+      <main className="px-margin-mobile pt-stack-md flex flex-col gap-stack-lg">
+        {/* Hero: Progressi */}
+        <section className="bg-surface-container-lowest rounded-[1rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-stack-lg border border-outline-variant/30 relative overflow-hidden">
+          <div className="absolute -top-10 -right-10 w-32 h-32 bg-[#003e62]/5 rounded-full blur-3xl pointer-events-none" />
+          <h2 className="text-2xl font-semibold text-on-surface mb-6">I Tuoi Progressi</h2>
+
+          {isLoading ? (
+            <div className="flex justify-around"><Skeleton className="h-24 w-24 rounded-full" /><Skeleton className="h-24 w-24 rounded-full" /></div>
+          ) : rings.length === 0 ? (
+            <p className="text-sm text-on-surface-variant py-6 text-center">
+              Nessun blocco attivo. Il tuo Coach te ne assegnerà uno a breve.
+            </p>
+          ) : (
+            <div className="flex justify-around items-center flex-wrap gap-stack-md">
+              {rings.map((r) => (
+                <CircularProgress
+                  key={r.key}
+                  value={r.assigned ? r.booked / r.assigned : 0}
+                  display={`${r.booked}/${r.assigned}`}
+                  label={r.name}
+                  color={r.color}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Prossimo Appuntamento */}
+        <section>
+          <h3 className="text-sm font-semibold text-on-surface-variant uppercase tracking-wider mb-stack-sm ml-2">
+            Prossimo Appuntamento
+          </h3>
+          {isLoading ? (
+            <Skeleton className="h-32 w-full rounded-[1rem]" />
+          ) : nextBooking ? (
+            <NextAppointmentCard
+              date={new Date(nextBooking.scheduled_at)}
+              durationMin={nextEventType?.duration ?? 60}
+              label={nextEventType?.name ?? sessionLabel(nextBooking.session_type)}
+              color={nextEventType?.color ?? "#039BE5"}
+              onReschedule={() => navigate({ to: "/client/book" })}
+            />
+          ) : (
+            <EmptyAppointment onBook={() => navigate({ to: "/client/book" })} />
+          )}
+        </section>
+
+        {/* Quick Actions */}
+        <section className="flex flex-col gap-stack-md mt-4">
+          <Link
+            to="/client/book"
+            className="w-full bg-primary-container text-white font-semibold text-base py-4 rounded-full shadow-md hover:opacity-90 transition active:scale-95 flex items-center justify-center gap-2"
+          >
+            <Plus className="size-5" />
+            Prenota Nuova Sessione
+          </Link>
+          <a
+            href="#storico"
+            onClick={(e) => {
+              e.preventDefault();
+              document.getElementById("storico")?.scrollIntoView({ behavior: "smooth" });
+            }}
+            className="w-full bg-transparent border border-outline-variant text-secondary font-semibold text-base py-4 rounded-full hover:bg-surface-container-high transition active:scale-95 flex items-center justify-center gap-2"
+          >
+            <History className="size-5" />
+            Vedi Storico
+          </a>
+        </section>
+
+        {/* Storico */}
+        <section id="storico" className="pb-8">
+          <h3 className="text-sm font-semibold text-on-surface-variant uppercase tracking-wider mb-stack-sm ml-2">
+            Storico Sessioni
+          </h3>
+          <HistoryList />
+        </section>
+      </main>
+    </div>
+  );
+}
+
+function NextAppointmentCard({
+  date, durationMin, label, color, onReschedule,
+}: {
+  date: Date; durationMin: number; label: string; color: string; onReschedule: () => void;
+}) {
+  const end = new Date(date.getTime() + durationMin * 60_000);
+  const startStr = date.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+  const endStr = end.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+
+  const today = new Date();
+  const sameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+  let dayLabel: string;
+  if (sameDay(date, today)) dayLabel = "Oggi";
+  else if (sameDay(date, tomorrow)) dayLabel = "Domani";
+  else dayLabel = date.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" });
+
+  return (
+    <div
+      className="bg-surface-container-lowest rounded-[1rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-6 border-l-4 border-y border-r border-outline-variant/20 flex flex-col gap-4"
+      style={{ borderLeftColor: color }}
+    >
+      <div className="flex justify-between items-start">
+        <div className="flex flex-col gap-1">
+          <span
+            className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold w-fit"
+            style={{ backgroundColor: `${color}1a`, color }}
+          >
+            {label}
+          </span>
+          <h4 className="text-2xl font-semibold text-on-surface mt-2 capitalize">{dayLabel}</h4>
+          <div className="flex items-center gap-2 text-on-surface-variant">
+            <Clock className="size-4" />
+            <span className="text-base">{startStr} - {endStr}</span>
+          </div>
+        </div>
+        <div className="w-12 h-12 rounded-full bg-primary-container flex items-center justify-center text-white">
+          <Dumbbell className="size-6" />
+        </div>
+      </div>
+      <div className="pt-4 border-t border-surface-container-high flex justify-end">
+        <button
+          type="button"
+          onClick={onReschedule}
+          className="text-sm font-semibold text-[#003e62] border border-[#003e62] px-6 py-2 rounded-full hover:bg-[#003e62]/5 active:scale-95 transition-all"
+        >
+          Riprogramma
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function EmptyAppointment({ onBook }: { onBook: () => void }) {
+  return (
+    <div className="bg-surface-container-lowest rounded-[1rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-6 border border-outline-variant/20 text-center flex flex-col items-center gap-3">
+      <div className="w-12 h-12 rounded-full bg-surface-container-high grid place-items-center text-on-surface-variant">
+        <CalendarPlus className="size-6" />
+      </div>
+      <div>
+        <p className="text-base font-semibold text-on-surface">Nessuna sessione in programma</p>
+        <p className="text-sm text-on-surface-variant">Prenota la tua prossima sessione per iniziare.</p>
+      </div>
+      <Button onClick={onBook} className="rounded-full">Prenota ora</Button>
+    </div>
+  );
+}
+
+function HistoryList() {
+  const { user } = useAuth();
+  const bookingsQ = useClientBookings(user?.id);
+  const past = useMemo(
+    () => (bookingsQ.data ?? [])
+      .filter((b) => new Date(b.scheduled_at).getTime() < Date.now())
+      .sort((a, b) => +new Date(b.scheduled_at) - +new Date(a.scheduled_at))
+      .slice(0, 10),
+    [bookingsQ.data]
+  );
+  if (bookingsQ.isLoading) return <Skeleton className="h-24 w-full rounded-[1rem]" />;
+  if (past.length === 0) {
+    return (
+      <div className="bg-surface-container-lowest rounded-[1rem] p-5 text-sm text-on-surface-variant text-center border border-outline-variant/20">
+        Nessuna sessione passata.
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-2">
+      {past.map((b) => {
+        const d = new Date(b.scheduled_at);
+        return (
+          <div key={b.id} className="bg-surface-container-lowest rounded-[1rem] p-4 border border-outline-variant/20 flex items-center justify-between">
             <div>
-              <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">Blocco attivo</Badge>
-              <p className="font-display text-xl font-semibold mt-2">Settimana {cw} di 4</p>
-              <p className="text-sm text-muted-foreground">
-                {new Date(block.start_date).toLocaleDateString("it-IT")} → {new Date(block.end_date).toLocaleDateString("it-IT")}
+              <p className="text-sm font-semibold text-on-surface">{sessionLabel(b.session_type)}</p>
+              <p className="text-xs text-on-surface-variant">
+                {d.toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short" })} · {d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
               </p>
             </div>
-            <div className="text-right">
-              <p className="font-display text-3xl font-semibold tabular-nums">{totals.booked}/{totals.assigned}</p>
-              <p className="text-xs text-muted-foreground uppercase tracking-wider">sessioni prenotate</p>
-            </div>
+            <span className="text-xs text-on-surface-variant capitalize">{b.status.replace("_", " ")}</span>
           </div>
-          <Progress value={totals.pct} className="mt-4 h-2" />
-        </div>
-        <CardContent className="p-4 space-y-3">
-          {remainingByType.length > 0 && (
-            <div className="rounded-lg bg-accent/40 p-3">
-              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Crediti Residui nel Blocco</p>
-              <div className="flex flex-wrap gap-1.5">
-                {remainingByType.map((r) => (
-                  <Badge key={r.key} variant="outline" className="font-normal" style={{ borderColor: r.color }}>
-                    <span className="size-2 rounded-full mr-1.5" style={{ backgroundColor: r.color }} />
-                    <span className="mr-1 font-semibold tabular-nums">{r.remaining}</span> {r.name}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
-          <Button asChild className="w-full">
-            <Link to="/client/book"><CalendarPlus className="size-4" /> Prenota le sessioni del blocco</Link>
-          </Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Activity className="size-4 text-primary" /> Andamento Blocco
-          </CardTitle>
-          <CardDescription>Crediti prenotati per tipologia, sull'intero blocco di 4 settimane.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {remainingByType.length === 0 && (
-            <p className="text-xs text-muted-foreground">Nessuna sessione assegnata.</p>
-          )}
-          {remainingByType.map((r) => {
-            const booked = r.assigned - r.remaining;
-            const pct = r.assigned ? Math.round((booked / r.assigned) * 100) : 0;
-            return (
-              <div key={r.key}>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-2">
-                    <span className="size-2 rounded-full" style={{ backgroundColor: r.color }} />
-                    {r.name}
-                  </span>
-                  <span className="tabular-nums text-muted-foreground">{booked} / {r.assigned}</span>
-                </div>
-                <Progress value={pct} className="mt-1.5 h-1.5" />
-              </div>
-            );
-          })}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Prossime sessioni</CardTitle>
-          <CardDescription>Le cancellazioni entro 24 ore comportano la perdita del credito.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {upcoming.length === 0 && <p className="text-sm text-muted-foreground">Nessuna sessione in programma.</p>}
-          {upcoming.map((b) => {
-            const d = new Date(b.scheduled_at);
-            const et = b.event_type_id ? (eventTypesQ.data ?? []).find((e) => e.id === b.event_type_id) : null;
-            const label = et?.name ?? sessionLabel(b.session_type);
-            return (
-              <div key={b.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3">
-                <div className="flex items-center gap-2">
-                  {et && <span className="size-2.5 rounded-full" style={{ backgroundColor: et.color }} />}
-                  <div>
-                    <p className="text-sm font-medium">{label}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {d.toLocaleDateString("it-IT", { weekday: "short", month: "short", day: "numeric" })} ·{" "}
-                      {d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {b.meeting_link && <JoinVideoCallButton url={b.meeting_link} />}
-                  <AddToCalendarButton
-                    sessionLabel={label}
-                    startsAt={d}
-                    coachName={coachName}
-                    clientName={meName}
-                  />
-                  <Button variant="ghost" size="sm" onClick={() => handleCancel(b)} disabled={cancelM.isPending}>
-                    Cancella
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
-        </CardContent>
-      </Card>
-
-      <AlertDialog open={!!pendingLate} onOpenChange={(o) => !o && setPendingLate(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="size-5 text-destructive" />
-              Attenzione: cancellazione tardiva
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              Stai disdicendo a meno di 24 ore. Il credito di questa sessione verrà perso e non sarà restituito al tuo blocco.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Indietro</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmLate} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Cancella comunque
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        );
+      })}
     </div>
   );
 }
