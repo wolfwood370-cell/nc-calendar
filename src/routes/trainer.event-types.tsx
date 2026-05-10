@@ -35,6 +35,7 @@ const schema = z.object({
   duration: z.number().int().min(15).max(240),
   location_type: z.enum(["physical", "online"]),
   buffer_minutes: z.number().int().min(0).max(240),
+  location_address: z.string().trim().max(255).optional().or(z.literal("")),
 });
 
 export interface EventTypeRow {
@@ -47,6 +48,7 @@ export interface EventTypeRow {
   base_type: SessionType;
   location_type: "physical" | "online";
   buffer_minutes: number;
+  location_address: string | null;
 }
 
 function EventTypesPage() {
@@ -60,7 +62,7 @@ function EventTypesPage() {
     queryFn: async (): Promise<EventTypeRow[]> => {
       const { data, error } = await supabase
         .from("event_types")
-        .select("id, coach_id, name, description, color, duration, base_type, location_type, buffer_minutes")
+        .select("id, coach_id, name, description, color, duration, base_type, location_type, buffer_minutes, location_address")
         .eq("coach_id", coachId!)
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -81,6 +83,7 @@ function EventTypesPage() {
             name: input.name, description: input.description || null,
             color: input.color, duration: input.duration,
             location_type: input.location_type, buffer_minutes: input.buffer_minutes,
+            location_address: input.location_type === "physical" ? (input.location_address || null) : null,
           })
           .eq("id", input.id);
         if (error) throw error;
@@ -90,6 +93,7 @@ function EventTypesPage() {
           description: input.description || null, color: input.color,
           duration: input.duration,
           location_type: input.location_type, buffer_minutes: input.buffer_minutes,
+          location_address: input.location_type === "physical" ? (input.location_address || null) : null,
         });
         if (error) throw error;
       }
@@ -223,12 +227,14 @@ function EventTypeDialog({
   const [duration, setDuration] = useState<number>(initial?.duration ?? 60);
   const [locationType, setLocationType] = useState<"physical" | "online">(initial?.location_type ?? "physical");
   const [bufferMinutes, setBufferMinutes] = useState<number>(initial?.buffer_minutes ?? 0);
+  const [locationAddress, setLocationAddress] = useState<string>(initial?.location_address ?? "");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const parsed = schema.safeParse({
       name, description, color, duration,
       location_type: locationType, buffer_minutes: bufferMinutes,
+      location_address: locationAddress,
     });
     if (!parsed.success) {
       toast.error("Dati non validi", { description: parsed.error.issues[0]?.message });
@@ -285,6 +291,20 @@ function EventTypeDialog({
             </Label>
           </RadioGroup>
         </div>
+        {locationType === "physical" && (
+          <div className="space-y-2">
+            <Label>Indirizzo (per Google Maps)</Label>
+            <Input
+              value={locationAddress}
+              onChange={(e) => setLocationAddress(e.target.value)}
+              placeholder="Es. Via Roma 1, Milano"
+              maxLength={255}
+            />
+            <p className="text-xs text-muted-foreground">
+              I clienti potranno aprire l'indirizzo direttamente in Google Maps.
+            </p>
+          </div>
+        )}
         <div className="space-y-2">
           <Label>Colore (palette Google Calendar)</Label>
           <div className="grid grid-cols-6 gap-2 sm:grid-cols-11">
