@@ -288,56 +288,59 @@ function BookFlow() {
     return m;
   }, [slots]);
 
-  if (blocksQ.isLoading || bookingsQ.isLoading || availQ.isLoading) {
-    return <div className="space-y-4"><Skeleton className="h-12 w-1/2" /><Skeleton className="h-40 w-full" /></div>;
-  }
-  if (!block) {
-    return <p className="text-sm text-muted-foreground">Nessun blocco attivo.</p>;
-  }
-
   // Chiave del pool di credito: event_type_id se presente, altrimenti session_type (legacy).
   const allocKey = (eventTypeId: string | null, type: SessionType) => eventTypeId ?? `__${type}`;
 
-  // Credito residuo per pool (event_type_id o session_type).
-  const remainingByPool: Record<string, number> = {};
-  const poolLabel: Record<string, string> = {};
-  for (const a of block.allocations) {
-    const k = allocKey(a.event_type_id, a.session_type);
-    remainingByPool[k] = (remainingByPool[k] ?? 0) + (a.quantity_assigned - a.quantity_booked);
-    if (!poolLabel[k]) {
-      const et = a.event_type_id ? customTypes.find((e) => e.id === a.event_type_id) : null;
-      poolLabel[k] = et?.name ?? sessionLabel(a.session_type);
-    }
-  }
   // Pools list (one entry per credit pool: event_type_id or legacy session_type).
   interface Pool { key: string; label: string; type: SessionType; eventTypeId: string | null; remaining: number; color?: string | null; }
-  const poolsMap = new Map<string, Pool>();
-  for (const a of block.allocations) {
-    const k = allocKey(a.event_type_id, a.session_type);
-    const remaining = a.quantity_assigned - a.quantity_booked;
-    if (poolsMap.has(k)) {
-      poolsMap.get(k)!.remaining += remaining;
-    } else {
-      const et = a.event_type_id ? customTypes.find((e) => e.id === a.event_type_id) : null;
-      poolsMap.set(k, {
-        key: k,
-        label: et?.name ?? sessionLabel(a.session_type),
-        type: a.session_type as SessionType,
-        eventTypeId: a.event_type_id ?? null,
-        remaining,
-        color: et?.color ?? null,
-      });
+  const pools = useMemo<Pool[]>(() => {
+    if (!block) return [];
+    const poolsMap = new Map<string, Pool>();
+    for (const a of block.allocations) {
+      const k = allocKey(a.event_type_id, a.session_type);
+      const remaining = a.quantity_assigned - a.quantity_booked;
+      if (poolsMap.has(k)) {
+        poolsMap.get(k)!.remaining += remaining;
+      } else {
+        const et = a.event_type_id ? customTypes.find((e) => e.id === a.event_type_id) : null;
+        poolsMap.set(k, {
+          key: k,
+          label: et?.name ?? sessionLabel(a.session_type),
+          type: a.session_type as SessionType,
+          eventTypeId: a.event_type_id ?? null,
+          remaining,
+          color: et?.color ?? null,
+        });
+      }
     }
-  }
-  const pools = Array.from(poolsMap.values()).filter((p) => p.remaining > 0);
+    return Array.from(poolsMap.values()).filter((p) => p.remaining > 0);
+  }, [block, customTypes]);
 
   // Auto-select first available pool
   useEffect(() => {
     if (!selectedPoolKey && pools.length > 0) setSelectedPoolKey(pools[0].key);
   }, [selectedPoolKey, pools]);
 
-  const totalPicked = selectedISO ? 1 : 0;
-  void totalPicked;
+  // ===== Aura UI helpers (must run before any early return to satisfy hooks rules) =====
+  const todayStart = startOfDay(new Date());
+  const daysWithSlots = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of slots) set.add(format(s.date, "yyyy-MM-dd"));
+    return set;
+  }, [slots]);
+
+  const slotsForSelectedDay = useMemo(() => {
+    if (!selectedDate) return [];
+    const key = format(selectedDate, "yyyy-MM-dd");
+    return slots.filter((s) => format(s.date, "yyyy-MM-dd") === key);
+  }, [slots, selectedDate]);
+
+  if (blocksQ.isLoading || bookingsQ.isLoading || availQ.isLoading) {
+    return <div className="space-y-4"><Skeleton className="h-12 w-1/2" /><Skeleton className="h-40 w-full" /></div>;
+  }
+  if (!block) {
+    return <p className="text-sm text-muted-foreground">Nessun blocco attivo.</p>;
+  }
 
   // Cerca un'allocation con credito disponibile, prima per event_type_id+settimana, poi qualunque.
   const findAllocationForWeek = (
