@@ -154,6 +154,8 @@ export interface EventTypeRow {
   color: string;
   duration: number;
   base_type: SessionType;
+  location_type: "physical" | "online";
+  buffer_minutes: number;
 }
 
 export function useCoachEventTypes(coachId?: string | null) {
@@ -163,7 +165,7 @@ export function useCoachEventTypes(coachId?: string | null) {
     queryFn: async (): Promise<EventTypeRow[]> => {
       const { data, error } = await supabase
         .from("event_types")
-        .select("id, coach_id, name, description, color, duration, base_type")
+        .select("id, coach_id, name, description, color, duration, base_type, location_type, buffer_minutes")
         .eq("coach_id", coachId!)
         .order("created_at", { ascending: true });
       if (error) throw error;

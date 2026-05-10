@@ -20,7 +20,7 @@ const items = [
   { title: "Panoramica", url: "/trainer", icon: LayoutDashboard, exact: true },
   { title: "Calendario", url: "/trainer/calendar", icon: CalendarDays },
   { title: "Clienti", url: "/trainer/clients", icon: Users },
-  { title: "Crea blocco", url: "/trainer/blocks", icon: LayersIcon },
+  { title: "Blocchi", url: "/trainer/blocks", icon: LayersIcon },
   { title: "Tipologie evento", url: "/trainer/event-types", icon: Tag },
   { title: "Disponibilità", url: "/trainer/availability", icon: Clock },
   { title: "Integrazioni", url: "/trainer/integrations", icon: Plug },

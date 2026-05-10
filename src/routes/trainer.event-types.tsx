@@ -8,9 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
-} from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from "@/components/ui/dialog";
@@ -18,11 +16,11 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, MapPin, Video } from "lucide-react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { sessionLabel, SESSION_TYPES, type SessionType } from "@/lib/mock-data";
+import type { SessionType } from "@/lib/mock-data";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/trainer/event-types")({
@@ -40,7 +38,8 @@ const schema = z.object({
   description: z.string().trim().max(280).optional().or(z.literal("")),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Colore non valido"),
   duration: z.number().int().min(15).max(240),
-  base_type: z.enum(["PT Session", "BIA", "Functional Test"]),
+  location_type: z.enum(["physical", "online"]),
+  buffer_minutes: z.number().int().min(0).max(240),
 });
 
 export interface EventTypeRow {
@@ -51,6 +50,8 @@ export interface EventTypeRow {
   color: string;
   duration: number;
   base_type: SessionType;
+  location_type: "physical" | "online";
+  buffer_minutes: number;
 }
 
 function EventTypesPage() {
@@ -64,7 +65,7 @@ function EventTypesPage() {
     queryFn: async (): Promise<EventTypeRow[]> => {
       const { data, error } = await supabase
         .from("event_types")
-        .select("id, coach_id, name, description, color, duration, base_type")
+        .select("id, coach_id, name, description, color, duration, base_type, location_type, buffer_minutes")
         .eq("coach_id", coachId!)
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -83,7 +84,8 @@ function EventTypesPage() {
           .from("event_types")
           .update({
             name: input.name, description: input.description || null,
-            color: input.color, duration: input.duration, base_type: input.base_type,
+            color: input.color, duration: input.duration,
+            location_type: input.location_type, buffer_minutes: input.buffer_minutes,
           })
           .eq("id", input.id);
         if (error) throw error;
@@ -91,7 +93,8 @@ function EventTypesPage() {
         const { error } = await supabase.from("event_types").insert({
           coach_id: coachId, name: input.name,
           description: input.description || null, color: input.color,
-          duration: input.duration, base_type: input.base_type,
+          duration: input.duration,
+          location_type: input.location_type, buffer_minutes: input.buffer_minutes,
         });
         if (error) throw error;
       }
@@ -167,7 +170,13 @@ function EventTypesPage() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-medium">{t.name}</p>
                         <Badge variant="outline" className="text-xs">{t.duration} min</Badge>
-                        <Badge variant="secondary" className="text-xs">{sessionLabel(t.base_type)}</Badge>
+                        <Badge variant="secondary" className="text-xs inline-flex items-center gap-1">
+                          {t.location_type === "online" ? <Video className="size-3" /> : <MapPin className="size-3" />}
+                          {t.location_type === "online" ? "Online" : "Fisico"}
+                        </Badge>
+                        {t.buffer_minutes > 0 && (
+                          <Badge variant="outline" className="text-xs">+{t.buffer_minutes}m margine</Badge>
+                        )}
                       </div>
                       {t.description && (
                         <p className="text-xs text-muted-foreground">{t.description}</p>
@@ -217,11 +226,15 @@ function EventTypeDialog({
   const [description, setDescription] = useState(initial?.description ?? "");
   const [color, setColor] = useState(initial?.color ?? COLOR_PRESETS[0]);
   const [duration, setDuration] = useState<number>(initial?.duration ?? 60);
-  const [baseType, setBaseType] = useState<SessionType>(initial?.base_type ?? "PT Session");
+  const [locationType, setLocationType] = useState<"physical" | "online">(initial?.location_type ?? "physical");
+  const [bufferMinutes, setBufferMinutes] = useState<number>(initial?.buffer_minutes ?? 0);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const parsed = schema.safeParse({ name, description, color, duration, base_type: baseType });
+    const parsed = schema.safeParse({
+      name, description, color, duration,
+      location_type: locationType, buffer_minutes: bufferMinutes,
+    });
     if (!parsed.success) {
       toast.error("Dati non validi", { description: parsed.error.issues[0]?.message });
       return;
@@ -252,16 +265,30 @@ function EventTypeDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label>Tipologia Sessione</Label>
-            <Select value={baseType} onValueChange={(v) => setBaseType(v as SessionType)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {SESSION_TYPES.map((t) => (
-                  <SelectItem key={t} value={t}>{sessionLabel(t)}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Margine di tempo dopo la sessione (minuti)</Label>
+            <Input
+              type="number" min={0} max={240} step={5}
+              value={bufferMinutes}
+              onChange={(e) => setBufferMinutes(parseInt(e.target.value) || 0)}
+            />
           </div>
+        </div>
+        <div className="space-y-2">
+          <Label>Luogo della Sessione</Label>
+          <RadioGroup
+            value={locationType}
+            onValueChange={(v) => setLocationType(v as "physical" | "online")}
+            className="grid grid-cols-2 gap-2"
+          >
+            <Label htmlFor="loc-physical" className="flex items-center gap-2 rounded-md border p-3 cursor-pointer hover:bg-accent/50">
+              <RadioGroupItem value="physical" id="loc-physical" />
+              <MapPin className="size-4" /> Fisico
+            </Label>
+            <Label htmlFor="loc-online" className="flex items-center gap-2 rounded-md border p-3 cursor-pointer hover:bg-accent/50">
+              <RadioGroupItem value="online" id="loc-online" />
+              <Video className="size-4" /> Online
+            </Label>
+          </RadioGroup>
         </div>
         <div className="space-y-2">
           <Label>Colore</Label>

@@ -5,11 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { ChevronLeft, Check, Loader2, Video } from "lucide-react";
+import { ChevronLeft, Check, Loader2, Video, MapPin } from "lucide-react";
 import { sessionLabel, type SessionType } from "@/lib/mock-data";
-import { useClientBlocks, useClientBookings, useCoachAvailability, useCoachEventTypes, type AvailabilityRow, type EventTypeRow } from "@/lib/queries";
+import { useClientBlocks, useClientBookings, useCoachAvailability, useCoachEventTypes, type AvailabilityRow, type EventTypeRow, type BookingRow } from "@/lib/queries";
 import { generateMockMeetLink } from "@/components/join-video-call-button";
 import { toast } from "sonner";
 import { sendBookingConfirmationEmail } from "@/lib/email";
@@ -34,7 +32,13 @@ function parseHM(t: string): { h: number; m: number } {
   return { h: parseInt(h, 10), m: parseInt(m, 10) };
 }
 
-function generateSlots(daysAhead: number, takenISO: Set<string>, availability: AvailabilityRow[]): Slot[] {
+interface BlockedRange { start: number; end: number; }
+
+function generateSlots(
+  daysAhead: number,
+  blockedRanges: BlockedRange[],
+  availability: AvailabilityRow[],
+): Slot[] {
   const slots: Slot[] = [];
   const now = new Date();
   for (let i = 0; i < daysAhead; i++) {
@@ -51,9 +55,12 @@ function generateSlots(daysAhead: number, takenISO: Set<string>, availability: A
         const slot = new Date(day);
         slot.setHours(Math.floor(mm / 60), mm % 60, 0, 0);
         if (slot.getTime() - now.getTime() < 24 * 60 * 60 * 1000) continue;
-        const iso = slot.toISOString();
-        if (takenISO.has(iso)) continue;
-        slots.push({ iso, date: slot });
+        const slotStart = slot.getTime();
+        const slotEnd = slotStart + 60 * 60 * 1000;
+        // blocca lo slot se interseca un range già occupato (durata + buffer)
+        const overlaps = blockedRanges.some((r) => slotStart < r.end && slotEnd > r.start);
+        if (overlaps) continue;
+        slots.push({ iso: slot.toISOString(), date: slot });
       }
     }
   }
@@ -85,7 +92,6 @@ function BookFlow() {
 
   interface Pick { type: SessionType; eventTypeId: string | null; }
   const [picked, setPicked] = useState<Record<string, Pick>>({});
-  const [online, setOnline] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
   const block = (blocksQ.data ?? []).find((b) => b.status === "active");
@@ -96,17 +102,25 @@ function BookFlow() {
   // Tipologie evento personalizzate del coach (fallback alle 3 default se vuoto).
   const customTypes: EventTypeRow[] = eventTypesQ.data ?? [];
 
-  const taken = useMemo(() => {
-    const s = new Set<string>();
-    (bookingsQ.data ?? [])
-      .filter((b) => b.status === "scheduled" || b.status === "completed")
-      .forEach((b) => s.add(new Date(b.scheduled_at).toISOString()));
-    return s;
-  }, [bookingsQ.data]);
+  // Range bloccati = [scheduled_at, scheduled_at + duration + buffer] della tipologia evento.
+  const blockedRanges = useMemo(() => {
+    const ranges: BlockedRange[] = [];
+    const list = (bookingsQ.data ?? []) as BookingRow[];
+    for (const b of list) {
+      if (b.status !== "scheduled" && b.status !== "completed") continue;
+      const et = customTypes.find((e) => e.id === b.event_type_id);
+      const duration = et?.duration ?? 60;
+      const buffer = et?.buffer_minutes ?? 0;
+      const start = new Date(b.scheduled_at).getTime();
+      const end = start + (duration + buffer) * 60 * 1000;
+      ranges.push({ start, end });
+    }
+    return ranges;
+  }, [bookingsQ.data, customTypes]);
 
   const slots = useMemo(
-    () => generateSlots(28, taken, availQ.data ?? []),
-    [taken, availQ.data]
+    () => generateSlots(28, blockedRanges, availQ.data ?? []),
+    [blockedRanges, availQ.data]
   );
   const grouped = useMemo(() => {
     const m = new Map<string, Slot[]>();
@@ -198,7 +212,8 @@ function BookFlow() {
           toast.error(`Credito esaurito per ${displayLabel} questa settimana.`);
           continue;
         }
-        const meetingLink = online ? generateMockMeetLink() : null;
+        const isOnline = eventType?.location_type === "online";
+        const meetingLink = isOnline ? generateMockMeetLink() : null;
 
         // INSERT booking
         const { error: bErr } = await supabase.from("bookings").insert({
@@ -206,6 +221,7 @@ function BookFlow() {
           coach_id: coachId,
           block_id: block.id,
           session_type: type,
+          event_type_id: eventType?.id ?? null,
           scheduled_at: iso,
           status: "scheduled",
           meeting_link: meetingLink,
@@ -251,7 +267,7 @@ function BookFlow() {
       }
 
       toast.success(`${totalPicked} ${totalPicked === 1 ? "sessione prenotata" : "sessioni prenotate"}`, {
-        description: online ? "Link videochiamata generato e inviato via email." : "Email di conferma inviata.",
+        description: "Email di conferma inviata. I link videochiamata sono generati automaticamente per le sessioni online.",
       });
       qc.invalidateQueries({ queryKey: ["bookings"] });
       qc.invalidateQueries({ queryKey: ["blocks"] });
@@ -284,11 +300,6 @@ function BookFlow() {
             </Badge>
           ))}
           <div className="ml-auto flex items-center gap-3">
-            <div className="flex items-center gap-2 rounded-md border px-3 py-1.5">
-              <Video className="size-4 text-primary" />
-              <Label htmlFor="online-toggle" className="text-sm cursor-pointer">Sessione Online</Label>
-              <Switch id="online-toggle" checked={online} onCheckedChange={setOnline} />
-            </div>
             <Button onClick={confirm} disabled={totalPicked === 0 || confirming}>
               {confirming ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
               Conferma {totalPicked > 0 && `(${totalPicked})`}
@@ -363,7 +374,12 @@ function BookFlow() {
                                   <span className="inline-flex items-center gap-2">
                                     <span className="size-2.5 rounded-full" style={{ backgroundColor: et.color }} />
                                     {et.name}
-                                    <span className="text-xs text-muted-foreground">· {et.duration}m</span>
+                                    <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                                      · {et.duration}m
+                                      {et.location_type === "online"
+                                        ? <Video className="size-3" />
+                                        : <MapPin className="size-3" />}
+                                    </span>
                                   </span>
                                 </SelectItem>
                               ))

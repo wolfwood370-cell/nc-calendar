@@ -10,14 +10,18 @@ import {
 } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import {
+  Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger,
+} from "@/components/ui/sheet";
+import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Plus, Search, Loader2, Mail, X, Archive } from "lucide-react";
+import { Plus, Search, Loader2, Mail, X, Archive, CalendarPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { sendInvitationEmail } from "@/lib/email";
+import { BlockAssignmentWizard } from "@/components/block-assignment-wizard";
 
 export const Route = createFileRoute("/trainer/clients")({
   component: ClientsPage,
@@ -227,28 +231,31 @@ function ClientsPage() {
                       <Badge variant="secondary" className="bg-success/10 text-success border-success/20">Attivo</Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button size="sm" variant="ghost">
-                            <Archive className="size-4" /> Archivia
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Sei sicuro di voler eliminare questo cliente?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Il cliente {c.full_name ?? c.email} verrà archiviato. I dati storici (blocchi, prenotazioni)
-                              restano conservati nel sistema e non saranno persi.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Annulla</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => archiveClient(c.id)}>
-                              Archivia
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                      <div className="flex justify-end gap-1">
+                        <AssignBlocksSheet clientId={c.id} clientName={c.full_name ?? c.email ?? "Cliente"} />
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="sm" variant="ghost">
+                              <Archive className="size-4" /> Archivia
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Sei sicuro di voler eliminare questo cliente?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Il cliente {c.full_name ?? c.email} verrà archiviato. I dati storici (blocchi, prenotazioni)
+                                restano conservati nel sistema e non saranno persi.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Annulla</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => archiveClient(c.id)}>
+                                Archivia
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -297,5 +304,33 @@ function InviteClientDialog({ onSubmit }: { onSubmit: (d: { name: string; email:
         </DialogFooter>
       </form>
     </DialogContent>
+  );
+}
+
+function AssignBlocksSheet({ clientId, clientName }: { clientId: string; clientName: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger asChild>
+        <Button size="sm" variant="ghost">
+          <CalendarPlus className="size-4" /> Assegna Percorsi/Blocchi
+        </Button>
+      </SheetTrigger>
+      <SheetContent side="right" className="sm:max-w-xl w-full overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>Assegna Percorsi a {clientName}</SheetTitle>
+          <SheetDescription>
+            Definisci data di partenza, numero di blocchi sequenziali e quote settimanali per tipologia.
+          </SheetDescription>
+        </SheetHeader>
+        <div className="mt-4">
+          <BlockAssignmentWizard
+            clientId={clientId}
+            clientName={clientName}
+            onCreated={() => setOpen(false)}
+          />
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
