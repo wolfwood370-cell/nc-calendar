@@ -40,6 +40,8 @@ function generateSlots(
   blockedRanges: BlockedRange[],
   availability: AvailabilityRow[],
   exceptions: AvailabilityExceptionRow[],
+  rangeStart?: Date,
+  rangeEnd?: Date,
 ): Slot[] {
   const slots: Slot[] = [];
   const now = new Date();
@@ -52,6 +54,8 @@ function generateSlots(
   for (let i = 0; i < daysAhead; i++) {
     const day = new Date(now);
     day.setDate(now.getDate() + i);
+    if (rangeStart && day < new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate())) continue;
+    if (rangeEnd && day > rangeEnd) break;
     const dow = jsDowToIso(day.getDay());
     const dateKey = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
     const dayExceptions = excByDate.get(dateKey) ?? [];
@@ -123,6 +127,15 @@ function BookFlow() {
   const availQ = useCoachAvailability(coachIdForAvail);
   const exceptionsQ = useCoachAvailabilityExceptions(coachIdForAvail);
   const eventTypesQ = useCoachEventTypes(coachIdForAvail);
+  const coachProfileQ = useQuery({
+    queryKey: ["coach-profile", coachIdForAvail],
+    enabled: !!coachIdForAvail,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles").select("full_name, email").eq("id", coachIdForAvail!).maybeSingle();
+      return data;
+    },
+  });
 
   // Tipologie evento personalizzate del coach (fallback alle 3 default se vuoto).
   const customTypes: EventTypeRow[] = eventTypesQ.data ?? [];
@@ -144,8 +157,14 @@ function BookFlow() {
   }, [bookingsQ.data, customTypes]);
 
   const slots = useMemo(
-    () => generateSlots(28, blockedRanges, availQ.data ?? [], exceptionsQ.data ?? []),
-    [blockedRanges, availQ.data, exceptionsQ.data]
+    () => {
+      if (!block) return [];
+      const start = new Date(block.start_date);
+      const end = new Date(block.end_date);
+      end.setHours(23, 59, 59, 999);
+      return generateSlots(28, blockedRanges, availQ.data ?? [], exceptionsQ.data ?? [], start, end);
+    },
+    [block, blockedRanges, availQ.data, exceptionsQ.data]
   );
   const grouped = useMemo(() => {
     const m = new Map<string, Slot[]>();
@@ -235,6 +254,7 @@ function BookFlow() {
   const meEmail = profile?.email ?? user?.email ?? "";
   const mePhone = profile?.phone ?? null;
   const coachId = profile?.coach_id;
+  const coachName = coachProfileQ.data?.full_name ?? coachProfileQ.data?.email ?? "il tuo Coach";
   const emailNotificationsEnabled = profile?.email_notifications ?? true;
 
   const confirm = async () => {
@@ -246,6 +266,7 @@ function BookFlow() {
     try {
       // tracker locale per non sforare quando si prenotano più slot dello stesso tipo
       const localUsed: Record<string, number> = {}; // alloc_id -> count
+      let bookedCount = 0;
 
       for (const [iso, pick] of Object.entries(picked)) {
         const type = pick.type;
@@ -295,6 +316,7 @@ function BookFlow() {
             .eq("id", alloc.id);
         }
         localUsed[alloc.id] = used + 1;
+        bookedCount += 1;
 
         // notifications (fire and forget)
         syncCalendar({
@@ -307,7 +329,7 @@ function BookFlow() {
             ? sendBookingConfirmationEmail({
                 to: meEmail, recipientName: meName,
                 sessionLabel: displayLabel, scheduledAt: new Date(iso),
-                coachName: "Coach", clientName: meName,
+                coachName, clientName: meName,
               }).catch((e) => console.error("email failed", e))
             : Promise.resolve(),
           supabase.functions.invoke("booking-notifications", {
@@ -325,14 +347,18 @@ function BookFlow() {
         });
       }
 
-      toast.success(`${totalPicked} ${totalPicked === 1 ? "sessione prenotata" : "sessioni prenotate"}`, {
-        description: emailNotificationsEnabled
-          ? "Email di conferma inviata. I link videochiamata sono generati automaticamente per le sessioni online."
-          : "I link videochiamata sono generati automaticamente per le sessioni online.",
-      });
-      qc.invalidateQueries({ queryKey: ["bookings"] });
-      qc.invalidateQueries({ queryKey: ["blocks"] });
-      navigate({ to: "/client" });
+      if (bookedCount === 0) {
+        toast.warning("Nessuna sessione prenotata", { description: "Verifica i crediti residui o la disponibilità." });
+      } else {
+        toast.success(`${bookedCount} ${bookedCount === 1 ? "sessione prenotata" : "sessioni prenotate"}`, {
+          description: emailNotificationsEnabled
+            ? "Email di conferma inviata. I link videochiamata sono generati automaticamente per le sessioni online."
+            : "I link videochiamata sono generati automaticamente per le sessioni online.",
+        });
+        qc.invalidateQueries({ queryKey: ["bookings"] });
+        qc.invalidateQueries({ queryKey: ["blocks"] });
+        navigate({ to: "/client" });
+      }
     } finally {
       setConfirming(false);
     }

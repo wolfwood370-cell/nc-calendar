@@ -58,6 +58,16 @@ function ClientHome() {
   const meEmail = profileQ.data?.email ?? user?.email ?? "";
   const coachId = profileQ.data?.coach_id ?? null;
   const eventTypesQ = useCoachEventTypes(coachId);
+  const coachProfileQ = useQuery({
+    queryKey: ["coach-profile", coachId],
+    enabled: !!coachId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles").select("full_name, email").eq("id", coachId!).maybeSingle();
+      return data;
+    },
+  });
+  const coachName = coachProfileQ.data?.full_name ?? coachProfileQ.data?.email ?? "il tuo Coach";
 
   const block = (blocksQ.data ?? []).find((b) => b.status === "active");
 
@@ -306,7 +316,7 @@ function ClientHome() {
                   <AddToCalendarButton
                     sessionLabel={label}
                     startsAt={d}
-                    coachName="Coach"
+                    coachName={coachName}
                     clientName={meName}
                   />
                   <Button variant="ghost" size="sm" onClick={() => handleCancel(b)} disabled={cancelM.isPending}>
