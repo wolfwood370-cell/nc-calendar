@@ -632,7 +632,9 @@ function BookFlow() {
               const dayKey = format(day, "yyyy-MM-dd");
               const hasSlots = daysWithSlots.has(dayKey);
               const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
-              const disabled = past || !hasSlots;
+              const selectedPool = pools.find((p) => p.key === selectedPoolKey) ?? null;
+              const expired = !!(selectedPool?.validUntil && isBefore(selectedPool.validUntil, day));
+              const disabled = past || !hasSlots || expired;
               return (
                 <div key={dayKey} className="flex justify-center items-center py-1">
                   <button
@@ -656,6 +658,15 @@ function BookFlow() {
               );
             })}
           </div>
+          {(() => {
+            const selectedPool = pools.find((p) => p.key === selectedPoolKey) ?? null;
+            if (!selectedPool?.validUntil) return null;
+            return (
+              <p className="mt-stack-md text-xs text-on-surface-variant text-center">
+                I crediti per questa tipologia scadono il {format(selectedPool.validUntil, "d MMMM yyyy", { locale: it })}.
+              </p>
+            );
+          })()}
         </section>
 
         {/* Available Times */}
