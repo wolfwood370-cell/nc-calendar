@@ -93,17 +93,8 @@ function BookFlow() {
   const availQ = useCoachAvailability(coachIdForAvail);
   const eventTypesQ = useCoachEventTypes(coachIdForAvail);
 
-  // Costruisce le opzioni del dropdown: tipologie personalizzate del coach
-  // raggruppate per categoria credito (base_type). Fallback a default se vuoto.
+  // Tipologie evento personalizzate del coach (fallback alle 3 default se vuoto).
   const customTypes: EventTypeRow[] = eventTypesQ.data ?? [];
-  const optionsByBase = useMemo(() => {
-    const m = new Map<SessionType, EventTypeRow[]>();
-    for (const et of customTypes) {
-      if (!m.has(et.base_type)) m.set(et.base_type, []);
-      m.get(et.base_type)!.push(et);
-    }
-    return m;
-  }, [customTypes]);
 
   const taken = useMemo(() => {
     const s = new Set<string>();
