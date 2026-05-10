@@ -28,7 +28,10 @@ function sameDay(a: Date, b: Date) {
 
 function CalendarPage() {
   const { user } = useAuth();
+  const qc = useQueryClient();
   const [selected, setSelected] = useState<Date | undefined>(new Date());
+  const [mirroring, setMirroring] = useState(false);
+  const lastMirrorMonth = useRef<string>("");
   const bookingsQ = useCoachBookings(user?.id);
   const clientsQ = useCoachClients(user?.id);
   const noShow = useMarkNoShow();
