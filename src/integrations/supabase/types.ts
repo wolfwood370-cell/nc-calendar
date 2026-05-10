@@ -160,6 +160,42 @@ export type Database = {
           },
         ]
       }
+      event_types: {
+        Row: {
+          base_type: Database["public"]["Enums"]["session_type"]
+          coach_id: string
+          color: string
+          created_at: string
+          description: string | null
+          duration: number
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          base_type?: Database["public"]["Enums"]["session_type"]
+          coach_id: string
+          color?: string
+          created_at?: string
+          description?: string | null
+          duration?: number
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          base_type?: Database["public"]["Enums"]["session_type"]
+          coach_id?: string
+          color?: string
+          created_at?: string
+          description?: string | null
+          duration?: number
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       integration_settings: {
         Row: {
           coach_id: string
