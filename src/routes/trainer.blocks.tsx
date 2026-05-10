@@ -213,3 +213,47 @@ function EditBlockDialog({
     </Dialog>
   );
 }
+
+export function DeleteBlockButton({ blockId, bookingsCount }: { blockId: string; bookingsCount: number }) {
+  const qc = useQueryClient();
+  const del = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("training_blocks")
+        .update({ deleted_at: new Date().toISOString(), status: "completed" })
+        .eq("id", blockId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Blocco eliminato");
+      qc.invalidateQueries({ queryKey: ["blocks"] });
+    },
+    onError: (e: unknown) => toast.error("Errore", { description: (e as Error).message }),
+  });
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive">
+          <Trash2 className="size-4" /> Elimina
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Eliminare il blocco?</AlertDialogTitle>
+          <AlertDialogDescription>
+            {bookingsCount > 0
+              ? `Questo blocco ha ${bookingsCount} prenotazion${bookingsCount === 1 ? "e collegata" : "i collegate"}. Le prenotazioni esistenti restano nel calendario ma non saranno più associate ad alcun blocco.`
+              : "Le allocazioni del blocco verranno rimosse. L'azione non è reversibile."}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Annulla</AlertDialogCancel>
+          <AlertDialogAction onClick={() => del.mutate()} disabled={del.isPending}>
+            {del.isPending && <Loader2 className="size-4 animate-spin mr-2" />}
+            Elimina
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
