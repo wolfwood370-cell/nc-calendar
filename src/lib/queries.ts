@@ -69,7 +69,7 @@ export function useCoachBookings(coachId?: string) {
     queryFn: async (): Promise<BookingRow[]> => {
       const { data, error } = await supabase
         .from("bookings")
-        .select("id, client_id, coach_id, block_id, session_type, scheduled_at, status, meeting_link, deleted_at")
+        .select("id, client_id, coach_id, block_id, session_type, scheduled_at, status, meeting_link, deleted_at, event_type_id, notes, google_event_id")
         .eq("coach_id", coachId!)
         .is("deleted_at", null)
         .order("scheduled_at", { ascending: true });
@@ -86,7 +86,7 @@ export function useClientBookings(clientId?: string) {
     queryFn: async (): Promise<BookingRow[]> => {
       const { data, error } = await supabase
         .from("bookings")
-        .select("id, client_id, coach_id, block_id, session_type, scheduled_at, status, meeting_link, deleted_at")
+        .select("id, client_id, coach_id, block_id, session_type, scheduled_at, status, meeting_link, deleted_at, event_type_id, notes, google_event_id")
         .eq("client_id", clientId!)
         .is("deleted_at", null)
         .order("scheduled_at", { ascending: true });
