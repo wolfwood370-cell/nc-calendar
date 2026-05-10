@@ -559,7 +559,7 @@ function BookFlow() {
         >
           <ArrowLeft className="size-5" />
         </button>
-        <h1 className="font-display font-semibold text-xl text-on-surface text-center absolute left-1/2 -translate-x-1/2 whitespace-nowrap">
+        <h1 className="font-display font-bold text-2xl text-on-surface text-center absolute left-1/2 -translate-x-1/2 whitespace-nowrap">
           Nuova Prenotazione
         </h1>
         <div className="w-10 h-10" />
@@ -568,7 +568,7 @@ function BookFlow() {
       <main className="max-w-3xl mx-auto px-margin-mobile flex flex-col gap-stack-lg mt-stack-md">
         {/* Selection Type */}
         <section>
-          <h2 className="font-display font-semibold text-2xl text-on-surface mb-stack-sm">Seleziona la tipologia</h2>
+          <h2 className="font-semibold text-lg text-on-surface mb-stack-sm">Seleziona la tipologia</h2>
           {pools.length === 0 ? (
             <p className="text-sm text-on-surface-variant">Nessun credito residuo nel blocco attivo.</p>
           ) : (
