@@ -21,8 +21,13 @@ function ClientSettings() {
   const [loading, setLoading] = useState(true);
   const [emailEnabled, setEmailEnabled] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [pushSupported, setPushSupported] = useState(false);
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
 
   useEffect(() => {
+    setPushSupported(isPushSupported());
+    void getCurrentPushSubscription().then((s) => setPushEnabled(!!s));
     if (!user) return;
     (async () => {
       const { data } = await supabase
