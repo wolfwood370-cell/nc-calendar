@@ -170,7 +170,13 @@ function EventTypesPage() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-medium">{t.name}</p>
                         <Badge variant="outline" className="text-xs">{t.duration} min</Badge>
-                        <Badge variant="secondary" className="text-xs">{sessionLabel(t.base_type)}</Badge>
+                        <Badge variant="secondary" className="text-xs inline-flex items-center gap-1">
+                          {t.location_type === "online" ? <Video className="size-3" /> : <MapPin className="size-3" />}
+                          {t.location_type === "online" ? "Online" : "Fisico"}
+                        </Badge>
+                        {t.buffer_minutes > 0 && (
+                          <Badge variant="outline" className="text-xs">+{t.buffer_minutes}m margine</Badge>
+                        )}
                       </div>
                       {t.description && (
                         <p className="text-xs text-muted-foreground">{t.description}</p>
