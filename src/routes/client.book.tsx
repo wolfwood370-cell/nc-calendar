@@ -694,7 +694,7 @@ function BookFlow() {
       </main>
 
       {/* Bottom Action Bar */}
-      <div className="fixed bottom-0 left-0 w-full z-50 bg-white/70 backdrop-blur-xl border-t border-white/20 shadow-[0_-8px_30px_rgba(0,0,0,0.04)] px-margin-mobile py-4 pb-8 flex justify-between items-center md:px-margin-desktop">
+      <div className="fixed bottom-[88px] md:bottom-0 left-0 w-full z-50 bg-white/90 backdrop-blur-xl border-t border-white/20 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] px-margin-mobile py-4 pb-4 md:pb-8 flex justify-between items-center md:px-margin-desktop">
         <div className="flex flex-col">
           <span className="text-sm text-outline">Selezionato:</span>
           <span className="font-display font-semibold text-xl text-primary-container">
