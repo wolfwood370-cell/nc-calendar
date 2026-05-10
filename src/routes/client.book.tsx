@@ -340,19 +340,42 @@ function BookFlow() {
                           <p className="font-display font-semibold tabular-nums">
                             {s.date.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
                           </p>
-                          {chosen && <Badge>{sessionLabel(chosen)}</Badge>}
+                          {chosen && (() => {
+                            const ev = chosen.eventTypeId
+                              ? customTypes.find((e) => e.id === chosen.eventTypeId)
+                              : null;
+                            return (
+                              <Badge style={ev ? { backgroundColor: ev.color, color: "#fff", borderColor: ev.color } : undefined}>
+                                {ev?.name ?? sessionLabel(chosen.type)}
+                              </Badge>
+                            );
+                          })()}
                         </div>
                         <Select
-                          value={chosen ?? ""}
-                          onValueChange={(v) => togglePick(s.iso, v as SessionType | "")}
+                          value={chosen ? (chosen.eventTypeId ? `${chosen.type}::${chosen.eventTypeId}` : chosen.type) : ""}
+                          onValueChange={(v) => togglePick(s.iso, v)}
                         >
                           <SelectTrigger className="mt-2 h-8 text-xs">
                             <SelectValue placeholder="Aggiungi sessione…" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="PT Session">Sessione PT</SelectItem>
-                            <SelectItem value="BIA">BIA</SelectItem>
-                            <SelectItem value="Functional Test">Test Funzionale</SelectItem>
+                            {customTypes.length === 0 ? (
+                              <>
+                                <SelectItem value="PT Session">Sessione PT</SelectItem>
+                                <SelectItem value="BIA">BIA</SelectItem>
+                                <SelectItem value="Functional Test">Test Funzionale</SelectItem>
+                              </>
+                            ) : (
+                              customTypes.map((et) => (
+                                <SelectItem key={et.id} value={`${et.base_type}::${et.id}`}>
+                                  <span className="inline-flex items-center gap-2">
+                                    <span className="size-2.5 rounded-full" style={{ backgroundColor: et.color }} />
+                                    {et.name}
+                                    <span className="text-xs text-muted-foreground">· {et.duration}m</span>
+                                  </span>
+                                </SelectItem>
+                              ))
+                            )}
                           </SelectContent>
                         </Select>
                         {chosen && (
