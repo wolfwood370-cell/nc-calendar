@@ -10,6 +10,7 @@ import { sendBookingConfirmationEmail } from "@/lib/email";
 import { sendPush } from "@/lib/push";
 import { supabase } from "@/integrations/supabase/client";
 import { syncCalendar } from "@/lib/sync-calendar";
+import { generateGoogleCalendarLink } from "@/lib/calendar-utils";
 import { useAuth } from "@/lib/auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, isSameDay, isSameMonth, isBefore, startOfDay } from "date-fns";
