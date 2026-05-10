@@ -11,7 +11,7 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, CalendarDays, Users, LayersIcon, Dumbbell, LogOut, Plug } from "lucide-react";
+import { LayoutDashboard, CalendarDays, Users, LayersIcon, Dumbbell, LogOut, Plug, Clock } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { InstallPwaButton } from "@/components/install-pwa-button";
@@ -21,6 +21,7 @@ const items = [
   { title: "Calendario", url: "/trainer/calendar", icon: CalendarDays },
   { title: "Clienti", url: "/trainer/clients", icon: Users },
   { title: "Crea blocco", url: "/trainer/blocks", icon: LayersIcon },
+  { title: "Disponibilità", url: "/trainer/availability", icon: Clock },
   { title: "Integrazioni", url: "/trainer/integrations", icon: Plug },
 ];
 

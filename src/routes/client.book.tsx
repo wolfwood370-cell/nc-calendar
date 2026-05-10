@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { ChevronLeft, Check, Loader2, Video } from "lucide-react";
 import { sessionLabel, type SessionType } from "@/lib/mock-data";
-import { useClientBlocks, useClientBookings } from "@/lib/queries";
+import { useClientBlocks, useClientBookings, useCoachAvailability, type AvailabilityRow } from "@/lib/queries";
 import { generateMockMeetLink } from "@/components/join-video-call-button";
 import { toast } from "sonner";
 import { sendBookingConfirmationEmail } from "@/lib/email";
@@ -24,34 +24,40 @@ export const Route = createFileRoute("/client/book")({
 
 interface Slot { iso: string; date: Date; }
 
-// Disponibilità default del coach (Lun-Sab, 07:00-12:00 / Mer 14:00-19:00).
-// In una versione futura sarà letta da una tabella `availability_slots` per coach.
-const DEFAULT_AVAILABILITY: Array<{ dow: number; start: number; end: number }> = [
-  { dow: 1, start: 7, end: 12 },
-  { dow: 2, start: 7, end: 12 },
-  { dow: 3, start: 14, end: 19 },
-  { dow: 4, start: 7, end: 12 },
-  { dow: 5, start: 7, end: 16 },
-  { dow: 6, start: 8, end: 11 },
-];
+// day_of_week: 1=Lun ... 7=Dom (Date.getDay() restituisce 0=Dom..6=Sab)
+function jsDowToIso(d: number): number {
+  return d === 0 ? 7 : d;
+}
 
-function generateSlots(daysAhead: number, takenISO: Set<string>): Slot[] {
+function parseHM(t: string): { h: number; m: number } {
+  const [h, m] = t.split(":");
+  return { h: parseInt(h, 10), m: parseInt(m, 10) };
+}
+
+function generateSlots(daysAhead: number, takenISO: Set<string>, availability: AvailabilityRow[]): Slot[] {
   const slots: Slot[] = [];
   const now = new Date();
   for (let i = 0; i < daysAhead; i++) {
     const day = new Date(now);
     day.setDate(now.getDate() + i);
-    const av = DEFAULT_AVAILABILITY.find((a) => a.dow === day.getDay());
-    if (!av) continue;
-    for (let h = av.start; h < av.end; h++) {
-      const slot = new Date(day);
-      slot.setHours(h, 0, 0, 0);
-      if (slot.getTime() - now.getTime() < 24 * 60 * 60 * 1000) continue;
-      const iso = slot.toISOString();
-      if (takenISO.has(iso)) continue;
-      slots.push({ iso, date: slot });
+    const dow = jsDowToIso(day.getDay());
+    const blocks = availability.filter((a) => a.day_of_week === dow);
+    for (const b of blocks) {
+      const s = parseHM(b.start_time);
+      const e = parseHM(b.end_time);
+      const startMin = s.h * 60 + s.m;
+      const endMin = e.h * 60 + e.m;
+      for (let mm = startMin; mm + 60 <= endMin; mm += 60) {
+        const slot = new Date(day);
+        slot.setHours(Math.floor(mm / 60), mm % 60, 0, 0);
+        if (slot.getTime() - now.getTime() < 24 * 60 * 60 * 1000) continue;
+        const iso = slot.toISOString();
+        if (takenISO.has(iso)) continue;
+        slots.push({ iso, date: slot });
+      }
     }
   }
+  slots.sort((a, b) => a.date.getTime() - b.date.getTime());
   return slots;
 }
 
@@ -82,6 +88,9 @@ function BookFlow() {
   const [confirming, setConfirming] = useState(false);
 
   const block = (blocksQ.data ?? []).find((b) => b.status === "active");
+  const coachIdForAvail = profileQ.data?.coach_id ?? null;
+  const availQ = useCoachAvailability(coachIdForAvail);
+
   const taken = useMemo(() => {
     const s = new Set<string>();
     (bookingsQ.data ?? [])
@@ -90,7 +99,10 @@ function BookFlow() {
     return s;
   }, [bookingsQ.data]);
 
-  const slots = useMemo(() => generateSlots(28, taken), [taken]);
+  const slots = useMemo(
+    () => generateSlots(28, taken, availQ.data ?? []),
+    [taken, availQ.data]
+  );
   const grouped = useMemo(() => {
     const m = new Map<string, Slot[]>();
     for (const s of slots) {
@@ -101,7 +113,7 @@ function BookFlow() {
     return m;
   }, [slots]);
 
-  if (blocksQ.isLoading || bookingsQ.isLoading) {
+  if (blocksQ.isLoading || bookingsQ.isLoading || availQ.isLoading) {
     return <div className="space-y-4"><Skeleton className="h-12 w-1/2" /><Skeleton className="h-40 w-full" /></div>;
   }
   if (!block) {
@@ -273,59 +285,73 @@ function BookFlow() {
       </Card>
 
       <div className="space-y-4">
-        {[...grouped.entries()].slice(0, 14).map(([day, daySlots]) => (
-          <Card key={day}>
-            <CardHeader>
-              <CardTitle className="text-base">
-                {new Date(day).toLocaleDateString("it-IT", { weekday: "long", month: "long", day: "numeric" })}
-              </CardTitle>
-              <CardDescription>{daySlots.length} slot disponibili</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
-                {daySlots.map((s) => {
-                  const chosen = picked[s.iso];
-                  return (
-                    <div
-                      key={s.iso}
-                      className={`rounded-lg border p-3 transition ${chosen ? "border-primary bg-primary/5" : "hover:border-primary/40"}`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <p className="font-display font-semibold tabular-nums">
-                          {s.date.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
-                        </p>
-                        {chosen && <Badge>{sessionLabel(chosen)}</Badge>}
-                      </div>
-                      <Select
-                        value={chosen ?? ""}
-                        onValueChange={(v) => togglePick(s.iso, v as SessionType | "")}
-                      >
-                        <SelectTrigger className="mt-2 h-8 text-xs">
-                          <SelectValue placeholder="Aggiungi sessione…" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="PT Session">Sessione PT</SelectItem>
-                          <SelectItem value="BIA">BIA</SelectItem>
-                          <SelectItem value="Functional Test">Test Funzionale</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {chosen && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="mt-1 h-7 text-xs w-full"
-                          onClick={() => togglePick(s.iso, "")}
-                        >
-                          Rimuovi
-                        </Button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+        {grouped.size === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center text-sm text-muted-foreground">
+              {(availQ.data ?? []).length === 0
+                ? "Il tuo coach non ha ancora configurato la sua disponibilità. Contattalo per maggiori informazioni."
+                : "Nessuna disponibilità nei prossimi giorni. Tutti gli slot sono già prenotati."}
             </CardContent>
           </Card>
-        ))}
+        ) : (
+          [...grouped.entries()].slice(0, 14).map(([day, daySlots]) => (
+            <Card key={day}>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  {new Date(day).toLocaleDateString("it-IT", { weekday: "long", month: "long", day: "numeric" })}
+                </CardTitle>
+                <CardDescription>
+                  {daySlots.length === 0
+                    ? "Nessuna disponibilità in questa data"
+                    : `${daySlots.length} slot disponibili`}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
+                  {daySlots.map((s) => {
+                    const chosen = picked[s.iso];
+                    return (
+                      <div
+                        key={s.iso}
+                        className={`rounded-lg border p-3 transition ${chosen ? "border-primary bg-primary/5" : "hover:border-primary/40"}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <p className="font-display font-semibold tabular-nums">
+                            {s.date.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                          {chosen && <Badge>{sessionLabel(chosen)}</Badge>}
+                        </div>
+                        <Select
+                          value={chosen ?? ""}
+                          onValueChange={(v) => togglePick(s.iso, v as SessionType | "")}
+                        >
+                          <SelectTrigger className="mt-2 h-8 text-xs">
+                            <SelectValue placeholder="Aggiungi sessione…" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="PT Session">Sessione PT</SelectItem>
+                            <SelectItem value="BIA">BIA</SelectItem>
+                            <SelectItem value="Functional Test">Test Funzionale</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {chosen && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="mt-1 h-7 text-xs w-full"
+                            onClick={() => togglePick(s.iso, "")}
+                          >
+                            Rimuovi
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
     </div>
   );
