@@ -297,3 +297,59 @@ function Stat({
     </Card>
   );
 }
+
+function NextAppointmentCountdown({
+  booking, clientName, sessionLabelText,
+}: {
+  booking: { scheduled_at: string } | null;
+  clientName: string | null;
+  sessionLabelText: string | null;
+}) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  if (!booking) {
+    return (
+      <Card>
+        <CardContent className="p-5 flex items-center gap-3">
+          <div className="size-9 rounded-md bg-primary/10 text-primary grid place-items-center">
+            <Clock className="size-4" />
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">Prossimo Appuntamento</p>
+            <p className="text-sm font-medium">Nessun appuntamento programmato per oggi.</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+  const target = new Date(booking.scheduled_at).getTime();
+  const diff = Math.max(0, target - now);
+  const h = Math.floor(diff / 3_600_000);
+  const m = Math.floor((diff % 3_600_000) / 60_000);
+  const s = Math.floor((diff % 60_000) / 1000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    <Card className="border-primary/40 bg-gradient-to-br from-primary/5 via-accent/30 to-background">
+      <CardContent className="p-5 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="size-10 rounded-md bg-primary/15 text-primary grid place-items-center">
+            <Clock className="size-5" />
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">Prossimo Appuntamento</p>
+            <p className="text-sm font-medium">{clientName} · {sessionLabelText}</p>
+            <p className="text-xs text-muted-foreground">
+              {new Date(booking.scheduled_at).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
+            </p>
+          </div>
+        </div>
+        <p className="font-display text-3xl font-semibold tabular-nums tracking-tight">
+          {pad(h)}:{pad(m)}:{pad(s)}
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
