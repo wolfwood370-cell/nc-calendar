@@ -256,6 +256,21 @@ export function useCoachCancelBooking() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (booking: BookingRow) => {
+      // 1. Rimuovi evento da Google Calendar (se collegato)
+      if (booking.google_event_id) {
+        try {
+          await supabase.functions.invoke("sync-calendar", {
+            body: {
+              action: "cancel",
+              coach_id: booking.coach_id,
+              google_event_id: booking.google_event_id,
+            },
+          });
+        } catch (err) {
+          console.error("sync-calendar cancel failed", err);
+        }
+      }
+
       const { error } = await supabase
         .from("bookings")
         .update({ status: "cancelled" as BookingStatus, deleted_at: new Date().toISOString() })
