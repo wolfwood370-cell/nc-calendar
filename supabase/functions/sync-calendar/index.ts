@@ -219,10 +219,26 @@ Deno.serve(async (req) => {
         const sessionType = match.eventType?.base_type ?? "PT Session";
         const eventTypeId = match.eventType?.id ?? null;
 
-        const { data: existing } = await supabase
+        let { data: existing } = await supabase
           .from("bookings")
           .select("id, status, scheduled_at, block_id, client_id, event_type_id, session_type")
           .eq("google_event_id", id).maybeSingle();
+
+        // Fallback: stesso cliente + stesso orario senza google_event_id (evita duplicati)
+        if (!existing && match.client) {
+          const { data: localTwin } = await supabase
+            .from("bookings")
+            .select("id, status, scheduled_at, block_id, client_id, event_type_id, session_type")
+            .eq("coach_id", body.coach_id)
+            .eq("client_id", clientId)
+            .eq("scheduled_at", startIso)
+            .is("google_event_id", null)
+            .maybeSingle();
+          if (localTwin) {
+            await supabase.from("bookings").update({ google_event_id: id }).eq("id", localTwin.id);
+            existing = localTwin;
+          }
+        }
 
         if (existing) {
           const patch: Record<string, unknown> = {
