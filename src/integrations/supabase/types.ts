@@ -338,6 +338,41 @@ export type Database = {
           },
         ]
       }
+      push_subscriptions: {
+        Row: {
+          created_at: string
+          endpoint: string | null
+          id: string
+          profile_id: string
+          subscription: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          endpoint?: string | null
+          id?: string
+          profile_id: string
+          subscription: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          endpoint?: string | null
+          id?: string
+          profile_id?: string
+          subscription?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       trainer_availability: {
         Row: {
           coach_id: string
