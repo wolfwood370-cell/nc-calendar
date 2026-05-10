@@ -292,15 +292,19 @@ function BookFlow() {
   const allocKey = (eventTypeId: string | null, type: SessionType) => eventTypeId ?? `__${type}`;
 
   // Pools list (one entry per credit pool: event_type_id or legacy session_type).
-  interface Pool { key: string; label: string; type: SessionType; eventTypeId: string | null; remaining: number; color?: string | null; }
+  interface Pool { key: string; label: string; type: SessionType; eventTypeId: string | null; remaining: number; color?: string | null; validUntil: Date | null; }
   const pools = useMemo<Pool[]>(() => {
     if (!block) return [];
     const poolsMap = new Map<string, Pool>();
     for (const a of block.allocations) {
       const k = allocKey(a.event_type_id, a.session_type);
       const remaining = a.quantity_assigned - a.quantity_booked;
+      const allocExp = a.valid_until ? new Date(`${a.valid_until}T23:59:59`) : null;
       if (poolsMap.has(k)) {
-        poolsMap.get(k)!.remaining += remaining;
+        const cur = poolsMap.get(k)!;
+        cur.remaining += remaining;
+        // pool expiry = max of allocations' expiry (latest day still bookable)
+        if (allocExp && (!cur.validUntil || allocExp > cur.validUntil)) cur.validUntil = allocExp;
       } else {
         const et = a.event_type_id ? customTypes.find((e) => e.id === a.event_type_id) : null;
         poolsMap.set(k, {
@@ -310,6 +314,7 @@ function BookFlow() {
           eventTypeId: a.event_type_id ?? null,
           remaining,
           color: et?.color ?? null,
+          validUntil: allocExp,
         });
       }
     }
