@@ -5,12 +5,16 @@ import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Loader2, MoreHorizontal, UserX } from "lucide-react";
+import { Loader2, MoreHorizontal, UserX, NotebookPen, Save } from "lucide-react";
 import { sessionLabel } from "@/lib/mock-data";
-import { useCoachBookings, useCoachClients, useCoachEventTypes, useMarkNoShow } from "@/lib/queries";
+import { useCoachBookings, useCoachClients, useCoachEventTypes, useMarkNoShow, useUpdateTrainerNotes, type BookingRow } from "@/lib/queries";
 import { AddToCalendarButton } from "@/components/add-to-calendar-button";
 import { JoinVideoCallButton } from "@/components/join-video-call-button";
 import { BookingStatusBadge } from "@/components/booking-status-badge";
