@@ -14,7 +14,17 @@ export interface BookingRow {
   deleted_at: string | null;
   event_type_id: string | null;
   notes: string | null;
+  trainer_notes: string | null;
   google_event_id: string | null;
+}
+
+export interface AvailabilityExceptionRow {
+  id: string;
+  coach_id: string;
+  date: string; // YYYY-MM-DD
+  start_time: string | null; // HH:MM:SS
+  end_time: string | null;
+  reason: string;
 }
 
 export interface AllocationRow {
