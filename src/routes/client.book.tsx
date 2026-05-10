@@ -90,6 +90,19 @@ function BookFlow() {
   const block = (blocksQ.data ?? []).find((b) => b.status === "active");
   const coachIdForAvail = profileQ.data?.coach_id ?? null;
   const availQ = useCoachAvailability(coachIdForAvail);
+  const eventTypesQ = useCoachEventTypes(coachIdForAvail);
+
+  // Costruisce le opzioni del dropdown: tipologie personalizzate del coach
+  // raggruppate per categoria credito (base_type). Fallback a default se vuoto.
+  const customTypes: EventTypeRow[] = eventTypesQ.data ?? [];
+  const optionsByBase = useMemo(() => {
+    const m = new Map<SessionType, EventTypeRow[]>();
+    for (const et of customTypes) {
+      if (!m.has(et.base_type)) m.set(et.base_type, []);
+      m.get(et.base_type)!.push(et);
+    }
+    return m;
+  }, [customTypes]);
 
   const taken = useMemo(() => {
     const s = new Set<string>();
