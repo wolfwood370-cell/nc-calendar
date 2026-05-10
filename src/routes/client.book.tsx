@@ -42,6 +42,7 @@ function generateSlots(
   exceptions: AvailabilityExceptionRow[],
   rangeStart?: Date,
   rangeEnd?: Date,
+  optimization?: { enabled: boolean },
 ): Slot[] {
   const slots: Slot[] = [];
   const now = new Date();
@@ -51,6 +52,14 @@ function generateSlots(
     if (!excByDate.has(ex.date)) excByDate.set(ex.date, []);
     excByDate.get(ex.date)!.push(ex);
   }
+  // Pre-index blocked ranges by day for adjacency / anchor logic
+  const rangesByDay = new Map<string, BlockedRange[]>();
+  for (const r of blockedRanges) {
+    const d = new Date(r.start);
+    const k = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    if (!rangesByDay.has(k)) rangesByDay.set(k, []);
+    rangesByDay.get(k)!.push(r);
+  }
   for (let i = 0; i < daysAhead; i++) {
     const day = new Date(now);
     day.setDate(now.getDate() + i);
@@ -59,9 +68,9 @@ function generateSlots(
     const dow = jsDowToIso(day.getDay());
     const dateKey = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
     const dayExceptions = excByDate.get(dateKey) ?? [];
-    // Se esiste un'eccezione full-day (start_time/end_time entrambi null), salta tutto il giorno
     if (dayExceptions.some((ex) => !ex.start_time || !ex.end_time)) continue;
     const blocks = availability.filter((a) => a.day_of_week === dow);
+    const daySlots: Slot[] = [];
     for (const b of blocks) {
       const s = parseHM(b.start_time);
       const e = parseHM(b.end_time);
@@ -73,10 +82,8 @@ function generateSlots(
         if (slot.getTime() - now.getTime() < 24 * 60 * 60 * 1000) continue;
         const slotStart = slot.getTime();
         const slotEnd = slotStart + 60 * 60 * 1000;
-        // blocca lo slot se interseca un range già occupato (durata + buffer)
         const overlaps = blockedRanges.some((r) => slotStart < r.end && slotEnd > r.start);
         if (overlaps) continue;
-        // blocca lo slot se interseca un'eccezione parziale del giorno
         const inException = dayExceptions.some((ex) => {
           if (!ex.start_time || !ex.end_time) return false;
           const exS = parseHM(ex.start_time);
@@ -88,11 +95,41 @@ function generateSlots(
           return slotStart < exEnd.getTime() && slotEnd > exStart.getTime();
         });
         if (inException) continue;
-        slots.push({ iso: slot.toISOString(), date: slot });
+        daySlots.push({ iso: slot.toISOString(), date: slot });
       }
     }
+    // Smart polarization: tag "recommended" slots
+    if (optimization?.enabled && daySlots.length > 0) {
+      const dayKey = `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`;
+      const dayRanges = rangesByDay.get(dayKey) ?? [];
+      if (dayRanges.length === 0) {
+        // Anchor: primo, ultimo, e centrale
+        const lastIdx = daySlots.length - 1;
+        const midIdx = Math.floor(lastIdx / 2);
+        [0, midIdx, lastIdx].forEach((idx) => { daySlots[idx].recommended = true; });
+      } else {
+        // Adjacency: slot che combaciano con un range esistente (con buffer già incluso)
+        const TOLERANCE = 60 * 1000; // 1 minuto
+        for (const s of daySlots) {
+          const sStart = s.date.getTime();
+          const sEnd = sStart + 60 * 60 * 1000;
+          if (dayRanges.some((r) =>
+            Math.abs(sStart - r.end) <= TOLERANCE || Math.abs(sEnd - r.start) <= TOLERANCE,
+          )) {
+            s.recommended = true;
+          }
+        }
+      }
+      // Ordina per: consigliati prima, poi cronologico
+      daySlots.sort((a, b) => {
+        const ra = a.recommended ? 0 : 1;
+        const rb = b.recommended ? 0 : 1;
+        if (ra !== rb) return ra - rb;
+        return a.date.getTime() - b.date.getTime();
+      });
+    }
+    slots.push(...daySlots);
   }
-  slots.sort((a, b) => a.date.getTime() - b.date.getTime());
   return slots;
 }
 
