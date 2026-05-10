@@ -113,7 +113,7 @@ function BookFlow() {
     return m;
   }, [slots]);
 
-  if (blocksQ.isLoading || bookingsQ.isLoading) {
+  if (blocksQ.isLoading || bookingsQ.isLoading || availQ.isLoading) {
     return <div className="space-y-4"><Skeleton className="h-12 w-1/2" /><Skeleton className="h-40 w-full" /></div>;
   }
   if (!block) {
