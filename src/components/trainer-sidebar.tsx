@@ -11,10 +11,11 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, CalendarDays, Users, LayersIcon, Dumbbell, LogOut, Plug, Clock, Tag } from "lucide-react";
+import { LayoutDashboard, CalendarDays, Users, LayersIcon, LogOut, Plug, Clock, Tag } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { InstallPwaButton } from "@/components/install-pwa-button";
+import logoUrl from "@/assets/nc-calendar-logo.png";
 
 const items = [
   { title: "Panoramica", url: "/trainer", icon: LayoutDashboard, exact: true },
@@ -36,11 +37,9 @@ export function TrainerSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader>
         <div className="flex items-center gap-2 px-2 py-2">
-          <div className="size-8 rounded-md bg-primary text-primary-foreground grid place-items-center">
-            <Dumbbell className="size-4" />
-          </div>
+          <img src={logoUrl} alt="NC Calendar" className="size-8 rounded-md object-cover" />
           <div className="group-data-[collapsible=icon]:hidden">
-            <p className="font-display text-sm font-semibold leading-none">Stride</p>
+            <p className="font-display text-sm font-semibold leading-none">NC Calendar</p>
             <p className="text-xs text-muted-foreground mt-1">Studio</p>
           </div>
         </div>
