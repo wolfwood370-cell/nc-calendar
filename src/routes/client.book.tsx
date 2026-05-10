@@ -120,6 +120,7 @@ function BookFlow() {
   const block = (blocksQ.data ?? []).find((b) => b.status === "active");
   const coachIdForAvail = profileQ.data?.coach_id ?? null;
   const availQ = useCoachAvailability(coachIdForAvail);
+  const exceptionsQ = useCoachAvailabilityExceptions(coachIdForAvail);
   const eventTypesQ = useCoachEventTypes(coachIdForAvail);
 
   // Tipologie evento personalizzate del coach (fallback alle 3 default se vuoto).
@@ -142,8 +143,8 @@ function BookFlow() {
   }, [bookingsQ.data, customTypes]);
 
   const slots = useMemo(
-    () => generateSlots(28, blockedRanges, availQ.data ?? []),
-    [blockedRanges, availQ.data]
+    () => generateSlots(28, blockedRanges, availQ.data ?? [], exceptionsQ.data ?? []),
+    [blockedRanges, availQ.data, exceptionsQ.data]
   );
   const grouped = useMemo(() => {
     const m = new Map<string, Slot[]>();
