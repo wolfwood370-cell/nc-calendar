@@ -33,17 +33,20 @@ export async function subscribeToPush(profileId: string): Promise<PushSubscripti
 
   let sub = await reg.pushManager.getSubscription();
   if (!sub) {
+    const key = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+    const buf = key.buffer.slice(key.byteOffset, key.byteOffset + key.byteLength) as ArrayBuffer;
     sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      applicationServerKey: buf,
     });
   }
 
-  const json = sub.toJSON();
+  const json = sub.toJSON() as unknown as Record<string, unknown>;
   const { error } = await supabase
-    .from("push_subscriptions")
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .from("push_subscriptions" as any)
     .upsert(
-      { profile_id: profileId, subscription: json as unknown as Record<string, unknown> },
+      { profile_id: profileId, subscription: json as never },
       { onConflict: "profile_id,endpoint" },
     );
   if (error) throw error;
