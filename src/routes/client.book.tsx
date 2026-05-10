@@ -517,6 +517,12 @@ function BookFlow() {
           description: emailNotificationsEnabled
             ? "Email di conferma inviata. I link videochiamata sono generati automaticamente per le sessioni online."
             : "I link videochiamata sono generati automaticamente per le sessioni online.",
+          action: lastCalendarUrl
+            ? {
+                label: "Aggiungi al Calendario",
+                onClick: () => window.open(lastCalendarUrl!, "_blank", "noopener,noreferrer"),
+              }
+            : undefined,
         });
         qc.invalidateQueries({ queryKey: ["bookings"] });
         qc.invalidateQueries({ queryKey: ["blocks"] });
