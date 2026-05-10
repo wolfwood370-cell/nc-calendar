@@ -249,6 +249,7 @@ export type Database = {
       }
       integration_settings: {
         Row: {
+          calendar_optimization_enabled: boolean
           coach_id: string
           created_at: string
           gcal_calendar_id: string | null
@@ -262,6 +263,7 @@ export type Database = {
           wa_phone_id: string | null
         }
         Insert: {
+          calendar_optimization_enabled?: boolean
           coach_id: string
           created_at?: string
           gcal_calendar_id?: string | null
@@ -275,6 +277,7 @@ export type Database = {
           wa_phone_id?: string | null
         }
         Update: {
+          calendar_optimization_enabled?: boolean
           coach_id?: string
           created_at?: string
           gcal_calendar_id?: string | null

@@ -25,6 +25,7 @@ interface Settings {
   gcal_service_account_json: string;
   gcal_calendar_id: string;
   gcal_enabled: boolean;
+  calendar_optimization_enabled: boolean;
 }
 
 const empty: Settings = {
@@ -34,6 +35,7 @@ const empty: Settings = {
   gcal_service_account_json: "",
   gcal_calendar_id: "",
   gcal_enabled: false,
+  calendar_optimization_enabled: true,
 };
 
 const waSchema = z.object({
@@ -84,6 +86,7 @@ function IntegrationsPage() {
           gcal_service_account_json: (d.gcal_service_account_json as string) ?? "",
           gcal_calendar_id: (d.gcal_calendar_id as string) ?? "",
           gcal_enabled: (d.gcal_enabled as boolean) ?? false,
+          calendar_optimization_enabled: (d.calendar_optimization_enabled as boolean) ?? true,
         });
       }
       setLoading(false);
@@ -157,6 +160,11 @@ function IntegrationsPage() {
     }
     const ok = await upsert({ gcal_enabled: v });
     if (ok) toast.success(v ? "Sincronizzazione calendario abilitata" : "Sincronizzazione calendario disabilitata");
+  };
+
+  const toggleOptimization = async (v: boolean) => {
+    const ok = await upsert({ calendar_optimization_enabled: v });
+    if (ok) toast.success(v ? "Ottimizzazione calendario attivata" : "Ottimizzazione calendario disattivata");
   };
 
   const waConfigured = !!settings.wa_phone_id && !!settings.wa_access_token;
@@ -330,6 +338,42 @@ function IntegrationsPage() {
             >
               {importingHistory && <Loader2 className="size-4 animate-spin" />} Sincronizza Storico 2026
             </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Calendar Optimization */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="size-10 rounded-md bg-primary/10 text-primary grid place-items-center">
+                <CalendarRange className="size-5" />
+              </div>
+              <div>
+                <CardTitle>Ottimizzazione Calendario</CardTitle>
+                <CardDescription>
+                  Suggerisce ai clienti gli orari adiacenti a sessioni esistenti per ridurre i tempi morti.
+                </CardDescription>
+              </div>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
+            <div className="flex items-center gap-3">
+              <Switch
+                id="calendar-optimization"
+                checked={settings.calendar_optimization_enabled}
+                onCheckedChange={toggleOptimization}
+              />
+              <Label htmlFor="calendar-optimization" className="cursor-pointer">
+                Attiva Ottimizzazione Calendario
+              </Label>
+            </div>
+            <p className="text-xs text-muted-foreground max-w-md">
+              Quando attiva, gli slot consigliati appaiono per primi e sono evidenziati nel flusso di prenotazione del cliente.
+            </p>
           </div>
         </CardContent>
       </Card>
