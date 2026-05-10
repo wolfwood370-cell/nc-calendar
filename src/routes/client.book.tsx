@@ -318,7 +318,7 @@ function BookFlow() {
           }).catch((e) => console.error("booking-notifications failed", e)),
         ]);
         sendPush({
-          profileId: meId,
+          profileId: meId!,
           title: "Prenotazione confermata",
           body: `${displayLabel} — ${new Date(iso).toLocaleString("it-IT", { dateStyle: "medium", timeStyle: "short" })}`,
           url: "/client",
