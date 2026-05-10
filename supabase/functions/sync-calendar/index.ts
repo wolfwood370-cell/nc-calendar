@@ -185,7 +185,9 @@ Deno.serve(async (req) => {
     if (body.action === "import_history") {
       const ctx = await loadCoachContext();
       const timeMin = body.range_start_iso ?? "2026-01-01T00:00:00Z";
-      const timeMax = body.range_end_iso ?? new Date().toISOString();
+      const twoYearsAhead = new Date();
+      twoYearsAhead.setFullYear(twoYearsAhead.getFullYear() + 2);
+      const timeMax = body.range_end_iso ?? twoYearsAhead.toISOString();
       const items: Array<Record<string, unknown>> = [];
       let pageToken: string | undefined = undefined;
       do {
