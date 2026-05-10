@@ -3,15 +3,17 @@ import { useMemo, useState } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, UserX } from "lucide-react";
-import { clientName, sessionLabel, trainer } from "@/lib/mock-data";
-import { useStoreBookings, markNoShow } from "@/lib/booking-store";
+import { sessionLabel } from "@/lib/mock-data";
+import { useCoachBookings, useCoachClients, useMarkNoShow } from "@/lib/queries";
 import { AddToCalendarButton } from "@/components/add-to-calendar-button";
 import { JoinVideoCallButton } from "@/components/join-video-call-button";
 import { BookingStatusBadge } from "@/components/booking-status-badge";
+import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/trainer/calendar")({
@@ -23,8 +25,18 @@ function sameDay(a: Date, b: Date) {
 }
 
 function CalendarPage() {
+  const { user } = useAuth();
   const [selected, setSelected] = useState<Date | undefined>(new Date());
-  const bookings = useStoreBookings();
+  const bookingsQ = useCoachBookings(user?.id);
+  const clientsQ = useCoachClients(user?.id);
+  const noShow = useMarkNoShow();
+
+  const bookings = bookingsQ.data ?? [];
+  const clientsMap = useMemo(() => {
+    const m = new Map<string, string>();
+    (clientsQ.data ?? []).forEach((c) => m.set(c.id, c.full_name ?? c.email ?? "Cliente"));
+    return m;
+  }, [clientsQ.data]);
 
   const bookedDates = useMemo(
     () => bookings.filter((b) => b.status === "scheduled" || b.status === "completed").map((b) => new Date(b.scheduled_at)),
@@ -39,9 +51,13 @@ function CalendarPage() {
   }, [selected, bookings]);
 
   const handleNoShow = (id: string) => {
-    markNoShow(id);
-    toast.error("Sessione segnata come No Show", { description: "Il credito non viene restituito." });
+    noShow.mutate(id, {
+      onSuccess: () => toast.error("Sessione segnata come No Show", { description: "Il credito non viene restituito." }),
+      onError: (e: unknown) => toast.error("Errore", { description: (e as Error).message }),
+    });
   };
+
+  const coachName = (user?.user_metadata?.full_name as string) ?? user?.email ?? "Coach";
 
   return (
     <div className="space-y-6">
@@ -71,7 +87,8 @@ function CalendarPage() {
             <CardDescription>{dayBookings.length} {dayBookings.length === 1 ? "sessione" : "sessioni"}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            {dayBookings.length === 0 && <p className="text-sm text-muted-foreground">Nessuna sessione in questa data.</p>}
+            {bookingsQ.isLoading && <Skeleton className="h-16 w-full" />}
+            {!bookingsQ.isLoading && dayBookings.length === 0 && <p className="text-sm text-muted-foreground">Nessuna sessione in questa data.</p>}
             {dayBookings.map((b) => {
               const d = new Date(b.scheduled_at);
               return (
@@ -81,7 +98,7 @@ function CalendarPage() {
                       {d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
                     </div>
                     <div>
-                      <p className="text-sm font-medium">{clientName(b.client_id)}</p>
+                      <p className="text-sm font-medium">{clientsMap.get(b.client_id) ?? "Cliente"}</p>
                       <p className="text-xs text-muted-foreground">{sessionLabel(b.session_type)}</p>
                     </div>
                   </div>
@@ -91,8 +108,8 @@ function CalendarPage() {
                     <AddToCalendarButton
                       sessionLabel={sessionLabel(b.session_type)}
                       startsAt={d}
-                      coachName={trainer.full_name}
-                      clientName={clientName(b.client_id)}
+                      coachName={coachName}
+                      clientName={clientsMap.get(b.client_id) ?? "Cliente"}
                     />
                     {b.status === "scheduled" && (
                       <DropdownMenu>
