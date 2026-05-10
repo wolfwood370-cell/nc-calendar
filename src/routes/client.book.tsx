@@ -200,9 +200,12 @@ function BookFlow() {
       const start = new Date(block.start_date);
       const end = new Date(block.end_date);
       end.setHours(23, 59, 59, 999);
-      return generateSlots(28, blockedRanges, availQ.data ?? [], exceptionsQ.data ?? [], start, end);
+      return generateSlots(
+        28, blockedRanges, availQ.data ?? [], exceptionsQ.data ?? [], start, end,
+        { enabled: optimizationQ.data ?? true },
+      );
     },
-    [block, blockedRanges, availQ.data, exceptionsQ.data]
+    [block, blockedRanges, availQ.data, exceptionsQ.data, optimizationQ.data]
   );
   const grouped = useMemo(() => {
     const m = new Map<string, Slot[]>();
