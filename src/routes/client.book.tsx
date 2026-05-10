@@ -374,7 +374,12 @@ function BookFlow() {
                                   <span className="inline-flex items-center gap-2">
                                     <span className="size-2.5 rounded-full" style={{ backgroundColor: et.color }} />
                                     {et.name}
-                                    <span className="text-xs text-muted-foreground">· {et.duration}m</span>
+                                    <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                                      · {et.duration}m
+                                      {et.location_type === "online"
+                                        ? <Video className="size-3" />
+                                        : <MapPin className="size-3" />}
+                                    </span>
                                   </span>
                                 </SelectItem>
                               ))
