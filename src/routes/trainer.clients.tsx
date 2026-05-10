@@ -306,3 +306,31 @@ function InviteClientDialog({ onSubmit }: { onSubmit: (d: { name: string; email:
     </DialogContent>
   );
 }
+
+function AssignBlocksSheet({ clientId, clientName }: { clientId: string; clientName: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger asChild>
+        <Button size="sm" variant="ghost">
+          <CalendarPlus className="size-4" /> Assegna Percorsi/Blocchi
+        </Button>
+      </SheetTrigger>
+      <SheetContent side="right" className="sm:max-w-xl w-full overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>Assegna Percorsi a {clientName}</SheetTitle>
+          <SheetDescription>
+            Definisci data di partenza, numero di blocchi sequenziali e quote settimanali per tipologia.
+          </SheetDescription>
+        </SheetHeader>
+        <div className="mt-4">
+          <BlockAssignmentWizard
+            clientId={clientId}
+            clientName={clientName}
+            onCreated={() => setOpen(false)}
+          />
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
