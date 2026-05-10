@@ -267,7 +267,7 @@ export function BlockAssignmentWizard({ clientId, clientName, onCreated }: Props
 }
 
 function Stepper({ step }: { step: number }) {
-  const steps = ["Date", "Quote settimanali", "Riepilogo"];
+  const steps = ["Date", "Crediti per Blocco", "Riepilogo"];
   return (
     <div className="flex items-center gap-2 flex-wrap">
       {steps.map((label, i) => {
