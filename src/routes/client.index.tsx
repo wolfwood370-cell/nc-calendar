@@ -130,7 +130,7 @@ function ClientHome() {
             Prossimo Appuntamento
           </h3>
           {isLoading ? (
-            <Skeleton className="h-32 w-full rounded-[1rem]" />
+            <Skeleton className="h-32 w-full rounded-[32px]" />
           ) : nextBooking ? (
             <NextAppointmentCard
               bookingId={nextBooking.id}
