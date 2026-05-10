@@ -131,20 +131,14 @@ function ClientSettings() {
     navigate({ to: "/auth" });
   };
 
-  const handleConnectGoogle = async () => {
+  const handleSignOutToLinkGoogle = async () => {
     if (googleLinked || googleLinking) return;
     setGoogleLinking(true);
-    try {
-      const { error } = await supabase.auth.linkIdentity({
-        provider: "google",
-        options: { redirectTo: window.location.origin + "/client/settings" },
-      });
-      if (error) throw error;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Riprova";
-      toast.error("Collegamento non riuscito", { description: msg });
-      setGoogleLinking(false);
-    }
+    toast.info("Accedi con Google usando la stessa email", {
+      description: email || "Il tuo account verrà collegato automaticamente.",
+    });
+    await signOut();
+    navigate({ to: "/auth" });
   };
 
   const fullName = profile?.full_name ?? user?.email ?? "Cliente";
