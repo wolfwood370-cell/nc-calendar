@@ -88,6 +88,9 @@ function BookFlow() {
   const [confirming, setConfirming] = useState(false);
 
   const block = (blocksQ.data ?? []).find((b) => b.status === "active");
+  const coachIdForAvail = profileQ.data?.coach_id ?? null;
+  const availQ = useCoachAvailability(coachIdForAvail);
+
   const taken = useMemo(() => {
     const s = new Set<string>();
     (bookingsQ.data ?? [])
@@ -96,7 +99,10 @@ function BookFlow() {
     return s;
   }, [bookingsQ.data]);
 
-  const slots = useMemo(() => generateSlots(28, taken), [taken]);
+  const slots = useMemo(
+    () => generateSlots(28, taken, availQ.data ?? []),
+    [taken, availQ.data]
+  );
   const grouped = useMemo(() => {
     const m = new Map<string, Slot[]>();
     for (const s of slots) {
