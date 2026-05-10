@@ -80,8 +80,11 @@ function Overview() {
       }
     }
     const remainingByClient = new Map<string, number>();
+    const today = new Date(); today.setHours(0, 0, 0, 0);
     for (const block of blocks) {
       if (block.status !== "active") continue;
+      // ignora blocchi la cui end_date è già passata
+      if (new Date(block.end_date).getTime() < today.getTime()) continue;
       const remaining = block.allocations.reduce(
         (s, a) => s + Math.max(0, a.quantity_assigned - a.quantity_booked),
         0
