@@ -22,6 +22,7 @@ import { Route as TrainerIntegrationsRouteImport } from './routes/trainer.integr
 import { Route as TrainerClientsRouteImport } from './routes/trainer.clients'
 import { Route as TrainerCalendarRouteImport } from './routes/trainer.calendar'
 import { Route as TrainerBlocksRouteImport } from './routes/trainer.blocks'
+import { Route as TrainerAvailabilityRouteImport } from './routes/trainer.availability'
 import { Route as ClientBookRouteImport } from './routes/client.book'
 
 const TrainerRoute = TrainerRouteImport.update({
@@ -89,6 +90,11 @@ const TrainerBlocksRoute = TrainerBlocksRouteImport.update({
   path: '/blocks',
   getParentRoute: () => TrainerRoute,
 } as any)
+const TrainerAvailabilityRoute = TrainerAvailabilityRouteImport.update({
+  id: '/availability',
+  path: '/availability',
+  getParentRoute: () => TrainerRoute,
+} as any)
 const ClientBookRoute = ClientBookRouteImport.update({
   id: '/book',
   path: '/book',
@@ -104,6 +110,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/trainer': typeof TrainerRouteWithChildren
   '/client/book': typeof ClientBookRoute
+  '/trainer/availability': typeof TrainerAvailabilityRoute
   '/trainer/blocks': typeof TrainerBlocksRoute
   '/trainer/calendar': typeof TrainerCalendarRoute
   '/trainer/clients': typeof TrainerClientsRoute
@@ -118,6 +125,7 @@ export interface FileRoutesByTo {
   '/forgot-password': typeof ForgotPasswordRoute
   '/reset-password': typeof ResetPasswordRoute
   '/client/book': typeof ClientBookRoute
+  '/trainer/availability': typeof TrainerAvailabilityRoute
   '/trainer/blocks': typeof TrainerBlocksRoute
   '/trainer/calendar': typeof TrainerCalendarRoute
   '/trainer/clients': typeof TrainerClientsRoute
@@ -135,6 +143,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/trainer': typeof TrainerRouteWithChildren
   '/client/book': typeof ClientBookRoute
+  '/trainer/availability': typeof TrainerAvailabilityRoute
   '/trainer/blocks': typeof TrainerBlocksRoute
   '/trainer/calendar': typeof TrainerCalendarRoute
   '/trainer/clients': typeof TrainerClientsRoute
@@ -153,6 +162,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/trainer'
     | '/client/book'
+    | '/trainer/availability'
     | '/trainer/blocks'
     | '/trainer/calendar'
     | '/trainer/clients'
@@ -167,6 +177,7 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/reset-password'
     | '/client/book'
+    | '/trainer/availability'
     | '/trainer/blocks'
     | '/trainer/calendar'
     | '/trainer/clients'
@@ -183,6 +194,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/trainer'
     | '/client/book'
+    | '/trainer/availability'
     | '/trainer/blocks'
     | '/trainer/calendar'
     | '/trainer/clients'
@@ -294,6 +306,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TrainerBlocksRouteImport
       parentRoute: typeof TrainerRoute
     }
+    '/trainer/availability': {
+      id: '/trainer/availability'
+      path: '/availability'
+      fullPath: '/trainer/availability'
+      preLoaderRoute: typeof TrainerAvailabilityRouteImport
+      parentRoute: typeof TrainerRoute
+    }
     '/client/book': {
       id: '/client/book'
       path: '/book'
@@ -318,6 +337,7 @@ const ClientRouteWithChildren =
   ClientRoute._addFileChildren(ClientRouteChildren)
 
 interface TrainerRouteChildren {
+  TrainerAvailabilityRoute: typeof TrainerAvailabilityRoute
   TrainerBlocksRoute: typeof TrainerBlocksRoute
   TrainerCalendarRoute: typeof TrainerCalendarRoute
   TrainerClientsRoute: typeof TrainerClientsRoute
@@ -326,6 +346,7 @@ interface TrainerRouteChildren {
 }
 
 const TrainerRouteChildren: TrainerRouteChildren = {
+  TrainerAvailabilityRoute: TrainerAvailabilityRoute,
   TrainerBlocksRoute: TrainerBlocksRoute,
   TrainerCalendarRoute: TrainerCalendarRoute,
   TrainerClientsRoute: TrainerClientsRoute,
