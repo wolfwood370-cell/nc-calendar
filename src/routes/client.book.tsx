@@ -54,6 +54,8 @@ function generateSlots(
   for (let i = 0; i < daysAhead; i++) {
     const day = new Date(now);
     day.setDate(now.getDate() + i);
+    if (rangeStart && day < new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate())) continue;
+    if (rangeEnd && day > rangeEnd) break;
     const dow = jsDowToIso(day.getDay());
     const dateKey = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
     const dayExceptions = excByDate.get(dateKey) ?? [];
