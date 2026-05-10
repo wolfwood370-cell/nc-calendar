@@ -148,8 +148,14 @@ function BookFlow() {
   }, [bookingsQ.data, customTypes]);
 
   const slots = useMemo(
-    () => generateSlots(28, blockedRanges, availQ.data ?? [], exceptionsQ.data ?? []),
-    [blockedRanges, availQ.data, exceptionsQ.data]
+    () => {
+      if (!block) return [];
+      const start = new Date(block.start_date);
+      const end = new Date(block.end_date);
+      end.setHours(23, 59, 59, 999);
+      return generateSlots(28, blockedRanges, availQ.data ?? [], exceptionsQ.data ?? [], start, end);
+    },
+    [block, blockedRanges, availQ.data, exceptionsQ.data]
   );
   const grouped = useMemo(() => {
     const m = new Map<string, Slot[]>();
