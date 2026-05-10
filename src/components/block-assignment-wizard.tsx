@@ -14,7 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-type WeeklyQuotas = Record<string, number>;
+type BlockQuotas = Record<string, number>;
 
 interface Props {
   clientId: string;
@@ -30,17 +30,16 @@ export function BlockAssignmentWizard({ clientId, clientName, onCreated }: Props
   const [step, setStep] = useState(1);
   const [startDate, setStartDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [numBlocks, setNumBlocks] = useState<number>(1);
-  const [quotas, setQuotas] = useState<WeeklyQuotas>({});
+  const [quotas, setQuotas] = useState<BlockQuotas>({});
 
   const eventTypes = eventTypesQ.data ?? [];
   const setQty = (id: string, v: number) =>
     setQuotas((cur) => ({ ...cur, [id]: Math.max(0, v) }));
 
-  const weeklyTotal = useMemo(
+  const blockTotal = useMemo(
     () => Object.values(quotas).reduce((a, b) => a + b, 0),
     [quotas]
   );
-  const blockTotal = weeklyTotal * 4;
 
   const blockRanges = useMemo(() => {
     const out: { idx: number; start: Date; end: Date }[] = [];
@@ -92,17 +91,15 @@ export function BlockAssignmentWizard({ clientId, clientName, onCreated }: Props
           quantity_assigned: number;
         }> = [];
         for (const et of eventTypes) {
-          const weekly = quotas[et.id] ?? 0;
-          if (weekly <= 0) continue;
-          for (let wn = 1; wn <= 4; wn++) {
-            rows.push({
-              block_id: block.id,
-              week_number: wn,
-              session_type: et.base_type as SessionType,
-              event_type_id: et.id,
-              quantity_assigned: weekly,
-            });
-          }
+          const total = quotas[et.id] ?? 0;
+          if (total <= 0) continue;
+          rows.push({
+            block_id: block.id,
+            week_number: 1,
+            session_type: et.base_type as SessionType,
+            event_type_id: et.id,
+            quantity_assigned: total,
+          });
         }
         if (rows.length > 0) {
           const { error: aerr } = await supabase.from("block_allocations").insert(rows);
@@ -161,7 +158,7 @@ export function BlockAssignmentWizard({ clientId, clientName, onCreated }: Props
       {step === 2 && (
         <div className="space-y-4">
           <CardDescription>
-            Quante sessioni a settimana per ciascuna tipologia? Le stesse quote saranno applicate a tutti i blocchi creati.
+            Crediti totali per Blocco (4 settimane) per ciascuna tipologia. Le stesse quote saranno applicate a tutti i blocchi creati.
           </CardDescription>
           {eventTypesQ.isLoading ? (
             <Skeleton className="h-32 w-full" />
@@ -192,7 +189,7 @@ export function BlockAssignmentWizard({ clientId, clientName, onCreated }: Props
                       value={quotas[et.id] ?? 0}
                       onChange={(e) => setQty(et.id, parseInt(e.target.value) || 0)}
                     />
-                    <span className="text-xs text-muted-foreground">/ sett.</span>
+                    <span className="text-xs text-muted-foreground">/ blocco</span>
                   </div>
                 </div>
               ))}
@@ -227,7 +224,7 @@ export function BlockAssignmentWizard({ clientId, clientName, onCreated }: Props
                 return (
                   <Badge key={et.id} variant="secondary" style={{ borderColor: et.color }}>
                     <span className="size-2 rounded-full mr-1.5" style={{ backgroundColor: et.color }} />
-                    {et.name}: {w * 4}/blocco
+                    {et.name}: {w}/blocco
                   </Badge>
                 );
               })}
@@ -254,12 +251,12 @@ export function BlockAssignmentWizard({ clientId, clientName, onCreated }: Props
         {step < 3 ? (
           <Button
             onClick={() => setStep((s) => s + 1)}
-            disabled={(step === 2 && (noEventTypes || weeklyTotal === 0))}
+            disabled={(step === 2 && (noEventTypes || blockTotal === 0))}
           >
             Avanti <ChevronRight className="size-4" />
           </Button>
         ) : (
-          <Button onClick={() => createBlocks.mutate()} disabled={createBlocks.isPending || weeklyTotal === 0}>
+          <Button onClick={() => createBlocks.mutate()} disabled={createBlocks.isPending || blockTotal === 0}>
             {createBlocks.isPending ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
             Crea {numBlocks === 1 ? "blocco" : `${numBlocks} blocchi`}
           </Button>
@@ -270,7 +267,7 @@ export function BlockAssignmentWizard({ clientId, clientName, onCreated }: Props
 }
 
 function Stepper({ step }: { step: number }) {
-  const steps = ["Date", "Quote settimanali", "Riepilogo"];
+  const steps = ["Date", "Crediti per Blocco", "Riepilogo"];
   return (
     <div className="flex items-center gap-2 flex-wrap">
       {steps.map((label, i) => {

@@ -11,7 +11,7 @@ import { AddToCalendarButton } from "@/components/add-to-calendar-button";
 import { JoinVideoCallButton } from "@/components/join-video-call-button";
 import { BookingStatusBadge } from "@/components/booking-status-badge";
 import { useAuth } from "@/lib/auth";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export const Route = createFileRoute("/trainer/")({
   component: Overview,
@@ -113,12 +113,28 @@ function Overview() {
 
   const loading = clientsQ.isLoading || bookingsQ.isLoading || blocksQ.isLoading;
 
+  const nextToday = useMemo(() => {
+    const now = Date.now();
+    const tomorrow = new Date(); tomorrow.setHours(23, 59, 59, 999);
+    return bookings
+      .filter((b) => b.status === "scheduled")
+      .map((b) => ({ b, t: new Date(b.scheduled_at).getTime() }))
+      .filter(({ t }) => t >= now && t <= tomorrow.getTime())
+      .sort((a, b) => a.t - b.t)[0]?.b ?? null;
+  }, [bookings]);
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="font-display text-3xl font-semibold tracking-tight">Panoramica studio</h1>
         <p className="text-sm text-muted-foreground mt-1">Oggi, {new Date().toLocaleDateString("it-IT", { weekday: "long", month: "long", day: "numeric" })}</p>
       </div>
+
+      <NextAppointmentCountdown
+        booking={nextToday}
+        clientName={nextToday ? clientNameById.get(nextToday.client_id) ?? "Cliente" : null}
+        sessionLabelText={nextToday ? sessionLabel(nextToday.session_type) : null}
+      />
 
       <div className="grid gap-4 md:grid-cols-4">
         <Stat icon={Users} label="Clienti attivi" value={loading ? "—" : clients.length.toString()} hint="totale roster" />
@@ -277,6 +293,62 @@ function Stat({
           </div>
         </div>
         {progress !== undefined && <Progress value={progress} className="mt-4 h-1.5" />}
+      </CardContent>
+    </Card>
+  );
+}
+
+function NextAppointmentCountdown({
+  booking, clientName, sessionLabelText,
+}: {
+  booking: { scheduled_at: string } | null;
+  clientName: string | null;
+  sessionLabelText: string | null;
+}) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  if (!booking) {
+    return (
+      <Card>
+        <CardContent className="p-5 flex items-center gap-3">
+          <div className="size-9 rounded-md bg-primary/10 text-primary grid place-items-center">
+            <Clock className="size-4" />
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">Prossimo Appuntamento</p>
+            <p className="text-sm font-medium">Nessun appuntamento programmato per oggi.</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+  const target = new Date(booking.scheduled_at).getTime();
+  const diff = Math.max(0, target - now);
+  const h = Math.floor(diff / 3_600_000);
+  const m = Math.floor((diff % 3_600_000) / 60_000);
+  const s = Math.floor((diff % 60_000) / 1000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    <Card className="border-primary/40 bg-gradient-to-br from-primary/5 via-accent/30 to-background">
+      <CardContent className="p-5 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="size-10 rounded-md bg-primary/15 text-primary grid place-items-center">
+            <Clock className="size-5" />
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">Prossimo Appuntamento</p>
+            <p className="text-sm font-medium">{clientName} · {sessionLabelText}</p>
+            <p className="text-xs text-muted-foreground">
+              {new Date(booking.scheduled_at).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
+            </p>
+          </div>
+        </div>
+        <p className="font-display text-3xl font-semibold tabular-nums tracking-tight">
+          {pad(h)}:{pad(m)}:{pad(s)}
+        </p>
       </CardContent>
     </Card>
   );

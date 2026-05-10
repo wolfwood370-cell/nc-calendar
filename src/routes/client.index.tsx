@@ -8,7 +8,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { CalendarPlus, Activity, Flame, AlertTriangle } from "lucide-react";
+import { CalendarPlus, Activity, AlertTriangle } from "lucide-react";
 import { sessionLabel } from "@/lib/mock-data";
 import { useClientBlocks, useClientBookings, useCancelBooking, useCoachEventTypes, type BookingRow } from "@/lib/queries";
 import { useMemo, useState } from "react";
@@ -214,12 +214,12 @@ function ClientHome() {
         <CardContent className="p-4 space-y-3">
           {remainingByType.length > 0 && (
             <div className="rounded-lg bg-accent/40 p-3">
-              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Crediti residui</p>
+              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Crediti Residui nel Blocco</p>
               <div className="flex flex-wrap gap-1.5">
                 {remainingByType.map((r) => (
                   <Badge key={r.key} variant="outline" className="font-normal" style={{ borderColor: r.color }}>
                     <span className="size-2 rounded-full mr-1.5" style={{ backgroundColor: r.color }} />
-                    Hai ancora <span className="mx-1 font-semibold tabular-nums">{r.remaining}</span> {r.name}
+                    <span className="mr-1 font-semibold tabular-nums">{r.remaining}</span> {r.name}
                   </Badge>
                 ))}
               </div>
@@ -231,62 +231,35 @@ function ClientHome() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        {[1, 2, 3, 4].map((wn) => {
-          const wAlloc = block.allocations.filter((a) => a.week_number === wn);
-          const assigned = wAlloc.reduce((s, a) => s + a.quantity_assigned, 0);
-          const booked = wAlloc.reduce((s, a) => s + a.quantity_booked, 0);
-          const isCurrent = wn === cw;
-          const groups = new Map<string, { name: string; color: string; assigned: number; booked: number }>();
-          for (const a of wAlloc) {
-            const et = a.event_type_id ? (eventTypesQ.data ?? []).find((e) => e.id === a.event_type_id) : null;
-            const key = a.event_type_id ?? a.session_type;
-            const cur = groups.get(key) ?? {
-              name: et?.name ?? sessionLabel(a.session_type),
-              color: et?.color ?? "hsl(var(--primary))",
-              assigned: 0, booked: 0,
-            };
-            cur.assigned += a.quantity_assigned;
-            cur.booked += a.quantity_booked;
-            groups.set(key, cur);
-          }
-          return (
-            <Card key={wn} className={isCurrent ? "border-primary/40 ring-1 ring-primary/15" : ""}>
-              <CardHeader className="flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    Settimana {wn}
-                    {isCurrent && <Flame className="size-4 text-primary" />}
-                  </CardTitle>
-                  <CardDescription>{booked} di {assigned} prenotate</CardDescription>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Activity className="size-4 text-primary" /> Andamento Blocco
+          </CardTitle>
+          <CardDescription>Crediti prenotati per tipologia, sull'intero blocco di 4 settimane.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {remainingByType.length === 0 && (
+            <p className="text-xs text-muted-foreground">Nessuna sessione assegnata.</p>
+          )}
+          {remainingByType.map((r) => {
+            const booked = r.assigned - r.remaining;
+            const pct = r.assigned ? Math.round((booked / r.assigned) * 100) : 0;
+            return (
+              <div key={r.key}>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="flex items-center gap-2">
+                    <span className="size-2 rounded-full" style={{ backgroundColor: r.color }} />
+                    {r.name}
+                  </span>
+                  <span className="tabular-nums text-muted-foreground">{booked} / {r.assigned}</span>
                 </div>
-                <div className="size-9 rounded-md bg-accent grid place-items-center">
-                  <Activity className="size-4 text-primary" />
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {[...groups.entries()].map(([key, g]) => {
-                  if (g.assigned === 0) return null;
-                  const pct = Math.round((g.booked / g.assigned) * 100);
-                  return (
-                    <div key={key}>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="flex items-center gap-2">
-                          <span className="size-2 rounded-full" style={{ backgroundColor: g.color }} />
-                          {g.name}
-                        </span>
-                        <span className="tabular-nums text-muted-foreground">{g.booked} / {g.assigned}</span>
-                      </div>
-                      <Progress value={pct} className="mt-1.5 h-1.5" />
-                    </div>
-                  );
-                })}
-                {wAlloc.length === 0 && <p className="text-xs text-muted-foreground">Nessuna sessione assegnata.</p>}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+                <Progress value={pct} className="mt-1.5 h-1.5" />
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

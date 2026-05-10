@@ -537,23 +537,39 @@ function BookFlow() {
                                 <SelectItem value="Functional Test">Test Funzionale</SelectItem>
                               </>
                             ) : (
-                              customTypes.map((et) => (
-                                <SelectItem key={et.id} value={`${et.base_type}::${et.id}`}>
-                                  <span className="inline-flex items-center gap-2">
-                                    <span className="size-2.5 rounded-full" style={{ backgroundColor: et.color }} />
-                                    {et.name}
-                                    <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
-                                      · {et.duration}m
-                                      {et.location_type === "online"
-                                        ? <Video className="size-3" />
-                                        : <MapPin className="size-3" />}
+                              customTypes.map((et) => {
+                                const k = allocKey(et.id, et.base_type);
+                                const remaining = (remainingByPool[k] ?? 0) - (pickedCountsByPool[k] ?? 0);
+                                const isExhausted = remaining <= 0 && (chosen?.eventTypeId !== et.id);
+                                return (
+                                  <SelectItem key={et.id} value={`${et.base_type}::${et.id}`} disabled={isExhausted}>
+                                    <span className="inline-flex items-center gap-2">
+                                      <span className="size-2.5 rounded-full" style={{ backgroundColor: et.color }} />
+                                      {et.name}
+                                      <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                                        · {et.duration}m
+                                        {et.location_type === "online"
+                                          ? <Video className="size-3" />
+                                          : <MapPin className="size-3" />}
+                                      </span>
+                                      {isExhausted && (
+                                        <span className="text-[10px] text-destructive">esauriti</span>
+                                      )}
                                     </span>
-                                  </span>
-                                </SelectItem>
-                              ))
+                                  </SelectItem>
+                                );
+                              })
                             )}
                           </SelectContent>
                         </Select>
+                        {customTypes.length > 0 && customTypes.every((et) => {
+                          const k = allocKey(et.id, et.base_type);
+                          return ((remainingByPool[k] ?? 0) - (pickedCountsByPool[k] ?? 0)) <= 0;
+                        }) && !chosen && (
+                          <p className="mt-1 text-[11px] text-muted-foreground leading-snug">
+                            Crediti esauriti per questa tipologia. Contatta il Coach per il rinnovo.
+                          </p>
+                        )}
                         {chosen && (
                           <Button
                             variant="ghost"
