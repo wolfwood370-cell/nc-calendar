@@ -178,8 +178,46 @@ Deno.serve(async (req) => {
 
     if (body.action === "cancel") {
       if (!body.google_event_id) return json({ ok: true, skipped: true, reason: "no_event_id" }, 200);
+      if (body.late) {
+        // Cancellazione tardiva: NON elimina l'evento, lo marca come CANCELLATA in grigio.
+        try {
+          const baseSummary = `${body.session_label ?? "Sessione"} — ${body.client_name ?? ""}`.trim();
+          const newSummary = baseSummary.startsWith("🚫 CANCELLATA")
+            ? baseSummary
+            : `🚫 CANCELLATA - ${baseSummary}`;
+          await calendar.events.patch({
+            calendarId,
+            eventId: body.google_event_id,
+            requestBody: { summary: newSummary, colorId: "8" },
+          });
+        } catch (e) { console.error("sync-calendar: late-cancel patch failed", e); }
+        return json({ ok: true, late: true }, 200);
+      }
       try { await calendar.events.delete({ calendarId, eventId: body.google_event_id }); }
       catch (e) { console.error("sync-calendar: delete failed", e); }
+      return json({ ok: true }, 200);
+    }
+
+    if (body.action === "update") {
+      if (!body.google_event_id || !body.start_iso) {
+        return json({ ok: true, skipped: true, reason: "missing_fields" }, 200);
+      }
+      const startISO = body.start_iso;
+      const endISO = body.end_iso ?? new Date(new Date(startISO).getTime() + 60 * 60 * 1000).toISOString();
+      const patch: Record<string, unknown> = {
+        start: { dateTime: startISO, timeZone: "Europe/Rome" },
+        end: { dateTime: endISO, timeZone: "Europe/Rome" },
+      };
+      if (body.client_name && body.session_label) {
+        patch.summary = `${body.session_label} — ${body.client_name}`;
+      }
+      const colorId = hexToGoogleColorId(body.color);
+      if (colorId) patch.colorId = colorId;
+      try {
+        await calendar.events.patch({
+          calendarId, eventId: body.google_event_id, requestBody: patch,
+        });
+      } catch (e) { console.error("sync-calendar: update patch failed", e); }
       return json({ ok: true }, 200);
     }
 
