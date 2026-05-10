@@ -163,13 +163,27 @@ function BookFlow() {
     return <p className="text-sm text-muted-foreground">Nessun blocco attivo.</p>;
   }
 
-  const remainingByType: Record<SessionType, number> = { "PT Session": 0, BIA: 0, "Functional Test": 0 };
+  // Chiave del pool di credito: event_type_id se presente, altrimenti session_type (legacy).
+  const allocKey = (eventTypeId: string | null, type: SessionType) => eventTypeId ?? `__${type}`;
+
+  // Credito residuo per pool (event_type_id o session_type).
+  const remainingByPool: Record<string, number> = {};
+  const poolLabel: Record<string, string> = {};
   for (const a of block.allocations) {
-    remainingByType[a.session_type] += a.quantity_assigned - a.quantity_booked;
+    const k = allocKey(a.event_type_id, a.session_type);
+    remainingByPool[k] = (remainingByPool[k] ?? 0) + (a.quantity_assigned - a.quantity_booked);
+    if (!poolLabel[k]) {
+      const et = a.event_type_id ? customTypes.find((e) => e.id === a.event_type_id) : null;
+      poolLabel[k] = et?.name ?? sessionLabel(a.session_type);
+    }
   }
-  const pickedCounts = Object.values(picked).reduce<Record<SessionType, number>>(
-    (acc, p) => ({ ...acc, [p.type]: (acc[p.type] ?? 0) + 1 }),
-    { "PT Session": 0, BIA: 0, "Functional Test": 0 }
+  const pickedCountsByPool = Object.values(picked).reduce<Record<string, number>>(
+    (acc, p) => {
+      const k = allocKey(p.eventTypeId, p.type);
+      acc[k] = (acc[k] ?? 0) + 1;
+      return acc;
+    },
+    {}
   );
 
   const togglePick = (iso: string, value: string) => {
@@ -178,9 +192,13 @@ function BookFlow() {
       if (!value) { delete next[iso]; return next; }
       // value format: "<base_type>" or "<base_type>::<event_type_id>"
       const [type, eventTypeId] = value.split("::") as [SessionType, string | undefined];
-      const used = pickedCounts[type] - (cur[iso]?.type === type ? 1 : 0);
-      if (used >= remainingByType[type]) {
-        toast.error(`Nessuna sessione di tipo ${sessionLabel(type)} rimanente nel tuo blocco.`);
+      const newKey = allocKey(eventTypeId ?? null, type);
+      const prev = cur[iso];
+      const prevKey = prev ? allocKey(prev.eventTypeId, prev.type) : null;
+      const used = (pickedCountsByPool[newKey] ?? 0) - (prevKey === newKey ? 1 : 0);
+      const remaining = remainingByPool[newKey] ?? 0;
+      if (used >= remaining) {
+        toast.error(`Nessuna sessione di tipo ${poolLabel[newKey] ?? sessionLabel(type)} rimanente nel tuo blocco.`);
         return cur;
       }
       next[iso] = { type, eventTypeId: eventTypeId ?? null };
@@ -190,17 +208,24 @@ function BookFlow() {
 
   const totalPicked = Object.keys(picked).length;
 
-  // Per ogni tipo, alloca al settore della settimana corrispondente con credito disponibile.
-  const findAllocationForWeek = (type: SessionType, isoDate: string): { id: string; remaining: number } | null => {
+  // Cerca un'allocation con credito disponibile, prima per event_type_id+settimana, poi qualunque.
+  const findAllocationForWeek = (
+    type: SessionType,
+    eventTypeId: string | null,
+    isoDate: string,
+  ): { id: string; remaining: number } | null => {
     const slotDate = new Date(isoDate);
     const weeksFromStart = Math.floor((slotDate.getTime() - new Date(block.start_date).getTime()) / (1000 * 60 * 60 * 24 * 7));
     const wn = Math.min(4, Math.max(1, weeksFromStart + 1));
-    const a = block.allocations.find(
-      (x) => x.session_type === type && x.week_number === wn && x.quantity_assigned - x.quantity_booked > 0
+    const matchPool = (a: typeof block.allocations[number]) =>
+      eventTypeId
+        ? a.event_type_id === eventTypeId
+        : a.event_type_id === null && a.session_type === type;
+    const sameWeek = block.allocations.find(
+      (a) => matchPool(a) && a.week_number === wn && a.quantity_assigned - a.quantity_booked > 0,
     );
-    if (a) return { id: a.id, remaining: a.quantity_assigned - a.quantity_booked };
-    // fallback: qualsiasi settimana con credito
-    const any = block.allocations.find((x) => x.session_type === type && x.quantity_assigned - x.quantity_booked > 0);
+    if (sameWeek) return { id: sameWeek.id, remaining: sameWeek.quantity_assigned - sameWeek.quantity_booked };
+    const any = block.allocations.find((a) => matchPool(a) && a.quantity_assigned - a.quantity_booked > 0);
     return any ? { id: any.id, remaining: any.quantity_assigned - any.quantity_booked } : null;
   };
 
@@ -226,7 +251,7 @@ function BookFlow() {
           ? customTypes.find((e) => e.id === pick.eventTypeId)
           : null;
         const displayLabel = eventType?.name ?? sessionLabel(type);
-        const alloc = findAllocationForWeek(type, iso);
+        const alloc = findAllocationForWeek(type, eventType?.id ?? null, iso);
         if (!alloc) {
           toast.error(`Credito esaurito per ${displayLabel}.`);
           continue;
@@ -318,9 +343,9 @@ function BookFlow() {
 
       <Card>
         <CardContent className="p-4 flex flex-wrap items-center gap-3">
-          {(Object.keys(remainingByType) as SessionType[]).map((t) => (
-            <Badge key={t} variant="outline" className="font-normal">
-              {sessionLabel(t)}: <span className="ml-1 tabular-nums font-medium">{remainingByType[t] - pickedCounts[t]}</span> rimanenti
+          {Object.keys(remainingByPool).map((k) => (
+            <Badge key={k} variant="outline" className="font-normal">
+              {poolLabel[k]}: <span className="ml-1 tabular-nums font-medium">{remainingByPool[k] - (pickedCountsByPool[k] ?? 0)}</span> rimanenti
             </Badge>
           ))}
           <div className="ml-auto flex items-center gap-3">

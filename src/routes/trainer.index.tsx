@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertTriangle, ArrowRight, CalendarCheck, Users, Activity, Clock, PhoneCall, UserCheck } from "lucide-react";
 import { sessionLabel } from "@/lib/mock-data";
-import { useCoachBlocks, useCoachBookings, useCoachClients } from "@/lib/queries";
+import { useCoachBlocks, useCoachBookings, useCoachClients, useCoachEventTypes } from "@/lib/queries";
 import { AddToCalendarButton } from "@/components/add-to-calendar-button";
 import { JoinVideoCallButton } from "@/components/join-video-call-button";
 import { BookingStatusBadge } from "@/components/booking-status-badge";
@@ -29,6 +29,8 @@ function Overview() {
   const clientsQ = useCoachClients(coachId);
   const bookingsQ = useCoachBookings(coachId);
   const blocksQ = useCoachBlocks(coachId);
+  const eventTypesQ = useCoachEventTypes(coachId);
+  const eventTypes = eventTypesQ.data ?? [];
 
   const clients = clientsQ.data ?? [];
   const bookings = bookingsQ.data ?? [];
@@ -55,17 +57,18 @@ function Overview() {
       for (const a of block.allocations) {
         const remaining = a.quantity_assigned - a.quantity_booked;
         if (remaining > 0 && (a.week_number === cw || a.week_number === cw + 1)) {
+          const et = a.event_type_id ? eventTypes.find((e) => e.id === a.event_type_id) : null;
           result.push({
             client: clientNameById.get(block.client_id) ?? "Cliente",
             week: a.week_number,
-            type: sessionLabel(a.session_type),
+            type: et?.name ?? sessionLabel(a.session_type),
             remaining,
           });
         }
       }
     }
     return result;
-  }, [blocks, clientNameById]);
+  }, [blocks, clientNameById, eventTypes]);
 
   // Clienti a rischio: hanno crediti residui in un blocco attivo ma nessuna prenotazione futura.
   const atRisk = useMemo(() => {
@@ -77,8 +80,11 @@ function Overview() {
       }
     }
     const remainingByClient = new Map<string, number>();
+    const today = new Date(); today.setHours(0, 0, 0, 0);
     for (const block of blocks) {
       if (block.status !== "active") continue;
+      // ignora blocchi la cui end_date è già passata
+      if (new Date(block.end_date).getTime() < today.getTime()) continue;
       const remaining = block.allocations.reduce(
         (s, a) => s + Math.max(0, a.quantity_assigned - a.quantity_booked),
         0

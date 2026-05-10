@@ -97,8 +97,14 @@ function ClientHome() {
   const findAllocationId = (b: BookingRow): string | null => {
     if (!block) return null;
     const cw = getCurrentWeek(block.start_date);
-    const a = block.allocations.find((x) => x.week_number === cw && x.session_type === b.session_type);
-    return a?.id ?? null;
+    const matchPool = (a: typeof block.allocations[number]) =>
+      b.event_type_id
+        ? a.event_type_id === b.event_type_id
+        : a.event_type_id === null && a.session_type === b.session_type;
+    const sameWeek = block.allocations.find((a) => matchPool(a) && a.week_number === cw);
+    if (sameWeek) return sameWeek.id;
+    const any = block.allocations.find(matchPool);
+    return any?.id ?? null;
   };
 
   const handleCancel = (b: BookingRow) => {
@@ -109,7 +115,7 @@ function ClientHome() {
         {
           onSuccess: () => {
             if (coachId) {
-              syncCalendar({ action: "cancel", coachId, googleEventId: (b as { google_event_id?: string | null }).google_event_id ?? null });
+              syncCalendar({ action: "cancel", coachId, googleEventId: b.google_event_id });
             }
             toast.success("Prenotazione annullata", { description: "Il credito è stato restituito al tuo blocco." });
           },
@@ -129,7 +135,7 @@ function ClientHome() {
       {
         onSuccess: () => {
           if (coachId) {
-            syncCalendar({ action: "cancel", coachId, googleEventId: (b as { google_event_id?: string | null }).google_event_id ?? null });
+            syncCalendar({ action: "cancel", coachId, googleEventId: b.google_event_id });
           }
           toast.error("Cancellazione tardiva", { description: "Il credito di questa sessione è stato perso." });
           setPendingLate(null);
@@ -160,7 +166,7 @@ function ClientHome() {
   }
 
   const cw = getCurrentWeek(block.start_date);
-  void meEmail;
+  
 
   return (
     <div className="space-y-6">
@@ -272,19 +278,24 @@ function ClientHome() {
           {upcoming.length === 0 && <p className="text-sm text-muted-foreground">Nessuna sessione in programma.</p>}
           {upcoming.map((b) => {
             const d = new Date(b.scheduled_at);
+            const et = b.event_type_id ? (eventTypesQ.data ?? []).find((e) => e.id === b.event_type_id) : null;
+            const label = et?.name ?? sessionLabel(b.session_type);
             return (
               <div key={b.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3">
-                <div>
-                  <p className="text-sm font-medium">{sessionLabel(b.session_type)}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {d.toLocaleDateString("it-IT", { weekday: "short", month: "short", day: "numeric" })} ·{" "}
-                    {d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
-                  </p>
+                <div className="flex items-center gap-2">
+                  {et && <span className="size-2.5 rounded-full" style={{ backgroundColor: et.color }} />}
+                  <div>
+                    <p className="text-sm font-medium">{label}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {d.toLocaleDateString("it-IT", { weekday: "short", month: "short", day: "numeric" })} ·{" "}
+                      {d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   {b.meeting_link && <JoinVideoCallButton url={b.meeting_link} />}
                   <AddToCalendarButton
-                    sessionLabel={sessionLabel(b.session_type)}
+                    sessionLabel={label}
                     startsAt={d}
                     coachName="Coach"
                     clientName={meName}
