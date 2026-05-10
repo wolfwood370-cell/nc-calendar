@@ -24,6 +24,7 @@ import { Route as TrainerClientsRouteImport } from './routes/trainer.clients'
 import { Route as TrainerCalendarRouteImport } from './routes/trainer.calendar'
 import { Route as TrainerBlocksRouteImport } from './routes/trainer.blocks'
 import { Route as TrainerAvailabilityRouteImport } from './routes/trainer.availability'
+import { Route as ClientSettingsRouteImport } from './routes/client.settings'
 import { Route as ClientBookRouteImport } from './routes/client.book'
 
 const TrainerRoute = TrainerRouteImport.update({
@@ -101,6 +102,11 @@ const TrainerAvailabilityRoute = TrainerAvailabilityRouteImport.update({
   path: '/availability',
   getParentRoute: () => TrainerRoute,
 } as any)
+const ClientSettingsRoute = ClientSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => ClientRoute,
+} as any)
 const ClientBookRoute = ClientBookRouteImport.update({
   id: '/book',
   path: '/book',
@@ -116,6 +122,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/trainer': typeof TrainerRouteWithChildren
   '/client/book': typeof ClientBookRoute
+  '/client/settings': typeof ClientSettingsRoute
   '/trainer/availability': typeof TrainerAvailabilityRoute
   '/trainer/blocks': typeof TrainerBlocksRoute
   '/trainer/calendar': typeof TrainerCalendarRoute
@@ -132,6 +139,7 @@ export interface FileRoutesByTo {
   '/forgot-password': typeof ForgotPasswordRoute
   '/reset-password': typeof ResetPasswordRoute
   '/client/book': typeof ClientBookRoute
+  '/client/settings': typeof ClientSettingsRoute
   '/trainer/availability': typeof TrainerAvailabilityRoute
   '/trainer/blocks': typeof TrainerBlocksRoute
   '/trainer/calendar': typeof TrainerCalendarRoute
@@ -151,6 +159,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/trainer': typeof TrainerRouteWithChildren
   '/client/book': typeof ClientBookRoute
+  '/client/settings': typeof ClientSettingsRoute
   '/trainer/availability': typeof TrainerAvailabilityRoute
   '/trainer/blocks': typeof TrainerBlocksRoute
   '/trainer/calendar': typeof TrainerCalendarRoute
@@ -171,6 +180,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/trainer'
     | '/client/book'
+    | '/client/settings'
     | '/trainer/availability'
     | '/trainer/blocks'
     | '/trainer/calendar'
@@ -187,6 +197,7 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/reset-password'
     | '/client/book'
+    | '/client/settings'
     | '/trainer/availability'
     | '/trainer/blocks'
     | '/trainer/calendar'
@@ -205,6 +216,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/trainer'
     | '/client/book'
+    | '/client/settings'
     | '/trainer/availability'
     | '/trainer/blocks'
     | '/trainer/calendar'
@@ -332,6 +344,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TrainerAvailabilityRouteImport
       parentRoute: typeof TrainerRoute
     }
+    '/client/settings': {
+      id: '/client/settings'
+      path: '/settings'
+      fullPath: '/client/settings'
+      preLoaderRoute: typeof ClientSettingsRouteImport
+      parentRoute: typeof ClientRoute
+    }
     '/client/book': {
       id: '/client/book'
       path: '/book'
@@ -344,11 +363,13 @@ declare module '@tanstack/react-router' {
 
 interface ClientRouteChildren {
   ClientBookRoute: typeof ClientBookRoute
+  ClientSettingsRoute: typeof ClientSettingsRoute
   ClientIndexRoute: typeof ClientIndexRoute
 }
 
 const ClientRouteChildren: ClientRouteChildren = {
   ClientBookRoute: ClientBookRoute,
+  ClientSettingsRoute: ClientSettingsRoute,
   ClientIndexRoute: ClientIndexRoute,
 }
 
@@ -390,3 +411,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
