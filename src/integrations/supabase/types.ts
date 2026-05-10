@@ -56,6 +56,7 @@ export type Database = {
           quantity_assigned: number
           quantity_booked: number
           session_type: Database["public"]["Enums"]["session_type"]
+          valid_until: string | null
           week_number: number
         }
         Insert: {
@@ -66,6 +67,7 @@ export type Database = {
           quantity_assigned?: number
           quantity_booked?: number
           session_type: Database["public"]["Enums"]["session_type"]
+          valid_until?: string | null
           week_number: number
         }
         Update: {
@@ -76,6 +78,7 @@ export type Database = {
           quantity_assigned?: number
           quantity_booked?: number
           session_type?: Database["public"]["Enums"]["session_type"]
+          valid_until?: string | null
           week_number?: number
         }
         Relationships: [
