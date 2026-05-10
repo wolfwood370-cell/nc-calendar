@@ -108,6 +108,14 @@ function BookFlow() {
       for (const [iso, type] of Object.entries(picked)) {
         const meetingLink = online ? generateMockMeetLink() : null;
         addBooking({ clientId: me.id, type, scheduledAt: iso, meetingLink });
+        syncCalendar({
+          action: "create",
+          coachId: trainer.id,
+          clientName: me.full_name,
+          sessionLabel: sessionLabel(type),
+          startISO: iso,
+          meetingLink,
+        });
         await Promise.all([
           sendBookingConfirmationEmail({
             to: me.email,
