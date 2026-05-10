@@ -94,7 +94,7 @@ function BlockBuilder() {
         const rows: Array<{
           block_id: string;
           week_number: number;
-          session_type: string;
+          session_type: SessionType;
           event_type_id: string;
           quantity_assigned: number;
         }> = [];
