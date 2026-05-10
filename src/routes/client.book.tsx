@@ -200,8 +200,11 @@ function BookFlow() {
     },
   });
 
-  interface Pick { type: SessionType; eventTypeId: string | null; }
-  const [picked, setPicked] = useState<Record<string, Pick>>({});
+  // Single-pick state for the new Aura booking flow
+  const [selectedPoolKey, setSelectedPoolKey] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedISO, setSelectedISO] = useState<string | null>(null);
+  const [calendarMonth, setCalendarMonth] = useState<Date>(startOfMonth(new Date()));
   const [confirming, setConfirming] = useState(false);
 
   const block = (blocksQ.data ?? []).find((b) => b.status === "active");
