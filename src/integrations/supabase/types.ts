@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           block_id: string
           created_at: string
+          event_type_id: string | null
           id: string
           quantity_assigned: number
           quantity_booked: number
@@ -27,6 +28,7 @@ export type Database = {
         Insert: {
           block_id: string
           created_at?: string
+          event_type_id?: string | null
           id?: string
           quantity_assigned?: number
           quantity_booked?: number
@@ -36,6 +38,7 @@ export type Database = {
         Update: {
           block_id?: string
           created_at?: string
+          event_type_id?: string | null
           id?: string
           quantity_assigned?: number
           quantity_booked?: number
@@ -333,6 +336,7 @@ export type Database = {
           deleted_at: string | null
           end_date: string
           id: string
+          sequence_order: number
           start_date: string
           status: Database["public"]["Enums"]["block_status"]
           updated_at: string
@@ -344,6 +348,7 @@ export type Database = {
           deleted_at?: string | null
           end_date: string
           id?: string
+          sequence_order?: number
           start_date: string
           status?: Database["public"]["Enums"]["block_status"]
           updated_at?: string
@@ -355,6 +360,7 @@ export type Database = {
           deleted_at?: string | null
           end_date?: string
           id?: string
+          sequence_order?: number
           start_date?: string
           status?: Database["public"]["Enums"]["block_status"]
           updated_at?: string
