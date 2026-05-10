@@ -59,6 +59,7 @@ export type Database = {
           coach_id: string
           created_at: string
           deleted_at: string | null
+          event_type_id: string | null
           google_event_id: string | null
           id: string
           meeting_link: string | null
@@ -74,6 +75,7 @@ export type Database = {
           coach_id: string
           created_at?: string
           deleted_at?: string | null
+          event_type_id?: string | null
           google_event_id?: string | null
           id?: string
           meeting_link?: string | null
@@ -89,6 +91,7 @@ export type Database = {
           coach_id?: string
           created_at?: string
           deleted_at?: string | null
+          event_type_id?: string | null
           google_event_id?: string | null
           id?: string
           meeting_link?: string | null
