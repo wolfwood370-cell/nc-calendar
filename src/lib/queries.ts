@@ -22,6 +22,7 @@ export interface AllocationRow {
   block_id: string;
   week_number: number;
   session_type: SessionType;
+  event_type_id: string | null;
   quantity_assigned: number;
   quantity_booked: number;
 }
@@ -33,6 +34,7 @@ export interface BlockRow {
   start_date: string;
   end_date: string;
   status: "active" | "completed";
+  sequence_order: number;
   allocations: AllocationRow[];
 }
 
