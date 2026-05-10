@@ -9,6 +9,43 @@
 @theme inline {
   --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Sora", ui-sans-serif, system-ui, sans-serif;
+
+  /* Aura Health palette (Google Stitch) — used by client dashboard */
+  --color-aura-primary: #003e62;
+  --color-surface: #f8f9fe;
+  --color-surface-dim: #d8dade;
+  --color-surface-bright: #f8f9fe;
+  --color-surface-variant: #e1e2e7;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f2f3f8;
+  --color-surface-container: #eceef2;
+  --color-surface-container-high: #e7e8ec;
+  --color-surface-container-highest: #e1e2e7;
+  --color-on-surface: #191c1f;
+  --color-on-surface-variant: #41474f;
+  --color-on-background: #191c1f;
+  --color-outline: #717880;
+  --color-outline-variant: #c1c7d0;
+  --color-primary-container: #005685;
+  --color-on-primary-container: #91cbff;
+  --color-primary-fixed: #cde5ff;
+  --color-primary-fixed-dim: #94ccff;
+  --color-secondary-container: #b2d8ff;
+  --color-on-secondary-container: #385f81;
+  --color-tertiary: #5b2f00;
+  --color-tertiary-container: #7c4302;
+  --color-on-tertiary-container: #ffb576;
+  --color-error-container: #ffdad6;
+  --color-on-error-container: #93000a;
+
+  /* Aura spacing aliases */
+  --spacing-margin-mobile: 20px;
+  --spacing-margin-desktop: 40px;
+  --spacing-stack-sm: 8px;
+  --spacing-stack-md: 16px;
+  --spacing-stack-lg: 32px;
+  --spacing-gutter: 24px;
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
