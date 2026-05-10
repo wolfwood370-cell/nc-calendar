@@ -92,7 +92,6 @@ function BookFlow() {
 
   interface Pick { type: SessionType; eventTypeId: string | null; }
   const [picked, setPicked] = useState<Record<string, Pick>>({});
-  const [online, setOnline] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
   const block = (blocksQ.data ?? []).find((b) => b.status === "active");
@@ -103,17 +102,25 @@ function BookFlow() {
   // Tipologie evento personalizzate del coach (fallback alle 3 default se vuoto).
   const customTypes: EventTypeRow[] = eventTypesQ.data ?? [];
 
-  const taken = useMemo(() => {
-    const s = new Set<string>();
-    (bookingsQ.data ?? [])
-      .filter((b) => b.status === "scheduled" || b.status === "completed")
-      .forEach((b) => s.add(new Date(b.scheduled_at).toISOString()));
-    return s;
-  }, [bookingsQ.data]);
+  // Range bloccati = [scheduled_at, scheduled_at + duration + buffer] della tipologia evento.
+  const blockedRanges = useMemo(() => {
+    const ranges: BlockedRange[] = [];
+    const list = (bookingsQ.data ?? []) as BookingRow[];
+    for (const b of list) {
+      if (b.status !== "scheduled" && b.status !== "completed") continue;
+      const et = customTypes.find((e) => e.id === b.event_type_id);
+      const duration = et?.duration ?? 60;
+      const buffer = et?.buffer_minutes ?? 0;
+      const start = new Date(b.scheduled_at).getTime();
+      const end = start + (duration + buffer) * 60 * 1000;
+      ranges.push({ start, end });
+    }
+    return ranges;
+  }, [bookingsQ.data, customTypes]);
 
   const slots = useMemo(
-    () => generateSlots(28, taken, availQ.data ?? []),
-    [taken, availQ.data]
+    () => generateSlots(28, blockedRanges, availQ.data ?? []),
+    [blockedRanges, availQ.data]
   );
   const grouped = useMemo(() => {
     const m = new Map<string, Slot[]>();
