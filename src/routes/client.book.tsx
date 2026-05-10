@@ -10,6 +10,7 @@ import { sendBookingConfirmationEmail } from "@/lib/email";
 import { sendPush } from "@/lib/push";
 import { supabase } from "@/integrations/supabase/client";
 import { syncCalendar } from "@/lib/sync-calendar";
+import { generateGoogleCalendarLink } from "@/lib/calendar-utils";
 import { useAuth } from "@/lib/auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, isSameDay, isSameMonth, isBefore, startOfDay } from "date-fns";
@@ -386,6 +387,7 @@ function BookFlow() {
       // tracker locale per non sforare quando si prenotano più slot dello stesso tipo
       const localUsed: Record<string, number> = {}; // alloc_id -> count
       let bookedCount = 0;
+      let lastCalendarUrl: string | null = null;
 
       const entries: [string, { type: SessionType; eventTypeId: string | null }][] = [
         [selectedISO, { type: pool.type, eventTypeId: pool.eventTypeId }],
@@ -466,6 +468,18 @@ function BookFlow() {
         }
         localUsed[alloc.id] = used + 1;
         bookedCount += 1;
+        lastCalendarUrl = generateGoogleCalendarLink(
+          { scheduled_at: iso },
+          eventType
+            ? {
+                name: eventType.name,
+                duration: eventType.duration,
+                location_type: eventType.location_type,
+                location_address: eventType.location_address,
+              }
+            : { name: displayLabel },
+          meName,
+        );
 
         // notifications (fire and forget)
         syncCalendar({
@@ -503,6 +517,12 @@ function BookFlow() {
           description: emailNotificationsEnabled
             ? "Email di conferma inviata. I link videochiamata sono generati automaticamente per le sessioni online."
             : "I link videochiamata sono generati automaticamente per le sessioni online.",
+          action: lastCalendarUrl
+            ? {
+                label: "Aggiungi al Calendario",
+                onClick: () => window.open(lastCalendarUrl!, "_blank", "noopener,noreferrer"),
+              }
+            : undefined,
         });
         qc.invalidateQueries({ queryKey: ["bookings"] });
         qc.invalidateQueries({ queryKey: ["blocks"] });
