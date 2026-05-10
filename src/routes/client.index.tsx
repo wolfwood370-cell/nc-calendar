@@ -8,7 +8,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { CalendarPlus, Activity, Flame, AlertTriangle } from "lucide-react";
+import { CalendarPlus, Activity, AlertTriangle } from "lucide-react";
 import { sessionLabel } from "@/lib/mock-data";
 import { useClientBlocks, useClientBookings, useCancelBooking, useCoachEventTypes, type BookingRow } from "@/lib/queries";
 import { useMemo, useState } from "react";
