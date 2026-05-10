@@ -6,7 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Loader2, Pencil, AlertTriangle } from "lucide-react";
+import { Loader2, Pencil, AlertTriangle, Trash2 } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { sessionLabel } from "@/lib/mock-data";
 import {
   useCoachClients, useCoachBlocks, useCoachBookings, useCoachEventTypes,
@@ -90,7 +94,10 @@ function ActiveBlocksList({ eventTypes }: { eventTypes: EventTypeRow[] }) {
                     <TableCell>{new Date(b.end_date).toLocaleDateString("it-IT")}</TableCell>
                     <TableCell><Badge variant="secondary">{total}</Badge></TableCell>
                     <TableCell className="text-right">
-                      <EditBlockDialog block={b} bookingDates={blockBookings.map((x) => x.scheduled_at)} eventTypes={eventTypes} />
+                      <div className="flex justify-end gap-1">
+                        <EditBlockDialog block={b} bookingDates={blockBookings.map((x) => x.scheduled_at)} eventTypes={eventTypes} />
+                        <DeleteBlockButton blockId={b.id} bookingsCount={blockBookings.length} />
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
@@ -204,5 +211,49 @@ function EditBlockDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+export function DeleteBlockButton({ blockId, bookingsCount }: { blockId: string; bookingsCount: number }) {
+  const qc = useQueryClient();
+  const del = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("training_blocks")
+        .update({ deleted_at: new Date().toISOString(), status: "completed" })
+        .eq("id", blockId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Blocco eliminato");
+      qc.invalidateQueries({ queryKey: ["blocks"] });
+    },
+    onError: (e: unknown) => toast.error("Errore", { description: (e as Error).message }),
+  });
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive">
+          <Trash2 className="size-4" /> Elimina
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Eliminare il blocco?</AlertDialogTitle>
+          <AlertDialogDescription>
+            {bookingsCount > 0
+              ? `Questo blocco ha ${bookingsCount} prenotazion${bookingsCount === 1 ? "e collegata" : "i collegate"}. Le prenotazioni esistenti restano nel calendario ma non saranno più associate ad alcun blocco.`
+              : "Le allocazioni del blocco verranno rimosse. L'azione non è reversibile."}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Annulla</AlertDialogCancel>
+          <AlertDialogAction onClick={() => del.mutate()} disabled={del.isPending}>
+            {del.isPending && <Loader2 className="size-4 animate-spin mr-2" />}
+            Elimina
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
