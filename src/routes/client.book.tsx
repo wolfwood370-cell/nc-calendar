@@ -233,6 +233,7 @@ function BookFlow() {
         syncCalendar({
           action: "create", coachId, clientName: meName,
           sessionLabel: displayLabel, startISO: iso, meetingLink,
+          color: eventType?.color ?? null,
         });
         void Promise.all([
           sendBookingConfirmationEmail({

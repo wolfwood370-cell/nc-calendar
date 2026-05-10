@@ -89,10 +89,7 @@ function ClientHome() {
         {
           onSuccess: () => {
             if (coachId) {
-              syncCalendar({
-                action: "cancel", coachId, clientName: meName,
-                sessionLabel: sessionLabel(b.session_type), startISO: b.scheduled_at,
-              });
+              syncCalendar({ action: "cancel", coachId, googleEventId: (b as { google_event_id?: string | null }).google_event_id ?? null });
             }
             toast.success("Prenotazione annullata", { description: "Il credito è stato restituito al tuo blocco." });
           },
@@ -112,10 +109,7 @@ function ClientHome() {
       {
         onSuccess: () => {
           if (coachId) {
-            syncCalendar({
-              action: "cancel", coachId, clientName: meName,
-              sessionLabel: sessionLabel(b.session_type), startISO: b.scheduled_at,
-            });
+            syncCalendar({ action: "cancel", coachId, googleEventId: (b as { google_event_id?: string | null }).google_event_id ?? null });
           }
           toast.error("Cancellazione tardiva", { description: "Il credito di questa sessione è stato perso." });
           setPendingLate(null);

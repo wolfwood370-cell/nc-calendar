@@ -64,6 +64,7 @@ function IntegrationsPage() {
   const [loading, setLoading] = useState(true);
   const [savingWa, setSavingWa] = useState(false);
   const [savingGcal, setSavingGcal] = useState(false);
+  const [importingHistory, setImportingHistory] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -286,6 +287,48 @@ function IntegrationsPage() {
             </div>
             <Button onClick={saveGcal} disabled={savingGcal}>
               {savingGcal && <Loader2 className="size-4 animate-spin" />} Salva Impostazioni
+            </Button>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dashed p-3">
+            <div>
+              <p className="text-sm font-medium">Importa eventi storici</p>
+              <p className="text-xs text-muted-foreground">
+                Recupera tutti gli eventi dal 1° gennaio 2026 a oggi e li importa come prenotazioni.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              disabled={!gcalConfigured || importingHistory}
+              onClick={async () => {
+                if (!user) return;
+                setImportingHistory(true);
+                try {
+                  const { data, error } = await supabase.functions.invoke("sync-calendar", {
+                    body: {
+                      action: "import_history",
+                      coach_id: user.id,
+                      range_start_iso: "2026-01-01T00:00:00Z",
+                      range_end_iso: new Date().toISOString(),
+                    },
+                  });
+                  if (error) throw error;
+                  const r = data as { imported?: number; updated?: number; total?: number; skipped?: boolean; reason?: string };
+                  if (r?.skipped) {
+                    toast.error("Sincronizzazione non eseguita", { description: `Motivo: ${r.reason ?? "configurazione mancante"}` });
+                  } else {
+                    toast.success("Storico sincronizzato", {
+                      description: `${r?.imported ?? 0} importati · ${r?.updated ?? 0} aggiornati · ${r?.total ?? 0} eventi totali`,
+                    });
+                  }
+                } catch (e) {
+                  toast.error("Errore sincronizzazione", { description: (e as Error).message });
+                } finally {
+                  setImportingHistory(false);
+                }
+              }}
+            >
+              {importingHistory && <Loader2 className="size-4 animate-spin" />} Sincronizza Storico 2026
             </Button>
           </div>
         </CardContent>

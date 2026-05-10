@@ -1,0 +1,2 @@
+ALTER TABLE public.bookings ADD COLUMN IF NOT EXISTS google_event_id text;
+CREATE INDEX IF NOT EXISTS idx_bookings_google_event_id ON public.bookings(google_event_id) WHERE google_event_id IS NOT NULL;
