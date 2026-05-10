@@ -316,6 +316,7 @@ function BookFlow() {
             .eq("id", alloc.id);
         }
         localUsed[alloc.id] = used + 1;
+        bookedCount += 1;
 
         // notifications (fire and forget)
         syncCalendar({
