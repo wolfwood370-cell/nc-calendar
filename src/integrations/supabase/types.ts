@@ -488,6 +488,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_coach_busy: {
+        Args: { p_coach_id: string; p_from: string; p_to: string }
+        Returns: {
+          buffer_minutes: number
+          duration: number
+          event_type_id: string
+          scheduled_at: string
+        }[]
+      }
       get_coach_for: { Args: { _user_id: string }; Returns: string }
       get_user_role: {
         Args: { _user_id: string }

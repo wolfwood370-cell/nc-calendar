@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { ChevronLeft, Check, Loader2, Video, MapPin, Sparkles } from "lucide-react";
 import { sessionLabel, type SessionType } from "@/lib/mock-data";
-import { useClientBlocks, useClientBookings, useCoachAvailability, useCoachAvailabilityExceptions, useCoachEventTypes, useCoachOptimizationEnabled, type AvailabilityRow, type AvailabilityExceptionRow, type EventTypeRow, type BookingRow } from "@/lib/queries";
+import { useClientBlocks, useClientBookings, useCoachAvailability, useCoachAvailabilityExceptions, useCoachEventTypes, useCoachOptimizationEnabled, type AvailabilityRow, type AvailabilityExceptionRow, type EventTypeRow } from "@/lib/queries";
 import { generateMockMeetLink } from "@/components/join-video-call-button";
 import { toast } from "sonner";
 import { sendBookingConfirmationEmail } from "@/lib/email";
@@ -21,7 +21,7 @@ export const Route = createFileRoute("/client/book")({
   component: BookFlow,
 });
 
-interface Slot { iso: string; date: Date; recommended?: boolean; }
+interface Slot { iso: string; date: Date; recommended?: boolean; injected?: boolean; }
 
 // day_of_week: 1=Lun ... 7=Dom (Date.getDay() restituisce 0=Dom..6=Sab)
 function jsDowToIso(d: number): number {
@@ -35,24 +35,38 @@ function parseHM(t: string): { h: number; m: number } {
 
 interface BlockedRange { start: number; end: number; }
 
+/**
+ * Strict collision check.
+ * Collision iff: slotStart < existingEnd AND slotEnd > existingStart
+ * (where ends already include duration + buffer).
+ */
+function collides(slotStart: number, slotEnd: number, ranges: BlockedRange[]): boolean {
+  for (const r of ranges) {
+    if (slotStart < r.end && slotEnd > r.start) return true;
+  }
+  return false;
+}
+
 function generateSlots(
   daysAhead: number,
   blockedRanges: BlockedRange[],
   availability: AvailabilityRow[],
   exceptions: AvailabilityExceptionRow[],
+  candidateMinutes: number, // duration + buffer used to test collision
   rangeStart?: Date,
   rangeEnd?: Date,
   optimization?: { enabled: boolean },
 ): Slot[] {
   const slots: Slot[] = [];
   const now = new Date();
+  const candidateMs = candidateMinutes * 60_000;
   // Pre-index exceptions by YYYY-MM-DD
   const excByDate = new Map<string, AvailabilityExceptionRow[]>();
   for (const ex of exceptions) {
     if (!excByDate.has(ex.date)) excByDate.set(ex.date, []);
     excByDate.get(ex.date)!.push(ex);
   }
-  // Pre-index blocked ranges by day for adjacency / anchor logic
+  // Pre-index blocked ranges by day
   const rangesByDay = new Map<string, BlockedRange[]>();
   for (const r of blockedRanges) {
     const d = new Date(r.start);
@@ -60,6 +74,7 @@ function generateSlots(
     if (!rangesByDay.has(k)) rangesByDay.set(k, []);
     rangesByDay.get(k)!.push(r);
   }
+
   for (let i = 0; i < daysAhead; i++) {
     const day = new Date(now);
     day.setDate(now.getDate() + i);
@@ -70,63 +85,95 @@ function generateSlots(
     const dayExceptions = excByDate.get(dateKey) ?? [];
     if (dayExceptions.some((ex) => !ex.start_time || !ex.end_time)) continue;
     const blocks = availability.filter((a) => a.day_of_week === dow);
-    const daySlots: Slot[] = [];
-    for (const b of blocks) {
+    if (blocks.length === 0) continue;
+
+    const dayKey = `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`;
+    const dayRanges = rangesByDay.get(dayKey) ?? [];
+
+    // Build map of working windows in ms for the day.
+    interface Win { start: number; end: number }
+    const windows: Win[] = blocks.map((b) => {
       const s = parseHM(b.start_time);
       const e = parseHM(b.end_time);
-      const startMin = s.h * 60 + s.m;
-      const endMin = e.h * 60 + e.m;
-      for (let mm = startMin; mm + 60 <= endMin; mm += 60) {
+      const ws = new Date(day); ws.setHours(s.h, s.m, 0, 0);
+      const we = new Date(day); we.setHours(e.h, e.m, 0, 0);
+      return { start: ws.getTime(), end: we.getTime() };
+    });
+
+    const inWindow = (ms: number, endMs: number) =>
+      windows.some((w) => ms >= w.start && endMs <= w.end);
+
+    const inException = (ms: number, endMs: number) =>
+      dayExceptions.some((ex) => {
+        if (!ex.start_time || !ex.end_time) return false;
+        const exS = parseHM(ex.start_time);
+        const exE = parseHM(ex.end_time);
+        const exStart = new Date(day); exStart.setHours(exS.h, exS.m, 0, 0);
+        const exEnd = new Date(day); exEnd.setHours(exE.h, exE.m, 0, 0);
+        return ms < exEnd.getTime() && endMs > exStart.getTime();
+      });
+
+    const minLeadMs = 24 * 60 * 60 * 1000;
+    const candidates = new Map<number, { injected: boolean }>();
+
+    // 1) Hourly grid candidates from working windows.
+    for (const w of windows) {
+      const startD = new Date(w.start);
+      let mm = startD.getHours() * 60 + startD.getMinutes();
+      // round up to next top-of-hour if not already
+      if (mm % 60 !== 0) mm = Math.ceil(mm / 60) * 60;
+      const endMin = (() => {
+        const e = new Date(w.end);
+        return e.getHours() * 60 + e.getMinutes();
+      })();
+      for (; mm + candidateMinutes <= endMin; mm += 60) {
         const slot = new Date(day);
         slot.setHours(Math.floor(mm / 60), mm % 60, 0, 0);
-        if (slot.getTime() - now.getTime() < 24 * 60 * 60 * 1000) continue;
-        const slotStart = slot.getTime();
-        const slotEnd = slotStart + 60 * 60 * 1000;
-        const overlaps = blockedRanges.some((r) => slotStart < r.end && slotEnd > r.start);
-        if (overlaps) continue;
-        const inException = dayExceptions.some((ex) => {
-          if (!ex.start_time || !ex.end_time) return false;
-          const exS = parseHM(ex.start_time);
-          const exE = parseHM(ex.end_time);
-          const exStart = new Date(day);
-          exStart.setHours(exS.h, exS.m, 0, 0);
-          const exEnd = new Date(day);
-          exEnd.setHours(exE.h, exE.m, 0, 0);
-          return slotStart < exEnd.getTime() && slotEnd > exStart.getTime();
-        });
-        if (inException) continue;
-        daySlots.push({ iso: slot.toISOString(), date: slot });
+        candidates.set(slot.getTime(), { injected: false });
       }
     }
-    // Smart polarization: tag "recommended" slots
+
+    // 2) Anchor injection: for each existing booking on this day, inject a slot at existing_end.
+    for (const r of dayRanges) {
+      const startMs = r.end;
+      const endMs = startMs + candidateMs;
+      if (!inWindow(startMs, endMs)) continue;
+      if (!candidates.has(startMs)) candidates.set(startMs, { injected: true });
+    }
+
+    // 3) Filter candidates against strict collision rules.
+    const daySlots: Slot[] = [];
+    for (const [startMs, meta] of candidates) {
+      const endMs = startMs + candidateMs;
+      if (startMs - now.getTime() < minLeadMs) continue;
+      if (!inWindow(startMs, endMs)) continue;
+      if (collides(startMs, endMs, blockedRanges)) continue;
+      if (inException(startMs, endMs)) continue;
+      daySlots.push({
+        iso: new Date(startMs).toISOString(),
+        date: new Date(startMs),
+        injected: meta.injected,
+      });
+    }
+
+    // 4) Recommended logic: anchors when no bookings, adjacent (injected) when bookings exist.
     if (optimization?.enabled && daySlots.length > 0) {
-      const dayKey = `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`;
-      const dayRanges = rangesByDay.get(dayKey) ?? [];
       if (dayRanges.length === 0) {
-        // Anchor: primo, ultimo, e centrale
+        daySlots.sort((a, b) => a.date.getTime() - b.date.getTime());
         const lastIdx = daySlots.length - 1;
         const midIdx = Math.floor(lastIdx / 2);
         [0, midIdx, lastIdx].forEach((idx) => { daySlots[idx].recommended = true; });
       } else {
-        // Adjacency: slot che combaciano con un range esistente (con buffer già incluso)
-        const TOLERANCE = 60 * 1000; // 1 minuto
-        for (const s of daySlots) {
-          const sStart = s.date.getTime();
-          const sEnd = sStart + 60 * 60 * 1000;
-          if (dayRanges.some((r) =>
-            Math.abs(sStart - r.end) <= TOLERANCE || Math.abs(sEnd - r.start) <= TOLERANCE,
-          )) {
-            s.recommended = true;
-          }
-        }
+        for (const s of daySlots) if (s.injected) s.recommended = true;
       }
-      // Ordina per: consigliati prima, poi cronologico
       daySlots.sort((a, b) => {
         const ra = a.recommended ? 0 : 1;
         const rb = b.recommended ? 0 : 1;
         if (ra !== rb) return ra - rb;
         return a.date.getTime() - b.date.getTime();
       });
+    } else {
+      daySlots.sort((a, b) => a.date.getTime() - b.date.getTime());
     }
     slots.push(...daySlots);
   }
@@ -178,21 +225,41 @@ function BookFlow() {
   // Tipologie evento personalizzate del coach (fallback alle 3 default se vuoto).
   const customTypes: EventTypeRow[] = eventTypesQ.data ?? [];
 
-  // Range bloccati = [scheduled_at, scheduled_at + duration + buffer] della tipologia evento.
+  // Durata candidata per testare collisioni nello slot generator: minimo (durata + buffer)
+  // tra le tipologie configurate, default 60.
+  const candidateMinutes = useMemo(() => {
+    if (customTypes.length === 0) return 60;
+    return Math.min(...customTypes.map((e) => (e.duration ?? 60) + (e.buffer_minutes ?? 0)));
+  }, [customTypes]);
+
+  // Busy times del coach (tutti i clienti, anonimizzato via SECURITY DEFINER).
+  const coachBusyQ = useQuery({
+    queryKey: ["coach-busy", coachIdForAvail, block?.start_date, block?.end_date],
+    enabled: !!coachIdForAvail && !!block,
+    queryFn: async () => {
+      const from = new Date(block!.start_date);
+      const to = new Date(block!.end_date);
+      to.setHours(23, 59, 59, 999);
+      const { data, error } = await supabase.rpc("get_coach_busy", {
+        p_coach_id: coachIdForAvail!,
+        p_from: from.toISOString(),
+        p_to: to.toISOString(),
+      });
+      if (error) throw error;
+      return (data ?? []) as { scheduled_at: string; event_type_id: string | null; duration: number; buffer_minutes: number }[];
+    },
+  });
+
+  // Range bloccati = [scheduled_at, scheduled_at + duration + buffer] del coach (tutti i clienti).
   const blockedRanges = useMemo(() => {
     const ranges: BlockedRange[] = [];
-    const list = (bookingsQ.data ?? []) as BookingRow[];
-    for (const b of list) {
-      if (b.status !== "scheduled" && b.status !== "completed") continue;
-      const et = customTypes.find((e) => e.id === b.event_type_id);
-      const duration = et?.duration ?? 60;
-      const buffer = et?.buffer_minutes ?? 0;
+    for (const b of coachBusyQ.data ?? []) {
       const start = new Date(b.scheduled_at).getTime();
-      const end = start + (duration + buffer) * 60 * 1000;
+      const end = start + ((b.duration ?? 60) + (b.buffer_minutes ?? 0)) * 60_000;
       ranges.push({ start, end });
     }
     return ranges;
-  }, [bookingsQ.data, customTypes]);
+  }, [coachBusyQ.data]);
 
   const slots = useMemo(
     () => {
@@ -201,11 +268,13 @@ function BookFlow() {
       const end = new Date(block.end_date);
       end.setHours(23, 59, 59, 999);
       return generateSlots(
-        28, blockedRanges, availQ.data ?? [], exceptionsQ.data ?? [], start, end,
+        28, blockedRanges, availQ.data ?? [], exceptionsQ.data ?? [],
+        candidateMinutes,
+        start, end,
         { enabled: optimizationQ.data ?? true },
       );
     },
-    [block, blockedRanges, availQ.data, exceptionsQ.data, optimizationQ.data]
+    [block, blockedRanges, availQ.data, exceptionsQ.data, optimizationQ.data, candidateMinutes]
   );
   const grouped = useMemo(() => {
     const m = new Map<string, Slot[]>();
