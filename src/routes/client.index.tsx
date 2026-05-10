@@ -132,11 +132,23 @@ function ClientHome() {
             <Skeleton className="h-32 w-full rounded-[1rem]" />
           ) : nextBooking ? (
             <NextAppointmentCard
+              bookingId={nextBooking.id}
               date={new Date(nextBooking.scheduled_at)}
               durationMin={nextEventType?.duration ?? 60}
               label={nextEventType?.name ?? sessionLabel(nextBooking.session_type)}
               color={nextEventType?.color ?? "#039BE5"}
-              onReschedule={() => navigate({ to: "/client/book" })}
+              calendarUrl={generateGoogleCalendarLink(
+                nextBooking,
+                nextEventType
+                  ? {
+                      name: nextEventType.name,
+                      duration: nextEventType.duration,
+                      location_type: nextEventType.location_type,
+                      location_address: nextEventType.location_address,
+                    }
+                  : null,
+                fullName,
+              )}
             />
           ) : (
             <EmptyAppointment onBook={() => navigate({ to: "/client/book" })} />
