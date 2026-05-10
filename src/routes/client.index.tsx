@@ -166,7 +166,7 @@ function ClientHome() {
   }
 
   const cw = getCurrentWeek(block.start_date);
-  void meEmail;
+  
 
   return (
     <div className="space-y-6">
