@@ -11,6 +11,7 @@ import { useClientBlocks, useClientBookings, useCoachAvailability, useCoachAvail
 import { generateMockMeetLink } from "@/components/join-video-call-button";
 import { toast } from "sonner";
 import { sendBookingConfirmationEmail } from "@/lib/email";
+import { sendPush } from "@/lib/push";
 import { supabase } from "@/integrations/supabase/client";
 import { syncCalendar } from "@/lib/sync-calendar";
 import { useAuth } from "@/lib/auth";
@@ -316,6 +317,12 @@ function BookFlow() {
             },
           }).catch((e) => console.error("booking-notifications failed", e)),
         ]);
+        sendPush({
+          profileId: meId!,
+          title: "Prenotazione confermata",
+          body: `${displayLabel} — ${new Date(iso).toLocaleString("it-IT", { dateStyle: "medium", timeStyle: "short" })}`,
+          url: "/client",
+        });
       }
 
       toast.success(`${totalPicked} ${totalPicked === 1 ? "sessione prenotata" : "sessioni prenotate"}`, {

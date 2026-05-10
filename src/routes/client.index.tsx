@@ -16,6 +16,7 @@ import { AddToCalendarButton } from "@/components/add-to-calendar-button";
 import { JoinVideoCallButton } from "@/components/join-video-call-button";
 import { toast } from "sonner";
 import { syncCalendar } from "@/lib/sync-calendar";
+import { sendPush } from "@/lib/push";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
@@ -116,6 +117,14 @@ function ClientHome() {
           onSuccess: () => {
             if (coachId) {
               syncCalendar({ action: "cancel", coachId, googleEventId: b.google_event_id });
+            }
+            if (user?.id) {
+              sendPush({
+                profileId: user.id,
+                title: "Prenotazione annullata",
+                body: new Date(b.scheduled_at).toLocaleString("it-IT", { dateStyle: "medium", timeStyle: "short" }),
+                url: "/client",
+              });
             }
             toast.success("Prenotazione annullata", { description: "Il credito è stato restituito al tuo blocco." });
           },
