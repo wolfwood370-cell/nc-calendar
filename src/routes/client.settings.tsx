@@ -131,10 +131,20 @@ function ClientSettings() {
     navigate({ to: "/auth" });
   };
 
-  const handleConnectGoogle = () => {
-    toast("Integrazione Google in arrivo!", {
-      description: "Stiamo lavorando per collegare il tuo Google Calendar.",
-    });
+  const handleConnectGoogle = async () => {
+    if (googleLinked || googleLinking) return;
+    setGoogleLinking(true);
+    try {
+      const { error } = await supabase.auth.linkIdentity({
+        provider: "google",
+        options: { redirectTo: window.location.origin + "/client/settings" },
+      });
+      if (error) throw error;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Riprova";
+      toast.error("Collegamento non riuscito", { description: msg });
+      setGoogleLinking(false);
+    }
   };
 
   const fullName = profile?.full_name ?? user?.email ?? "Cliente";
