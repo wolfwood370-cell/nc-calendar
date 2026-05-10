@@ -67,6 +67,40 @@ function Overview() {
     return result;
   }, [blocks, clientNameById]);
 
+  // Clienti a rischio: hanno crediti residui in un blocco attivo ma nessuna prenotazione futura.
+  const atRisk = useMemo(() => {
+    const now = Date.now();
+    const futureByClient = new Map<string, number>();
+    for (const b of bookings) {
+      if (b.status === "scheduled" && new Date(b.scheduled_at).getTime() >= now) {
+        futureByClient.set(b.client_id, (futureByClient.get(b.client_id) ?? 0) + 1);
+      }
+    }
+    const remainingByClient = new Map<string, number>();
+    for (const block of blocks) {
+      if (block.status !== "active") continue;
+      const remaining = block.allocations.reduce(
+        (s, a) => s + Math.max(0, a.quantity_assigned - a.quantity_booked),
+        0
+      );
+      if (remaining > 0) {
+        remainingByClient.set(block.client_id, (remainingByClient.get(block.client_id) ?? 0) + remaining);
+      }
+    }
+    const list: { clientId: string; name: string; phone: string | null; missing: number }[] = [];
+    for (const [clientId, missing] of remainingByClient.entries()) {
+      if ((futureByClient.get(clientId) ?? 0) > 0) continue;
+      const c = clients.find((x) => x.id === clientId);
+      list.push({
+        clientId,
+        name: c?.full_name ?? c?.email ?? "Cliente",
+        phone: c?.phone ?? null,
+        missing,
+      });
+    }
+    return list.sort((a, b) => b.missing - a.missing);
+  }, [bookings, blocks, clients]);
+
   const totalAssigned = blocks.flatMap((b) => b.allocations).reduce((s, a) => s + a.quantity_assigned, 0);
   const totalBooked = blocks.flatMap((b) => b.allocations).reduce((s, a) => s + a.quantity_booked, 0);
   const utilization = totalAssigned ? Math.round((totalBooked / totalAssigned) * 100) : 0;
