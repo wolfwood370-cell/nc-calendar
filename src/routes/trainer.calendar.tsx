@@ -49,16 +49,7 @@ function CalendarPage() {
   const [activeBooking, setActiveBooking] = useState<BookingRow | null>(null);
   const [notesDraft, setNotesDraft] = useState("");
 
-  const handleCancelBooking = () => {
-    if (!activeBooking) return;
-    cancelBooking.mutate(activeBooking, {
-      onSuccess: () => {
-        toast.success("Appuntamento cancellato e credito rimborsato.");
-        setActiveBooking(null);
-      },
-      onError: (e: unknown) => toast.error("Errore", { description: (e as Error).message }),
-    });
-  };
+
 
   const openNotes = (b: BookingRow) => {
     setActiveBooking(b);
@@ -255,6 +246,39 @@ function CalendarPage() {
                       <NotebookPen className="size-4" />
                       {b.trainer_notes ? "Note" : "Aggiungi note"}
                     </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-destructive hover:text-destructive"
+                          disabled={cancelBooking.isPending}
+                        >
+                          {cancelBooking.isPending ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+                          Cancella
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Cancellare l'appuntamento?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            L'evento verrà rimosso dalla piattaforma e da Google Calendar. Il credito verrà rimborsato al cliente (se presente).
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Indietro</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => cancelBooking.mutate(b, {
+                              onSuccess: () => toast.success("Appuntamento cancellato."),
+                              onError: (e: unknown) => toast.error("Errore", { description: (e as Error).message }),
+                            })}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Sì, cancella
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                     {b.status === "scheduled" && !isUnmatchedSync && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -296,35 +320,7 @@ function CalendarPage() {
               onChange={(e) => setNotesDraft(e.target.value)}
             />
           </div>
-          <DialogFooter className="flex-col sm:flex-row gap-2 sm:justify-between">
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant="destructive"
-                  disabled={!activeBooking || activeBooking.status === "cancelled" || cancelBooking.isPending}
-                >
-                  {cancelBooking.isPending ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
-                  Cancella Appuntamento
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Cancellare l'appuntamento?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Questa azione annullerà l'evento. Il credito verrà automaticamente rimborsato nel blocco del cliente.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Indietro</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleCancelBooking}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  >
-                    Sì, cancella
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:justify-end">
             <div className="flex gap-2">
               <Button variant="ghost" onClick={() => setActiveBooking(null)}>Chiudi</Button>
               <Button onClick={saveNotes} disabled={updateNotes.isPending}>
