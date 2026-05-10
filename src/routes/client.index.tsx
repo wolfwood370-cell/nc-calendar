@@ -99,7 +99,7 @@ function ClientHome() {
 
       <main className="px-margin-mobile pt-stack-md flex flex-col gap-stack-lg">
         {/* Hero: Progressi */}
-        <section className="bg-surface-container-lowest rounded-[1rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-stack-lg border border-outline-variant/30 relative overflow-hidden">
+        <section className="bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-stack-lg border border-outline-variant/30 relative overflow-hidden">
           <div className="absolute -top-10 -right-10 w-32 h-32 bg-[#003e62]/5 rounded-full blur-3xl pointer-events-none" />
           <h2 className="text-2xl font-semibold text-on-surface mb-6">I Tuoi Progressi</h2>
 
