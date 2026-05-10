@@ -302,11 +302,13 @@ function BookFlow() {
           color: eventType?.color ?? null,
         });
         void Promise.all([
-          sendBookingConfirmationEmail({
-            to: meEmail, recipientName: meName,
-            sessionLabel: displayLabel, scheduledAt: new Date(iso),
-            coachName: "Coach", clientName: meName,
-          }).catch((e) => console.error("email failed", e)),
+          emailNotificationsEnabled
+            ? sendBookingConfirmationEmail({
+                to: meEmail, recipientName: meName,
+                sessionLabel: displayLabel, scheduledAt: new Date(iso),
+                coachName: "Coach", clientName: meName,
+              }).catch((e) => console.error("email failed", e))
+            : Promise.resolve(),
           supabase.functions.invoke("booking-notifications", {
             body: {
               coach_id: coachId, client_name: meName, client_phone: mePhone,
