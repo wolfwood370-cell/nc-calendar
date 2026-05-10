@@ -9,7 +9,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { CalendarPlus, Activity, Flame, AlertTriangle } from "lucide-react";
-import { sessionLabel, SESSION_TYPES, type SessionType } from "@/lib/mock-data";
+import { sessionLabel } from "@/lib/mock-data";
 import { useClientBlocks, useClientBookings, useCancelBooking, useCoachEventTypes, type BookingRow } from "@/lib/queries";
 import { useMemo, useState } from "react";
 import { AddToCalendarButton } from "@/components/add-to-calendar-button";
