@@ -140,6 +140,32 @@ export interface AvailabilityRow {
   end_time: string;
 }
 
+export interface EventTypeRow {
+  id: string;
+  coach_id: string;
+  name: string;
+  description: string | null;
+  color: string;
+  duration: number;
+  base_type: SessionType;
+}
+
+export function useCoachEventTypes(coachId?: string | null) {
+  return useQuery({
+    queryKey: ["event_types", coachId],
+    enabled: !!coachId,
+    queryFn: async (): Promise<EventTypeRow[]> => {
+      const { data, error } = await supabase
+        .from("event_types")
+        .select("id, coach_id, name, description, color, duration, base_type")
+        .eq("coach_id", coachId!)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as EventTypeRow[];
+    },
+  });
+}
+
 export function useCoachAvailability(coachId?: string | null) {
   return useQuery({
     queryKey: ["trainer_availability", coachId],

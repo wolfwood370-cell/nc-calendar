@@ -19,6 +19,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as TrainerIndexRouteImport } from './routes/trainer.index'
 import { Route as ClientIndexRouteImport } from './routes/client.index'
 import { Route as TrainerIntegrationsRouteImport } from './routes/trainer.integrations'
+import { Route as TrainerEventTypesRouteImport } from './routes/trainer.event-types'
 import { Route as TrainerClientsRouteImport } from './routes/trainer.clients'
 import { Route as TrainerCalendarRouteImport } from './routes/trainer.calendar'
 import { Route as TrainerBlocksRouteImport } from './routes/trainer.blocks'
@@ -75,6 +76,11 @@ const TrainerIntegrationsRoute = TrainerIntegrationsRouteImport.update({
   path: '/integrations',
   getParentRoute: () => TrainerRoute,
 } as any)
+const TrainerEventTypesRoute = TrainerEventTypesRouteImport.update({
+  id: '/event-types',
+  path: '/event-types',
+  getParentRoute: () => TrainerRoute,
+} as any)
 const TrainerClientsRoute = TrainerClientsRouteImport.update({
   id: '/clients',
   path: '/clients',
@@ -114,6 +120,7 @@ export interface FileRoutesByFullPath {
   '/trainer/blocks': typeof TrainerBlocksRoute
   '/trainer/calendar': typeof TrainerCalendarRoute
   '/trainer/clients': typeof TrainerClientsRoute
+  '/trainer/event-types': typeof TrainerEventTypesRoute
   '/trainer/integrations': typeof TrainerIntegrationsRoute
   '/client/': typeof ClientIndexRoute
   '/trainer/': typeof TrainerIndexRoute
@@ -129,6 +136,7 @@ export interface FileRoutesByTo {
   '/trainer/blocks': typeof TrainerBlocksRoute
   '/trainer/calendar': typeof TrainerCalendarRoute
   '/trainer/clients': typeof TrainerClientsRoute
+  '/trainer/event-types': typeof TrainerEventTypesRoute
   '/trainer/integrations': typeof TrainerIntegrationsRoute
   '/client': typeof ClientIndexRoute
   '/trainer': typeof TrainerIndexRoute
@@ -147,6 +155,7 @@ export interface FileRoutesById {
   '/trainer/blocks': typeof TrainerBlocksRoute
   '/trainer/calendar': typeof TrainerCalendarRoute
   '/trainer/clients': typeof TrainerClientsRoute
+  '/trainer/event-types': typeof TrainerEventTypesRoute
   '/trainer/integrations': typeof TrainerIntegrationsRoute
   '/client/': typeof ClientIndexRoute
   '/trainer/': typeof TrainerIndexRoute
@@ -166,6 +175,7 @@ export interface FileRouteTypes {
     | '/trainer/blocks'
     | '/trainer/calendar'
     | '/trainer/clients'
+    | '/trainer/event-types'
     | '/trainer/integrations'
     | '/client/'
     | '/trainer/'
@@ -181,6 +191,7 @@ export interface FileRouteTypes {
     | '/trainer/blocks'
     | '/trainer/calendar'
     | '/trainer/clients'
+    | '/trainer/event-types'
     | '/trainer/integrations'
     | '/client'
     | '/trainer'
@@ -198,6 +209,7 @@ export interface FileRouteTypes {
     | '/trainer/blocks'
     | '/trainer/calendar'
     | '/trainer/clients'
+    | '/trainer/event-types'
     | '/trainer/integrations'
     | '/client/'
     | '/trainer/'
@@ -285,6 +297,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TrainerIntegrationsRouteImport
       parentRoute: typeof TrainerRoute
     }
+    '/trainer/event-types': {
+      id: '/trainer/event-types'
+      path: '/event-types'
+      fullPath: '/trainer/event-types'
+      preLoaderRoute: typeof TrainerEventTypesRouteImport
+      parentRoute: typeof TrainerRoute
+    }
     '/trainer/clients': {
       id: '/trainer/clients'
       path: '/clients'
@@ -341,6 +360,7 @@ interface TrainerRouteChildren {
   TrainerBlocksRoute: typeof TrainerBlocksRoute
   TrainerCalendarRoute: typeof TrainerCalendarRoute
   TrainerClientsRoute: typeof TrainerClientsRoute
+  TrainerEventTypesRoute: typeof TrainerEventTypesRoute
   TrainerIntegrationsRoute: typeof TrainerIntegrationsRoute
   TrainerIndexRoute: typeof TrainerIndexRoute
 }
@@ -350,6 +370,7 @@ const TrainerRouteChildren: TrainerRouteChildren = {
   TrainerBlocksRoute: TrainerBlocksRoute,
   TrainerCalendarRoute: TrainerCalendarRoute,
   TrainerClientsRoute: TrainerClientsRoute,
+  TrainerEventTypesRoute: TrainerEventTypesRoute,
   TrainerIntegrationsRoute: TrainerIntegrationsRoute,
   TrainerIndexRoute: TrainerIndexRoute,
 }

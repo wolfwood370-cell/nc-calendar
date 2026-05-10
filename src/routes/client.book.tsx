@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { ChevronLeft, Check, Loader2, Video } from "lucide-react";
 import { sessionLabel, type SessionType } from "@/lib/mock-data";
-import { useClientBlocks, useClientBookings, useCoachAvailability, type AvailabilityRow } from "@/lib/queries";
+import { useClientBlocks, useClientBookings, useCoachAvailability, useCoachEventTypes, type AvailabilityRow, type EventTypeRow } from "@/lib/queries";
 import { generateMockMeetLink } from "@/components/join-video-call-button";
 import { toast } from "sonner";
 import { sendBookingConfirmationEmail } from "@/lib/email";
@@ -83,13 +83,18 @@ function BookFlow() {
     },
   });
 
-  const [picked, setPicked] = useState<Record<string, SessionType>>({});
+  interface Pick { type: SessionType; eventTypeId: string | null; }
+  const [picked, setPicked] = useState<Record<string, Pick>>({});
   const [online, setOnline] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
   const block = (blocksQ.data ?? []).find((b) => b.status === "active");
   const coachIdForAvail = profileQ.data?.coach_id ?? null;
   const availQ = useCoachAvailability(coachIdForAvail);
+  const eventTypesQ = useCoachEventTypes(coachIdForAvail);
+
+  // Tipologie evento personalizzate del coach (fallback alle 3 default se vuoto).
+  const customTypes: EventTypeRow[] = eventTypesQ.data ?? [];
 
   const taken = useMemo(() => {
     const s = new Set<string>();
@@ -125,20 +130,22 @@ function BookFlow() {
     remainingByType[a.session_type] += a.quantity_assigned - a.quantity_booked;
   }
   const pickedCounts = Object.values(picked).reduce<Record<SessionType, number>>(
-    (acc, t) => ({ ...acc, [t]: (acc[t] ?? 0) + 1 }),
+    (acc, p) => ({ ...acc, [p.type]: (acc[p.type] ?? 0) + 1 }),
     { "PT Session": 0, BIA: 0, "Functional Test": 0 }
   );
 
-  const togglePick = (iso: string, type: SessionType | "") => {
+  const togglePick = (iso: string, value: string) => {
     setPicked((cur) => {
       const next = { ...cur };
-      if (!type) { delete next[iso]; return next; }
-      const used = pickedCounts[type] - (cur[iso] === type ? 1 : 0);
+      if (!value) { delete next[iso]; return next; }
+      // value format: "<base_type>" or "<base_type>::<event_type_id>"
+      const [type, eventTypeId] = value.split("::") as [SessionType, string | undefined];
+      const used = pickedCounts[type] - (cur[iso]?.type === type ? 1 : 0);
       if (used >= remainingByType[type]) {
         toast.error(`Nessuna sessione di tipo ${sessionLabel(type)} rimanente nel tuo blocco.`);
         return cur;
       }
-      next[iso] = type;
+      next[iso] = { type, eventTypeId: eventTypeId ?? null };
       return next;
     });
   };
@@ -175,15 +182,20 @@ function BookFlow() {
       // tracker locale per non sforare quando si prenotano più slot dello stesso tipo
       const localUsed: Record<string, number> = {}; // alloc_id -> count
 
-      for (const [iso, type] of Object.entries(picked)) {
+      for (const [iso, pick] of Object.entries(picked)) {
+        const type = pick.type;
+        const eventType = pick.eventTypeId
+          ? customTypes.find((e) => e.id === pick.eventTypeId)
+          : null;
+        const displayLabel = eventType?.name ?? sessionLabel(type);
         const alloc = findAllocationForWeek(type, iso);
         if (!alloc) {
-          toast.error(`Credito esaurito per ${sessionLabel(type)}.`);
+          toast.error(`Credito esaurito per ${displayLabel}.`);
           continue;
         }
         const used = localUsed[alloc.id] ?? 0;
         if (used >= alloc.remaining) {
-          toast.error(`Credito esaurito per ${sessionLabel(type)} questa settimana.`);
+          toast.error(`Credito esaurito per ${displayLabel} questa settimana.`);
           continue;
         }
         const meetingLink = online ? generateMockMeetLink() : null;
@@ -220,18 +232,18 @@ function BookFlow() {
         // notifications (fire and forget)
         syncCalendar({
           action: "create", coachId, clientName: meName,
-          sessionLabel: sessionLabel(type), startISO: iso, meetingLink,
+          sessionLabel: displayLabel, startISO: iso, meetingLink,
         });
         void Promise.all([
           sendBookingConfirmationEmail({
             to: meEmail, recipientName: meName,
-            sessionLabel: sessionLabel(type), scheduledAt: new Date(iso),
+            sessionLabel: displayLabel, scheduledAt: new Date(iso),
             coachName: "Coach", clientName: meName,
           }).catch((e) => console.error("email failed", e)),
           supabase.functions.invoke("booking-notifications", {
             body: {
               coach_id: coachId, client_name: meName, client_phone: mePhone,
-              scheduled_at: iso, session_label: sessionLabel(type), meeting_link: meetingLink,
+              scheduled_at: iso, session_label: displayLabel, meeting_link: meetingLink,
             },
           }).catch((e) => console.error("booking-notifications failed", e)),
         ]);
@@ -319,19 +331,42 @@ function BookFlow() {
                           <p className="font-display font-semibold tabular-nums">
                             {s.date.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
                           </p>
-                          {chosen && <Badge>{sessionLabel(chosen)}</Badge>}
+                          {chosen && (() => {
+                            const ev = chosen.eventTypeId
+                              ? customTypes.find((e) => e.id === chosen.eventTypeId)
+                              : null;
+                            return (
+                              <Badge style={ev ? { backgroundColor: ev.color, color: "#fff", borderColor: ev.color } : undefined}>
+                                {ev?.name ?? sessionLabel(chosen.type)}
+                              </Badge>
+                            );
+                          })()}
                         </div>
                         <Select
-                          value={chosen ?? ""}
-                          onValueChange={(v) => togglePick(s.iso, v as SessionType | "")}
+                          value={chosen ? (chosen.eventTypeId ? `${chosen.type}::${chosen.eventTypeId}` : chosen.type) : ""}
+                          onValueChange={(v) => togglePick(s.iso, v)}
                         >
                           <SelectTrigger className="mt-2 h-8 text-xs">
                             <SelectValue placeholder="Aggiungi sessione…" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="PT Session">Sessione PT</SelectItem>
-                            <SelectItem value="BIA">BIA</SelectItem>
-                            <SelectItem value="Functional Test">Test Funzionale</SelectItem>
+                            {customTypes.length === 0 ? (
+                              <>
+                                <SelectItem value="PT Session">Sessione PT</SelectItem>
+                                <SelectItem value="BIA">BIA</SelectItem>
+                                <SelectItem value="Functional Test">Test Funzionale</SelectItem>
+                              </>
+                            ) : (
+                              customTypes.map((et) => (
+                                <SelectItem key={et.id} value={`${et.base_type}::${et.id}`}>
+                                  <span className="inline-flex items-center gap-2">
+                                    <span className="size-2.5 rounded-full" style={{ backgroundColor: et.color }} />
+                                    {et.name}
+                                    <span className="text-xs text-muted-foreground">· {et.duration}m</span>
+                                  </span>
+                                </SelectItem>
+                              ))
+                            )}
                           </SelectContent>
                         </Select>
                         {chosen && (
