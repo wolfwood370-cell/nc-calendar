@@ -96,6 +96,68 @@ Deno.serve(async (req) => {
     };
   }
 
+  /**
+   * Trova il training_block che copre la data e incrementa quantity_booked
+   * sull'allocation che corrisponde a event_type_id (preferendo la stessa
+   * settimana del blocco). Idempotente: il chiamante deve garantire che venga
+   * invocata solo per booking realmente "nuovi" o non ancora contabilizzati.
+   */
+  async function consumeCreditFor(clientId: string, eventTypeId: string | null, sessionType: string, scheduledAtIso: string): Promise<string | null> {
+    if (!clientId || clientId === body.coach_id) return null;
+    const dateOnly = scheduledAtIso.slice(0, 10);
+    const { data: blocks } = await supabase
+      .from("training_blocks")
+      .select("id, start_date, end_date")
+      .eq("client_id", clientId)
+      .eq("coach_id", body.coach_id)
+      .lte("start_date", dateOnly)
+      .gte("end_date", dateOnly)
+      .is("deleted_at", null)
+      .order("sequence_order", { ascending: true });
+    const block = (blocks ?? [])[0];
+    if (!block) return null;
+
+    const { data: allocs } = await supabase
+      .from("block_allocations")
+      .select("id, week_number, event_type_id, session_type, quantity_assigned, quantity_booked")
+      .eq("block_id", block.id);
+
+    const matchPool = (a: { event_type_id: string | null; session_type: string }) =>
+      eventTypeId ? a.event_type_id === eventTypeId : (a.event_type_id === null && a.session_type === sessionType);
+
+    const weeksFromStart = Math.floor((new Date(scheduledAtIso).getTime() - new Date(block.start_date).getTime()) / (1000 * 60 * 60 * 24 * 7));
+    const wn = Math.min(4, Math.max(1, weeksFromStart + 1));
+    const list = allocs ?? [];
+    const sameWeek = list.find((a) => matchPool(a) && a.week_number === wn);
+    const target = sameWeek ?? list.find(matchPool);
+    if (!target) return null;
+
+    await supabase
+      .from("block_allocations")
+      .update({ quantity_booked: target.quantity_booked + 1 })
+      .eq("id", target.id);
+    return block.id;
+  }
+
+  async function refundCreditFor(blockId: string | null, eventTypeId: string | null, sessionType: string, scheduledAtIso: string) {
+    if (!blockId) return;
+    const { data: block } = await supabase
+      .from("training_blocks").select("start_date").eq("id", blockId).maybeSingle();
+    if (!block) return;
+    const { data: allocs } = await supabase
+      .from("block_allocations")
+      .select("id, week_number, event_type_id, session_type, quantity_booked")
+      .eq("block_id", blockId);
+    const matchPool = (a: { event_type_id: string | null; session_type: string }) =>
+      eventTypeId ? a.event_type_id === eventTypeId : (a.event_type_id === null && a.session_type === sessionType);
+    const weeksFromStart = Math.floor((new Date(scheduledAtIso).getTime() - new Date(block.start_date).getTime()) / (1000 * 60 * 60 * 24 * 7));
+    const wn = Math.min(4, Math.max(1, weeksFromStart + 1));
+    const list = allocs ?? [];
+    const target = list.find((a) => matchPool(a) && a.week_number === wn) ?? list.find(matchPool);
+    if (!target || target.quantity_booked <= 0) return;
+    await supabase.from("block_allocations").update({ quantity_booked: target.quantity_booked - 1 }).eq("id", target.id);
+  }
+
   try {
     if (body.action === "create") {
       if (!body.start_iso || !body.client_name) return json({ error: "Missing create fields" }, 400);
