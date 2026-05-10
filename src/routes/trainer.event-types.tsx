@@ -286,23 +286,26 @@ function EventTypeDialog({
           </RadioGroup>
         </div>
         <div className="space-y-2">
-          <Label>Colore</Label>
-          <div className="flex flex-wrap gap-2">
-            {COLOR_PRESETS.map((c) => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => setColor(c)}
-                className={`size-8 rounded-md border-2 transition ${color === c ? "border-foreground scale-110" : "border-transparent"}`}
-                style={{ backgroundColor: c }}
-                aria-label={c}
-              />
-            ))}
-            <Input
-              type="text" value={color} onChange={(e) => setColor(e.target.value)}
-              className="w-28 font-mono text-xs" placeholder="#3b82f6"
-            />
+          <Label>Colore (palette Google Calendar)</Label>
+          <div className="grid grid-cols-6 gap-2 sm:grid-cols-11">
+            {GCAL_COLORS.map((c) => {
+              const selected = color.toLowerCase() === c.hex.toLowerCase();
+              return (
+                <button
+                  key={c.hex}
+                  type="button"
+                  onClick={() => setColor(c.hex)}
+                  title={c.name}
+                  aria-label={c.name}
+                  className={`size-8 rounded-full border-2 transition ${selected ? "border-foreground scale-110 ring-2 ring-offset-2 ring-offset-background ring-foreground/20" : "border-transparent hover:scale-105"}`}
+                  style={{ backgroundColor: c.hex }}
+                />
+              );
+            })}
           </div>
+          <p className="text-xs text-muted-foreground">
+            Selezionato: <span className="font-medium">{nameForColor(color) ?? color}</span>
+          </p>
         </div>
         <DialogFooter>
           <Button type="submit" disabled={submitting}>
