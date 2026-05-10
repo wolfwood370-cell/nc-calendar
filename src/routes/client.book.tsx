@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { ChevronLeft, Check, Loader2, Video, MapPin } from "lucide-react";
 import { sessionLabel, type SessionType } from "@/lib/mock-data";
-import { useClientBlocks, useClientBookings, useCoachAvailability, useCoachEventTypes, type AvailabilityRow, type EventTypeRow, type BookingRow } from "@/lib/queries";
+import { useClientBlocks, useClientBookings, useCoachAvailability, useCoachAvailabilityExceptions, useCoachEventTypes, type AvailabilityRow, type AvailabilityExceptionRow, type EventTypeRow, type BookingRow } from "@/lib/queries";
 import { generateMockMeetLink } from "@/components/join-video-call-button";
 import { toast } from "sonner";
 import { sendBookingConfirmationEmail } from "@/lib/email";
