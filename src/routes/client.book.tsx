@@ -513,8 +513,12 @@ function BookFlow() {
                               </Badge>
                             );
                           })() : s.recommended ? (
-                            <Badge variant="secondary" className="bg-success/10 text-success border-success/20 text-[10px] px-1.5 py-0">
-                              Consigliato
+                            <Badge
+                              variant="secondary"
+                              className="text-[10px] px-1.5 py-0 inline-flex items-center gap-1 border"
+                              style={{ backgroundColor: "rgba(51,184,100,0.10)", color: "#0B8043", borderColor: "rgba(51,184,100,0.30)" }}
+                            >
+                              <Sparkles className="size-2.5" /> Consigliato
                             </Badge>
                           ) : null}
                         </div>
