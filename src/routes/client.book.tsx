@@ -11,6 +11,7 @@ import { useClientBlocks, useClientBookings, useCoachAvailability, useCoachAvail
 import { generateMockMeetLink } from "@/components/join-video-call-button";
 import { toast } from "sonner";
 import { sendBookingConfirmationEmail } from "@/lib/email";
+import { sendPush } from "@/lib/push";
 import { supabase } from "@/integrations/supabase/client";
 import { syncCalendar } from "@/lib/sync-calendar";
 import { useAuth } from "@/lib/auth";
