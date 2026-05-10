@@ -14,6 +14,19 @@ interface CancelInput {
   action: "cancel";
   coachId: string;
   googleEventId?: string | null;
+  late?: boolean;
+  clientName?: string;
+  sessionLabel?: string;
+}
+interface UpdateInput {
+  action: "update";
+  coachId: string;
+  googleEventId: string;
+  startISO: string;
+  endISO?: string;
+  clientName?: string;
+  sessionLabel?: string;
+  color?: string | null;
 }
 interface ImportHistoryInput {
   action: "import_history";
@@ -28,7 +41,7 @@ interface MirrorCheckInput {
   rangeEndISO?: string;
 }
 
-export type SyncInput = CreateInput | CancelInput | ImportHistoryInput | MirrorCheckInput;
+export type SyncInput = CreateInput | CancelInput | UpdateInput | ImportHistoryInput | MirrorCheckInput;
 
 function buildBody(input: SyncInput): Record<string, unknown> {
   const base = { action: input.action, coach_id: input.coachId };
@@ -44,7 +57,24 @@ function buildBody(input: SyncInput): Record<string, unknown> {
     };
   }
   if (input.action === "cancel") {
-    return { ...base, google_event_id: input.googleEventId ?? null };
+    return {
+      ...base,
+      google_event_id: input.googleEventId ?? null,
+      late: input.late ?? false,
+      client_name: input.clientName,
+      session_label: input.sessionLabel,
+    };
+  }
+  if (input.action === "update") {
+    return {
+      ...base,
+      google_event_id: input.googleEventId,
+      start_iso: input.startISO,
+      end_iso: input.endISO,
+      client_name: input.clientName,
+      session_label: input.sessionLabel,
+      color: input.color ?? null,
+    };
   }
   return {
     ...base,
