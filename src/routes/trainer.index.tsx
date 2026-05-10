@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertTriangle, ArrowRight, CalendarCheck, Users, Activity, Clock, PhoneCall, UserCheck } from "lucide-react";
 import { sessionLabel } from "@/lib/mock-data";
-import { useCoachBlocks, useCoachBookings, useCoachClients } from "@/lib/queries";
+import { useCoachBlocks, useCoachBookings, useCoachClients, useCoachEventTypes } from "@/lib/queries";
 import { AddToCalendarButton } from "@/components/add-to-calendar-button";
 import { JoinVideoCallButton } from "@/components/join-video-call-button";
 import { BookingStatusBadge } from "@/components/booking-status-badge";
