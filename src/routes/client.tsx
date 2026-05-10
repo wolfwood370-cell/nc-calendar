@@ -3,6 +3,7 @@ import { Dumbbell, Home, CalendarPlus, LogOut, Settings } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { InstallPwaButton } from "@/components/install-pwa-button";
+import { PwaInstallToast } from "@/components/pwa-install-toast";
 
 export const Route = createFileRoute("/client")({
   component: ClientLayout,
