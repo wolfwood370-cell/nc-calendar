@@ -277,7 +277,7 @@ Deno.serve(async (req) => {
 
       const { data: locals } = await supabase
         .from("bookings")
-        .select("id, google_event_id, scheduled_at, status, client_id, event_type_id")
+        .select("id, google_event_id, scheduled_at, status, client_id, event_type_id, session_type, block_id")
         .eq("coach_id", body.coach_id)
         .not("google_event_id", "is", null)
         .gte("scheduled_at", timeMin)
@@ -294,22 +294,35 @@ Deno.serve(async (req) => {
           const attendees = (ev.data.attendees ?? []) as Array<{ email?: string }>;
 
           if (evStatus === "cancelled") {
-            await supabase.from("bookings").update({ status: "cancelled" }).eq("id", b.id);
+            await supabase.from("bookings").update({ status: "cancelled", block_id: null }).eq("id", b.id);
+            if (b.block_id) await refundCreditFor(b.block_id, b.event_type_id ?? null, b.session_type, b.scheduled_at);
             cancelled++; continue;
           }
 
           const patch: Record<string, unknown> = {};
           if (evStart && evStart !== b.scheduled_at) { patch.scheduled_at = evStart; moved++; }
 
-          // Re-mapping client / tipo evento (se cambia il titolo)
+          // Re-mapping client / tipo evento
           const match = matchEvent(summary, attendees, ctx);
           const newClient = match.client?.id ?? body.coach_id;
           const newEt = match.eventType?.id ?? null;
-          if (newClient !== b.client_id || newEt !== b.event_type_id) {
+          const newType = match.eventType?.base_type ?? "PT Session";
+          const clientChanged = newClient !== b.client_id;
+          const etChanged = newEt !== b.event_type_id;
+          if (clientChanged || etChanged) {
             patch.client_id = newClient;
             patch.event_type_id = newEt;
-            patch.session_type = match.eventType?.base_type ?? "PT Session";
+            patch.session_type = newType;
             patch.notes = `Importato da Google Calendar: ${summary}`;
+            // Restituisci il vecchio credito (se contabilizzato) e prova a scalare quello nuovo.
+            if (b.block_id) {
+              await refundCreditFor(b.block_id, b.event_type_id ?? null, b.session_type, b.scheduled_at);
+              patch.block_id = null;
+            }
+            if (match.client) {
+              const newBlockId = await consumeCreditFor(newClient, newEt, newType, evStart ?? b.scheduled_at);
+              if (newBlockId) patch.block_id = newBlockId;
+            }
             remapped++;
           }
           if (Object.keys(patch).length > 0) {
@@ -318,7 +331,8 @@ Deno.serve(async (req) => {
         } catch (err) {
           const msg = String(err);
           if (msg.includes("404") || msg.toLowerCase().includes("not found") || msg.toLowerCase().includes("deleted")) {
-            await supabase.from("bookings").update({ status: "cancelled" }).eq("id", b.id);
+            await supabase.from("bookings").update({ status: "cancelled", block_id: null }).eq("id", b.id);
+            if (b.block_id) await refundCreditFor(b.block_id, b.event_type_id ?? null, b.session_type, b.scheduled_at);
             cancelled++;
           } else {
             console.error("sync-calendar: mirror_check get error", err);
