@@ -101,8 +101,9 @@ export function useClientBookings(clientId?: string) {
 async function loadBlocks(filter: { coach_id?: string; client_id?: string }): Promise<BlockRow[]> {
   let q = supabase
     .from("training_blocks")
-    .select("id, client_id, coach_id, start_date, end_date, status")
+    .select("id, client_id, coach_id, start_date, end_date, status, sequence_order")
     .is("deleted_at", null)
+    .order("sequence_order", { ascending: true })
     .order("start_date", { ascending: false });
   if (filter.coach_id) q = q.eq("coach_id", filter.coach_id);
   if (filter.client_id) q = q.eq("client_id", filter.client_id);
@@ -112,7 +113,7 @@ async function loadBlocks(filter: { coach_id?: string; client_id?: string }): Pr
   if (ids.length === 0) return [];
   const { data: allocs, error: aerr } = await supabase
     .from("block_allocations")
-    .select("id, block_id, week_number, session_type, quantity_assigned, quantity_booked")
+    .select("id, block_id, week_number, session_type, event_type_id, quantity_assigned, quantity_booked")
     .in("block_id", ids);
   if (aerr) throw aerr;
   return (blocks ?? []).map((b) => ({
