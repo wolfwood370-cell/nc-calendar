@@ -105,7 +105,7 @@ function BlockBuilder() {
             rows.push({
               block_id: block.id,
               week_number: wn,
-              session_type: et.base_type,
+              session_type: et.base_type as SessionType,
               event_type_id: et.id,
               quantity_assigned: weekly,
             });
