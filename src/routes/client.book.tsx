@@ -468,6 +468,18 @@ function BookFlow() {
         }
         localUsed[alloc.id] = used + 1;
         bookedCount += 1;
+        lastCalendarUrl = generateGoogleCalendarLink(
+          { scheduled_at: iso },
+          eventType
+            ? {
+                name: eventType.name,
+                duration: eventType.duration,
+                location_type: eventType.location_type,
+                location_address: eventType.location_address,
+              }
+            : { name: displayLabel },
+          meName,
+        );
 
         // notifications (fire and forget)
         syncCalendar({
