@@ -215,6 +215,7 @@ export type Database = {
           description: string | null
           duration: number
           id: string
+          location_address: string | null
           location_type: string
           name: string
           updated_at: string
@@ -228,6 +229,7 @@ export type Database = {
           description?: string | null
           duration?: number
           id?: string
+          location_address?: string | null
           location_type?: string
           name: string
           updated_at?: string
@@ -241,6 +243,7 @@ export type Database = {
           description?: string | null
           duration?: number
           id?: string
+          location_address?: string | null
           location_type?: string
           name?: string
           updated_at?: string

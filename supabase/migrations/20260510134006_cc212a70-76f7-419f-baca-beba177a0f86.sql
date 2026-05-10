@@ -1,0 +1,1 @@
+ALTER TABLE public.event_types ADD COLUMN IF NOT EXISTS location_address text;
