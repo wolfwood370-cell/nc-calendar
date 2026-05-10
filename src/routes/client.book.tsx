@@ -40,6 +40,8 @@ function generateSlots(
   blockedRanges: BlockedRange[],
   availability: AvailabilityRow[],
   exceptions: AvailabilityExceptionRow[],
+  rangeStart?: Date,
+  rangeEnd?: Date,
 ): Slot[] {
   const slots: Slot[] = [];
   const now = new Date();
