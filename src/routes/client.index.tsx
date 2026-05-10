@@ -56,8 +56,28 @@ function ClientHome() {
   const meName = profileQ.data?.full_name ?? user?.email ?? "Cliente";
   const meEmail = profileQ.data?.email ?? user?.email ?? "";
   const coachId = profileQ.data?.coach_id ?? null;
+  const eventTypesQ = useCoachEventTypes(coachId);
 
   const block = (blocksQ.data ?? []).find((b) => b.status === "active");
+
+  // Riepilogo crediti residui per tipologia (event_type), con fallback al base session_type per blocchi legacy
+  const remainingByType = useMemo(() => {
+    if (!block) return [] as Array<{ key: string; name: string; color: string; remaining: number; assigned: number }>;
+    const map = new Map<string, { name: string; color: string; remaining: number; assigned: number }>();
+    for (const a of block.allocations) {
+      const et = a.event_type_id ? (eventTypesQ.data ?? []).find((e) => e.id === a.event_type_id) : null;
+      const key = a.event_type_id ?? a.session_type;
+      const cur = map.get(key) ?? {
+        name: et?.name ?? sessionLabel(a.session_type),
+        color: et?.color ?? "hsl(var(--primary))",
+        remaining: 0, assigned: 0,
+      };
+      cur.remaining += Math.max(0, a.quantity_assigned - a.quantity_booked);
+      cur.assigned += a.quantity_assigned;
+      map.set(key, cur);
+    }
+    return [...map.entries()].map(([key, v]) => ({ key, ...v }));
+  }, [block, eventTypesQ.data]);
 
   const totals = useMemo(() => {
     if (!block) return { assigned: 0, booked: 0, pct: 0 };
