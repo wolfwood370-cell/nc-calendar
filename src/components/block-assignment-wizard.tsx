@@ -14,7 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-type WeeklyQuotas = Record<string, number>;
+type BlockQuotas = Record<string, number>;
 
 interface Props {
   clientId: string;
@@ -30,17 +30,16 @@ export function BlockAssignmentWizard({ clientId, clientName, onCreated }: Props
   const [step, setStep] = useState(1);
   const [startDate, setStartDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [numBlocks, setNumBlocks] = useState<number>(1);
-  const [quotas, setQuotas] = useState<WeeklyQuotas>({});
+  const [quotas, setQuotas] = useState<BlockQuotas>({});
 
   const eventTypes = eventTypesQ.data ?? [];
   const setQty = (id: string, v: number) =>
     setQuotas((cur) => ({ ...cur, [id]: Math.max(0, v) }));
 
-  const weeklyTotal = useMemo(
+  const blockTotal = useMemo(
     () => Object.values(quotas).reduce((a, b) => a + b, 0),
     [quotas]
   );
-  const blockTotal = weeklyTotal * 4;
 
   const blockRanges = useMemo(() => {
     const out: { idx: number; start: Date; end: Date }[] = [];
