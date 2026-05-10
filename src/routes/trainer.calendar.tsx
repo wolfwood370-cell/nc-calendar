@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Loader2, MoreHorizontal, UserX } from "lucide-react";
 import { sessionLabel } from "@/lib/mock-data";
-import { useCoachBookings, useCoachClients, useMarkNoShow } from "@/lib/queries";
+import { useCoachBookings, useCoachClients, useCoachEventTypes, useMarkNoShow } from "@/lib/queries";
 import { AddToCalendarButton } from "@/components/add-to-calendar-button";
 import { JoinVideoCallButton } from "@/components/join-video-call-button";
 import { BookingStatusBadge } from "@/components/booking-status-badge";
