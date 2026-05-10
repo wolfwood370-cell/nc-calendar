@@ -139,20 +139,22 @@ function BookFlow() {
     remainingByType[a.session_type] += a.quantity_assigned - a.quantity_booked;
   }
   const pickedCounts = Object.values(picked).reduce<Record<SessionType, number>>(
-    (acc, t) => ({ ...acc, [t]: (acc[t] ?? 0) + 1 }),
+    (acc, p) => ({ ...acc, [p.type]: (acc[p.type] ?? 0) + 1 }),
     { "PT Session": 0, BIA: 0, "Functional Test": 0 }
   );
 
-  const togglePick = (iso: string, type: SessionType | "") => {
+  const togglePick = (iso: string, value: string) => {
     setPicked((cur) => {
       const next = { ...cur };
-      if (!type) { delete next[iso]; return next; }
-      const used = pickedCounts[type] - (cur[iso] === type ? 1 : 0);
+      if (!value) { delete next[iso]; return next; }
+      // value format: "<base_type>" or "<base_type>::<event_type_id>"
+      const [type, eventTypeId] = value.split("::") as [SessionType, string | undefined];
+      const used = pickedCounts[type] - (cur[iso]?.type === type ? 1 : 0);
       if (used >= remainingByType[type]) {
         toast.error(`Nessuna sessione di tipo ${sessionLabel(type)} rimanente nel tuo blocco.`);
         return cur;
       }
-      next[iso] = type;
+      next[iso] = { type, eventTypeId: eventTypeId ?? null };
       return next;
     });
   };
