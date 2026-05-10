@@ -127,6 +127,15 @@ function BookFlow() {
   const availQ = useCoachAvailability(coachIdForAvail);
   const exceptionsQ = useCoachAvailabilityExceptions(coachIdForAvail);
   const eventTypesQ = useCoachEventTypes(coachIdForAvail);
+  const coachProfileQ = useQuery({
+    queryKey: ["coach-profile", coachIdForAvail],
+    enabled: !!coachIdForAvail,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles").select("full_name, email").eq("id", coachIdForAvail!).maybeSingle();
+      return data;
+    },
+  });
 
   // Tipologie evento personalizzate del coach (fallback alle 3 default se vuoto).
   const customTypes: EventTypeRow[] = eventTypesQ.data ?? [];
