@@ -49,7 +49,7 @@ function ClientLayout() {
 
       {/* Mobile-first bottom nav */}
       <nav className="fixed bottom-0 inset-x-0 border-t bg-background/95 backdrop-blur md:static md:border-0 md:bg-transparent md:hidden">
-        <div className="mx-auto max-w-3xl grid grid-cols-2">
+        <div className="mx-auto max-w-3xl grid grid-cols-3">
           {tabs.map((t) => {
             const active = t.exact ? path === t.to : path.startsWith(t.to);
             return (
