@@ -95,6 +95,34 @@ function CalendarPage() {
 
   const coachName = (user?.user_metadata?.full_name as string) ?? user?.email ?? "Coach";
 
+  // Full sync (passato + 2 anni futuri) una volta per sessione all'apertura del Calendario
+  const didFullSync = useRef(false);
+  useEffect(() => {
+    if (!user || didFullSync.current) return;
+    didFullSync.current = true;
+    const future = new Date();
+    future.setFullYear(future.getFullYear() + 2);
+    setMirroring(true);
+    syncCalendarAwait({
+      action: "import_history", coachId: user.id,
+      rangeStartISO: "2026-01-01T00:00:00Z",
+      rangeEndISO: future.toISOString(),
+    })
+      .then(({ data }) => {
+        const r = data as { ok?: boolean; imported?: number; updated?: number; matched?: number; creditsBooked?: number; skipped?: boolean } | null;
+        if (r?.skipped) return;
+        if (r?.ok) {
+          toast.success("Sincronizzazione completata", {
+            description: `${r.imported ?? 0} nuovi · ${r.updated ?? 0} aggiornati · ${r.creditsBooked ?? 0} crediti scalati`,
+          });
+          qc.invalidateQueries({ queryKey: ["bookings"] });
+          qc.invalidateQueries({ queryKey: ["block-allocations"] });
+        }
+      })
+      .catch((e) => console.error("full sync failed", e))
+      .finally(() => setMirroring(false));
+  }, [user, qc]);
+
   // Mirror check con Google Calendar quando cambia il mese visualizzato
   useEffect(() => {
     if (!user || !selected) return;
@@ -109,12 +137,13 @@ function CalendarPage() {
       rangeStartISO: start, rangeEndISO: end,
     })
       .then(({ data }) => {
-        const r = data as { ok?: boolean; cancelled?: number; moved?: number; remapped?: number; skipped?: boolean } | null;
-        if (r?.ok && ((r.cancelled ?? 0) > 0 || (r.moved ?? 0) > 0 || (r.remapped ?? 0) > 0)) {
+        const r = data as { ok?: boolean; cancelled?: number; moved?: number; remapped?: number; imported?: number; skipped?: boolean } | null;
+        if (r?.ok && ((r.cancelled ?? 0) > 0 || (r.moved ?? 0) > 0 || (r.remapped ?? 0) > 0 || (r.imported ?? 0) > 0)) {
           toast.info("Calendario aggiornato", {
-            description: `${r.cancelled ?? 0} annullate · ${r.moved ?? 0} spostate · ${r.remapped ?? 0} ri-mappate`,
+            description: `${r.imported ?? 0} nuovi · ${r.cancelled ?? 0} annullate · ${r.moved ?? 0} spostate · ${r.remapped ?? 0} ri-mappate`,
           });
           qc.invalidateQueries({ queryKey: ["bookings"] });
+          qc.invalidateQueries({ queryKey: ["block-allocations"] });
         }
       })
       .catch((e) => console.error("mirror_check failed", e))

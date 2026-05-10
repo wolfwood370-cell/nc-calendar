@@ -185,7 +185,9 @@ Deno.serve(async (req) => {
     if (body.action === "import_history") {
       const ctx = await loadCoachContext();
       const timeMin = body.range_start_iso ?? "2026-01-01T00:00:00Z";
-      const timeMax = body.range_end_iso ?? new Date().toISOString();
+      const twoYearsAhead = new Date();
+      twoYearsAhead.setFullYear(twoYearsAhead.getFullYear() + 2);
+      const timeMax = body.range_end_iso ?? twoYearsAhead.toISOString();
       const items: Array<Record<string, unknown>> = [];
       let pageToken: string | undefined = undefined;
       do {
@@ -272,8 +274,10 @@ Deno.serve(async (req) => {
 
     if (body.action === "mirror_check") {
       const ctx = await loadCoachContext();
+      const twoYearsAhead2 = new Date();
+      twoYearsAhead2.setFullYear(twoYearsAhead2.getFullYear() + 2);
       const timeMin = body.range_start_iso ?? new Date().toISOString();
-      const timeMax = body.range_end_iso ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+      const timeMax = body.range_end_iso ?? twoYearsAhead2.toISOString();
 
       const { data: locals } = await supabase
         .from("bookings")
@@ -283,63 +287,118 @@ Deno.serve(async (req) => {
         .gte("scheduled_at", timeMin)
         .lte("scheduled_at", timeMax);
 
-      let cancelled = 0, moved = 0, remapped = 0;
+      let cancelled = 0, moved = 0, remapped = 0, imported = 0, creditsBooked = 0;
+
+      // 1) Pull tutti gli eventi Google nel range
+      const remoteItems: Array<Record<string, unknown>> = [];
+      let pageToken: string | undefined = undefined;
+      do {
+        const res: { data: { items?: unknown[]; nextPageToken?: string } } =
+          await calendar.events.list({
+            calendarId, timeMin, timeMax,
+            singleEvents: true, orderBy: "startTime",
+            maxResults: 250, pageToken,
+          });
+        remoteItems.push(...((res.data.items ?? []) as Array<Record<string, unknown>>));
+        pageToken = res.data.nextPageToken as string | undefined;
+      } while (pageToken);
+
+      const remoteById = new Map<string, Record<string, unknown>>();
+      for (const ev of remoteItems) {
+        const id = ev.id as string | undefined;
+        if (id) remoteById.set(id, ev);
+      }
+
+      // 2) Aggiorna i booking locali confrontandoli con la copia in cache
       for (const b of locals ?? []) {
         if (b.status === "cancelled") continue;
-        try {
-          const ev = await calendar.events.get({ calendarId, eventId: b.google_event_id! });
-          const evStatus = ev.data.status;
-          const evStart = ev.data.start?.dateTime ?? (ev.data.start?.date ? `${ev.data.start.date}T00:00:00Z` : null);
-          const summary = ev.data.summary ?? "";
-          const attendees = (ev.data.attendees ?? []) as Array<{ email?: string }>;
+        const ev = remoteById.get(b.google_event_id!);
+        if (!ev || (ev.status as string) === "cancelled") {
+          await supabase.from("bookings").update({ status: "cancelled", block_id: null }).eq("id", b.id);
+          if (b.block_id) await refundCreditFor(b.block_id, b.event_type_id ?? null, b.session_type, b.scheduled_at);
+          cancelled++;
+          continue;
+        }
+        const start = ev.start as { dateTime?: string; date?: string } | undefined;
+        const evStart = start?.dateTime ?? (start?.date ? `${start.date}T00:00:00Z` : null);
+        const summary = (ev.summary as string) ?? "";
+        const attendees = (ev.attendees ?? []) as Array<{ email?: string }>;
 
-          if (evStatus === "cancelled") {
-            await supabase.from("bookings").update({ status: "cancelled", block_id: null }).eq("id", b.id);
-            if (b.block_id) await refundCreditFor(b.block_id, b.event_type_id ?? null, b.session_type, b.scheduled_at);
-            cancelled++; continue;
-          }
+        const patch: Record<string, unknown> = {};
+        if (evStart && evStart !== b.scheduled_at) { patch.scheduled_at = evStart; moved++; }
 
-          const patch: Record<string, unknown> = {};
-          if (evStart && evStart !== b.scheduled_at) { patch.scheduled_at = evStart; moved++; }
-
-          // Re-mapping client / tipo evento
-          const match = matchEvent(summary, attendees, ctx);
-          const newClient = match.client?.id ?? body.coach_id;
-          const newEt = match.eventType?.id ?? null;
-          const newType = match.eventType?.base_type ?? "PT Session";
-          const clientChanged = newClient !== b.client_id;
-          const etChanged = newEt !== b.event_type_id;
-          if (clientChanged || etChanged) {
-            patch.client_id = newClient;
-            patch.event_type_id = newEt;
-            patch.session_type = newType;
-            patch.notes = `Importato da Google Calendar: ${summary}`;
-            // Restituisci il vecchio credito (se contabilizzato) e prova a scalare quello nuovo.
-            if (b.block_id) {
-              await refundCreditFor(b.block_id, b.event_type_id ?? null, b.session_type, b.scheduled_at);
-              patch.block_id = null;
-            }
-            if (match.client) {
-              const newBlockId = await consumeCreditFor(newClient, newEt, newType, evStart ?? b.scheduled_at);
-              if (newBlockId) patch.block_id = newBlockId;
-            }
-            remapped++;
+        const match = matchEvent(summary, attendees, ctx);
+        const newClient = match.client?.id ?? body.coach_id;
+        const newEt = match.eventType?.id ?? null;
+        const newType = match.eventType?.base_type ?? "PT Session";
+        const clientChanged = newClient !== b.client_id;
+        const etChanged = newEt !== b.event_type_id;
+        if (clientChanged || etChanged) {
+          patch.client_id = newClient;
+          patch.event_type_id = newEt;
+          patch.session_type = newType;
+          patch.notes = `Importato da Google Calendar: ${summary}`;
+          if (b.block_id) {
+            await refundCreditFor(b.block_id, b.event_type_id ?? null, b.session_type, b.scheduled_at);
+            patch.block_id = null;
           }
-          if (Object.keys(patch).length > 0) {
-            await supabase.from("bookings").update(patch).eq("id", b.id);
+          if (match.client) {
+            const newBlockId = await consumeCreditFor(newClient, newEt, newType, evStart ?? b.scheduled_at);
+            if (newBlockId) patch.block_id = newBlockId;
           }
-        } catch (err) {
-          const msg = String(err);
-          if (msg.includes("404") || msg.toLowerCase().includes("not found") || msg.toLowerCase().includes("deleted")) {
-            await supabase.from("bookings").update({ status: "cancelled", block_id: null }).eq("id", b.id);
-            if (b.block_id) await refundCreditFor(b.block_id, b.event_type_id ?? null, b.session_type, b.scheduled_at);
-            cancelled++;
-          } else {
-            console.error("sync-calendar: mirror_check get error", err);
-          }
+          remapped++;
+        }
+        if (Object.keys(patch).length > 0) {
+          await supabase.from("bookings").update(patch).eq("id", b.id);
         }
       }
-      return json({ ok: true, cancelled, moved, remapped, checked: locals?.length ?? 0 }, 200);
+
+      // 3) Importa eventi Google non ancora presenti in Supabase
+      const localIds = new Set((locals ?? []).map((b) => b.google_event_id).filter(Boolean) as string[]);
+      const now = Date.now();
+      for (const ev of remoteItems) {
+        const id = ev.id as string | undefined;
+        if (!id || localIds.has(id)) continue;
+        if ((ev.status as string) === "cancelled") continue;
+        const start = ev.start as { dateTime?: string; date?: string } | undefined;
+        const startIso = start?.dateTime ?? (start?.date ? `${start.date}T00:00:00Z` : null);
+        if (!startIso) continue;
+
+        // Verifica che non esista già (evita duplicati cross-range)
+        const { data: existing } = await supabase
+          .from("bookings").select("id").eq("google_event_id", id).maybeSingle();
+        if (existing) continue;
+
+        const summary = (ev.summary as string) ?? "Evento";
+        const attendees = (ev.attendees ?? []) as Array<{ email?: string }>;
+        const match = matchEvent(summary, attendees, ctx);
+        const clientId = match.client?.id ?? body.coach_id;
+        const sessionType = match.eventType?.base_type ?? "PT Session";
+        const eventTypeId = match.eventType?.id ?? null;
+        const status = new Date(startIso).getTime() < now ? "completed" : "scheduled";
+
+        let blockId: string | null = null;
+        if (match.client) {
+          blockId = await consumeCreditFor(clientId, eventTypeId, sessionType, startIso);
+          if (blockId) creditsBooked++;
+        }
+
+        const { error: insErr } = await supabase.from("bookings").insert({
+          coach_id: body.coach_id,
+          client_id: clientId,
+          scheduled_at: startIso,
+          session_type: sessionType,
+          event_type_id: eventTypeId,
+          status,
+          block_id: blockId,
+          notes: `Importato da Google Calendar: ${summary}`,
+          google_event_id: id,
+        });
+        if (!insErr) imported++;
+        else console.error("sync-calendar: mirror import insert failed", insErr);
+      }
+
+      return json({ ok: true, cancelled, moved, remapped, imported, creditsBooked, checked: locals?.length ?? 0 }, 200);
     }
 
     return json({ error: "Unknown action" }, 400);
