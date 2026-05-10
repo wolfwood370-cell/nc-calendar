@@ -21,7 +21,7 @@ export const Route = createFileRoute("/client/book")({
   component: BookFlow,
 });
 
-interface Slot { iso: string; date: Date; }
+interface Slot { iso: string; date: Date; recommended?: boolean; }
 
 // day_of_week: 1=Lun ... 7=Dom (Date.getDay() restituisce 0=Dom..6=Sab)
 function jsDowToIso(d: number): number {
