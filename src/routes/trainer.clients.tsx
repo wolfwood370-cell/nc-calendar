@@ -327,7 +327,37 @@ function AssignBlocksSheet({ clientId, clientName }: { clientId: string; clientN
   const blocksQ = useClientBlocks(open ? clientId : undefined);
   const { user } = useAuth();
   const bookingsQ = useCoachBookings(open ? user?.id : undefined);
+  const qc = useQueryClient();
+  const [eventTypes, setEventTypes] = useState<Array<{ id: string; name: string }>>([]);
   const activeBlocks = (blocksQ.data ?? []).filter((b) => b.status === "active");
+
+  useEffect(() => {
+    if (!open || !user) return;
+    supabase
+      .from("event_types")
+      .select("id, name")
+      .eq("coach_id", user.id)
+      .then(({ data }) => setEventTypes((data ?? []) as Array<{ id: string; name: string }>));
+  }, [open, user]);
+
+  async function refundOne(allocationId: string, currentBooked: number) {
+    if (currentBooked <= 0) {
+      toast.info("Nessun credito da rimborsare per questa allocation.");
+      return;
+    }
+    const { error } = await supabase
+      .from("block_allocations")
+      .update({ quantity_booked: currentBooked - 1 })
+      .eq("id", allocationId);
+    if (error) {
+      toast.error("Errore", { description: error.message });
+      return;
+    }
+    toast.success("Credito rimborsato (+1).");
+    qc.invalidateQueries({ queryKey: ["blocks"] });
+    qc.invalidateQueries({ queryKey: ["block-allocations"] });
+  }
+
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
@@ -350,14 +380,45 @@ function AssignBlocksSheet({ clientId, clientName }: { clientId: string; clientN
               {activeBlocks.map((b) => {
                 const bookingsCount = (bookingsQ.data ?? []).filter((bk) => bk.block_id === b.id).length;
                 return (
-                  <div key={b.id} className="flex items-center justify-between rounded-md border p-3 text-sm">
-                    <div>
-                      <div className="font-medium">Blocco #{b.sequence_order ?? 1}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {new Date(b.start_date).toLocaleDateString("it-IT")} → {new Date(b.end_date).toLocaleDateString("it-IT")}
+                  <div key={b.id} className="rounded-md border p-3 text-sm space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium">Blocco #{b.sequence_order ?? 1}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {new Date(b.start_date).toLocaleDateString("it-IT")} → {new Date(b.end_date).toLocaleDateString("it-IT")}
+                        </div>
                       </div>
+                      <DeleteBlockButton blockId={b.id} bookingsCount={bookingsCount} />
                     </div>
-                    <DeleteBlockButton blockId={b.id} bookingsCount={bookingsCount} />
+                    {b.allocations.length > 0 && (
+                      <div className="space-y-1.5 border-t pt-2">
+                        {b.allocations.map((a) => {
+                          const label = a.event_type_id
+                            ? eventTypes.find((e) => e.id === a.event_type_id)?.name ?? sessionLabel(a.session_type)
+                            : sessionLabel(a.session_type);
+                          const remaining = a.quantity_assigned - a.quantity_booked;
+                          return (
+                            <div key={a.id} className="flex items-center justify-between text-xs">
+                              <div className="flex flex-col">
+                                <span className="font-medium">{label} <span className="text-muted-foreground">· Sett. {a.week_number}</span></span>
+                                <span className="text-muted-foreground">
+                                  Rimanenti: {remaining}/{a.quantity_assigned}
+                                  {a.valid_until && ` · scade ${new Date(a.valid_until).toLocaleDateString("it-IT")}`}
+                                </span>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => refundOne(a.id, a.quantity_booked)}
+                                title="Rimborsa 1 credito (override)"
+                              >
+                                <PlusCircle className="size-4" /> +1 Credito
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 );
               })}
