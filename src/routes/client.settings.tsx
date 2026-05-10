@@ -235,20 +235,29 @@ function ClientSettings() {
             <button
               type="button"
               onClick={handleConnectGoogle}
-              className="w-full flex items-center gap-4 px-5 py-4 text-left hover:bg-surface-container-high transition-colors active:scale-[0.99]"
+              disabled={googleLinked || googleLinking || loading}
+              className="w-full flex items-center gap-4 px-5 py-4 text-left hover:bg-surface-container-high transition-colors active:scale-[0.99] disabled:opacity-100 disabled:cursor-default"
             >
               <span className="size-10 rounded-full bg-primary-container/10 text-primary-container grid place-items-center">
                 <Calendar className="size-5" />
               </span>
               <span className="flex-1 min-w-0">
                 <span className="block text-base font-medium text-on-surface">
-                  Collega Account Google
+                  {googleLinked ? "Account Google Collegato" : "Collega Account Google"}
                 </span>
                 <span className="block text-sm text-on-surface-variant">
-                  Sincronizza il tuo Google Calendar
+                  {googleLinked
+                    ? "Il tuo account è collegato a Google"
+                    : "Accedi anche con Google"}
                 </span>
               </span>
-              <LinkIcon className="size-5 text-on-surface-variant" />
+              {googleLinking ? (
+                <Loader2 className="size-5 text-on-surface-variant animate-spin" />
+              ) : googleLinked ? (
+                <CheckCircle className="size-5 text-emerald-600" />
+              ) : (
+                <LinkIcon className="size-5 text-on-surface-variant" />
+              )}
             </button>
           </div>
         </section>
