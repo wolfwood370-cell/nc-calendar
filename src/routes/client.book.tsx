@@ -251,7 +251,7 @@ function BookFlow() {
           ? customTypes.find((e) => e.id === pick.eventTypeId)
           : null;
         const displayLabel = eventType?.name ?? sessionLabel(type);
-        const alloc = findAllocationForWeek(type, iso);
+        const alloc = findAllocationForWeek(type, eventType?.id ?? null, iso);
         if (!alloc) {
           toast.error(`Credito esaurito per ${displayLabel}.`);
           continue;
