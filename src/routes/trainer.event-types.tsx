@@ -38,7 +38,8 @@ const schema = z.object({
   description: z.string().trim().max(280).optional().or(z.literal("")),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Colore non valido"),
   duration: z.number().int().min(15).max(240),
-  base_type: z.enum(["PT Session", "BIA", "Functional Test"]),
+  location_type: z.enum(["physical", "online"]),
+  buffer_minutes: z.number().int().min(0).max(240),
 });
 
 export interface EventTypeRow {
@@ -49,6 +50,8 @@ export interface EventTypeRow {
   color: string;
   duration: number;
   base_type: SessionType;
+  location_type: "physical" | "online";
+  buffer_minutes: number;
 }
 
 function EventTypesPage() {
