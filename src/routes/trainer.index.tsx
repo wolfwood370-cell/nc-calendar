@@ -57,17 +57,18 @@ function Overview() {
       for (const a of block.allocations) {
         const remaining = a.quantity_assigned - a.quantity_booked;
         if (remaining > 0 && (a.week_number === cw || a.week_number === cw + 1)) {
+          const et = a.event_type_id ? eventTypes.find((e) => e.id === a.event_type_id) : null;
           result.push({
             client: clientNameById.get(block.client_id) ?? "Cliente",
             week: a.week_number,
-            type: sessionLabel(a.session_type),
+            type: et?.name ?? sessionLabel(a.session_type),
             remaining,
           });
         }
       }
     }
     return result;
-  }, [blocks, clientNameById]);
+  }, [blocks, clientNameById, eventTypes]);
 
   // Clienti a rischio: hanno crediti residui in un blocco attivo ma nessuna prenotazione futura.
   const atRisk = useMemo(() => {
