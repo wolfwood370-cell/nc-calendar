@@ -206,6 +206,10 @@ function CalendarPage() {
                       coachName={coachName}
                       clientName={displayName}
                     />
+                    <Button size="sm" variant="outline" onClick={() => openNotes(b)}>
+                      <NotebookPen className="size-4" />
+                      {b.trainer_notes ? "Note" : "Aggiungi note"}
+                    </Button>
                     {b.status === "scheduled" && !isUnmatchedSync && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -225,6 +229,37 @@ function CalendarPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={!!activeBooking} onOpenChange={(o) => !o && setActiveBooking(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Dettagli sessione</DialogTitle>
+            <DialogDescription>
+              {activeBooking && (() => {
+                const dd = new Date(activeBooking.scheduled_at);
+                const cli = clientsMap.get(activeBooking.client_id) ?? "Cliente";
+                return `${cli} · ${dd.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" })} · ${dd.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}`;
+              })()}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Note di Sessione (visibili solo al Coach)</label>
+            <Textarea
+              rows={6}
+              placeholder="Esercizi svolti, carichi, feedback…"
+              value={notesDraft}
+              onChange={(e) => setNotesDraft(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setActiveBooking(null)}>Annulla</Button>
+            <Button onClick={saveNotes} disabled={updateNotes.isPending}>
+              {updateNotes.isPending ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+              Salva note
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
