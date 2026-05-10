@@ -225,21 +225,41 @@ function BookFlow() {
   // Tipologie evento personalizzate del coach (fallback alle 3 default se vuoto).
   const customTypes: EventTypeRow[] = eventTypesQ.data ?? [];
 
-  // Range bloccati = [scheduled_at, scheduled_at + duration + buffer] della tipologia evento.
+  // Durata candidata per testare collisioni nello slot generator: minimo (durata + buffer)
+  // tra le tipologie configurate, default 60.
+  const candidateMinutes = useMemo(() => {
+    if (customTypes.length === 0) return 60;
+    return Math.min(...customTypes.map((e) => (e.duration ?? 60) + (e.buffer_minutes ?? 0)));
+  }, [customTypes]);
+
+  // Busy times del coach (tutti i clienti, anonimizzato via SECURITY DEFINER).
+  const coachBusyQ = useQuery({
+    queryKey: ["coach-busy", coachIdForAvail, block?.start_date, block?.end_date],
+    enabled: !!coachIdForAvail && !!block,
+    queryFn: async () => {
+      const from = new Date(block!.start_date);
+      const to = new Date(block!.end_date);
+      to.setHours(23, 59, 59, 999);
+      const { data, error } = await supabase.rpc("get_coach_busy", {
+        p_coach_id: coachIdForAvail!,
+        p_from: from.toISOString(),
+        p_to: to.toISOString(),
+      });
+      if (error) throw error;
+      return (data ?? []) as { scheduled_at: string; event_type_id: string | null; duration: number; buffer_minutes: number }[];
+    },
+  });
+
+  // Range bloccati = [scheduled_at, scheduled_at + duration + buffer] del coach (tutti i clienti).
   const blockedRanges = useMemo(() => {
     const ranges: BlockedRange[] = [];
-    const list = (bookingsQ.data ?? []) as BookingRow[];
-    for (const b of list) {
-      if (b.status !== "scheduled" && b.status !== "completed") continue;
-      const et = customTypes.find((e) => e.id === b.event_type_id);
-      const duration = et?.duration ?? 60;
-      const buffer = et?.buffer_minutes ?? 0;
+    for (const b of coachBusyQ.data ?? []) {
       const start = new Date(b.scheduled_at).getTime();
-      const end = start + (duration + buffer) * 60 * 1000;
+      const end = start + ((b.duration ?? 60) + (b.buffer_minutes ?? 0)) * 60_000;
       ranges.push({ start, end });
     }
     return ranges;
-  }, [bookingsQ.data, customTypes]);
+  }, [coachBusyQ.data]);
 
   const slots = useMemo(
     () => {
@@ -248,11 +268,13 @@ function BookFlow() {
       const end = new Date(block.end_date);
       end.setHours(23, 59, 59, 999);
       return generateSlots(
-        28, blockedRanges, availQ.data ?? [], exceptionsQ.data ?? [], start, end,
+        28, blockedRanges, availQ.data ?? [], exceptionsQ.data ?? [],
+        candidateMinutes,
+        start, end,
         { enabled: optimizationQ.data ?? true },
       );
     },
-    [block, blockedRanges, availQ.data, exceptionsQ.data, optimizationQ.data]
+    [block, blockedRanges, availQ.data, exceptionsQ.data, optimizationQ.data, candidateMinutes]
   );
   const grouped = useMemo(() => {
     const m = new Map<string, Slot[]>();
