@@ -343,9 +343,9 @@ function BookFlow() {
 
       <Card>
         <CardContent className="p-4 flex flex-wrap items-center gap-3">
-          {(Object.keys(remainingByType) as SessionType[]).map((t) => (
-            <Badge key={t} variant="outline" className="font-normal">
-              {sessionLabel(t)}: <span className="ml-1 tabular-nums font-medium">{remainingByType[t] - pickedCounts[t]}</span> rimanenti
+          {Object.keys(remainingByPool).map((k) => (
+            <Badge key={k} variant="outline" className="font-normal">
+              {poolLabel[k]}: <span className="ml-1 tabular-nums font-medium">{remainingByPool[k] - (pickedCountsByPool[k] ?? 0)}</span> rimanenti
             </Badge>
           ))}
           <div className="ml-auto flex items-center gap-3">
