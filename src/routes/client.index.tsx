@@ -256,19 +256,15 @@ function NextAppointmentCard({
 
 function EmptyAppointment({ onBook }: { onBook: () => void }) {
   return (
-    <div className="bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-6 border border-outline-variant/30 flex flex-col gap-4">
-      <div className="flex gap-4 items-center">
-        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
-          <CalendarPlus className="size-8" />
-        </div>
-        <div className="flex flex-col gap-1">
-          <h4 className="text-2xl font-semibold text-on-surface">Nessuna sessione</h4>
-          <span className="text-base text-on-surface-variant">Prenota la prossima per iniziare</span>
-        </div>
+    <div className="bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-6 border border-outline-variant/30 text-center flex flex-col items-center gap-3">
+      <div className="w-12 h-12 rounded-full bg-surface-container-high grid place-items-center text-on-surface-variant">
+        <CalendarPlus className="size-6" />
       </div>
-      <div className="pt-4 border-t border-surface-container-high flex justify-end">
-        <Button onClick={onBook} className="rounded-full px-6">Prenota ora</Button>
+      <div>
+        <p className="text-base font-semibold text-on-surface">Nessuna sessione in programma</p>
+        <p className="text-sm text-on-surface-variant">Prenota la tua prossima sessione per iniziare.</p>
       </div>
+      <Button onClick={onBook} className="rounded-full">Prenota ora</Button>
     </div>
   );
 }
