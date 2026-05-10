@@ -254,6 +254,7 @@ function BookFlow() {
   const meEmail = profile?.email ?? user?.email ?? "";
   const mePhone = profile?.phone ?? null;
   const coachId = profile?.coach_id;
+  const coachName = coachProfileQ.data?.full_name ?? coachProfileQ.data?.email ?? "il tuo Coach";
   const emailNotificationsEnabled = profile?.email_notifications ?? true;
 
   const confirm = async () => {
