@@ -256,7 +256,7 @@ function NextAppointmentCard({
 
 function EmptyAppointment({ onBook }: { onBook: () => void }) {
   return (
-    <div className="bg-surface-container-lowest rounded-[1rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-6 border border-outline-variant/20 text-center flex flex-col items-center gap-3">
+    <div className="bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-6 border border-outline-variant/30 text-center flex flex-col items-center gap-3">
       <div className="w-12 h-12 rounded-full bg-surface-container-high grid place-items-center text-on-surface-variant">
         <CalendarPlus className="size-6" />
       </div>
