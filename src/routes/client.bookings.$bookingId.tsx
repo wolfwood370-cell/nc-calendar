@@ -1,9 +1,10 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, CalendarDays, MapPin, Timer, Video, User } from "lucide-react";
+import { ArrowLeft, CalendarDays, MapPin, Timer, Video, User, CalendarPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { sessionLabel, type BookingStatus, type SessionType } from "@/lib/mock-data";
+import { generateGoogleCalendarLink } from "@/lib/calendar-utils";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 
