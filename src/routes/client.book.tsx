@@ -212,7 +212,8 @@ function BookFlow() {
           toast.error(`Credito esaurito per ${displayLabel} questa settimana.`);
           continue;
         }
-        const meetingLink = online ? generateMockMeetLink() : null;
+        const isOnline = eventType?.location_type === "online";
+        const meetingLink = isOnline ? generateMockMeetLink() : null;
 
         // INSERT booking
         const { error: bErr } = await supabase.from("bookings").insert({
@@ -220,6 +221,7 @@ function BookFlow() {
           coach_id: coachId,
           block_id: block.id,
           session_type: type,
+          event_type_id: eventType?.id ?? null,
           scheduled_at: iso,
           status: "scheduled",
           meeting_link: meetingLink,
