@@ -57,6 +57,29 @@ function ClientSettings() {
     }
   };
 
+  const enablePush = async () => {
+    if (!user) return;
+    setPushBusy(true);
+    try {
+      await subscribeToPush(user.id);
+      setPushEnabled(true);
+      toast.success("Notifiche attivate", {
+        description: "Riceverai avvisi sul telefono per le tue prenotazioni.",
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Riprova";
+      if (msg.toLowerCase().includes("permesso")) {
+        toast.warning("Permesso negato", {
+          description: "Abilita le notifiche dalle impostazioni del browser.",
+        });
+      } else {
+        toast.error("Impossibile attivare le notifiche", { description: msg });
+      }
+    } finally {
+      setPushBusy(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
