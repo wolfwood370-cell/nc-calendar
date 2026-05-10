@@ -115,7 +115,7 @@ function ClientHome() {
         {
           onSuccess: () => {
             if (coachId) {
-              syncCalendar({ action: "cancel", coachId, googleEventId: (b as { google_event_id?: string | null }).google_event_id ?? null });
+              syncCalendar({ action: "cancel", coachId, googleEventId: b.google_event_id });
             }
             toast.success("Prenotazione annullata", { description: "Il credito è stato restituito al tuo blocco." });
           },
