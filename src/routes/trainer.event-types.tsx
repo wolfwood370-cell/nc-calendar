@@ -84,7 +84,8 @@ function EventTypesPage() {
           .from("event_types")
           .update({
             name: input.name, description: input.description || null,
-            color: input.color, duration: input.duration, base_type: input.base_type,
+            color: input.color, duration: input.duration,
+            location_type: input.location_type, buffer_minutes: input.buffer_minutes,
           })
           .eq("id", input.id);
         if (error) throw error;
@@ -92,7 +93,8 @@ function EventTypesPage() {
         const { error } = await supabase.from("event_types").insert({
           coach_id: coachId, name: input.name,
           description: input.description || null, color: input.color,
-          duration: input.duration, base_type: input.base_type,
+          duration: input.duration,
+          location_type: input.location_type, buffer_minutes: input.buffer_minutes,
         });
         if (error) throw error;
       }
