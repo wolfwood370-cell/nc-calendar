@@ -316,7 +316,7 @@ function ClientHome() {
                   <AddToCalendarButton
                     sessionLabel={label}
                     startsAt={d}
-                    coachName="Coach"
+                    coachName={coachName}
                     clientName={meName}
                   />
                   <Button variant="ghost" size="sm" onClick={() => handleCancel(b)} disabled={cancelM.isPending}>
