@@ -34,6 +34,7 @@ function CalendarPage() {
   const lastMirrorMonth = useRef<string>("");
   const bookingsQ = useCoachBookings(user?.id);
   const clientsQ = useCoachClients(user?.id);
+  const eventTypesQ = useCoachEventTypes(user?.id);
   const noShow = useMarkNoShow();
 
   const bookings = bookingsQ.data ?? [];
@@ -42,6 +43,11 @@ function CalendarPage() {
     (clientsQ.data ?? []).forEach((c) => m.set(c.id, c.full_name ?? c.email ?? "Cliente"));
     return m;
   }, [clientsQ.data]);
+  const eventTypesMap = useMemo(() => {
+    const m = new Map<string, { name: string; color: string }>();
+    (eventTypesQ.data ?? []).forEach((e) => m.set(e.id, { name: e.name, color: e.color }));
+    return m;
+  }, [eventTypesQ.data]);
 
   const bookedDates = useMemo(
     () => bookings.filter((b) => b.status === "scheduled" || b.status === "completed").map((b) => new Date(b.scheduled_at)),
