@@ -269,7 +269,12 @@ function HistoryList() {
       {past.map((b) => {
         const d = new Date(b.scheduled_at);
         return (
-          <div key={b.id} className="bg-surface-container-lowest rounded-[1rem] p-4 border border-outline-variant/20 flex items-center justify-between">
+          <Link
+            key={b.id}
+            to="/client/bookings/$bookingId"
+            params={{ bookingId: b.id }}
+            className="bg-surface-container-lowest rounded-[1rem] p-4 border border-outline-variant/20 flex items-center justify-between hover:bg-surface-container-low transition-colors active:scale-[0.99]"
+          >
             <div>
               <p className="text-sm font-semibold text-on-surface">{sessionLabel(b.session_type)}</p>
               <p className="text-xs text-on-surface-variant">
@@ -277,7 +282,7 @@ function HistoryList() {
               </p>
             </div>
             <span className="text-xs text-on-surface-variant capitalize">{b.status.replace("_", " ")}</span>
-          </div>
+          </Link>
         );
       })}
     </div>
