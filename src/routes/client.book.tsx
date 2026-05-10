@@ -329,7 +329,7 @@ function BookFlow() {
             ? sendBookingConfirmationEmail({
                 to: meEmail, recipientName: meName,
                 sessionLabel: displayLabel, scheduledAt: new Date(iso),
-                coachName: "Coach", clientName: meName,
+                coachName, clientName: meName,
               }).catch((e) => console.error("email failed", e))
             : Promise.resolve(),
           supabase.functions.invoke("booking-notifications", {
