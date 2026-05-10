@@ -248,3 +248,33 @@ export function useMarkNoShow() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["bookings"] }),
   });
 }
+
+export function useCoachAvailabilityExceptions(coachId?: string | null) {
+  return useQuery({
+    queryKey: ["availability_exceptions", coachId],
+    enabled: !!coachId,
+    queryFn: async (): Promise<AvailabilityExceptionRow[]> => {
+      const { data, error } = await supabase
+        .from("availability_exceptions")
+        .select("id, coach_id, date, start_time, end_time, reason")
+        .eq("coach_id", coachId!)
+        .order("date", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as AvailabilityExceptionRow[];
+    },
+  });
+}
+
+export function useUpdateTrainerNotes() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; notes: string }) => {
+      const { error } = await supabase
+        .from("bookings")
+        .update({ trainer_notes: input.notes })
+        .eq("id", input.id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["bookings"] }),
+  });
+}
