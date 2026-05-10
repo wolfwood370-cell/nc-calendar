@@ -64,6 +64,7 @@ function IntegrationsPage() {
   const [loading, setLoading] = useState(true);
   const [savingWa, setSavingWa] = useState(false);
   const [savingGcal, setSavingGcal] = useState(false);
+  const [importingHistory, setImportingHistory] = useState(false);
 
   useEffect(() => {
     if (!user) return;
