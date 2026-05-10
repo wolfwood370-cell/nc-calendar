@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, ArrowRight, CalendarCheck, Users, Activity, Clock } from "lucide-react";
+import { AlertTriangle, ArrowRight, CalendarCheck, Users, Activity, Clock, PhoneCall, UserCheck } from "lucide-react";
 import { sessionLabel } from "@/lib/mock-data";
 import { useCoachBlocks, useCoachBookings, useCoachClients } from "@/lib/queries";
 import { AddToCalendarButton } from "@/components/add-to-calendar-button";
