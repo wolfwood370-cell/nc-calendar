@@ -278,19 +278,24 @@ function ClientHome() {
           {upcoming.length === 0 && <p className="text-sm text-muted-foreground">Nessuna sessione in programma.</p>}
           {upcoming.map((b) => {
             const d = new Date(b.scheduled_at);
+            const et = b.event_type_id ? (eventTypesQ.data ?? []).find((e) => e.id === b.event_type_id) : null;
+            const label = et?.name ?? sessionLabel(b.session_type);
             return (
               <div key={b.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3">
-                <div>
-                  <p className="text-sm font-medium">{sessionLabel(b.session_type)}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {d.toLocaleDateString("it-IT", { weekday: "short", month: "short", day: "numeric" })} ·{" "}
-                    {d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
-                  </p>
+                <div className="flex items-center gap-2">
+                  {et && <span className="size-2.5 rounded-full" style={{ backgroundColor: et.color }} />}
+                  <div>
+                    <p className="text-sm font-medium">{label}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {d.toLocaleDateString("it-IT", { weekday: "short", month: "short", day: "numeric" })} ·{" "}
+                      {d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   {b.meeting_link && <JoinVideoCallButton url={b.meeting_link} />}
                   <AddToCalendarButton
-                    sessionLabel={sessionLabel(b.session_type)}
+                    sessionLabel={label}
                     startsAt={d}
                     coachName="Coach"
                     clientName={meName}
