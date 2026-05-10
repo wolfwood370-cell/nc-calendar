@@ -16,7 +16,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Plus, Search, Loader2, Mail, X, Archive, CalendarPlus } from "lucide-react";
+import { Plus, Search, Loader2, Mail, X, Archive, CalendarPlus, PlusCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
@@ -26,6 +26,8 @@ import { CsvImportClients } from "@/components/csv-import-clients";
 import { useClientBlocks, useCoachBookings } from "@/lib/queries";
 import { DeleteBlockButton } from "@/routes/trainer.blocks";
 import { Separator } from "@/components/ui/separator";
+import { useQueryClient } from "@tanstack/react-query";
+import { sessionLabel } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/trainer/clients")({
   component: ClientsPage,
