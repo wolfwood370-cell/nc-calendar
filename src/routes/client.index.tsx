@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { Bell, Plus, History, Clock, Dumbbell, CalendarPlus } from "lucide-react";
+import { Bell, Plus, History, Clock, Calendar, CalendarPlus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -99,7 +99,7 @@ function ClientHome() {
 
       <main className="px-margin-mobile pt-stack-md flex flex-col gap-stack-lg">
         {/* Hero: Progressi */}
-        <section className="bg-surface-container-lowest rounded-[1rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-stack-lg border border-outline-variant/30 relative overflow-hidden">
+        <section className="bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-stack-lg border border-outline-variant/30 relative overflow-hidden">
           <div className="absolute -top-10 -right-10 w-32 h-32 bg-[#003e62]/5 rounded-full blur-3xl pointer-events-none" />
           <h2 className="text-2xl font-semibold text-on-surface mb-6">I Tuoi Progressi</h2>
 
@@ -130,7 +130,7 @@ function ClientHome() {
             Prossimo Appuntamento
           </h3>
           {isLoading ? (
-            <Skeleton className="h-32 w-full rounded-[1rem]" />
+            <Skeleton className="h-32 w-full rounded-[32px]" />
           ) : nextBooking ? (
             <NextAppointmentCard
               bookingId={nextBooking.id}
@@ -171,7 +171,7 @@ function ClientHome() {
               e.preventDefault();
               document.getElementById("storico")?.scrollIntoView({ behavior: "smooth" });
             }}
-            className="w-full bg-transparent border border-outline-variant text-secondary font-semibold text-base py-4 rounded-full hover:bg-surface-container-high transition active:scale-95 flex items-center justify-center gap-2"
+            className="w-full bg-surface-container-high text-on-surface font-semibold text-base py-4 rounded-full hover:bg-surface-container-highest transition-colors active:scale-95 flex items-center justify-center gap-2"
           >
             <History className="size-5" />
             Vedi Storico
@@ -214,26 +214,27 @@ function NextAppointmentCard({
     <Link
       to="/client/bookings/$bookingId"
       params={{ bookingId }}
-      className="block bg-surface-container-lowest rounded-[1rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-6 border-l-4 border-y border-r border-outline-variant/20 flex flex-col gap-4 hover:bg-surface-container-low transition-colors"
-      style={{ borderLeftColor: color }}
+      className="block bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-6 border border-outline-variant/30 flex flex-col gap-4 hover:bg-surface-container-low transition-colors"
     >
       <div className="flex justify-between items-start">
-        <div className="flex flex-col gap-1">
-          <span
-            className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold w-fit"
-            style={{ backgroundColor: `${color}1a`, color }}
-          >
-            {label}
-          </span>
-          <h4 className="text-2xl font-semibold text-on-surface mt-2 capitalize">{dayLabel}</h4>
-          <div className="flex items-center gap-2 text-on-surface-variant">
-            <Clock className="size-4" />
-            <span className="text-base">{startStr} - {endStr}</span>
+        <div className="flex gap-4 items-center">
+          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+            <Calendar className="size-8" />
+          </div>
+          <div className="flex flex-col gap-1">
+            <h4 className="text-2xl font-semibold text-on-surface capitalize">{dayLabel}</h4>
+            <div className="flex items-center gap-2 text-on-surface-variant">
+              <Clock className="size-[18px]" />
+              <span className="text-base">{startStr} - {endStr}</span>
+            </div>
           </div>
         </div>
-        <div className="w-12 h-12 rounded-full bg-primary-container flex items-center justify-center text-white">
-          <Dumbbell className="size-6" />
-        </div>
+        <span
+          className="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-semibold w-fit shrink-0"
+          style={{ backgroundColor: `${color}1a`, color }}
+        >
+          {label}
+        </span>
       </div>
       {isFuture && (
         <div className="pt-4 border-t border-surface-container-high flex justify-end">
@@ -242,7 +243,7 @@ function NextAppointmentCard({
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
-            className="inline-flex items-center gap-2 text-sm font-semibold text-[#003e62] border border-[#003e62] px-6 py-2 rounded-full hover:bg-[#003e62]/5 active:scale-95 transition-all"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-primary border border-primary px-6 py-2 rounded-full hover:bg-primary/5 active:scale-95 transition-all"
           >
             <CalendarPlus className="size-4" />
             Aggiungi al Calendario
@@ -255,7 +256,7 @@ function NextAppointmentCard({
 
 function EmptyAppointment({ onBook }: { onBook: () => void }) {
   return (
-    <div className="bg-surface-container-lowest rounded-[1rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-6 border border-outline-variant/20 text-center flex flex-col items-center gap-3">
+    <div className="bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-6 border border-outline-variant/30 text-center flex flex-col items-center gap-3">
       <div className="w-12 h-12 rounded-full bg-surface-container-high grid place-items-center text-on-surface-variant">
         <CalendarPlus className="size-6" />
       </div>
