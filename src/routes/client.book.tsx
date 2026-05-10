@@ -1,11 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { useMemo, useState, useEffect } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { ChevronLeft, Check, Loader2, Video, MapPin, Sparkles } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { sessionLabel, type SessionType } from "@/lib/mock-data";
 import { useClientBlocks, useClientBookings, useCoachAvailability, useCoachAvailabilityExceptions, useCoachEventTypes, useCoachOptimizationEnabled, type AvailabilityRow, type AvailabilityExceptionRow, type EventTypeRow } from "@/lib/queries";
 import { generateMockMeetLink } from "@/components/join-video-call-button";
@@ -16,6 +12,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { syncCalendar } from "@/lib/sync-calendar";
 import { useAuth } from "@/lib/auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, isSameDay, isSameMonth, isBefore, startOfDay } from "date-fns";
+import { it } from "date-fns/locale";
 
 export const Route = createFileRoute("/client/book")({
   component: BookFlow,
@@ -202,8 +200,11 @@ function BookFlow() {
     },
   });
 
-  interface Pick { type: SessionType; eventTypeId: string | null; }
-  const [picked, setPicked] = useState<Record<string, Pick>>({});
+  // Single-pick state for the new Aura booking flow
+  const [selectedPoolKey, setSelectedPoolKey] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedISO, setSelectedISO] = useState<string | null>(null);
+  const [calendarMonth, setCalendarMonth] = useState<Date>(startOfMonth(new Date()));
   const [confirming, setConfirming] = useState(false);
 
   const block = (blocksQ.data ?? []).find((b) => b.status === "active");
@@ -307,36 +308,35 @@ function BookFlow() {
       poolLabel[k] = et?.name ?? sessionLabel(a.session_type);
     }
   }
-  const pickedCountsByPool = Object.values(picked).reduce<Record<string, number>>(
-    (acc, p) => {
-      const k = allocKey(p.eventTypeId, p.type);
-      acc[k] = (acc[k] ?? 0) + 1;
-      return acc;
-    },
-    {}
-  );
+  // Pools list (one entry per credit pool: event_type_id or legacy session_type).
+  interface Pool { key: string; label: string; type: SessionType; eventTypeId: string | null; remaining: number; color?: string | null; }
+  const poolsMap = new Map<string, Pool>();
+  for (const a of block.allocations) {
+    const k = allocKey(a.event_type_id, a.session_type);
+    const remaining = a.quantity_assigned - a.quantity_booked;
+    if (poolsMap.has(k)) {
+      poolsMap.get(k)!.remaining += remaining;
+    } else {
+      const et = a.event_type_id ? customTypes.find((e) => e.id === a.event_type_id) : null;
+      poolsMap.set(k, {
+        key: k,
+        label: et?.name ?? sessionLabel(a.session_type),
+        type: a.session_type as SessionType,
+        eventTypeId: a.event_type_id ?? null,
+        remaining,
+        color: et?.color ?? null,
+      });
+    }
+  }
+  const pools = Array.from(poolsMap.values()).filter((p) => p.remaining > 0);
 
-  const togglePick = (iso: string, value: string) => {
-    setPicked((cur) => {
-      const next = { ...cur };
-      if (!value) { delete next[iso]; return next; }
-      // value format: "<base_type>" or "<base_type>::<event_type_id>"
-      const [type, eventTypeId] = value.split("::") as [SessionType, string | undefined];
-      const newKey = allocKey(eventTypeId ?? null, type);
-      const prev = cur[iso];
-      const prevKey = prev ? allocKey(prev.eventTypeId, prev.type) : null;
-      const used = (pickedCountsByPool[newKey] ?? 0) - (prevKey === newKey ? 1 : 0);
-      const remaining = remainingByPool[newKey] ?? 0;
-      if (used >= remaining) {
-        toast.error(`Nessuna sessione di tipo ${poolLabel[newKey] ?? sessionLabel(type)} rimanente nel tuo blocco.`);
-        return cur;
-      }
-      next[iso] = { type, eventTypeId: eventTypeId ?? null };
-      return next;
-    });
-  };
+  // Auto-select first available pool
+  useEffect(() => {
+    if (!selectedPoolKey && pools.length > 0) setSelectedPoolKey(pools[0].key);
+  }, [selectedPoolKey, pools]);
 
-  const totalPicked = Object.keys(picked).length;
+  const totalPicked = selectedISO ? 1 : 0;
+  void totalPicked;
 
   // Cerca un'allocation con credito disponibile, prima per event_type_id+settimana, poi qualunque.
   const findAllocationForWeek = (
@@ -372,13 +372,25 @@ function BookFlow() {
       toast.error("Coach non assegnato. Contatta il tuo coach.");
       return;
     }
+    if (!selectedISO || !selectedPoolKey) {
+      toast.error("Seleziona data e orario.");
+      return;
+    }
+    const pool = pools.find((p) => p.key === selectedPoolKey);
+    if (!pool) {
+      toast.error("Tipologia non disponibile.");
+      return;
+    }
     setConfirming(true);
     try {
       // tracker locale per non sforare quando si prenotano più slot dello stesso tipo
       const localUsed: Record<string, number> = {}; // alloc_id -> count
       let bookedCount = 0;
 
-      for (const [iso, pick] of Object.entries(picked)) {
+      const entries: [string, { type: SessionType; eventTypeId: string | null }][] = [
+        [selectedISO, { type: pool.type, eventTypeId: pool.eventTypeId }],
+      ];
+      for (const [iso, pick] of entries) {
         const type = pick.type;
         const eventType = pick.eventTypeId
           ? customTypes.find((e) => e.id === pick.eventTypeId)
@@ -501,162 +513,204 @@ function BookFlow() {
     }
   };
 
+  // ===== Aura UI helpers =====
+  const todayStart = startOfDay(new Date());
+  const daysWithSlots = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of slots) set.add(format(s.date, "yyyy-MM-dd"));
+    return set;
+  }, [slots]);
+
+  const monthStart = startOfMonth(calendarMonth);
+  const monthEnd = endOfMonth(calendarMonth);
+  const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+  const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
+  const calendarDays: Date[] = [];
+  for (let d = gridStart; d <= gridEnd; d = addDays(d, 1)) calendarDays.push(d);
+
+  const slotsForSelectedDay = useMemo(() => {
+    if (!selectedDate) return [];
+    const key = format(selectedDate, "yyyy-MM-dd");
+    return slots.filter((s) => format(s.date, "yyyy-MM-dd") === key);
+  }, [slots, selectedDate]);
+
+  const selectedSlot = selectedISO ? slots.find((s) => s.iso === selectedISO) ?? null : null;
+
+  const goPrevMonth = () => setCalendarMonth((m) => addMonths(m, -1));
+  const goNextMonth = () => setCalendarMonth((m) => addMonths(m, 1));
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => navigate({ to: "/client" })}>
-          <ChevronLeft className="size-4" /> Indietro
-        </Button>
-      </div>
+    <div className="bg-surface min-h-screen pb-32">
+      {/* Top App Bar */}
+      <header className="flex justify-between items-center w-full px-margin-mobile py-stack-md max-w-3xl mx-auto bg-transparent z-40 sticky top-0 backdrop-blur-md">
+        <button
+          onClick={() => navigate({ to: "/client" })}
+          aria-label="Indietro"
+          className="w-10 h-10 flex items-center justify-center rounded-full bg-surface-container-lowest/50 backdrop-blur-md border border-outline-variant/30 text-primary-container active:scale-95 transition-transform"
+        >
+          <ArrowLeft className="size-5" />
+        </button>
+        <h1 className="font-display font-semibold text-xl text-on-surface text-center absolute left-1/2 -translate-x-1/2 whitespace-nowrap">
+          Nuova Prenotazione
+        </h1>
+        <div className="w-10 h-10" />
+      </header>
 
-      <div>
-        <h1 className="font-display text-3xl font-semibold tracking-tight">Prenota il tuo blocco</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Scegli gli slot e assegna un tipo di sessione. Le prenotazioni entro 24 ore sono disabilitate.
-        </p>
-        {(optimizationQ.data ?? true) && (
-          <p className="text-xs text-muted-foreground mt-2">
-            ✨ Scegli gli orari evidenziati come <span className="font-medium text-foreground">Consigliato</span> per aiutarci a ottimizzare il calendario!
-          </p>
-        )}
-      </div>
+      <main className="max-w-3xl mx-auto px-margin-mobile flex flex-col gap-stack-lg mt-stack-md">
+        {/* Selection Type */}
+        <section>
+          <h2 className="font-display font-semibold text-2xl text-on-surface mb-stack-sm">Seleziona la tipologia</h2>
+          {pools.length === 0 ? (
+            <p className="text-sm text-on-surface-variant">Nessun credito residuo nel blocco attivo.</p>
+          ) : (
+            <div className="flex overflow-x-auto gap-3 pb-2 -mx-margin-mobile px-margin-mobile [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+              {pools.map((p) => {
+                const active = p.key === selectedPoolKey;
+                return (
+                  <button
+                    key={p.key}
+                    onClick={() => setSelectedPoolKey(p.key)}
+                    className={`flex-shrink-0 rounded-full px-6 py-3 text-sm font-semibold whitespace-nowrap transition-transform active:scale-95 ${
+                      active
+                        ? "bg-primary-container text-on-primary"
+                        : "bg-transparent border border-outline-variant text-on-surface"
+                    }`}
+                  >
+                    {p.label}
+                    <span className={`ml-2 text-xs ${active ? "text-on-primary/80" : "text-on-surface-variant"}`}>
+                      {p.remaining}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </section>
 
-      <Card>
-        <CardContent className="p-4 flex flex-wrap items-center gap-3">
-          {Object.keys(remainingByPool).map((k) => (
-            <Badge key={k} variant="outline" className="font-normal">
-              {poolLabel[k]}: <span className="ml-1 tabular-nums font-medium">{remainingByPool[k] - (pickedCountsByPool[k] ?? 0)}</span> rimanenti
-            </Badge>
-          ))}
-          <div className="ml-auto flex items-center gap-3">
-            <Button onClick={confirm} disabled={totalPicked === 0 || confirming}>
-              {confirming ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
-              Conferma {totalPicked > 0 && `(${totalPicked})`}
-            </Button>
+        {/* Date Selector Card */}
+        <section className="bg-surface-container-lowest rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-6">
+          <div className="flex justify-between items-center mb-6">
+            <button
+              onClick={goPrevMonth}
+              className="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-colors"
+              aria-label="Mese precedente"
+            >
+              <ChevronLeft className="size-5" />
+            </button>
+            <span className="font-display font-semibold text-xl text-on-surface capitalize">
+              {format(calendarMonth, "MMMM yyyy", { locale: it })}
+            </span>
+            <button
+              onClick={goNextMonth}
+              className="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-colors"
+              aria-label="Mese successivo"
+            >
+              <ChevronRight className="size-5" />
+            </button>
           </div>
-        </CardContent>
-      </Card>
-
-      <div className="space-y-4">
-        {grouped.size === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center text-sm text-muted-foreground">
-              {(availQ.data ?? []).length === 0
-                ? "Il tuo coach non ha ancora configurato la sua disponibilità. Contattalo per maggiori informazioni."
-                : "Nessuna disponibilità nei prossimi giorni. Tutti gli slot sono già prenotati."}
-            </CardContent>
-          </Card>
-        ) : (
-          [...grouped.entries()].slice(0, 14).map(([day, daySlots]) => (
-            <Card key={day}>
-              <CardHeader>
-                <CardTitle className="text-base">
-                  {new Date(day).toLocaleDateString("it-IT", { weekday: "long", month: "long", day: "numeric" })}
-                </CardTitle>
-                <CardDescription>
-                  {daySlots.length === 0
-                    ? "Nessuna disponibilità in questa data"
-                    : `${daySlots.length} slot disponibili`}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
-                  {daySlots.map((s) => {
-                    const chosen = picked[s.iso];
-                    return (
-                      <div
-                        key={s.iso}
-                        className={`rounded-lg border p-3 transition ${chosen ? "border-primary bg-primary/5" : s.recommended ? "border-success/40 bg-success/5 hover:border-success/60" : "hover:border-primary/40"}`}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="font-display font-semibold tabular-nums">
-                            {s.date.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
-                          </p>
-                          {chosen ? (() => {
-                            const ev = chosen.eventTypeId
-                              ? customTypes.find((e) => e.id === chosen.eventTypeId)
-                              : null;
-                            return (
-                              <Badge style={ev ? { backgroundColor: ev.color, color: "#fff", borderColor: ev.color } : undefined}>
-                                {ev?.name ?? sessionLabel(chosen.type)}
-                              </Badge>
-                            );
-                          })() : s.recommended ? (
-                            <Badge
-                              variant="secondary"
-                              className="text-[10px] px-1.5 py-0 inline-flex items-center gap-1 border"
-                              style={{ backgroundColor: "rgba(51,184,100,0.10)", color: "#0B8043", borderColor: "rgba(51,184,100,0.30)" }}
-                            >
-                              <Sparkles className="size-2.5" /> Consigliato
-                            </Badge>
-                          ) : null}
-                        </div>
-                        <Select
-                          value={chosen ? (chosen.eventTypeId ? `${chosen.type}::${chosen.eventTypeId}` : chosen.type) : ""}
-                          onValueChange={(v) => togglePick(s.iso, v)}
-                        >
-                          <SelectTrigger className="mt-2 h-8 text-xs">
-                            <SelectValue placeholder="Aggiungi sessione…" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {customTypes.length === 0 ? (
-                              <>
-                                <SelectItem value="PT Session">Sessione PT</SelectItem>
-                                <SelectItem value="BIA">BIA</SelectItem>
-                                <SelectItem value="Functional Test">Test Funzionale</SelectItem>
-                              </>
-                            ) : (
-                              customTypes.map((et) => {
-                                const k = allocKey(et.id, et.base_type);
-                                const remaining = (remainingByPool[k] ?? 0) - (pickedCountsByPool[k] ?? 0);
-                                const isExhausted = remaining <= 0 && (chosen?.eventTypeId !== et.id);
-                                return (
-                                  <SelectItem key={et.id} value={`${et.base_type}::${et.id}`} disabled={isExhausted}>
-                                    <span className="inline-flex items-center gap-2">
-                                      <span className="size-2.5 rounded-full" style={{ backgroundColor: et.color }} />
-                                      {et.name}
-                                      <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
-                                        · {et.duration}m
-                                        {et.location_type === "online"
-                                          ? <Video className="size-3" />
-                                          : <MapPin className="size-3" />}
-                                      </span>
-                                      {isExhausted && (
-                                        <span className="text-[10px] text-destructive">esauriti</span>
-                                      )}
-                                    </span>
-                                  </SelectItem>
-                                );
-                              })
-                            )}
-                          </SelectContent>
-                        </Select>
-                        {customTypes.length > 0 && customTypes.every((et) => {
-                          const k = allocKey(et.id, et.base_type);
-                          return ((remainingByPool[k] ?? 0) - (pickedCountsByPool[k] ?? 0)) <= 0;
-                        }) && !chosen && (
-                          <p className="mt-1 text-[11px] text-muted-foreground leading-snug">
-                            Crediti esauriti per questa tipologia. Contatta il Coach per il rinnovo.
-                          </p>
-                        )}
-                        {chosen && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="mt-1 h-7 text-xs w-full"
-                            onClick={() => togglePick(s.iso, "")}
-                          >
-                            Rimuovi
-                          </Button>
-                        )}
-                      </div>
-                    );
-                  })}
+          <div className="grid grid-cols-7 gap-y-2 text-center">
+            {["L", "M", "M", "G", "V", "S", "D"].map((d, i) => (
+              <div key={i} className="text-xs font-semibold text-outline mb-2">{d}</div>
+            ))}
+            {calendarDays.map((day) => {
+              const inMonth = isSameMonth(day, calendarMonth);
+              const past = isBefore(day, todayStart);
+              const dayKey = format(day, "yyyy-MM-dd");
+              const hasSlots = daysWithSlots.has(dayKey);
+              const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
+              const disabled = past || !hasSlots;
+              return (
+                <div key={dayKey} className="flex justify-center items-center py-1">
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => {
+                      setSelectedDate(day);
+                      setSelectedISO(null);
+                    }}
+                    className={`w-10 h-10 rounded-full flex items-center justify-center text-sm transition-colors ${
+                      isSelected
+                        ? "bg-primary-container text-on-primary font-semibold shadow-sm"
+                        : !inMonth || disabled
+                        ? "text-outline-variant cursor-not-allowed"
+                        : "text-on-surface hover:bg-surface-container-low cursor-pointer"
+                    }`}
+                  >
+                    {format(day, "d")}
+                  </button>
                 </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Available Times */}
+        <section>
+          <h3 className="font-display font-semibold text-2xl text-on-surface mb-stack-md">
+            {selectedDate
+              ? `Orari disponibili per il ${format(selectedDate, "d MMMM", { locale: it })}`
+              : "Seleziona una data"}
+          </h3>
+          {selectedDate && slotsForSelectedDay.length === 0 ? (
+            <p className="text-sm text-on-surface-variant">Nessuno slot disponibile in questa data.</p>
+          ) : (
+            <div className="grid grid-cols-3 gap-4">
+              {slotsForSelectedDay.map((s) => {
+                const isSelected = s.iso === selectedISO;
+                const recommended = !!s.recommended;
+                const button = (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedISO(s.iso)}
+                    className={`w-full rounded-full py-3 text-sm font-semibold tabular-nums transition-colors ${
+                      isSelected
+                        ? "bg-primary-container text-on-primary border border-primary-container shadow-sm"
+                        : recommended
+                        ? "bg-on-primary-container text-on-primary-fixed border border-primary-container shadow-sm"
+                        : "bg-surface-container-lowest border border-outline-variant text-on-surface hover:border-primary hover:text-primary"
+                    }`}
+                  >
+                    {format(s.date, "HH:mm")}
+                  </button>
+                );
+                if (recommended) {
+                  return (
+                    <div key={s.iso} className="relative flex flex-col items-center">
+                      <span
+                        className="absolute -top-3 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase z-10 shadow-sm border border-surface-container-lowest"
+                        style={{ backgroundColor: "#3b6284", color: "#ffffff" }}
+                      >
+                        Consigliato
+                      </span>
+                      {button}
+                    </div>
+                  );
+                }
+                return <div key={s.iso}>{button}</div>;
+              })}
+            </div>
+          )}
+        </section>
+      </main>
+
+      {/* Bottom Action Bar */}
+      <div className="fixed bottom-0 left-0 w-full z-50 bg-white/70 backdrop-blur-xl border-t border-white/20 shadow-[0_-8px_30px_rgba(0,0,0,0.04)] px-margin-mobile py-4 pb-8 flex justify-between items-center md:px-margin-desktop">
+        <div className="flex flex-col">
+          <span className="text-sm text-outline">Selezionato:</span>
+          <span className="font-display font-semibold text-xl text-primary-container">
+            {selectedSlot
+              ? `${format(selectedSlot.date, "d MMM", { locale: it })}, ${format(selectedSlot.date, "HH:mm")}`
+              : "—"}
+          </span>
+        </div>
+        <button
+          onClick={confirm}
+          disabled={!selectedISO || !selectedPoolKey || confirming}
+          className="bg-primary-container text-on-primary rounded-full px-8 py-4 text-sm font-semibold shadow-md active:scale-95 transition-transform hover:bg-primary disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+        >
+          {confirming && <Loader2 className="size-4 animate-spin" />}
+          Conferma
+        </button>
       </div>
     </div>
   );

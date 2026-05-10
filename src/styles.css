@@ -28,6 +28,10 @@
   --color-outline-variant: #c1c7d0;
   --color-primary-container: #005685;
   --color-on-primary-container: #91cbff;
+  --color-on-primary: #ffffff;
+  --color-on-primary-fixed: #001d32;
+  --color-aura-secondary: #3b6284;
+  --color-on-aura-secondary: #ffffff;
   --color-primary-fixed: #cde5ff;
   --color-primary-fixed-dim: #94ccff;
   --color-secondary-container: #b2d8ff;
