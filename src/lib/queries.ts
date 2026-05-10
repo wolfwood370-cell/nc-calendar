@@ -12,6 +12,9 @@ export interface BookingRow {
   status: BookingStatus;
   meeting_link: string | null;
   deleted_at: string | null;
+  event_type_id: string | null;
+  notes: string | null;
+  google_event_id: string | null;
 }
 
 export interface AllocationRow {
