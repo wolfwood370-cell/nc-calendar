@@ -49,16 +49,7 @@ function CalendarPage() {
   const [activeBooking, setActiveBooking] = useState<BookingRow | null>(null);
   const [notesDraft, setNotesDraft] = useState("");
 
-  const handleCancelBooking = () => {
-    if (!activeBooking) return;
-    cancelBooking.mutate(activeBooking, {
-      onSuccess: () => {
-        toast.success("Appuntamento cancellato e credito rimborsato.");
-        setActiveBooking(null);
-      },
-      onError: (e: unknown) => toast.error("Errore", { description: (e as Error).message }),
-    });
-  };
+
 
   const openNotes = (b: BookingRow) => {
     setActiveBooking(b);
