@@ -105,7 +105,7 @@ function BookFlow() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, email, phone, coach_id")
+        .select("id, full_name, email, phone, coach_id, email_notifications")
         .eq("id", meId!)
         .maybeSingle();
       if (error) throw error;
