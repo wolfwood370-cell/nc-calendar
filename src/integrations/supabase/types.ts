@@ -303,6 +303,7 @@ export type Database = {
           created_at: string
           deleted_at: string | null
           email: string | null
+          email_notifications: boolean
           full_name: string | null
           id: string
           phone: string | null
@@ -312,6 +313,7 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           email?: string | null
+          email_notifications?: boolean
           full_name?: string | null
           id: string
           phone?: string | null
@@ -321,6 +323,7 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           email?: string | null
+          email_notifications?: boolean
           full_name?: string | null
           id?: string
           phone?: string | null
