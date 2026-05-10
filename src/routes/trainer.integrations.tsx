@@ -86,6 +86,7 @@ function IntegrationsPage() {
           gcal_service_account_json: (d.gcal_service_account_json as string) ?? "",
           gcal_calendar_id: (d.gcal_calendar_id as string) ?? "",
           gcal_enabled: (d.gcal_enabled as boolean) ?? false,
+          calendar_optimization_enabled: (d.calendar_optimization_enabled as boolean) ?? true,
         });
       }
       setLoading(false);
