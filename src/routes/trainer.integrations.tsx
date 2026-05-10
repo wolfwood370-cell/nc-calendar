@@ -25,6 +25,7 @@ interface Settings {
   gcal_service_account_json: string;
   gcal_calendar_id: string;
   gcal_enabled: boolean;
+  calendar_optimization_enabled: boolean;
 }
 
 const empty: Settings = {
@@ -34,6 +35,7 @@ const empty: Settings = {
   gcal_service_account_json: "",
   gcal_calendar_id: "",
   gcal_enabled: false,
+  calendar_optimization_enabled: true,
 };
 
 const waSchema = z.object({
