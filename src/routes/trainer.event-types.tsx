@@ -252,7 +252,7 @@ function EventTypeDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label>Categoria credito</Label>
+            <Label>Tipologia Sessione</Label>
             <Select value={baseType} onValueChange={(v) => setBaseType(v as SessionType)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>

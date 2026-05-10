@@ -9,8 +9,8 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { CalendarPlus, Activity, Flame, AlertTriangle } from "lucide-react";
-import { sessionLabel, SESSION_TYPES, type SessionType } from "@/lib/mock-data";
-import { useClientBlocks, useClientBookings, useCancelBooking, type BookingRow } from "@/lib/queries";
+import { sessionLabel } from "@/lib/mock-data";
+import { useClientBlocks, useClientBookings, useCancelBooking, useCoachEventTypes, type BookingRow } from "@/lib/queries";
 import { useMemo, useState } from "react";
 import { AddToCalendarButton } from "@/components/add-to-calendar-button";
 import { JoinVideoCallButton } from "@/components/join-video-call-button";
@@ -56,8 +56,28 @@ function ClientHome() {
   const meName = profileQ.data?.full_name ?? user?.email ?? "Cliente";
   const meEmail = profileQ.data?.email ?? user?.email ?? "";
   const coachId = profileQ.data?.coach_id ?? null;
+  const eventTypesQ = useCoachEventTypes(coachId);
 
   const block = (blocksQ.data ?? []).find((b) => b.status === "active");
+
+  // Riepilogo crediti residui per tipologia (event_type), con fallback al base session_type per blocchi legacy
+  const remainingByType = useMemo(() => {
+    if (!block) return [] as Array<{ key: string; name: string; color: string; remaining: number; assigned: number }>;
+    const map = new Map<string, { name: string; color: string; remaining: number; assigned: number }>();
+    for (const a of block.allocations) {
+      const et = a.event_type_id ? (eventTypesQ.data ?? []).find((e) => e.id === a.event_type_id) : null;
+      const key = a.event_type_id ?? a.session_type;
+      const cur = map.get(key) ?? {
+        name: et?.name ?? sessionLabel(a.session_type),
+        color: et?.color ?? "hsl(var(--primary))",
+        remaining: 0, assigned: 0,
+      };
+      cur.remaining += Math.max(0, a.quantity_assigned - a.quantity_booked);
+      cur.assigned += a.quantity_assigned;
+      map.set(key, cur);
+    }
+    return [...map.entries()].map(([key, v]) => ({ key, ...v }));
+  }, [block, eventTypesQ.data]);
 
   const totals = useMemo(() => {
     if (!block) return { assigned: 0, booked: 0, pct: 0 };
@@ -166,7 +186,20 @@ function ClientHome() {
           </div>
           <Progress value={totals.pct} className="mt-4 h-2" />
         </div>
-        <CardContent className="p-4">
+        <CardContent className="p-4 space-y-3">
+          {remainingByType.length > 0 && (
+            <div className="rounded-lg bg-accent/40 p-3">
+              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Crediti residui</p>
+              <div className="flex flex-wrap gap-1.5">
+                {remainingByType.map((r) => (
+                  <Badge key={r.key} variant="outline" className="font-normal" style={{ borderColor: r.color }}>
+                    <span className="size-2 rounded-full mr-1.5" style={{ backgroundColor: r.color }} />
+                    Hai ancora <span className="mx-1 font-semibold tabular-nums">{r.remaining}</span> {r.name}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
           <Button asChild className="w-full">
             <Link to="/client/book"><CalendarPlus className="size-4" /> Prenota le sessioni del blocco</Link>
           </Button>
@@ -179,6 +212,19 @@ function ClientHome() {
           const assigned = wAlloc.reduce((s, a) => s + a.quantity_assigned, 0);
           const booked = wAlloc.reduce((s, a) => s + a.quantity_booked, 0);
           const isCurrent = wn === cw;
+          const groups = new Map<string, { name: string; color: string; assigned: number; booked: number }>();
+          for (const a of wAlloc) {
+            const et = a.event_type_id ? (eventTypesQ.data ?? []).find((e) => e.id === a.event_type_id) : null;
+            const key = a.event_type_id ?? a.session_type;
+            const cur = groups.get(key) ?? {
+              name: et?.name ?? sessionLabel(a.session_type),
+              color: et?.color ?? "hsl(var(--primary))",
+              assigned: 0, booked: 0,
+            };
+            cur.assigned += a.quantity_assigned;
+            cur.booked += a.quantity_booked;
+            groups.set(key, cur);
+          }
           return (
             <Card key={wn} className={isCurrent ? "border-primary/40 ring-1 ring-primary/15" : ""}>
               <CardHeader className="flex-row items-center justify-between">
@@ -194,15 +240,17 @@ function ClientHome() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
-                {SESSION_TYPES.map((t: SessionType) => {
-                  const a = wAlloc.find((x) => x.session_type === t);
-                  if (!a || a.quantity_assigned === 0) return null;
-                  const pct = Math.round((a.quantity_booked / a.quantity_assigned) * 100);
+                {[...groups.entries()].map(([key, g]) => {
+                  if (g.assigned === 0) return null;
+                  const pct = Math.round((g.booked / g.assigned) * 100);
                   return (
-                    <div key={t}>
+                    <div key={key}>
                       <div className="flex items-center justify-between text-sm">
-                        <span>{sessionLabel(t)}</span>
-                        <span className="tabular-nums text-muted-foreground">{a.quantity_booked} / {a.quantity_assigned}</span>
+                        <span className="flex items-center gap-2">
+                          <span className="size-2 rounded-full" style={{ backgroundColor: g.color }} />
+                          {g.name}
+                        </span>
+                        <span className="tabular-nums text-muted-foreground">{g.booked} / {g.assigned}</span>
                       </div>
                       <Progress value={pct} className="mt-1.5 h-1.5" />
                     </div>
