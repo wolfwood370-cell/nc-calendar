@@ -64,11 +64,44 @@ function CalendarPage() {
 
   const coachName = (user?.user_metadata?.full_name as string) ?? user?.email ?? "Coach";
 
+  // Mirror check con Google Calendar quando cambia il mese visualizzato
+  useEffect(() => {
+    if (!user || !selected) return;
+    const monthKey = `${selected.getFullYear()}-${selected.getMonth()}`;
+    if (lastMirrorMonth.current === monthKey) return;
+    lastMirrorMonth.current = monthKey;
+    const start = new Date(selected.getFullYear(), selected.getMonth(), 1).toISOString();
+    const end = new Date(selected.getFullYear(), selected.getMonth() + 1, 0, 23, 59, 59).toISOString();
+    setMirroring(true);
+    syncCalendarAwait({
+      action: "mirror_check", coachId: user.id,
+      rangeStartISO: start, rangeEndISO: end,
+    })
+      .then(({ data }) => {
+        const r = data as { ok?: boolean; cancelled?: number; moved?: number; skipped?: boolean } | null;
+        if (r?.ok && ((r.cancelled ?? 0) > 0 || (r.moved ?? 0) > 0)) {
+          toast.info("Calendario aggiornato", {
+            description: `${r.cancelled ?? 0} annullate · ${r.moved ?? 0} spostate da Google Calendar`,
+          });
+          qc.invalidateQueries({ queryKey: ["bookings"] });
+        }
+      })
+      .catch((e) => console.error("mirror_check failed", e))
+      .finally(() => setMirroring(false));
+  }, [user, selected, qc]);
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-3xl font-semibold tracking-tight">Calendario principale</h1>
-        <p className="text-sm text-muted-foreground mt-1">Tutte le prenotazioni dei clienti in un unico sguardo.</p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="font-display text-3xl font-semibold tracking-tight">Calendario principale</h1>
+          <p className="text-sm text-muted-foreground mt-1">Tutte le prenotazioni dei clienti in un unico sguardo.</p>
+        </div>
+        {mirroring && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground rounded-md border px-3 py-1.5">
+            <Loader2 className="size-3.5 animate-spin" /> Sincronizzazione in corso…
+          </div>
+        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[auto_1fr]">
