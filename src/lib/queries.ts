@@ -201,6 +201,22 @@ export function useCoachAvailability(coachId?: string | null) {
   });
 }
 
+export function useCoachOptimizationEnabled(coachId?: string | null) {
+  return useQuery({
+    queryKey: ["integration_settings", "optimization", coachId],
+    enabled: !!coachId,
+    queryFn: async (): Promise<boolean> => {
+      const { data } = await supabase
+        .from("integration_settings")
+        .select("calendar_optimization_enabled")
+        .eq("coach_id", coachId!)
+        .maybeSingle();
+      const v = (data as { calendar_optimization_enabled?: boolean } | null)?.calendar_optimization_enabled;
+      return v ?? true;
+    },
+  });
+}
+
 /* ---------- mutations ---------- */
 
 export function useCancelBooking() {
