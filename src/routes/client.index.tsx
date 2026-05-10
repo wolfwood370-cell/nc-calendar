@@ -9,6 +9,7 @@ import { sessionLabel } from "@/lib/mock-data";
 import { CircularProgress } from "@/components/circular-progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { generateGoogleCalendarLink } from "@/lib/calendar-utils";
 
 export const Route = createFileRoute("/client/")({
   component: ClientHome,
