@@ -135,27 +135,53 @@ function CalendarPage() {
             {!bookingsQ.isLoading && dayBookings.length === 0 && <p className="text-sm text-muted-foreground">Nessuna sessione in questa data.</p>}
             {dayBookings.map((b) => {
               const d = new Date(b.scheduled_at);
+              const et = b.event_type_id ? eventTypesMap.get(b.event_type_id) : undefined;
+              const isSynced = !!b.google_event_id;
+              const isUnmatchedSync = isSynced && b.client_id === b.coach_id;
+              const originalTitle = isSynced && b.notes
+                ? b.notes.replace(/^Importato da Google Calendar:\s*/i, "")
+                : null;
+              const displayName = isUnmatchedSync
+                ? (originalTitle ?? "Evento Google")
+                : (clientsMap.get(b.client_id) ?? "Cliente");
+              const typeLabel = et?.name ?? sessionLabel(b.session_type);
+              const accent = et?.color;
               return (
-                <div key={b.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-4">
+                <div
+                  key={b.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-4 border-l-4"
+                  style={accent ? { borderLeftColor: accent } : undefined}
+                >
                   <div className="flex items-center gap-4">
                     <div className="font-display text-lg font-semibold tabular-nums">
                       {d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
                     </div>
                     <div>
-                      <p className="text-sm font-medium">{clientsMap.get(b.client_id) ?? "Cliente"}</p>
-                      <p className="text-xs text-muted-foreground">{sessionLabel(b.session_type)}</p>
+                      <p className="text-sm font-medium flex items-center gap-2">
+                        {displayName}
+                        {isUnmatchedSync && (
+                          <span className="text-[10px] uppercase tracking-wide rounded bg-muted px-1.5 py-0.5 text-muted-foreground">Sync</span>
+                        )}
+                      </p>
+                      <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                        {accent && <span className="inline-block size-2 rounded-full" style={{ background: accent }} />}
+                        {typeLabel}
+                        {isSynced && !isUnmatchedSync && originalTitle && originalTitle !== typeLabel && (
+                          <span className="opacity-60">· {originalTitle}</span>
+                        )}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <BookingStatusBadge status={b.status} />
                     {b.meeting_link && <JoinVideoCallButton url={b.meeting_link} variant="outline" />}
                     <AddToCalendarButton
-                      sessionLabel={sessionLabel(b.session_type)}
+                      sessionLabel={typeLabel}
                       startsAt={d}
                       coachName={coachName}
-                      clientName={clientsMap.get(b.client_id) ?? "Cliente"}
+                      clientName={displayName}
                     />
-                    {b.status === "scheduled" && (
+                    {b.status === "scheduled" && !isUnmatchedSync && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button size="sm" variant="ghost"><MoreHorizontal className="size-4" /></Button>
