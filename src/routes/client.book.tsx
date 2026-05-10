@@ -655,7 +655,7 @@ function BookFlow() {
 
         {/* Available Times */}
         <section>
-          <h3 className="font-display font-semibold text-2xl text-on-surface mb-stack-md">
+          <h3 className="font-semibold text-lg text-on-surface mb-stack-md">
             {selectedDate
               ? `Orari disponibili per il ${format(selectedDate, "d MMMM", { locale: it })}`
               : "Seleziona una data"}
