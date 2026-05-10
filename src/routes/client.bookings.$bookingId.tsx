@@ -5,8 +5,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { sessionLabel, type BookingStatus, type SessionType } from "@/lib/mock-data";
 import { generateGoogleCalendarLink } from "@/lib/calendar-utils";
-import { format } from "date-fns";
+import { format, differenceInHours } from "date-fns";
 import { it } from "date-fns/locale";
+import { useState } from "react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useCancelBooking } from "@/lib/queries";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/client/bookings/$bookingId")({
   component: BookingDetailPage,
@@ -20,6 +27,8 @@ interface BookingDetail {
   trainer_notes: string | null;
   meeting_link: string | null;
   coach_id: string;
+  block_id: string | null;
+  event_type_id: string | null;
   event_type: {
     name: string;
     duration: number;
@@ -54,7 +63,7 @@ function BookingDetailPage() {
     queryFn: async (): Promise<BookingDetail | null> => {
       const { data: booking, error } = await supabase
         .from("bookings")
-        .select("id, scheduled_at, status, session_type, trainer_notes, meeting_link, coach_id, event_type_id")
+        .select("id, scheduled_at, status, session_type, trainer_notes, meeting_link, coach_id, event_type_id, block_id")
         .eq("id", bookingId)
         .maybeSingle();
       if (error) throw error;
@@ -113,6 +122,11 @@ function BookingDetailPage() {
 }
 
 function BookingDetailView({ booking }: { booking: BookingDetail }) {
+  const navigate = useNavigate();
+  const cancelMut = useCancelBooking();
+  const [confirmFreeOpen, setConfirmFreeOpen] = useState(false);
+  const [confirmLateOpen, setConfirmLateOpen] = useState(false);
+
   const start = new Date(booking.scheduled_at);
   const duration = booking.event_type?.duration ?? 60;
   const end = new Date(start.getTime() + duration * 60_000);
@@ -126,6 +140,52 @@ function BookingDetailView({ booking }: { booking: BookingDetail }) {
   const mapsHref = address
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
     : null;
+
+  const isFuture = start.getTime() > Date.now();
+  const hoursUntil = differenceInHours(start, new Date());
+  const within24h = hoursUntil < 24;
+  const canManage = booking.status === "scheduled" && isFuture;
+
+  // Look up an allocation to refund (only used for free cancel).
+  async function findAllocationForRefund(): Promise<string | null> {
+    if (!booking.block_id) return null;
+    const { data } = await supabase
+      .from("block_allocations")
+      .select("id, event_type_id, session_type, quantity_booked")
+      .eq("block_id", booking.block_id);
+    const list = (data ?? []) as Array<{ id: string; event_type_id: string | null; session_type: SessionType; quantity_booked: number }>;
+    const match =
+      list.find((a) => booking.event_type_id && a.event_type_id === booking.event_type_id && a.quantity_booked > 0) ??
+      list.find((a) => a.session_type === booking.session_type && a.quantity_booked > 0);
+    return match?.id ?? null;
+  }
+
+  async function handleFreeCancel() {
+    const allocationId = await findAllocationForRefund();
+    cancelMut.mutate(
+      { id: booking.id, late: false, allocationId },
+      {
+        onSuccess: () => {
+          toast.success("Sessione annullata", { description: "Il credito è stato rimborsato." });
+          navigate({ to: "/client" });
+        },
+        onError: (e: unknown) => toast.error("Errore", { description: (e as Error).message }),
+      },
+    );
+  }
+
+  function handleLateCancel() {
+    cancelMut.mutate(
+      { id: booking.id, late: true },
+      {
+        onSuccess: () => {
+          toast.warning("Sessione annullata", { description: "Credito perso (cancellazione tardiva)." });
+          navigate({ to: "/client" });
+        },
+        onError: (e: unknown) => toast.error("Errore", { description: (e as Error).message }),
+      },
+    );
+  }
 
   return (
     <>
@@ -219,7 +279,7 @@ function BookingDetailView({ booking }: { booking: BookingDetail }) {
 
       {/* Action buttons */}
       <div className="pt-stack-lg pb-stack-lg space-y-stack-md">
-        {booking.status === "scheduled" && start.getTime() > Date.now() && (
+        {canManage && (
           <a
             href={generateGoogleCalendarLink(
               { scheduled_at: booking.scheduled_at },
@@ -234,13 +294,98 @@ function BookingDetailView({ booking }: { booking: BookingDetail }) {
             Aggiungi a Google Calendar
           </a>
         )}
-        <Link
-          to="/client/book"
-          className="block w-full py-4 rounded-full border border-outline-variant text-primary font-semibold bg-transparent hover:bg-surface-container-low transition-colors text-center"
-        >
-          Prenota prossima sessione
-        </Link>
+
+        {canManage && !within24h && (
+          <>
+            <button
+              type="button"
+              onClick={async () => {
+                // riprogramma = annulla con rimborso e vai a prenotazione
+                const allocationId = await findAllocationForRefund();
+                cancelMut.mutate(
+                  { id: booking.id, late: false, allocationId },
+                  {
+                    onSuccess: () => {
+                      toast.success("Credito rimborsato", { description: "Scegli un nuovo orario." });
+                      navigate({ to: "/client/book" });
+                    },
+                    onError: (e: unknown) => toast.error("Errore", { description: (e as Error).message }),
+                  },
+                );
+              }}
+              className="block w-full py-4 rounded-full border border-outline-variant text-primary font-semibold bg-transparent hover:bg-surface-container-low transition-colors text-center"
+            >
+              Riprogramma
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmFreeOpen(true)}
+              className="block w-full py-4 rounded-full bg-surface-container-high text-on-surface font-semibold hover:bg-surface-container-highest transition-colors text-center"
+            >
+              Cancella
+            </button>
+          </>
+        )}
+
+        {canManage && within24h && (
+          <button
+            type="button"
+            onClick={() => setConfirmLateOpen(true)}
+            className="block w-full py-4 rounded-full bg-destructive text-destructive-foreground font-semibold hover:opacity-90 transition-opacity text-center"
+          >
+            Cancella
+          </button>
+        )}
+
+        {!canManage && (
+          <Link
+            to="/client/book"
+            className="block w-full py-4 rounded-full border border-outline-variant text-primary font-semibold bg-transparent hover:bg-surface-container-low transition-colors text-center"
+          >
+            Prenota prossima sessione
+          </Link>
+        )}
       </div>
+
+      {/* Free cancel dialog */}
+      <AlertDialog open={confirmFreeOpen} onOpenChange={setConfirmFreeOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Annulla sessione</AlertDialogTitle>
+            <AlertDialogDescription>
+              Annullamento gratuito. Il credito verrà rimborsato.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Indietro</AlertDialogCancel>
+            <AlertDialogAction onClick={handleFreeCancel} disabled={cancelMut.isPending}>
+              Conferma annullamento
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Late cancel dialog */}
+      <AlertDialog open={confirmLateOpen} onOpenChange={setConfirmLateOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancellazione tardiva</AlertDialogTitle>
+            <AlertDialogDescription>
+              Mancano meno di 24 ore. L'annullamento comporterà la perdita del credito (sessione erogata).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Indietro</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleLateCancel}
+              disabled={cancelMut.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Cancella comunque
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
