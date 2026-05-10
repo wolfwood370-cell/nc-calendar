@@ -22,16 +22,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import type { SessionType } from "@/lib/mock-data";
 import { toast } from "sonner";
+import { GCAL_COLORS, GCAL_DEFAULT, nameForColor } from "@/lib/event-colors";
 
 export const Route = createFileRoute("/trainer/event-types")({
   component: EventTypesPage,
 });
-
-const COLOR_PRESETS = [
-  "#3b82f6", "#22c55e", "#ef4444", "#f59e0b",
-  "#8b5cf6", "#ec4899", "#14b8a6", "#0ea5e9",
-  "#a855f7", "#64748b",
-];
 
 const schema = z.object({
   name: z.string().trim().min(1, "Nome obbligatorio").max(60),
