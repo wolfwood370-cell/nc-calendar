@@ -21,6 +21,7 @@ function ClientLayout() {
   const tabs = [
     { to: "/client", label: "Blocco", icon: Home, exact: true },
     { to: "/client/book", label: "Prenota", icon: CalendarPlus },
+    { to: "/client/settings", label: "Impostazioni", icon: Settings },
   ];
 
   return (
