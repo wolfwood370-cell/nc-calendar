@@ -201,6 +201,52 @@ function Overview() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <div className="size-8 rounded-md bg-destructive/10 text-destructive grid place-items-center">
+              <PhoneCall className="size-4" />
+            </div>
+            <div>
+              <CardTitle className="text-base">Clienti da ricontattare</CardTitle>
+              <CardDescription>
+                Hanno crediti residui ma nessuna prenotazione futura.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {loading && <Skeleton className="h-12 w-full" />}
+          {!loading && atRisk.length === 0 && (
+            <p className="text-sm text-muted-foreground flex items-center gap-2">
+              <UserCheck className="size-4 text-success" /> Nessun cliente da ricontattare. Ottimo lavoro!
+            </p>
+          )}
+          {!loading && atRisk.map((c) => (
+            <div key={c.clientId} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3">
+              <div>
+                <p className="text-sm font-medium">{c.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {c.phone ?? "Telefono non disponibile"}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="border-destructive/40 text-destructive">
+                  {c.missing} {c.missing === 1 ? "sessione mancante" : "sessioni mancanti"}
+                </Badge>
+                {c.phone && (
+                  <Button size="sm" variant="outline" asChild>
+                    <a href={`tel:${c.phone}`}>
+                      <PhoneCall className="size-4" /> Chiama
+                    </a>
+                  </Button>
+                )}
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
     </div>
   );
 }
