@@ -14,6 +14,7 @@ import { useMemo, useState } from "react";
 import { AddToCalendarButton } from "@/components/add-to-calendar-button";
 import { JoinVideoCallButton } from "@/components/join-video-call-button";
 import { toast } from "sonner";
+import { syncCalendar } from "@/lib/sync-calendar";
 
 export const Route = createFileRoute("/client/")({
   component: ClientHome,
@@ -53,6 +54,13 @@ function ClientHome() {
     const hoursAway = (new Date(b.scheduled_at).getTime() - Date.now()) / (1000 * 60 * 60);
     if (hoursAway >= 24) {
       cancelBooking(b.id, { late: false });
+      syncCalendar({
+        action: "cancel",
+        coachId: trainer.id,
+        clientName: me.full_name,
+        sessionLabel: sessionLabel(b.session_type),
+        startISO: b.scheduled_at,
+      });
       toast.success("Prenotazione annullata", { description: "Il credito è stato restituito al tuo blocco." });
     } else {
       setPendingLate(b);
@@ -62,6 +70,13 @@ function ClientHome() {
   const confirmLate = () => {
     if (!pendingLate) return;
     cancelBooking(pendingLate.id, { late: true });
+    syncCalendar({
+      action: "cancel",
+      coachId: trainer.id,
+      clientName: me.full_name,
+      sessionLabel: sessionLabel(pendingLate.session_type),
+      startISO: pendingLate.scheduled_at,
+    });
     toast.error("Cancellazione tardiva", { description: "Il credito di questa sessione è stato perso." });
     setPendingLate(null);
   };

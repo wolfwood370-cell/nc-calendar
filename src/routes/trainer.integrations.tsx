@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -21,7 +22,8 @@ interface Settings {
   wa_phone_id: string;
   wa_access_token: string;
   wa_enabled: boolean;
-  gcal_webhook_url: string;
+  gcal_service_account_json: string;
+  gcal_calendar_id: string;
   gcal_enabled: boolean;
 }
 
@@ -29,7 +31,8 @@ const empty: Settings = {
   wa_phone_id: "",
   wa_access_token: "",
   wa_enabled: false,
-  gcal_webhook_url: "",
+  gcal_service_account_json: "",
+  gcal_calendar_id: "",
   gcal_enabled: false,
 };
 
@@ -39,7 +42,20 @@ const waSchema = z.object({
 });
 
 const gcalSchema = z.object({
-  gcal_webhook_url: z.string().trim().url("URL non valido").max(2048),
+  gcal_calendar_id: z.string().trim().email("ID calendario non valido (deve essere un'email)").max(255),
+  gcal_service_account_json: z
+    .string()
+    .trim()
+    .min(20, "Service Account JSON troppo corto")
+    .max(8192)
+    .refine((v) => {
+      try {
+        const parsed = JSON.parse(v);
+        return parsed && typeof parsed.client_email === "string" && typeof parsed.private_key === "string";
+      } catch {
+        return false;
+      }
+    }, "JSON non valido o mancano i campi client_email / private_key"),
 });
 
 function IntegrationsPage() {
@@ -54,17 +70,19 @@ function IntegrationsPage() {
     (async () => {
       const { data, error } = await supabase
         .from("integration_settings")
-        .select("wa_phone_id, wa_access_token, wa_enabled, gcal_webhook_url, gcal_enabled")
+        .select("*")
         .eq("coach_id", user.id)
         .maybeSingle();
       if (error) toast.error("Errore nel caricamento delle impostazioni");
       if (data) {
+        const d = data as Record<string, unknown>;
         setSettings({
-          wa_phone_id: data.wa_phone_id ?? "",
-          wa_access_token: data.wa_access_token ?? "",
-          wa_enabled: data.wa_enabled ?? false,
-          gcal_webhook_url: data.gcal_webhook_url ?? "",
-          gcal_enabled: data.gcal_enabled ?? false,
+          wa_phone_id: (d.wa_phone_id as string) ?? "",
+          wa_access_token: (d.wa_access_token as string) ?? "",
+          wa_enabled: (d.wa_enabled as boolean) ?? false,
+          gcal_service_account_json: (d.gcal_service_account_json as string) ?? "",
+          gcal_calendar_id: (d.gcal_calendar_id as string) ?? "",
+          gcal_enabled: (d.gcal_enabled as boolean) ?? false,
         });
       }
       setLoading(false);
@@ -72,11 +90,12 @@ function IntegrationsPage() {
   }, [user]);
 
   const upsert = async (patch: Partial<Settings>) => {
-    if (!user) return;
+    if (!user) return false;
     const next = { ...settings, ...patch };
     const { error } = await supabase
       .from("integration_settings")
-      .upsert({ coach_id: user.id, ...next }, { onConflict: "coach_id" });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .upsert({ coach_id: user.id, ...next } as any, { onConflict: "coach_id" });
     if (error) {
       toast.error("Errore nel salvataggio", { description: error.message });
       return false;
@@ -106,12 +125,15 @@ function IntegrationsPage() {
   const saveGcal = async () => {
     const parsed = gcalSchema.safeParse(settings);
     if (!parsed.success) {
-      toast.error(parsed.error.issues[0]?.message ?? "URL non valido");
+      toast.error(parsed.error.issues[0]?.message ?? "Dati non validi");
       return;
     }
     setSavingGcal(true);
     try {
-      const ok = await upsert({ gcal_webhook_url: parsed.data.gcal_webhook_url });
+      const ok = await upsert({
+        gcal_calendar_id: parsed.data.gcal_calendar_id,
+        gcal_service_account_json: parsed.data.gcal_service_account_json,
+      });
       if (ok) toast.success("Impostazioni Google Calendar salvate");
     } finally {
       setSavingGcal(false);
@@ -128,8 +150,8 @@ function IntegrationsPage() {
   };
 
   const toggleGcal = async (v: boolean) => {
-    if (v && !settings.gcal_webhook_url) {
-      toast.error("Configura prima il Webhook URL");
+    if (v && (!settings.gcal_calendar_id || !settings.gcal_service_account_json)) {
+      toast.error("Configura prima Service Account JSON e ID Calendario");
       return;
     }
     const ok = await upsert({ gcal_enabled: v });
@@ -137,7 +159,7 @@ function IntegrationsPage() {
   };
 
   const waConfigured = !!settings.wa_phone_id && !!settings.wa_access_token;
-  const gcalConfigured = !!settings.gcal_webhook_url;
+  const gcalConfigured = !!settings.gcal_calendar_id && !!settings.gcal_service_account_json;
 
   if (loading) {
     return (
@@ -204,7 +226,7 @@ function IntegrationsPage() {
               <Label htmlFor="wa-enabled" className="cursor-pointer">Abilita Notifiche WhatsApp</Label>
             </div>
             <Button onClick={saveWa} disabled={savingWa}>
-              {savingWa && <Loader2 className="size-4 animate-spin" />} Salva
+              {savingWa && <Loader2 className="size-4 animate-spin" />} Salva Impostazioni
             </Button>
           </div>
         </CardContent>
@@ -221,25 +243,40 @@ function IntegrationsPage() {
               <div>
                 <CardTitle>Google Calendar</CardTitle>
                 <CardDescription>
-                  Sincronizza automaticamente le sessioni nel tuo calendario tramite un webhook esterno.
+                  Sincronizza automaticamente le sessioni nel tuo calendario tramite un Service Account Google.
                 </CardDescription>
               </div>
             </div>
-            <StatusBadge ok={gcalConfigured && settings.gcal_enabled} configured={gcalConfigured} />
+            <GcalStatusBadge ok={gcalConfigured && settings.gcal_enabled} configured={gcalConfigured} />
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="gcal-url">Webhook URL</Label>
+            <Label htmlFor="gcal-id">ID Calendario</Label>
             <Input
-              id="gcal-url"
-              value={settings.gcal_webhook_url}
-              onChange={(e) => setSettings((s) => ({ ...s, gcal_webhook_url: e.target.value }))}
-              placeholder="https://script.google.com/..."
-              maxLength={2048}
+              id="gcal-id"
+              value={settings.gcal_calendar_id}
+              onChange={(e) => setSettings((s) => ({ ...s, gcal_calendar_id: e.target.value }))}
+              placeholder="es. coach@example.com"
+              maxLength={255}
             />
             <p className="text-xs text-muted-foreground">
-              Inserisci l'URL di un Apps Script o Cloud Function che riceve gli eventi prenotazione.
+              Solitamente l'email del calendario Google. Ricorda di condividerlo con il Service Account.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="gcal-sa">Service Account JSON</Label>
+            <Textarea
+              id="gcal-sa"
+              value={settings.gcal_service_account_json}
+              onChange={(e) => setSettings((s) => ({ ...s, gcal_service_account_json: e.target.value }))}
+              placeholder='{"type":"service_account","client_email":"...","private_key":"..."}'
+              rows={8}
+              className="font-mono text-xs"
+              maxLength={8192}
+            />
+            <p className="text-xs text-muted-foreground">
+              Incolla l'intero contenuto del file JSON. La chiave è memorizzata in modo sicuro lato server.
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
@@ -248,7 +285,7 @@ function IntegrationsPage() {
               <Label htmlFor="gcal-enabled" className="cursor-pointer">Sincronizza Calendario</Label>
             </div>
             <Button onClick={saveGcal} disabled={savingGcal}>
-              {savingGcal && <Loader2 className="size-4 animate-spin" />} Salva
+              {savingGcal && <Loader2 className="size-4 animate-spin" />} Salva Impostazioni
             </Button>
           </div>
         </CardContent>
@@ -262,6 +299,18 @@ function StatusBadge({ ok, configured }: { ok: boolean; configured: boolean }) {
     return (
       <Badge variant="secondary" className="bg-success/10 text-success border-success/20">
         Connesso
+      </Badge>
+    );
+  }
+  if (configured) return <Badge variant="outline">Configurato (disabilitato)</Badge>;
+  return <Badge variant="outline" className="text-muted-foreground">Non configurato</Badge>;
+}
+
+function GcalStatusBadge({ ok, configured }: { ok: boolean; configured: boolean }) {
+  if (ok) {
+    return (
+      <Badge variant="secondary" className="bg-success/10 text-success border-success/20">
+        Attivo
       </Badge>
     );
   }

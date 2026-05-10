@@ -13,6 +13,7 @@ import { generateMockMeetLink } from "@/components/join-video-call-button";
 import { toast } from "sonner";
 import { sendBookingConfirmationEmail } from "@/lib/email";
 import { supabase } from "@/integrations/supabase/client";
+import { syncCalendar } from "@/lib/sync-calendar";
 
 export const Route = createFileRoute("/client/book")({
   component: BookFlow,
@@ -107,6 +108,14 @@ function BookFlow() {
       for (const [iso, type] of Object.entries(picked)) {
         const meetingLink = online ? generateMockMeetLink() : null;
         addBooking({ clientId: me.id, type, scheduledAt: iso, meetingLink });
+        syncCalendar({
+          action: "create",
+          coachId: trainer.id,
+          clientName: me.full_name,
+          sessionLabel: sessionLabel(type),
+          startISO: iso,
+          meetingLink,
+        });
         await Promise.all([
           sendBookingConfirmationEmail({
             to: me.email,
