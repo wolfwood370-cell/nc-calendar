@@ -57,6 +57,10 @@ function ClientSettings() {
         setProfile(data as ProfileRow);
         setEmailEnabled(data.email_notifications ?? true);
       }
+      const { data: u } = await supabase.auth.getUser();
+      const providers = (u.user?.app_metadata?.providers as string[] | undefined) ?? [];
+      const idents = (u.user?.identities ?? []).map((i) => i.provider);
+      setGoogleLinked(providers.includes("google") || idents.includes("google"));
       setLoading(false);
     })();
   }, [user]);
