@@ -24,34 +24,40 @@ export const Route = createFileRoute("/client/book")({
 
 interface Slot { iso: string; date: Date; }
 
-// Disponibilità default del coach (Lun-Sab, 07:00-12:00 / Mer 14:00-19:00).
-// In una versione futura sarà letta da una tabella `availability_slots` per coach.
-const DEFAULT_AVAILABILITY: Array<{ dow: number; start: number; end: number }> = [
-  { dow: 1, start: 7, end: 12 },
-  { dow: 2, start: 7, end: 12 },
-  { dow: 3, start: 14, end: 19 },
-  { dow: 4, start: 7, end: 12 },
-  { dow: 5, start: 7, end: 16 },
-  { dow: 6, start: 8, end: 11 },
-];
+// day_of_week: 1=Lun ... 7=Dom (Date.getDay() restituisce 0=Dom..6=Sab)
+function jsDowToIso(d: number): number {
+  return d === 0 ? 7 : d;
+}
 
-function generateSlots(daysAhead: number, takenISO: Set<string>): Slot[] {
+function parseHM(t: string): { h: number; m: number } {
+  const [h, m] = t.split(":");
+  return { h: parseInt(h, 10), m: parseInt(m, 10) };
+}
+
+function generateSlots(daysAhead: number, takenISO: Set<string>, availability: AvailabilityRow[]): Slot[] {
   const slots: Slot[] = [];
   const now = new Date();
   for (let i = 0; i < daysAhead; i++) {
     const day = new Date(now);
     day.setDate(now.getDate() + i);
-    const av = DEFAULT_AVAILABILITY.find((a) => a.dow === day.getDay());
-    if (!av) continue;
-    for (let h = av.start; h < av.end; h++) {
-      const slot = new Date(day);
-      slot.setHours(h, 0, 0, 0);
-      if (slot.getTime() - now.getTime() < 24 * 60 * 60 * 1000) continue;
-      const iso = slot.toISOString();
-      if (takenISO.has(iso)) continue;
-      slots.push({ iso, date: slot });
+    const dow = jsDowToIso(day.getDay());
+    const blocks = availability.filter((a) => a.day_of_week === dow);
+    for (const b of blocks) {
+      const s = parseHM(b.start_time);
+      const e = parseHM(b.end_time);
+      const startMin = s.h * 60 + s.m;
+      const endMin = e.h * 60 + e.m;
+      for (let mm = startMin; mm + 60 <= endMin; mm += 60) {
+        const slot = new Date(day);
+        slot.setHours(Math.floor(mm / 60), mm % 60, 0, 0);
+        if (slot.getTime() - now.getTime() < 24 * 60 * 60 * 1000) continue;
+        const iso = slot.toISOString();
+        if (takenISO.has(iso)) continue;
+        slots.push({ iso, date: slot });
+      }
     }
   }
+  slots.sort((a, b) => a.date.getTime() - b.date.getTime());
   return slots;
 }
 
