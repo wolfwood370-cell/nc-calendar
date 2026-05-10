@@ -132,6 +132,31 @@ export function useClientBlocks(clientId?: string) {
   });
 }
 
+export interface AvailabilityRow {
+  id: string;
+  coach_id: string;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+}
+
+export function useCoachAvailability(coachId?: string | null) {
+  return useQuery({
+    queryKey: ["trainer_availability", coachId],
+    enabled: !!coachId,
+    queryFn: async (): Promise<AvailabilityRow[]> => {
+      const { data, error } = await supabase
+        .from("trainer_availability")
+        .select("id, coach_id, day_of_week, start_time, end_time")
+        .eq("coach_id", coachId!)
+        .order("day_of_week", { ascending: true })
+        .order("start_time", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as AvailabilityRow[];
+    },
+  });
+}
+
 /* ---------- mutations ---------- */
 
 export function useCancelBooking() {
