@@ -172,34 +172,40 @@ export type Database = {
       event_types: {
         Row: {
           base_type: Database["public"]["Enums"]["session_type"]
+          buffer_minutes: number
           coach_id: string
           color: string
           created_at: string
           description: string | null
           duration: number
           id: string
+          location_type: string
           name: string
           updated_at: string
         }
         Insert: {
           base_type?: Database["public"]["Enums"]["session_type"]
+          buffer_minutes?: number
           coach_id: string
           color?: string
           created_at?: string
           description?: string | null
           duration?: number
           id?: string
+          location_type?: string
           name: string
           updated_at?: string
         }
         Update: {
           base_type?: Database["public"]["Enums"]["session_type"]
+          buffer_minutes?: number
           coach_id?: string
           color?: string
           created_at?: string
           description?: string | null
           duration?: number
           id?: string
+          location_type?: string
           name?: string
           updated_at?: string
         }
