@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Outlet, useNavigate, useRouterState, Navigate } from "@tanstack/react-router";
-import { Dumbbell, Home, CalendarPlus, LogOut } from "lucide-react";
+import { Dumbbell, Home, CalendarPlus, LogOut, Settings } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { InstallPwaButton } from "@/components/install-pwa-button";
@@ -21,6 +21,7 @@ function ClientLayout() {
   const tabs = [
     { to: "/client", label: "Blocco", icon: Home, exact: true },
     { to: "/client/book", label: "Prenota", icon: CalendarPlus },
+    { to: "/client/settings", label: "Impostazioni", icon: Settings },
   ];
 
   return (
@@ -48,7 +49,7 @@ function ClientLayout() {
 
       {/* Mobile-first bottom nav */}
       <nav className="fixed bottom-0 inset-x-0 border-t bg-background/95 backdrop-blur md:static md:border-0 md:bg-transparent md:hidden">
-        <div className="mx-auto max-w-3xl grid grid-cols-2">
+        <div className="mx-auto max-w-3xl grid grid-cols-3">
           {tabs.map((t) => {
             const active = t.exact ? path === t.to : path.startsWith(t.to);
             return (

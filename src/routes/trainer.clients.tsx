@@ -22,6 +22,7 @@ import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { sendInvitationEmail } from "@/lib/email";
 import { BlockAssignmentWizard } from "@/components/block-assignment-wizard";
+import { CsvImportClients } from "@/components/csv-import-clients";
 
 export const Route = createFileRoute("/trainer/clients")({
   component: ClientsPage,
@@ -141,12 +142,21 @@ function ClientsPage() {
             Invita nuovi clienti e gestisci il roster.
           </p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button><Plus className="size-4" /> Invita cliente</Button>
-          </DialogTrigger>
-          <InviteClientDialog onSubmit={inviteClient} />
-        </Dialog>
+        <div className="flex items-center gap-2">
+          {user && (
+            <CsvImportClients
+              coachId={user.id}
+              coachName={(user.user_metadata?.full_name as string) || user.email || "il tuo Coach"}
+              onDone={load}
+            />
+          )}
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button><Plus className="size-4" /> Invita cliente</Button>
+            </DialogTrigger>
+            <InviteClientDialog onSubmit={inviteClient} />
+          </Dialog>
+        </div>
       </div>
 
       {pending.length > 0 && (

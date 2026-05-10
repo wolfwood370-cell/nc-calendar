@@ -96,6 +96,68 @@ Deno.serve(async (req) => {
     };
   }
 
+  /**
+   * Trova il training_block che copre la data e incrementa quantity_booked
+   * sull'allocation che corrisponde a event_type_id (preferendo la stessa
+   * settimana del blocco). Idempotente: il chiamante deve garantire che venga
+   * invocata solo per booking realmente "nuovi" o non ancora contabilizzati.
+   */
+  async function consumeCreditFor(clientId: string, eventTypeId: string | null, sessionType: string, scheduledAtIso: string): Promise<string | null> {
+    if (!clientId || clientId === body.coach_id) return null;
+    const dateOnly = scheduledAtIso.slice(0, 10);
+    const { data: blocks } = await supabase
+      .from("training_blocks")
+      .select("id, start_date, end_date")
+      .eq("client_id", clientId)
+      .eq("coach_id", body.coach_id)
+      .lte("start_date", dateOnly)
+      .gte("end_date", dateOnly)
+      .is("deleted_at", null)
+      .order("sequence_order", { ascending: true });
+    const block = (blocks ?? [])[0];
+    if (!block) return null;
+
+    const { data: allocs } = await supabase
+      .from("block_allocations")
+      .select("id, week_number, event_type_id, session_type, quantity_assigned, quantity_booked")
+      .eq("block_id", block.id);
+
+    const matchPool = (a: { event_type_id: string | null; session_type: string }) =>
+      eventTypeId ? a.event_type_id === eventTypeId : (a.event_type_id === null && a.session_type === sessionType);
+
+    const weeksFromStart = Math.floor((new Date(scheduledAtIso).getTime() - new Date(block.start_date).getTime()) / (1000 * 60 * 60 * 24 * 7));
+    const wn = Math.min(4, Math.max(1, weeksFromStart + 1));
+    const list = allocs ?? [];
+    const sameWeek = list.find((a) => matchPool(a) && a.week_number === wn);
+    const target = sameWeek ?? list.find(matchPool);
+    if (!target) return null;
+
+    await supabase
+      .from("block_allocations")
+      .update({ quantity_booked: target.quantity_booked + 1 })
+      .eq("id", target.id);
+    return block.id;
+  }
+
+  async function refundCreditFor(blockId: string | null, eventTypeId: string | null, sessionType: string, scheduledAtIso: string) {
+    if (!blockId) return;
+    const { data: block } = await supabase
+      .from("training_blocks").select("start_date").eq("id", blockId).maybeSingle();
+    if (!block) return;
+    const { data: allocs } = await supabase
+      .from("block_allocations")
+      .select("id, week_number, event_type_id, session_type, quantity_booked")
+      .eq("block_id", blockId);
+    const matchPool = (a: { event_type_id: string | null; session_type: string }) =>
+      eventTypeId ? a.event_type_id === eventTypeId : (a.event_type_id === null && a.session_type === sessionType);
+    const weeksFromStart = Math.floor((new Date(scheduledAtIso).getTime() - new Date(block.start_date).getTime()) / (1000 * 60 * 60 * 24 * 7));
+    const wn = Math.min(4, Math.max(1, weeksFromStart + 1));
+    const list = allocs ?? [];
+    const target = list.find((a) => matchPool(a) && a.week_number === wn) ?? list.find(matchPool);
+    if (!target || target.quantity_booked <= 0) return;
+    await supabase.from("block_allocations").update({ quantity_booked: target.quantity_booked - 1 }).eq("id", target.id);
+  }
+
   try {
     if (body.action === "create") {
       if (!body.start_iso || !body.client_name) return json({ error: "Missing create fields" }, 400);
@@ -137,7 +199,7 @@ Deno.serve(async (req) => {
         pageToken = res.data.nextPageToken as string | undefined;
       } while (pageToken);
 
-      let imported = 0, updated = 0, matched = 0;
+      let imported = 0, updated = 0, matched = 0, creditsBooked = 0;
       const now = Date.now();
       for (const ev of items) {
         const id = ev.id as string;
@@ -151,40 +213,61 @@ Deno.serve(async (req) => {
 
         const match = matchEvent(summary, attendees, ctx);
         if (match.client) matched++;
+        const clientId = match.client?.id ?? body.coach_id;
+        const sessionType = match.eventType?.base_type ?? "PT Session";
+        const eventTypeId = match.eventType?.id ?? null;
 
         const { data: existing } = await supabase
           .from("bookings")
-          .select("id, status, scheduled_at")
+          .select("id, status, scheduled_at, block_id, client_id, event_type_id, session_type")
           .eq("google_event_id", id).maybeSingle();
 
         if (existing) {
           const patch: Record<string, unknown> = {
-            client_id: match.client?.id ?? body.coach_id,
-            session_type: match.eventType?.base_type ?? "PT Session",
-            event_type_id: match.eventType?.id ?? null,
+            client_id: clientId,
+            session_type: sessionType,
+            event_type_id: eventTypeId,
             notes: `Importato da Google Calendar: ${summary}`,
           };
           if (existing.scheduled_at !== startIso) patch.scheduled_at = startIso;
           if (existing.status !== status) patch.status = status;
+
+          // Idempotenza: se l'evento è già contabilizzato (block_id presente) NON riscalare crediti.
+          if (existing.status === "cancelled" && status !== "cancelled" && match.client && !existing.block_id) {
+            const blockId = await consumeCreditFor(clientId, eventTypeId, sessionType, startIso);
+            if (blockId) { patch.block_id = blockId; creditsBooked++; }
+          }
+          if (existing.status !== "cancelled" && status === "cancelled" && existing.block_id) {
+            await refundCreditFor(existing.block_id, existing.event_type_id ?? null, existing.session_type, existing.scheduled_at);
+            patch.block_id = null;
+          }
           await supabase.from("bookings").update(patch).eq("id", existing.id);
           updated++;
           continue;
         }
 
+        // Nuovo booking importato: scala credito se matchato a un cliente reale e non cancellato
+        let blockId: string | null = null;
+        if (status !== "cancelled" && match.client) {
+          blockId = await consumeCreditFor(clientId, eventTypeId, sessionType, startIso);
+          if (blockId) creditsBooked++;
+        }
+
         const { error: insErr } = await supabase.from("bookings").insert({
           coach_id: body.coach_id,
-          client_id: match.client?.id ?? body.coach_id,
+          client_id: clientId,
           scheduled_at: startIso,
-          session_type: match.eventType?.base_type ?? "PT Session",
-          event_type_id: match.eventType?.id ?? null,
+          session_type: sessionType,
+          event_type_id: eventTypeId,
           status,
+          block_id: blockId,
           notes: `Importato da Google Calendar: ${summary}`,
           google_event_id: id,
         });
         if (!insErr) imported++;
         else console.error("sync-calendar: import insert failed", insErr);
       }
-      return json({ ok: true, imported, updated, matched, total: items.length }, 200);
+      return json({ ok: true, imported, updated, matched, creditsBooked, total: items.length }, 200);
     }
 
     if (body.action === "mirror_check") {
@@ -194,7 +277,7 @@ Deno.serve(async (req) => {
 
       const { data: locals } = await supabase
         .from("bookings")
-        .select("id, google_event_id, scheduled_at, status, client_id, event_type_id")
+        .select("id, google_event_id, scheduled_at, status, client_id, event_type_id, session_type, block_id")
         .eq("coach_id", body.coach_id)
         .not("google_event_id", "is", null)
         .gte("scheduled_at", timeMin)
@@ -211,22 +294,35 @@ Deno.serve(async (req) => {
           const attendees = (ev.data.attendees ?? []) as Array<{ email?: string }>;
 
           if (evStatus === "cancelled") {
-            await supabase.from("bookings").update({ status: "cancelled" }).eq("id", b.id);
+            await supabase.from("bookings").update({ status: "cancelled", block_id: null }).eq("id", b.id);
+            if (b.block_id) await refundCreditFor(b.block_id, b.event_type_id ?? null, b.session_type, b.scheduled_at);
             cancelled++; continue;
           }
 
           const patch: Record<string, unknown> = {};
           if (evStart && evStart !== b.scheduled_at) { patch.scheduled_at = evStart; moved++; }
 
-          // Re-mapping client / tipo evento (se cambia il titolo)
+          // Re-mapping client / tipo evento
           const match = matchEvent(summary, attendees, ctx);
           const newClient = match.client?.id ?? body.coach_id;
           const newEt = match.eventType?.id ?? null;
-          if (newClient !== b.client_id || newEt !== b.event_type_id) {
+          const newType = match.eventType?.base_type ?? "PT Session";
+          const clientChanged = newClient !== b.client_id;
+          const etChanged = newEt !== b.event_type_id;
+          if (clientChanged || etChanged) {
             patch.client_id = newClient;
             patch.event_type_id = newEt;
-            patch.session_type = match.eventType?.base_type ?? "PT Session";
+            patch.session_type = newType;
             patch.notes = `Importato da Google Calendar: ${summary}`;
+            // Restituisci il vecchio credito (se contabilizzato) e prova a scalare quello nuovo.
+            if (b.block_id) {
+              await refundCreditFor(b.block_id, b.event_type_id ?? null, b.session_type, b.scheduled_at);
+              patch.block_id = null;
+            }
+            if (match.client) {
+              const newBlockId = await consumeCreditFor(newClient, newEt, newType, evStart ?? b.scheduled_at);
+              if (newBlockId) patch.block_id = newBlockId;
+            }
             remapped++;
           }
           if (Object.keys(patch).length > 0) {
@@ -235,7 +331,8 @@ Deno.serve(async (req) => {
         } catch (err) {
           const msg = String(err);
           if (msg.includes("404") || msg.toLowerCase().includes("not found") || msg.toLowerCase().includes("deleted")) {
-            await supabase.from("bookings").update({ status: "cancelled" }).eq("id", b.id);
+            await supabase.from("bookings").update({ status: "cancelled", block_id: null }).eq("id", b.id);
+            if (b.block_id) await refundCreditFor(b.block_id, b.event_type_id ?? null, b.session_type, b.scheduled_at);
             cancelled++;
           } else {
             console.error("sync-calendar: mirror_check get error", err);

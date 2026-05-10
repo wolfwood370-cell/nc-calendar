@@ -105,7 +105,7 @@ function BookFlow() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, email, phone, coach_id")
+        .select("id, full_name, email, phone, coach_id, email_notifications")
         .eq("id", meId!)
         .maybeSingle();
       if (error) throw error;
@@ -234,6 +234,7 @@ function BookFlow() {
   const meEmail = profile?.email ?? user?.email ?? "";
   const mePhone = profile?.phone ?? null;
   const coachId = profile?.coach_id;
+  const emailNotificationsEnabled = profile?.email_notifications ?? true;
 
   const confirm = async () => {
     if (!coachId) {
@@ -301,11 +302,13 @@ function BookFlow() {
           color: eventType?.color ?? null,
         });
         void Promise.all([
-          sendBookingConfirmationEmail({
-            to: meEmail, recipientName: meName,
-            sessionLabel: displayLabel, scheduledAt: new Date(iso),
-            coachName: "Coach", clientName: meName,
-          }).catch((e) => console.error("email failed", e)),
+          emailNotificationsEnabled
+            ? sendBookingConfirmationEmail({
+                to: meEmail, recipientName: meName,
+                sessionLabel: displayLabel, scheduledAt: new Date(iso),
+                coachName: "Coach", clientName: meName,
+              }).catch((e) => console.error("email failed", e))
+            : Promise.resolve(),
           supabase.functions.invoke("booking-notifications", {
             body: {
               coach_id: coachId, client_name: meName, client_phone: mePhone,
@@ -316,7 +319,9 @@ function BookFlow() {
       }
 
       toast.success(`${totalPicked} ${totalPicked === 1 ? "sessione prenotata" : "sessioni prenotate"}`, {
-        description: "Email di conferma inviata. I link videochiamata sono generati automaticamente per le sessioni online.",
+        description: emailNotificationsEnabled
+          ? "Email di conferma inviata. I link videochiamata sono generati automaticamente per le sessioni online."
+          : "I link videochiamata sono generati automaticamente per le sessioni online.",
       });
       qc.invalidateQueries({ queryKey: ["bookings"] });
       qc.invalidateQueries({ queryKey: ["blocks"] });
