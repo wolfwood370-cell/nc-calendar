@@ -9,6 +9,9 @@ const tabs = [
 
 export function ClientBottomNav() {
   const path = useRouterState({ select: (s) => s.location.pathname });
+  // Nascondi la bottom nav nelle pagine con propria action bar sticky
+  const hideOn = path.startsWith("/client/book") || /^\/client\/bookings\//.test(path);
+  if (hideOn) return null;
   return (
     <nav className="fixed bottom-0 w-full max-w-md mx-auto z-50 rounded-t-[2rem] bg-white/70 backdrop-blur-xl border-t border-white/20 shadow-[0_-8px_30px_rgba(0,0,0,0.04)] left-1/2 -translate-x-1/2 md:hidden flex justify-around items-center px-6 py-4 pb-8">
       {tabs.map((t) => {
