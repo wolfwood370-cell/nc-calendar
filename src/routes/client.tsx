@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Outlet, useNavigate, useRouterState, Navigate } from "@tanstack/react-router";
-import { Dumbbell, Home, CalendarPlus, LogOut } from "lucide-react";
+import { Dumbbell, Home, CalendarPlus, LogOut, Settings } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { InstallPwaButton } from "@/components/install-pwa-button";
