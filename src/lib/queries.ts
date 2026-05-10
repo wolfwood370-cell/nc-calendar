@@ -252,6 +252,41 @@ export function useCancelBooking() {
   });
 }
 
+export function useCoachCancelBooking() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (booking: BookingRow) => {
+      const { error } = await supabase
+        .from("bookings")
+        .update({ status: "cancelled" as BookingStatus, deleted_at: new Date().toISOString() })
+        .eq("id", booking.id);
+      if (error) throw error;
+
+      if (booking.block_id) {
+        const { data: allocs } = await supabase
+          .from("block_allocations")
+          .select("id, event_type_id, session_type, quantity_booked")
+          .eq("block_id", booking.block_id);
+        const list = (allocs ?? []) as Array<{ id: string; event_type_id: string | null; session_type: SessionType; quantity_booked: number }>;
+        const match =
+          list.find((a) => booking.event_type_id && a.event_type_id === booking.event_type_id && a.quantity_booked > 0) ??
+          list.find((a) => a.session_type === booking.session_type && a.quantity_booked > 0);
+        if (match) {
+          await supabase
+            .from("block_allocations")
+            .update({ quantity_booked: Math.max(0, match.quantity_booked - 1) })
+            .eq("id", match.id);
+        }
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["bookings"] });
+      qc.invalidateQueries({ queryKey: ["blocks"] });
+      qc.invalidateQueries({ queryKey: ["block-allocations"] });
+    },
+  });
+}
+
 export function useMarkNoShow() {
   const qc = useQueryClient();
   return useMutation({

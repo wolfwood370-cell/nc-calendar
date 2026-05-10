@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Bell, Calendar, LogOut, Mail, ChevronRight, Link as LinkIcon } from "lucide-react";
+import { Bell, Calendar, LogOut, Mail, ChevronRight, Link as LinkIcon, CheckCircle, Loader2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -40,6 +40,9 @@ function ClientSettings() {
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
 
+  const [googleLinked, setGoogleLinked] = useState(false);
+  const [googleLinking, setGoogleLinking] = useState(false);
+
   useEffect(() => {
     setPushSupported(isPushSupported());
     void getCurrentPushSubscription().then((s) => setPushEnabled(!!s));
@@ -54,6 +57,10 @@ function ClientSettings() {
         setProfile(data as ProfileRow);
         setEmailEnabled(data.email_notifications ?? true);
       }
+      const { data: u } = await supabase.auth.getUser();
+      const providers = (u.user?.app_metadata?.providers as string[] | undefined) ?? [];
+      const idents = (u.user?.identities ?? []).map((i) => i.provider);
+      setGoogleLinked(providers.includes("google") || idents.includes("google"));
       setLoading(false);
     })();
   }, [user]);
@@ -124,10 +131,20 @@ function ClientSettings() {
     navigate({ to: "/auth" });
   };
 
-  const handleConnectGoogle = () => {
-    toast("Integrazione Google in arrivo!", {
-      description: "Stiamo lavorando per collegare il tuo Google Calendar.",
-    });
+  const handleConnectGoogle = async () => {
+    if (googleLinked || googleLinking) return;
+    setGoogleLinking(true);
+    try {
+      const { error } = await supabase.auth.linkIdentity({
+        provider: "google",
+        options: { redirectTo: window.location.origin + "/client/settings" },
+      });
+      if (error) throw error;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Riprova";
+      toast.error("Collegamento non riuscito", { description: msg });
+      setGoogleLinking(false);
+    }
   };
 
   const fullName = profile?.full_name ?? user?.email ?? "Cliente";
@@ -218,20 +235,29 @@ function ClientSettings() {
             <button
               type="button"
               onClick={handleConnectGoogle}
-              className="w-full flex items-center gap-4 px-5 py-4 text-left hover:bg-surface-container-high transition-colors active:scale-[0.99]"
+              disabled={googleLinked || googleLinking || loading}
+              className="w-full flex items-center gap-4 px-5 py-4 text-left hover:bg-surface-container-high transition-colors active:scale-[0.99] disabled:opacity-100 disabled:cursor-default"
             >
               <span className="size-10 rounded-full bg-primary-container/10 text-primary-container grid place-items-center">
                 <Calendar className="size-5" />
               </span>
               <span className="flex-1 min-w-0">
                 <span className="block text-base font-medium text-on-surface">
-                  Collega Account Google
+                  {googleLinked ? "Account Google Collegato" : "Collega Account Google"}
                 </span>
                 <span className="block text-sm text-on-surface-variant">
-                  Sincronizza il tuo Google Calendar
+                  {googleLinked
+                    ? "Il tuo account è collegato a Google"
+                    : "Accedi anche con Google"}
                 </span>
               </span>
-              <LinkIcon className="size-5 text-on-surface-variant" />
+              {googleLinking ? (
+                <Loader2 className="size-5 text-on-surface-variant animate-spin" />
+              ) : googleLinked ? (
+                <CheckCircle className="size-5 text-emerald-600" />
+              ) : (
+                <LinkIcon className="size-5 text-on-surface-variant" />
+              )}
             </button>
           </div>
         </section>

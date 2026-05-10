@@ -12,9 +12,13 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Loader2, MoreHorizontal, UserX, NotebookPen, Save } from "lucide-react";
+import { Loader2, MoreHorizontal, UserX, NotebookPen, Save, Trash2 } from "lucide-react";
 import { sessionLabel } from "@/lib/mock-data";
-import { useCoachBookings, useCoachClients, useCoachEventTypes, useMarkNoShow, useUpdateTrainerNotes, type BookingRow } from "@/lib/queries";
+import { useCoachBookings, useCoachClients, useCoachEventTypes, useMarkNoShow, useUpdateTrainerNotes, useCoachCancelBooking, type BookingRow } from "@/lib/queries";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { AddToCalendarButton } from "@/components/add-to-calendar-button";
 import { JoinVideoCallButton } from "@/components/join-video-call-button";
 import { BookingStatusBadge } from "@/components/booking-status-badge";
@@ -41,8 +45,20 @@ function CalendarPage() {
   const eventTypesQ = useCoachEventTypes(user?.id);
   const noShow = useMarkNoShow();
   const updateNotes = useUpdateTrainerNotes();
+  const cancelBooking = useCoachCancelBooking();
   const [activeBooking, setActiveBooking] = useState<BookingRow | null>(null);
   const [notesDraft, setNotesDraft] = useState("");
+
+  const handleCancelBooking = () => {
+    if (!activeBooking) return;
+    cancelBooking.mutate(activeBooking, {
+      onSuccess: () => {
+        toast.success("Appuntamento cancellato e credito rimborsato.");
+        setActiveBooking(null);
+      },
+      onError: (e: unknown) => toast.error("Errore", { description: (e as Error).message }),
+    });
+  };
 
   const openNotes = (b: BookingRow) => {
     setActiveBooking(b);
@@ -280,12 +296,42 @@ function CalendarPage() {
               onChange={(e) => setNotesDraft(e.target.value)}
             />
           </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setActiveBooking(null)}>Annulla</Button>
-            <Button onClick={saveNotes} disabled={updateNotes.isPending}>
-              {updateNotes.isPending ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-              Salva note
-            </Button>
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:justify-between">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="destructive"
+                  disabled={!activeBooking || activeBooking.status === "cancelled" || cancelBooking.isPending}
+                >
+                  {cancelBooking.isPending ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+                  Cancella Appuntamento
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Cancellare l'appuntamento?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Questa azione annullerà l'evento. Il credito verrà automaticamente rimborsato nel blocco del cliente.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Indietro</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleCancelBooking}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Sì, cancella
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            <div className="flex gap-2">
+              <Button variant="ghost" onClick={() => setActiveBooking(null)}>Chiudi</Button>
+              <Button onClick={saveNotes} disabled={updateNotes.isPending}>
+                {updateNotes.isPending ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+                Salva note
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
