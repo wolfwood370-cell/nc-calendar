@@ -158,7 +158,7 @@ export function BlockAssignmentWizard({ clientId, clientName, onCreated }: Props
       {step === 2 && (
         <div className="space-y-4">
           <CardDescription>
-            Quante sessioni a settimana per ciascuna tipologia? Le stesse quote saranno applicate a tutti i blocchi creati.
+            Crediti totali per Blocco (4 settimane) per ciascuna tipologia. Le stesse quote saranno applicate a tutti i blocchi creati.
           </CardDescription>
           {eventTypesQ.isLoading ? (
             <Skeleton className="h-32 w-full" />
@@ -189,7 +189,7 @@ export function BlockAssignmentWizard({ clientId, clientName, onCreated }: Props
                       value={quotas[et.id] ?? 0}
                       onChange={(e) => setQty(et.id, parseInt(e.target.value) || 0)}
                     />
-                    <span className="text-xs text-muted-foreground">/ sett.</span>
+                    <span className="text-xs text-muted-foreground">/ blocco</span>
                   </div>
                 </div>
               ))}
