@@ -162,6 +162,11 @@ function IntegrationsPage() {
     if (ok) toast.success(v ? "Sincronizzazione calendario abilitata" : "Sincronizzazione calendario disabilitata");
   };
 
+  const toggleOptimization = async (v: boolean) => {
+    const ok = await upsert({ calendar_optimization_enabled: v });
+    if (ok) toast.success(v ? "Ottimizzazione calendario attivata" : "Ottimizzazione calendario disattivata");
+  };
+
   const waConfigured = !!settings.wa_phone_id && !!settings.wa_access_token;
   const gcalConfigured = !!settings.gcal_calendar_id && !!settings.gcal_service_account_json;
 
