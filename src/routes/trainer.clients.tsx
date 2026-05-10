@@ -10,14 +10,18 @@ import {
 } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import {
+  Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger,
+} from "@/components/ui/sheet";
+import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Plus, Search, Loader2, Mail, X, Archive } from "lucide-react";
+import { Plus, Search, Loader2, Mail, X, Archive, CalendarPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { sendInvitationEmail } from "@/lib/email";
+import { BlockAssignmentWizard } from "@/components/block-assignment-wizard";
 
 export const Route = createFileRoute("/trainer/clients")({
   component: ClientsPage,
