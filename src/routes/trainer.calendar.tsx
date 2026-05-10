@@ -329,35 +329,7 @@ function CalendarPage() {
               onChange={(e) => setNotesDraft(e.target.value)}
             />
           </div>
-          <DialogFooter className="flex-col sm:flex-row gap-2 sm:justify-between">
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant="destructive"
-                  disabled={!activeBooking || activeBooking.status === "cancelled" || cancelBooking.isPending}
-                >
-                  {cancelBooking.isPending ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
-                  Cancella Appuntamento
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Cancellare l'appuntamento?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Questa azione annullerà l'evento. Il credito verrà automaticamente rimborsato nel blocco del cliente.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Indietro</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleCancelBooking}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  >
-                    Sì, cancella
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:justify-end">
             <div className="flex gap-2">
               <Button variant="ghost" onClick={() => setActiveBooking(null)}>Chiudi</Button>
               <Button onClick={saveNotes} disabled={updateNotes.isPending}>
