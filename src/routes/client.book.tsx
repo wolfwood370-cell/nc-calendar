@@ -285,59 +285,73 @@ function BookFlow() {
       </Card>
 
       <div className="space-y-4">
-        {[...grouped.entries()].slice(0, 14).map(([day, daySlots]) => (
-          <Card key={day}>
-            <CardHeader>
-              <CardTitle className="text-base">
-                {new Date(day).toLocaleDateString("it-IT", { weekday: "long", month: "long", day: "numeric" })}
-              </CardTitle>
-              <CardDescription>{daySlots.length} slot disponibili</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
-                {daySlots.map((s) => {
-                  const chosen = picked[s.iso];
-                  return (
-                    <div
-                      key={s.iso}
-                      className={`rounded-lg border p-3 transition ${chosen ? "border-primary bg-primary/5" : "hover:border-primary/40"}`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <p className="font-display font-semibold tabular-nums">
-                          {s.date.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
-                        </p>
-                        {chosen && <Badge>{sessionLabel(chosen)}</Badge>}
-                      </div>
-                      <Select
-                        value={chosen ?? ""}
-                        onValueChange={(v) => togglePick(s.iso, v as SessionType | "")}
-                      >
-                        <SelectTrigger className="mt-2 h-8 text-xs">
-                          <SelectValue placeholder="Aggiungi sessione…" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="PT Session">Sessione PT</SelectItem>
-                          <SelectItem value="BIA">BIA</SelectItem>
-                          <SelectItem value="Functional Test">Test Funzionale</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {chosen && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="mt-1 h-7 text-xs w-full"
-                          onClick={() => togglePick(s.iso, "")}
-                        >
-                          Rimuovi
-                        </Button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+        {grouped.size === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center text-sm text-muted-foreground">
+              {(availQ.data ?? []).length === 0
+                ? "Il tuo coach non ha ancora configurato la sua disponibilità. Contattalo per maggiori informazioni."
+                : "Nessuna disponibilità nei prossimi giorni. Tutti gli slot sono già prenotati."}
             </CardContent>
           </Card>
-        ))}
+        ) : (
+          [...grouped.entries()].slice(0, 14).map(([day, daySlots]) => (
+            <Card key={day}>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  {new Date(day).toLocaleDateString("it-IT", { weekday: "long", month: "long", day: "numeric" })}
+                </CardTitle>
+                <CardDescription>
+                  {daySlots.length === 0
+                    ? "Nessuna disponibilità in questa data"
+                    : `${daySlots.length} slot disponibili`}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
+                  {daySlots.map((s) => {
+                    const chosen = picked[s.iso];
+                    return (
+                      <div
+                        key={s.iso}
+                        className={`rounded-lg border p-3 transition ${chosen ? "border-primary bg-primary/5" : "hover:border-primary/40"}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <p className="font-display font-semibold tabular-nums">
+                            {s.date.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                          {chosen && <Badge>{sessionLabel(chosen)}</Badge>}
+                        </div>
+                        <Select
+                          value={chosen ?? ""}
+                          onValueChange={(v) => togglePick(s.iso, v as SessionType | "")}
+                        >
+                          <SelectTrigger className="mt-2 h-8 text-xs">
+                            <SelectValue placeholder="Aggiungi sessione…" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="PT Session">Sessione PT</SelectItem>
+                            <SelectItem value="BIA">BIA</SelectItem>
+                            <SelectItem value="Functional Test">Test Funzionale</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {chosen && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="mt-1 h-7 text-xs w-full"
+                            onClick={() => togglePick(s.iso, "")}
+                          >
+                            Rimuovi
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
     </div>
   );
