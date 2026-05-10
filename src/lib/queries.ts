@@ -35,6 +35,7 @@ export interface AllocationRow {
   event_type_id: string | null;
   quantity_assigned: number;
   quantity_booked: number;
+  valid_until: string | null;
 }
 
 export interface BlockRow {
@@ -123,7 +124,7 @@ async function loadBlocks(filter: { coach_id?: string; client_id?: string }): Pr
   if (ids.length === 0) return [];
   const { data: allocs, error: aerr } = await supabase
     .from("block_allocations")
-    .select("id, block_id, week_number, session_type, event_type_id, quantity_assigned, quantity_booked")
+    .select("id, block_id, week_number, session_type, event_type_id, quantity_assigned, quantity_booked, valid_until")
     .in("block_id", ids);
   if (aerr) throw aerr;
   return (blocks ?? []).map((b) => ({
