@@ -154,6 +154,8 @@ export interface EventTypeRow {
   color: string;
   duration: number;
   base_type: SessionType;
+  location_type: "physical" | "online";
+  buffer_minutes: number;
 }
 
 export function useCoachEventTypes(coachId?: string | null) {
