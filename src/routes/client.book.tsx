@@ -267,7 +267,7 @@ function BookFlow() {
       }
 
       toast.success(`${totalPicked} ${totalPicked === 1 ? "sessione prenotata" : "sessioni prenotate"}`, {
-        description: online ? "Link videochiamata generato e inviato via email." : "Email di conferma inviata.",
+        description: "Email di conferma inviata. I link videochiamata sono generati automaticamente per le sessioni online.",
       });
       qc.invalidateQueries({ queryKey: ["bookings"] });
       qc.invalidateQueries({ queryKey: ["blocks"] });
