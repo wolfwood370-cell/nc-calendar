@@ -135,7 +135,7 @@ function ClientHome() {
       {
         onSuccess: () => {
           if (coachId) {
-            syncCalendar({ action: "cancel", coachId, googleEventId: (b as { google_event_id?: string | null }).google_event_id ?? null });
+            syncCalendar({ action: "cancel", coachId, googleEventId: b.google_event_id });
           }
           toast.error("Cancellazione tardiva", { description: "Il credito di questa sessione è stato perso." });
           setPendingLate(null);
