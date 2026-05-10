@@ -11,7 +11,7 @@ const corsHeaders = {
 };
 
 interface SyncPayload {
-  action: "create" | "cancel" | "import_history" | "mirror_check";
+  action: "create" | "cancel" | "update" | "import_history" | "mirror_check";
   coach_id: string;
   client_name?: string;
   session_label?: string;
@@ -20,6 +20,7 @@ interface SyncPayload {
   meeting_link?: string | null;
   color?: string | null;
   google_event_id?: string | null;
+  late?: boolean;
   range_start_iso?: string;
   range_end_iso?: string;
   service_account_json?: string;
