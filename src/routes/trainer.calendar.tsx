@@ -12,9 +12,13 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Loader2, MoreHorizontal, UserX, NotebookPen, Save } from "lucide-react";
+import { Loader2, MoreHorizontal, UserX, NotebookPen, Save, Trash2 } from "lucide-react";
 import { sessionLabel } from "@/lib/mock-data";
-import { useCoachBookings, useCoachClients, useCoachEventTypes, useMarkNoShow, useUpdateTrainerNotes, type BookingRow } from "@/lib/queries";
+import { useCoachBookings, useCoachClients, useCoachEventTypes, useMarkNoShow, useUpdateTrainerNotes, useCoachCancelBooking, type BookingRow } from "@/lib/queries";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { AddToCalendarButton } from "@/components/add-to-calendar-button";
 import { JoinVideoCallButton } from "@/components/join-video-call-button";
 import { BookingStatusBadge } from "@/components/booking-status-badge";
