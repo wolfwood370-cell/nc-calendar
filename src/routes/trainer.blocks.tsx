@@ -94,7 +94,10 @@ function ActiveBlocksList({ eventTypes }: { eventTypes: EventTypeRow[] }) {
                     <TableCell>{new Date(b.end_date).toLocaleDateString("it-IT")}</TableCell>
                     <TableCell><Badge variant="secondary">{total}</Badge></TableCell>
                     <TableCell className="text-right">
-                      <EditBlockDialog block={b} bookingDates={blockBookings.map((x) => x.scheduled_at)} eventTypes={eventTypes} />
+                      <div className="flex justify-end gap-1">
+                        <EditBlockDialog block={b} bookingDates={blockBookings.map((x) => x.scheduled_at)} eventTypes={eventTypes} />
+                        <DeleteBlockButton blockId={b.id} bookingsCount={blockBookings.length} />
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
