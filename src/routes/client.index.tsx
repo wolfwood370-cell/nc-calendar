@@ -171,7 +171,7 @@ function ClientHome() {
               e.preventDefault();
               document.getElementById("storico")?.scrollIntoView({ behavior: "smooth" });
             }}
-            className="w-full bg-transparent border border-outline-variant text-secondary font-semibold text-base py-4 rounded-full hover:bg-surface-container-high transition active:scale-95 flex items-center justify-center gap-2"
+            className="w-full bg-surface-container-high text-on-surface font-semibold text-base py-4 rounded-full hover:bg-surface-container-highest transition-colors active:scale-95 flex items-center justify-center gap-2"
           >
             <History className="size-5" />
             Vedi Storico
