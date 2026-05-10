@@ -300,11 +300,6 @@ function BookFlow() {
             </Badge>
           ))}
           <div className="ml-auto flex items-center gap-3">
-            <div className="flex items-center gap-2 rounded-md border px-3 py-1.5">
-              <Video className="size-4 text-primary" />
-              <Label htmlFor="online-toggle" className="text-sm cursor-pointer">Sessione Online</Label>
-              <Switch id="online-toggle" checked={online} onCheckedChange={setOnline} />
-            </div>
             <Button onClick={confirm} disabled={totalPicked === 0 || confirming}>
               {confirming ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
               Conferma {totalPicked > 0 && `(${totalPicked})`}
