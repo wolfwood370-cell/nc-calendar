@@ -125,36 +125,31 @@ function ClientHome() {
         </section>
 
         {/* Prossimo Appuntamento */}
-        <section>
-          <h3 className="text-sm font-semibold text-on-surface-variant uppercase tracking-wider mb-stack-sm ml-2">
-            Prossimo Appuntamento
-          </h3>
-          {isLoading ? (
-            <Skeleton className="h-32 w-full rounded-[32px]" />
-          ) : nextBooking ? (
-            <NextAppointmentCard
-              bookingId={nextBooking.id}
-              date={new Date(nextBooking.scheduled_at)}
-              durationMin={nextEventType?.duration ?? 60}
-              label={nextEventType?.name ?? sessionLabel(nextBooking.session_type)}
-              color={nextEventType?.color ?? "#039BE5"}
-              calendarUrl={generateGoogleCalendarLink(
-                nextBooking,
-                nextEventType
-                  ? {
-                      name: nextEventType.name,
-                      duration: nextEventType.duration,
-                      location_type: nextEventType.location_type,
-                      location_address: nextEventType.location_address,
-                    }
-                  : null,
-                fullName,
-              )}
-            />
-          ) : (
-            <EmptyAppointment onBook={() => navigate({ to: "/client/book" })} />
-          )}
-        </section>
+        {isLoading ? (
+          <Skeleton className="h-40 w-full rounded-[32px]" />
+        ) : nextBooking ? (
+          <NextAppointmentCard
+            bookingId={nextBooking.id}
+            date={new Date(nextBooking.scheduled_at)}
+            durationMin={nextEventType?.duration ?? 60}
+            label={nextEventType?.name ?? sessionLabel(nextBooking.session_type)}
+            color={nextEventType?.color ?? "#039BE5"}
+            calendarUrl={generateGoogleCalendarLink(
+              nextBooking,
+              nextEventType
+                ? {
+                    name: nextEventType.name,
+                    duration: nextEventType.duration,
+                    location_type: nextEventType.location_type,
+                    location_address: nextEventType.location_address,
+                  }
+                : null,
+              fullName,
+            )}
+          />
+        ) : (
+          <EmptyAppointment onBook={() => navigate({ to: "/client/book" })} />
+        )}
 
         {/* Quick Actions */}
         <section className="flex flex-col gap-stack-md mt-4">
