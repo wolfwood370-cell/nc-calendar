@@ -85,7 +85,7 @@ function ClientHome() {
             <div className="w-10 h-10 rounded-full bg-primary-container text-on-primary-container grid place-items-center border-2 border-surface-container-lowest shadow-sm font-semibold">
               {firstName.charAt(0).toUpperCase()}
             </div>
-            <h1 className="text-[28px] leading-9 font-bold text-[#003e62]">Ciao {firstName}</h1>
+            <h1 className="text-2xl font-bold text-[#003e62]">Ciao {firstName}</h1>
           </div>
           <button
             type="button"
@@ -101,7 +101,7 @@ function ClientHome() {
         {/* Hero: Progressi */}
         <section className="bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-stack-lg border border-outline-variant/30 relative overflow-hidden">
           <div className="absolute -top-10 -right-10 w-32 h-32 bg-[#003e62]/5 rounded-full blur-3xl pointer-events-none" />
-          <h2 className="text-2xl font-semibold text-on-surface mb-6">I Tuoi Progressi</h2>
+          <h2 className="text-lg font-semibold text-on-surface mb-6">I Tuoi Progressi</h2>
 
           {isLoading ? (
             <div className="flex justify-around"><Skeleton className="h-24 w-24 rounded-full" /><Skeleton className="h-24 w-24 rounded-full" /></div>
