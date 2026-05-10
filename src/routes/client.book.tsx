@@ -191,15 +191,20 @@ function BookFlow() {
       // tracker locale per non sforare quando si prenotano più slot dello stesso tipo
       const localUsed: Record<string, number> = {}; // alloc_id -> count
 
-      for (const [iso, type] of Object.entries(picked)) {
+      for (const [iso, pick] of Object.entries(picked)) {
+        const type = pick.type;
+        const eventType = pick.eventTypeId
+          ? customTypes.find((e) => e.id === pick.eventTypeId)
+          : null;
+        const displayLabel = eventType?.name ?? sessionLabel(type);
         const alloc = findAllocationForWeek(type, iso);
         if (!alloc) {
-          toast.error(`Credito esaurito per ${sessionLabel(type)}.`);
+          toast.error(`Credito esaurito per ${displayLabel}.`);
           continue;
         }
         const used = localUsed[alloc.id] ?? 0;
         if (used >= alloc.remaining) {
-          toast.error(`Credito esaurito per ${sessionLabel(type)} questa settimana.`);
+          toast.error(`Credito esaurito per ${displayLabel} questa settimana.`);
           continue;
         }
         const meetingLink = online ? generateMockMeetLink() : null;
@@ -236,18 +241,18 @@ function BookFlow() {
         // notifications (fire and forget)
         syncCalendar({
           action: "create", coachId, clientName: meName,
-          sessionLabel: sessionLabel(type), startISO: iso, meetingLink,
+          sessionLabel: displayLabel, startISO: iso, meetingLink,
         });
         void Promise.all([
           sendBookingConfirmationEmail({
             to: meEmail, recipientName: meName,
-            sessionLabel: sessionLabel(type), scheduledAt: new Date(iso),
+            sessionLabel: displayLabel, scheduledAt: new Date(iso),
             coachName: "Coach", clientName: meName,
           }).catch((e) => console.error("email failed", e)),
           supabase.functions.invoke("booking-notifications", {
             body: {
               coach_id: coachId, client_name: meName, client_phone: mePhone,
-              scheduled_at: iso, session_label: sessionLabel(type), meeting_link: meetingLink,
+              scheduled_at: iso, session_label: displayLabel, meeting_link: meetingLink,
             },
           }).catch((e) => console.error("booking-notifications failed", e)),
         ]);
