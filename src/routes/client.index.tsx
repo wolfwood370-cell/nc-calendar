@@ -14,6 +14,7 @@ import { useMemo, useState } from "react";
 import { AddToCalendarButton } from "@/components/add-to-calendar-button";
 import { JoinVideoCallButton } from "@/components/join-video-call-button";
 import { toast } from "sonner";
+import { syncCalendar } from "@/lib/sync-calendar";
 
 export const Route = createFileRoute("/client/")({
   component: ClientHome,
