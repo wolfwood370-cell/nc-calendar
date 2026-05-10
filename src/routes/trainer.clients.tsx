@@ -142,12 +142,21 @@ function ClientsPage() {
             Invita nuovi clienti e gestisci il roster.
           </p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button><Plus className="size-4" /> Invita cliente</Button>
-          </DialogTrigger>
-          <InviteClientDialog onSubmit={inviteClient} />
-        </Dialog>
+        <div className="flex items-center gap-2">
+          {user && (
+            <CsvImportClients
+              coachId={user.id}
+              coachName={(user.user_metadata?.full_name as string) || user.email || "il tuo Coach"}
+              onDone={load}
+            />
+          )}
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button><Plus className="size-4" /> Invita cliente</Button>
+            </DialogTrigger>
+            <InviteClientDialog onSubmit={inviteClient} />
+          </Dialog>
+        </div>
       </div>
 
       {pending.length > 0 && (
