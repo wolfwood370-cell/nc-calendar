@@ -322,6 +322,10 @@ function InviteClientDialog({ onSubmit }: { onSubmit: (d: { name: string; email:
 
 function AssignBlocksSheet({ clientId, clientName }: { clientId: string; clientName: string }) {
   const [open, setOpen] = useState(false);
+  const blocksQ = useClientBlocks(open ? clientId : undefined);
+  const { user } = useAuth();
+  const bookingsQ = useCoachBookings(open ? user?.id : undefined);
+  const activeBlocks = (blocksQ.data ?? []).filter((b) => b.status === "active");
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
@@ -336,6 +340,30 @@ function AssignBlocksSheet({ clientId, clientName }: { clientId: string; clientN
             Definisci data di partenza, numero di blocchi sequenziali e quote settimanali per tipologia.
           </SheetDescription>
         </SheetHeader>
+
+        {activeBlocks.length > 0 && (
+          <div className="mt-4 space-y-2">
+            <h3 className="text-sm font-medium">Blocchi attivi</h3>
+            <div className="space-y-2">
+              {activeBlocks.map((b) => {
+                const bookingsCount = (bookingsQ.data ?? []).filter((bk) => bk.block_id === b.id).length;
+                return (
+                  <div key={b.id} className="flex items-center justify-between rounded-md border p-3 text-sm">
+                    <div>
+                      <div className="font-medium">Blocco #{b.sequence_order ?? 1}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(b.start_date).toLocaleDateString("it-IT")} → {new Date(b.end_date).toLocaleDateString("it-IT")}
+                      </div>
+                    </div>
+                    <DeleteBlockButton blockId={b.id} bookingsCount={bookingsCount} />
+                  </div>
+                );
+              })}
+            </div>
+            <Separator className="my-4" />
+          </div>
+        )}
+
         <div className="mt-4">
           <BlockAssignmentWizard
             clientId={clientId}
