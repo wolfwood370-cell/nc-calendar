@@ -8,7 +8,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChevronLeft, ChevronRight, Check, Sparkles, Loader2, Pencil, AlertTriangle } from "lucide-react";
-import { sessionLabel } from "@/lib/mock-data";
+import { sessionLabel, type SessionType } from "@/lib/mock-data";
 import {
   useCoachClients, useCoachBlocks, useCoachBookings, useCoachEventTypes,
   type BlockRow, type EventTypeRow,
