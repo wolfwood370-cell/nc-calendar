@@ -3,6 +3,7 @@ import { Dumbbell, Home, CalendarPlus, LogOut, Settings } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { InstallPwaButton } from "@/components/install-pwa-button";
+import { PwaInstallToast } from "@/components/pwa-install-toast";
 
 export const Route = createFileRoute("/client")({
   component: ClientLayout,
@@ -26,6 +27,7 @@ function ClientLayout() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <PwaInstallToast />
       <header className="border-b sticky top-0 bg-background/80 backdrop-blur z-10">
         <div className="mx-auto max-w-3xl px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
