@@ -218,7 +218,144 @@ function BlockBuilder() {
           </div>
         </CardContent>
       </Card>
+
+      <ActiveBlocksList />
     </div>
+  );
+}
+
+function ActiveBlocksList() {
+  const { user } = useAuth();
+  const blocksQ = useCoachBlocks(user?.id);
+  const clientsQ = useCoachClients(user?.id);
+  const bookingsQ = useCoachBookings(user?.id);
+
+  const clientName = (id: string) =>
+    clientsQ.data?.find((c) => c.id === id)?.full_name ??
+    clientsQ.data?.find((c) => c.id === id)?.email ??
+    "Cliente";
+
+  const active = (blocksQ.data ?? []).filter((b) => b.status === "active");
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Blocchi attivi</CardTitle>
+        <CardDescription>Modifica le date di un blocco esistente.</CardDescription>
+      </CardHeader>
+      <CardContent className="p-0">
+        {blocksQ.isLoading ? (
+          <div className="p-6"><Skeleton className="h-24 w-full" /></div>
+        ) : active.length === 0 ? (
+          <p className="p-6 text-sm text-muted-foreground text-center">Nessun blocco attivo.</p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Inizio</TableHead>
+                <TableHead>Fine</TableHead>
+                <TableHead>Sessioni</TableHead>
+                <TableHead className="text-right">Azioni</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {active.map((b) => {
+                const total = b.allocations.reduce((s, a) => s + a.quantity_assigned, 0);
+                const blockBookings = (bookingsQ.data ?? []).filter((bk) => bk.block_id === b.id);
+                return (
+                  <TableRow key={b.id}>
+                    <TableCell className="font-medium">{clientName(b.client_id)}</TableCell>
+                    <TableCell>{new Date(b.start_date).toLocaleDateString("it-IT")}</TableCell>
+                    <TableCell>{new Date(b.end_date).toLocaleDateString("it-IT")}</TableCell>
+                    <TableCell><Badge variant="secondary">{total}</Badge></TableCell>
+                    <TableCell className="text-right">
+                      <EditBlockDialog block={b} bookingDates={blockBookings.map((x) => x.scheduled_at)} />
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function EditBlockDialog({ block, bookingDates }: { block: BlockRow; bookingDates: string[] }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [startDate, setStartDate] = useState(block.start_date);
+
+  const newEnd = (() => {
+    const d = new Date(startDate);
+    d.setDate(d.getDate() + 28);
+    return d;
+  })();
+
+  const outsideBookings = bookingDates.filter((iso) => {
+    const t = new Date(iso).getTime();
+    return t < new Date(startDate).getTime() || t > newEnd.getTime();
+  }).length;
+
+  const update = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("training_blocks")
+        .update({ start_date: startDate, end_date: newEnd.toISOString().slice(0, 10) })
+        .eq("id", block.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Blocco aggiornato", {
+        description: outsideBookings > 0
+          ? `${outsideBookings} prenotazioni ora cadono fuori dal blocco.`
+          : "Date riallineate correttamente.",
+      });
+      qc.invalidateQueries({ queryKey: ["blocks"] });
+      setOpen(false);
+    },
+    onError: (e: unknown) => toast.error("Errore", { description: (e as Error).message }),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="ghost"><Pencil className="size-4" /> Modifica blocco</Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Modifica date blocco</DialogTitle>
+          <DialogDescription>
+            Sposta la data di inizio: la fine si ricalcola automaticamente a 4 settimane.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Nuova data di inizio</Label>
+            <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+          </div>
+          <div className="rounded-md bg-accent/40 p-3 text-sm">
+            Nuova fine: <span className="font-medium">{newEnd.toLocaleDateString("it-IT")}</span>
+          </div>
+          {outsideBookings > 0 && (
+            <div className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">
+              <AlertTriangle className="size-4 text-warning shrink-0 mt-0.5" />
+              <p>
+                Attenzione: {outsideBookings} prenotazion{outsideBookings === 1 ? "e cadrà" : "i cadranno"} fuori dalle nuove date del blocco.
+                Le prenotazioni esistenti restano comunque valide.
+              </p>
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button onClick={() => update.mutate()} disabled={update.isPending}>
+            {update.isPending && <Loader2 className="size-4 animate-spin" />} Salva
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
