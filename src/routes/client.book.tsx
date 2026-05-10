@@ -83,7 +83,8 @@ function BookFlow() {
     },
   });
 
-  const [picked, setPicked] = useState<Record<string, SessionType>>({});
+  interface Pick { type: SessionType; eventTypeId: string | null; }
+  const [picked, setPicked] = useState<Record<string, Pick>>({});
   const [online, setOnline] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
