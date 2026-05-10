@@ -266,6 +266,7 @@ function BookFlow() {
     try {
       // tracker locale per non sforare quando si prenotano più slot dello stesso tipo
       const localUsed: Record<string, number> = {}; // alloc_id -> count
+      let bookedCount = 0;
 
       for (const [iso, pick] of Object.entries(picked)) {
         const type = pick.type;
