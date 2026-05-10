@@ -7,13 +7,15 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronLeft, ChevronRight, Check, Sparkles, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, Sparkles, Loader2, Pencil, AlertTriangle } from "lucide-react";
 import { sessionLabel, SESSION_TYPES, type SessionType } from "@/lib/mock-data";
-import { useCoachClients } from "@/lib/queries";
+import { useCoachClients, useCoachBlocks, useCoachBookings, type BlockRow } from "@/lib/queries";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export const Route = createFileRoute("/trainer/blocks")({
   component: BlockBuilder,
