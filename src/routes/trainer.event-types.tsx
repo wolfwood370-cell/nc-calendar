@@ -219,7 +219,7 @@ function EventTypeDialog({
 }) {
   const [name, setName] = useState(initial?.name ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
-  const [color, setColor] = useState(initial?.color ?? COLOR_PRESETS[0]);
+  const [color, setColor] = useState(initial?.color ?? GCAL_DEFAULT);
   const [duration, setDuration] = useState<number>(initial?.duration ?? 60);
   const [locationType, setLocationType] = useState<"physical" | "online">(initial?.location_type ?? "physical");
   const [bufferMinutes, setBufferMinutes] = useState<number>(initial?.buffer_minutes ?? 0);
