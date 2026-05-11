@@ -121,17 +121,22 @@ function EventTypesPage() {
   const types = listQ.data ?? [];
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+    <div className="min-h-screen bg-[#f8f9fe] -m-4 md:-m-6 p-6 md:p-10 space-y-8">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h1 className="font-display text-3xl font-semibold tracking-tight">Tipologie evento</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Personalizza nome, colore e durata delle sessioni offerte ai tuoi clienti.
+          <h1 className="font-display text-4xl font-bold tracking-tight text-primary">I tuoi Servizi</h1>
+          <p className="text-base text-muted-foreground mt-2">
+            Gestisci le tipologie di appuntamento e la loro durata.
           </p>
         </div>
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditing(null); }}>
           <DialogTrigger asChild>
-            <Button onClick={() => setEditing(null)}><Plus className="size-4" /> Nuova tipologia</Button>
+            <Button
+              onClick={() => setEditing(null)}
+              className="rounded-full px-6 py-3 shadow-sm self-start md:self-auto"
+            >
+              <Plus className="size-4" /> Nuova Tipologia
+            </Button>
           </DialogTrigger>
           <EventTypeDialog
             key={editing?.id ?? "new"}
@@ -142,75 +147,112 @@ function EventTypesPage() {
         </Dialog>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Tipologie configurate</CardTitle>
-          <CardDescription>
-            Se non ne configuri nessuna, verranno usate le categorie predefinite (Sessione PT, BIA, Test Funzionale).
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {listQ.isLoading ? (
-            <Skeleton className="h-40 w-full" />
-          ) : types.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-6 text-center">
-              Nessuna tipologia personalizzata. Aggiungine una per iniziare.
-            </p>
-          ) : (
-            <div className="grid gap-3 md:grid-cols-2">
-              {types.map((t) => (
-                <div key={t.id} className="rounded-lg border p-4 flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3">
-                    <div
-                      className="size-10 rounded-md border shrink-0"
-                      style={{ backgroundColor: t.color }}
-                      aria-label={`Colore ${t.color}`}
-                    />
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-medium">{t.name}</p>
-                        <Badge variant="outline" className="text-xs">{t.duration} min</Badge>
-                        <Badge variant="secondary" className="text-xs inline-flex items-center gap-1">
-                          {t.location_type === "online" ? <Video className="size-3" /> : <MapPin className="size-3" />}
-                          {t.location_type === "online" ? "Online" : "Fisico"}
-                        </Badge>
-                        {t.buffer_minutes > 0 && (
-                          <Badge variant="outline" className="text-xs">+{t.buffer_minutes}m margine</Badge>
-                        )}
-                      </div>
-                      {t.description && (
-                        <p className="text-xs text-muted-foreground">{t.description}</p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Button size="sm" variant="ghost" onClick={() => { setEditing(t); setOpen(true); }}>
-                      <Pencil className="size-4" />
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button size="sm" variant="ghost"><Trash2 className="size-4" /></Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Eliminare la tipologia?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            "{t.name}" verrà rimossa. Le prenotazioni esistenti non saranno modificate.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Annulla</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => remove.mutate(t.id)}>Elimina</AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {listQ.isLoading ? (
+        <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-56 w-full rounded-[32px]" />
+          ))}
+        </div>
+      ) : types.length === 0 ? (
+        <div className="rounded-[32px] bg-white p-12 text-center shadow-sm">
+          <p className="text-sm text-muted-foreground">
+            Nessuna tipologia personalizzata. Aggiungine una per iniziare.
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+          {types.map((t) => (
+            <ServiceCard
+              key={t.id}
+              type={t}
+              onEdit={() => { setEditing(t); setOpen(true); }}
+              onDelete={() => remove.mutate(t.id)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ServiceCard({
+  type: t,
+  onEdit,
+  onDelete,
+}: {
+  type: EventTypeRow;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const iconName = t.location_type === "online" ? "videocam" : "fitness_center";
+  const tintBg = `color-mix(in oklab, ${t.color} 15%, white)`;
+  return (
+    <div
+      className="bg-white rounded-[32px] shadow-[0px_4px_20px_rgba(0,86,133,0.05)] hover:shadow-[0px_8px_30px_rgba(0,86,133,0.08)] hover:-translate-y-1 transition-all duration-300 border-l-[8px] flex flex-col p-6"
+      style={{ borderLeftColor: t.color }}
+    >
+      <div className="flex items-start gap-4 mb-4">
+        <div
+          className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
+          style={{ backgroundColor: tintBg, color: t.color }}
+        >
+          <span className="material-symbols-outlined">{iconName}</span>
+        </div>
+        <div className="min-w-0">
+          <h3 className="text-[20px] leading-tight font-bold text-foreground truncate">{t.name}</h3>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1 bg-muted px-3 py-1 rounded-full text-muted-foreground text-[12px] font-semibold">
+              <span className="material-symbols-outlined text-[14px]">schedule</span>
+              {t.duration} min
+            </span>
+            <span className="inline-flex items-center gap-1 bg-muted px-3 py-1 rounded-full text-muted-foreground text-[12px] font-semibold">
+              {t.location_type === "online" ? <Video className="size-3" /> : <MapPin className="size-3" />}
+              {t.location_type === "online" ? "Online" : "Fisico"}
+            </span>
+            {t.buffer_minutes > 0 && (
+              <span className="inline-flex items-center gap-1 bg-muted px-3 py-1 rounded-full text-muted-foreground text-[12px] font-semibold">
+                +{t.buffer_minutes}m margine
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+      <p className="text-sm text-muted-foreground mb-6 flex-grow">
+        {t.description || "Nessuna descrizione disponibile."}
+      </p>
+      <div className="border-t border-border pt-4 flex items-center justify-between mt-auto">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onEdit}
+          className="rounded-full px-4"
+        >
+          <Pencil className="size-4" /> Modifica
+        </Button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="size-4" />
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Eliminare la tipologia?</AlertDialogTitle>
+              <AlertDialogDescription>
+                "{t.name}" verrà rimossa. Le prenotazioni esistenti non saranno modificate.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Annulla</AlertDialogCancel>
+              <AlertDialogAction onClick={onDelete}>Elimina</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
     </div>
   );
 }
