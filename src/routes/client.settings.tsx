@@ -200,16 +200,24 @@ function ClientSettings() {
               icon={<Bell className="size-5" />}
               title="Notifiche Push"
               subtitle={
-                pushSupported
-                  ? "Ricevi avvisi sul telefono"
-                  : "Non supportate su questo dispositivo"
+                !pushSupported
+                  ? "Non supportate su questo dispositivo"
+                  : !pushReady
+                    ? "Disponibili solo sull'app installata o sul sito pubblicato"
+                    : pushEnabled
+                      ? "Attive — riceverai avvisi sul telefono"
+                      : "Ricevi avvisi sul telefono"
               }
               control={
-                <Switch
-                  checked={pushEnabled}
-                  disabled={!pushSupported || pushBusy}
-                  onCheckedChange={togglePush}
-                />
+                pushBusy ? (
+                  <Loader2 className="size-5 animate-spin text-on-surface-variant" />
+                ) : (
+                  <Switch
+                    checked={pushEnabled}
+                    disabled={!pushSupported || !pushReady || pushBusy}
+                    onCheckedChange={togglePush}
+                  />
+                )
               }
             />
             <Divider />
