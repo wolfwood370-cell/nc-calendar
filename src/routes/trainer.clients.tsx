@@ -140,7 +140,19 @@ function ClientsPage() {
     load();
   }
 
-  async function createClientAccount(data: { firstName: string; lastName: string; email: string; password: string }) {
+  const [credentials, setCredentials] = useState<{ firstName: string; email: string; password: string } | null>(null);
+
+  async function createClientAccount(data: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    password: string;
+    eventTypeId: string;
+    sessionType: SessionType;
+    totalSessions: number;
+    sessionsDone: number;
+  }) {
+    if (!user) return;
     const { data: res, error } = await supabase.functions.invoke("admin-create-user", {
       body: {
         email: data.email.toLowerCase().trim(),
@@ -150,12 +162,49 @@ function ClientsPage() {
       },
     });
     const errMsg = (res as { error?: string } | null)?.error;
-    if (error || errMsg) {
+    const newUserId = (res as { user_id?: string } | null)?.user_id;
+    if (error || errMsg || !newUserId) {
       toast.error("Creazione cliente non riuscita", { description: errMsg ?? error?.message });
       return;
     }
-    toast.success("Cliente creato. Puoi fornirgli le credenziali.");
+
+    // Crea blocco iniziale + allocation con la storia del cliente
+    try {
+      const today = new Date();
+      const end = new Date(today); end.setDate(today.getDate() + 28);
+      const { data: block, error: bErr } = await supabase
+        .from("training_blocks")
+        .insert({
+          client_id: newUserId,
+          coach_id: user.id,
+          start_date: today.toISOString().slice(0, 10),
+          end_date: end.toISOString().slice(0, 10),
+          status: "active",
+          sequence_order: 1,
+        })
+        .select("id")
+        .single();
+      if (bErr) throw bErr;
+      const { error: aErr } = await supabase.from("block_allocations").insert({
+        block_id: block.id,
+        week_number: 1,
+        session_type: data.sessionType,
+        event_type_id: data.eventTypeId,
+        quantity_assigned: data.totalSessions,
+        quantity_booked: data.sessionsDone,
+      });
+      if (aErr) throw aErr;
+    } catch (e) {
+      toast.warning("Cliente creato, ma allocazione sessioni non riuscita", {
+        description: (e as Error).message,
+      });
+    }
+
+    qc.invalidateQueries({ queryKey: ["clients"] });
+    qc.invalidateQueries({ queryKey: ["block-allocations"] });
+    qc.invalidateQueries({ queryKey: ["blocks"] });
     setCreateOpen(false);
+    setCredentials({ firstName: data.firstName, email: data.email.toLowerCase().trim(), password: data.password });
     load();
   }
 
@@ -169,27 +218,25 @@ function ClientsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {user && (
-            <CsvImportClients
-              coachId={user.id}
-              coachName={(user.user_metadata?.full_name as string) || user.email || "il tuo Coach"}
-              onDone={load}
-            />
-          )}
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
             <DialogTrigger asChild>
-              <Button variant="secondary"><UserPlus className="size-4" /> Nuovo Cliente</Button>
+              <Button><UserPlus className="size-4" /> Aggiungi Cliente</Button>
             </DialogTrigger>
             <CreateClientDialog onSubmit={createClientAccount} />
           </Dialog>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button><Plus className="size-4" /> Invita cliente</Button>
+              <Button variant="secondary"><Plus className="size-4" /> Invita cliente</Button>
             </DialogTrigger>
             <InviteClientDialog onSubmit={inviteClient} />
           </Dialog>
         </div>
       </div>
+
+      <CredentialsDialog
+        creds={credentials}
+        onClose={() => setCredentials(null)}
+      />
 
       {pending.length > 0 && (
         <Card>
