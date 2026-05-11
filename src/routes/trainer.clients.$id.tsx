@@ -565,19 +565,23 @@ function ClientPathPage() {
       .sort((a, b) => a.sequence_order - b.sequence_order)
       .map((b) => {
         const allocs = allocations.filter((a) => a.block_id === b.id);
-        const totalCredits = allocs.reduce((s, a) => s + a.quantity_assigned, 0);
-        const completed = bookingsByBlock[b.id] ?? 0;
-        const grouped = new Map<string, { name: string; qty: number }>();
+        const completedMap = completedByBlockType[b.id] ?? {};
+        const grouped = new Map<string, { name: string; assigned: number; completed: number }>();
         allocs.forEach((a) => {
           const et = eventTypes.find((e) => e.id === a.event_type_id);
           const key = a.event_type_id ?? a.session_type;
           const name = et?.name ?? a.session_type;
           const cur = grouped.get(key);
-          grouped.set(key, { name, qty: (cur?.qty ?? 0) + a.quantity_assigned });
+          grouped.set(key, {
+            name,
+            assigned: (cur?.assigned ?? 0) + a.quantity_assigned,
+            completed: completedMap[key] ?? 0,
+          });
         });
-        return { ...b, allocations: allocs, totalCredits, completed, pills: Array.from(grouped.values()) };
+        const pills = Array.from(grouped.values());
+        return { ...b, allocations: allocs, pills };
       });
-  }, [blocks, allocations, bookingsByBlock, eventTypes]);
+  }, [blocks, allocations, completedByBlockType, eventTypes]);
 
   // Group rows by block_number
   const rowsByBlock = useMemo(() => {
