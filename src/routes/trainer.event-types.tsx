@@ -8,11 +8,23 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Plus, Pencil, Trash2, Loader2, MapPin, Video, Dumbbell, Clock } from "lucide-react";
 import { z } from "zod";
@@ -60,7 +72,9 @@ function EventTypesPage() {
     queryFn: async (): Promise<EventTypeRow[]> => {
       const { data, error } = await supabase
         .from("event_types")
-        .select("id, coach_id, name, description, color, duration, base_type, location_type, buffer_minutes, location_address")
+        .select(
+          "id, coach_id, name, description, color, duration, base_type, location_type, buffer_minutes, location_address",
+        )
         .eq("coach_id", coachId!)
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -78,20 +92,28 @@ function EventTypesPage() {
         const { error } = await supabase
           .from("event_types")
           .update({
-            name: input.name, description: input.description || null,
-            color: input.color, duration: input.duration,
-            location_type: input.location_type, buffer_minutes: input.buffer_minutes,
-            location_address: input.location_type === "physical" ? (input.location_address || null) : null,
+            name: input.name,
+            description: input.description || null,
+            color: input.color,
+            duration: input.duration,
+            location_type: input.location_type,
+            buffer_minutes: input.buffer_minutes,
+            location_address:
+              input.location_type === "physical" ? input.location_address || null : null,
           })
           .eq("id", input.id);
         if (error) throw error;
       } else {
         const { error } = await supabase.from("event_types").insert({
-          coach_id: coachId, name: input.name,
-          description: input.description || null, color: input.color,
+          coach_id: coachId,
+          name: input.name,
+          description: input.description || null,
+          color: input.color,
           duration: input.duration,
-          location_type: input.location_type, buffer_minutes: input.buffer_minutes,
-          location_address: input.location_type === "physical" ? (input.location_address || null) : null,
+          location_type: input.location_type,
+          buffer_minutes: input.buffer_minutes,
+          location_address:
+            input.location_type === "physical" ? input.location_address || null : null,
         });
         if (error) throw error;
       }
@@ -99,7 +121,8 @@ function EventTypesPage() {
     onSuccess: () => {
       toast.success(editing ? "Tipologia aggiornata" : "Tipologia creata");
       qc.invalidateQueries({ queryKey: ["event_types"] });
-      setOpen(false); setEditing(null);
+      setOpen(false);
+      setEditing(null);
     },
     onError: (e: unknown) => toast.error("Errore", { description: (e as Error).message }),
   });
@@ -122,12 +145,20 @@ function EventTypesPage() {
     <div className="min-h-screen bg-[#f8f9fe] -m-4 md:-m-6 p-6 md:p-10 space-y-8">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h1 className="font-display text-4xl font-bold tracking-tight text-primary">I tuoi Servizi</h1>
+          <h1 className="font-display text-4xl font-bold tracking-tight text-primary">
+            I tuoi Servizi
+          </h1>
           <p className="text-base text-muted-foreground mt-2">
             Gestisci le tipologie di appuntamento e la loro durata.
           </p>
         </div>
-        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditing(null); }}>
+        <Dialog
+          open={open}
+          onOpenChange={(v) => {
+            setOpen(v);
+            if (!v) setEditing(null);
+          }}
+        >
           <DialogTrigger asChild>
             <Button
               onClick={() => setEditing(null)}
@@ -163,7 +194,10 @@ function EventTypesPage() {
             <ServiceCard
               key={t.id}
               type={t}
-              onEdit={() => { setEditing(t); setOpen(true); }}
+              onEdit={() => {
+                setEditing(t);
+                setOpen(true);
+              }}
               onDelete={() => remove.mutate(t.id)}
             />
           ))}
@@ -193,7 +227,11 @@ function ServiceCard({
           className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
           style={{ backgroundColor: tintBg, color: t.color }}
         >
-          {t.location_type === "online" ? <Video className="size-6" /> : <Dumbbell className="size-6" />}
+          {t.location_type === "online" ? (
+            <Video className="size-6" />
+          ) : (
+            <Dumbbell className="size-6" />
+          )}
         </div>
         <div className="min-w-0">
           <h3 className="text-[20px] leading-tight font-bold text-foreground truncate">{t.name}</h3>
@@ -203,7 +241,11 @@ function ServiceCard({
               {t.duration} min
             </span>
             <span className="inline-flex items-center gap-1 bg-muted px-3 py-1 rounded-full text-muted-foreground text-[12px] font-semibold">
-              {t.location_type === "online" ? <Video className="size-3" /> : <MapPin className="size-3" />}
+              {t.location_type === "online" ? (
+                <Video className="size-3" />
+              ) : (
+                <MapPin className="size-3" />
+              )}
               {t.location_type === "online" ? "Online" : "Fisico"}
             </span>
             {t.buffer_minutes > 0 && (
@@ -218,12 +260,7 @@ function ServiceCard({
         {t.description || "Nessuna descrizione disponibile."}
       </p>
       <div className="border-t border-border pt-4 flex items-center justify-between mt-auto">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onEdit}
-          className="rounded-full px-4"
-        >
+        <Button variant="outline" size="sm" onClick={onEdit} className="rounded-full px-4">
           <Pencil className="size-4" /> Modifica
         </Button>
         <AlertDialog>
@@ -255,7 +292,9 @@ function ServiceCard({
 }
 
 function EventTypeDialog({
-  initial, onSubmit, submitting,
+  initial,
+  onSubmit,
+  submitting,
 }: {
   initial: EventTypeRow | null;
   onSubmit: (v: z.infer<typeof schema>) => void;
@@ -265,15 +304,21 @@ function EventTypeDialog({
   const [description, setDescription] = useState(initial?.description ?? "");
   const [color, setColor] = useState(initial?.color ?? GCAL_DEFAULT);
   const [duration, setDuration] = useState<number>(initial?.duration ?? 60);
-  const [locationType, setLocationType] = useState<"physical" | "online">(initial?.location_type ?? "physical");
+  const [locationType, setLocationType] = useState<"physical" | "online">(
+    initial?.location_type ?? "physical",
+  );
   const [bufferMinutes, setBufferMinutes] = useState<number>(initial?.buffer_minutes ?? 0);
   const [locationAddress, setLocationAddress] = useState<string>(initial?.location_address ?? "");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const parsed = schema.safeParse({
-      name, description, color, duration,
-      location_type: locationType, buffer_minutes: bufferMinutes,
+      name,
+      description,
+      color,
+      duration,
+      location_type: locationType,
+      buffer_minutes: bufferMinutes,
       location_address: locationAddress,
     });
     if (!parsed.success) {
@@ -295,20 +340,32 @@ function EventTypeDialog({
         </div>
         <div className="space-y-2">
           <Label>Descrizione</Label>
-          <Textarea value={description} onChange={(e) => setDescription(e.target.value)} maxLength={280} rows={2} />
+          <Textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            maxLength={280}
+            rows={2}
+          />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>Durata (minuti)</Label>
             <Input
-              type="number" min={15} max={240} step={5}
-              value={duration} onChange={(e) => setDuration(parseInt(e.target.value) || 60)}
+              type="number"
+              min={15}
+              max={240}
+              step={5}
+              value={duration}
+              onChange={(e) => setDuration(parseInt(e.target.value) || 60)}
             />
           </div>
           <div className="space-y-2">
             <Label>Margine di tempo dopo la sessione (minuti)</Label>
             <Input
-              type="number" min={0} max={240} step={5}
+              type="number"
+              min={0}
+              max={240}
+              step={5}
               value={bufferMinutes}
               onChange={(e) => setBufferMinutes(parseInt(e.target.value) || 0)}
             />
@@ -321,11 +378,17 @@ function EventTypeDialog({
             onValueChange={(v) => setLocationType(v as "physical" | "online")}
             className="grid grid-cols-2 gap-2"
           >
-            <Label htmlFor="loc-physical" className="flex items-center gap-2 rounded-md border p-3 cursor-pointer hover:bg-accent/50">
+            <Label
+              htmlFor="loc-physical"
+              className="flex items-center gap-2 rounded-md border p-3 cursor-pointer hover:bg-accent/50"
+            >
               <RadioGroupItem value="physical" id="loc-physical" />
               <MapPin className="size-4" /> Fisico
             </Label>
-            <Label htmlFor="loc-online" className="flex items-center gap-2 rounded-md border p-3 cursor-pointer hover:bg-accent/50">
+            <Label
+              htmlFor="loc-online"
+              className="flex items-center gap-2 rounded-md border p-3 cursor-pointer hover:bg-accent/50"
+            >
               <RadioGroupItem value="online" id="loc-online" />
               <Video className="size-4" /> Online
             </Label>

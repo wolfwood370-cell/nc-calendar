@@ -101,14 +101,15 @@ Deno.serve(async (req) => {
     }
 
     // Safety net: assicura che il profilo esista e sia collegato al coach
-    await admin
-      .from("profiles")
-      .upsert({
+    await admin.from("profiles").upsert(
+      {
         id: created.user.id,
         email: cleanEmail,
         full_name: fullName,
         coach_id: coachId,
-      }, { onConflict: "id" });
+      },
+      { onConflict: "id" },
+    );
 
     return new Response(JSON.stringify({ ok: true, user_id: created.user.id }), {
       status: 200,

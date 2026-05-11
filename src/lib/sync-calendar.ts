@@ -41,7 +41,12 @@ interface MirrorCheckInput {
   rangeEndISO?: string;
 }
 
-export type SyncInput = CreateInput | CancelInput | UpdateInput | ImportHistoryInput | MirrorCheckInput;
+export type SyncInput =
+  | CreateInput
+  | CancelInput
+  | UpdateInput
+  | ImportHistoryInput
+  | MirrorCheckInput;
 
 function buildBody(input: SyncInput): Record<string, unknown> {
   const base = { action: input.action, coach_id: input.coachId };

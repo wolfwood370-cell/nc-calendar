@@ -6,18 +6,61 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Plus, Search, Loader2, Mail, X, Archive, UserPlus, Copy, Check, Trash2, MoreVertical, MessageCircle, ArchiveRestore } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Plus,
+  Search,
+  Loader2,
+  Mail,
+  X,
+  Archive,
+  UserPlus,
+  Copy,
+  Check,
+  Trash2,
+  MoreVertical,
+  MessageCircle,
+  ArchiveRestore,
+} from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
@@ -74,7 +117,14 @@ interface ClientCardData {
 
 function initials(name: string | null, email: string | null): string {
   const src = (name && name.trim()) || (email ?? "?");
-  return src.split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((s) => s[0]?.toUpperCase() ?? "").join("") || "?";
+  return (
+    src
+      .split(/[\s@.]+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((s) => s[0]?.toUpperCase() ?? "")
+      .join("") || "?"
+  );
 }
 
 function ClientsPage() {
@@ -109,7 +159,8 @@ function ClientsPage() {
     const clientList = (cs as ClientRow[]) ?? [];
     setClients(clientList);
 
-    let iq = supabase.from("client_invitations")
+    let iq = supabase
+      .from("client_invitations")
       .select("id, email, full_name, phone, status, created_at")
       .order("created_at", { ascending: false });
     if (!isAdmin && user) iq = iq.eq("coach_id", user.id);
@@ -167,24 +218,37 @@ function ClientsPage() {
     }
 
     return clients.map((c) => {
-      const cb = (blocksByClient.get(c.id) ?? []).slice().sort((a, b) => a.sequence_order - b.sequence_order);
+      const cb = (blocksByClient.get(c.id) ?? [])
+        .slice()
+        .sort((a, b) => a.sequence_order - b.sequence_order);
       // Find first block with remaining capacity, else most recent
       let activeBlock: BlockLite | null = null;
       for (const b of cb) {
         const al = allocsByBlock.get(b.id) ?? [];
-        const remaining = al.reduce((s, x) => s + Math.max(0, x.quantity_assigned - x.quantity_booked), 0);
-        if (remaining > 0) { activeBlock = b; break; }
+        const remaining = al.reduce(
+          (s, x) => s + Math.max(0, x.quantity_assigned - x.quantity_booked),
+          0,
+        );
+        if (remaining > 0) {
+          activeBlock = b;
+          break;
+        }
       }
       if (!activeBlock && cb.length > 0) activeBlock = cb[cb.length - 1];
 
       const al = activeBlock ? (allocsByBlock.get(activeBlock.id) ?? []) : [];
       const total = al.reduce((s, x) => s + x.quantity_assigned, 0);
-      const completed = al.reduce((s, x) => s + Math.min(x.quantity_booked, x.quantity_assigned), 0);
+      const completed = al.reduce(
+        (s, x) => s + Math.min(x.quantity_booked, x.quantity_assigned),
+        0,
+      );
       const remaining = total - completed;
 
       const dominant = al.slice().sort((a, b) => b.quantity_assigned - a.quantity_assigned)[0];
       const eventTypeLabel = dominant
-        ? (dominant.event_type_id ? (eventTypeById.get(dominant.event_type_id) ?? "Sessioni") : "Sessioni")
+        ? dominant.event_type_id
+          ? (eventTypeById.get(dominant.event_type_id) ?? "Sessioni")
+          : "Sessioni"
         : "Sessioni";
 
       let status: ClientStatus;
@@ -217,8 +281,10 @@ function ClientsPage() {
       if (activeTab !== "all" && d.status !== activeTab) return false;
       if (activeTab === "all" && d.status === "archived") return false;
       if (!term) return true;
-      return (d.client.full_name ?? "").toLowerCase().includes(term)
-        || (d.client.email ?? "").toLowerCase().includes(term);
+      return (
+        (d.client.full_name ?? "").toLowerCase().includes(term) ||
+        (d.client.email ?? "").toLowerCase().includes(term)
+      );
     });
   }, [cardData, activeTab, q]);
 
@@ -232,7 +298,10 @@ function ClientsPage() {
       phone: data.phone || null,
       coach_id: user.id,
     });
-    if (error) { toast.error("Invito non riuscito", { description: error.message }); return; }
+    if (error) {
+      toast.error("Invito non riuscito", { description: error.message });
+      return;
+    }
     const coachName = (user.user_metadata?.full_name as string) || user.email || "il tuo Coach";
     await sendInvitationEmail({ to: data.email, clientName: data.name, coachName });
     toast.success("Invito creato", { description: `Email di invito inviata a ${data.email}.` });
@@ -241,22 +310,37 @@ function ClientsPage() {
   }
 
   async function cancelInvite(id: string) {
-    const { error } = await supabase.from("client_invitations").update({ status: "cancelled" }).eq("id", id);
-    if (error) { toast.error("Errore", { description: error.message }); return; }
-    toast.success("Invito annullato"); load();
+    const { error } = await supabase
+      .from("client_invitations")
+      .update({ status: "cancelled" })
+      .eq("id", id);
+    if (error) {
+      toast.error("Errore", { description: error.message });
+      return;
+    }
+    toast.success("Invito annullato");
+    load();
   }
 
   async function setClientStatus(id: string, status: "active" | "archived") {
     const { error } = await supabase.from("profiles").update({ status }).eq("id", id);
-    if (error) { toast.error("Errore", { description: error.message }); return; }
+    if (error) {
+      toast.error("Errore", { description: error.message });
+      return;
+    }
     toast.success(status === "archived" ? "Cliente archiviato" : "Cliente ripristinato");
     load();
   }
 
   async function deleteClient(id: string, name: string) {
-    const { data: res, error } = await supabase.functions.invoke("admin-delete-user", { body: { client_id: id } });
+    const { data: res, error } = await supabase.functions.invoke("admin-delete-user", {
+      body: { client_id: id },
+    });
     const errMsg = (res as { error?: string } | null)?.error;
-    if (error || errMsg) { toast.error("Eliminazione non riuscita", { description: errMsg ?? error?.message }); return; }
+    if (error || errMsg) {
+      toast.error("Eliminazione non riuscita", { description: errMsg ?? error?.message });
+      return;
+    }
     toast.success(`${name} eliminato definitivamente.`);
     qc.invalidateQueries({ queryKey: ["clients"] });
     qc.invalidateQueries({ queryKey: ["bookings"] });
@@ -264,7 +348,11 @@ function ClientsPage() {
     load();
   }
 
-  const [credentials, setCredentials] = useState<{ firstName: string; email: string; password: string } | null>(null);
+  const [credentials, setCredentials] = useState<{
+    firstName: string;
+    email: string;
+    password: string;
+  } | null>(null);
 
   async function createClientAccount(data: {
     firstName: string;
@@ -299,8 +387,10 @@ function ClientsPage() {
     try {
       const today = new Date();
       const blocksToInsert = Array.from({ length: data.totalBlocks }, (_, i) => {
-        const start = new Date(today); start.setDate(today.getDate() + i * 30);
-        const end = new Date(today); end.setDate(today.getDate() + (i + 1) * 30 - 1);
+        const start = new Date(today);
+        start.setDate(today.getDate() + i * 30);
+        const end = new Date(today);
+        end.setDate(today.getDate() + (i + 1) * 30 - 1);
         return {
           client_id: newUserId,
           coach_id: user.id,
@@ -316,7 +406,12 @@ function ClientsPage() {
         .select("id, sequence_order, end_date");
       if (bErr) throw bErr;
       const blockBySeq = new Map<number, { id: string; end_date: string }>();
-      (blocksRes ?? []).forEach((b) => blockBySeq.set(b.sequence_order as number, { id: b.id as string, end_date: b.end_date as string }));
+      (blocksRes ?? []).forEach((b) =>
+        blockBySeq.set(b.sequence_order as number, {
+          id: b.id as string,
+          end_date: b.end_date as string,
+        }),
+      );
 
       const allocsToInsert: Array<{
         block_id: string;
@@ -347,14 +442,20 @@ function ClientsPage() {
         if (aErr) throw aErr;
       }
     } catch (e) {
-      toast.warning("Cliente creato, ma assegnazione blocchi non riuscita", { description: (e as Error).message });
+      toast.warning("Cliente creato, ma assegnazione blocchi non riuscita", {
+        description: (e as Error).message,
+      });
     }
 
     qc.invalidateQueries({ queryKey: ["clients"] });
     qc.invalidateQueries({ queryKey: ["block-allocations"] });
     qc.invalidateQueries({ queryKey: ["blocks"] });
     setCreateOpen(false);
-    setCredentials({ firstName: data.firstName, email: data.email.toLowerCase().trim(), password: data.password });
+    setCredentials({
+      firstName: data.firstName,
+      email: data.email.toLowerCase().trim(),
+      password: data.password,
+    });
     load();
   }
 
@@ -370,7 +471,9 @@ function ClientsPage() {
       {/* Header */}
       <div className="flex flex-wrap items-end justify-between gap-3 mb-8">
         <div>
-          <h1 className="font-display text-3xl md:text-4xl font-bold text-[#003e62] tracking-tight">I tuoi Clienti</h1>
+          <h1 className="font-display text-3xl md:text-4xl font-bold text-[#003e62] tracking-tight">
+            I tuoi Clienti
+          </h1>
           <p className="text-sm text-[#41474f] mt-1">Invita nuovi clienti e gestisci il roster.</p>
         </div>
         <div className="flex items-center gap-2">
@@ -451,7 +554,9 @@ function ClientsPage() {
                     <TableCell className="font-medium">{i.full_name ?? "—"}</TableCell>
                     <TableCell className="text-muted-foreground">{i.email}</TableCell>
                     <TableCell className="text-muted-foreground">{i.phone ?? "—"}</TableCell>
-                    <TableCell><Badge variant="outline">In attesa</Badge></TableCell>
+                    <TableCell>
+                      <Badge variant="outline">In attesa</Badge>
+                    </TableCell>
                     <TableCell className="text-right">
                       <Button size="sm" variant="ghost" onClick={() => cancelInvite(i.id)}>
                         <X className="size-4" /> Annulla
@@ -496,9 +601,13 @@ function ClientsPage() {
                       {initials(c.full_name, c.email)}
                     </div>
                     <div className="min-w-0">
-                      <h3 className="text-lg leading-6 font-bold text-[#191c1f] truncate">{c.full_name ?? "Senza nome"}</h3>
+                      <h3 className="text-lg leading-6 font-bold text-[#191c1f] truncate">
+                        {c.full_name ?? "Senza nome"}
+                      </h3>
                       <p className="text-sm text-[#717880] truncate">
-                        {d.totalBlocks > 0 ? `Percorso ${d.totalBlocks} ${d.totalBlocks === 1 ? "Blocco" : "Blocchi"}` : (c.email ?? "—")}
+                        {d.totalBlocks > 0
+                          ? `Percorso ${d.totalBlocks} ${d.totalBlocks === 1 ? "Blocco" : "Blocchi"}`
+                          : (c.email ?? "—")}
                       </p>
                     </div>
                   </div>
@@ -507,8 +616,8 @@ function ClientsPage() {
                       isArchived
                         ? "bg-[#eceef2] text-[#41474f]"
                         : isExpiring
-                        ? "bg-orange-50 text-orange-600"
-                        : "bg-emerald-50 text-emerald-600"
+                          ? "bg-orange-50 text-orange-600"
+                          : "bg-emerald-50 text-emerald-600"
                     }`}
                   >
                     {isArchived ? "Archiviato" : isExpiring ? "In Scadenza" : "Attivo"}
@@ -520,7 +629,8 @@ function ClientsPage() {
                     <>
                       <div className="flex justify-between mb-2">
                         <span className="text-xs font-semibold text-[#41474f]">
-                          Blocco {d.activeBlockSeq} - {d.completed}/{d.total} {d.eventTypeLabel} completati
+                          Blocco {d.activeBlockSeq} - {d.completed}/{d.total} {d.eventTypeLabel}{" "}
+                          completati
                         </span>
                       </div>
                       <div className="w-full h-2 bg-[#e1e2e7] rounded-full overflow-hidden">
@@ -583,7 +693,11 @@ function ClientsPage() {
 }
 
 function ClientCardMenu({
-  client, isArchived, onArchive, onRestore, onDelete,
+  client,
+  isArchived,
+  onArchive,
+  onRestore,
+  onDelete,
 }: {
   client: ClientRow;
   isArchived: boolean;
@@ -621,7 +735,10 @@ function ClientCardMenu({
               <Archive className="size-4" /> Archivia
             </DropdownMenuItem>
           )}
-          <DropdownMenuItem onClick={() => setConfirmDelete(true)} className="text-destructive focus:text-destructive">
+          <DropdownMenuItem
+            onClick={() => setConfirmDelete(true)}
+            className="text-destructive focus:text-destructive"
+          >
             <Trash2 className="size-4" /> Elimina
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -632,7 +749,8 @@ function ClientCardMenu({
           <AlertDialogHeader>
             <AlertDialogTitle>Archiviare questo cliente?</AlertDialogTitle>
             <AlertDialogDescription>
-              {client.full_name ?? client.email} verrà archiviato. I dati storici (blocchi, prenotazioni) restano conservati.
+              {client.full_name ?? client.email} verrà archiviato. I dati storici (blocchi,
+              prenotazioni) restano conservati.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -645,9 +763,12 @@ function ClientCardMenu({
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Eliminare definitivamente {client.full_name ?? client.email}?</AlertDialogTitle>
+            <AlertDialogTitle>
+              Eliminare definitivamente {client.full_name ?? client.email}?
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Questa azione è <strong>irreversibile</strong>. Verranno eliminati account, profilo, prenotazioni, blocchi e allocazioni.
+              Questa azione è <strong>irreversibile</strong>. Verranno eliminati account, profilo,
+              prenotazioni, blocchi e allocazioni.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -665,7 +786,11 @@ function ClientCardMenu({
   );
 }
 
-function InviteClientDialog({ onSubmit }: { onSubmit: (d: { name: string; email: string; phone: string }) => void }) {
+function InviteClientDialog({
+  onSubmit,
+}: {
+  onSubmit: (d: { name: string; email: string; phone: string }) => void;
+}) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -761,9 +886,10 @@ function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) =
   const [rules, setRules] = useState<RuleDraft[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
-  const totalBlocks = durationPreset === "custom"
-    ? Math.max(1, customMonths)
-    : (DURATION_PRESETS.find((d) => d.value === durationPreset)?.months ?? 1);
+  const totalBlocks =
+    durationPreset === "custom"
+      ? Math.max(1, customMonths)
+      : (DURATION_PRESETS.find((d) => d.value === durationPreset)?.months ?? 1);
 
   function addRule() {
     setRules((prev) => [
@@ -796,8 +922,14 @@ function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) =
       return;
     }
     for (const r of rules) {
-      if (!r.eventTypeId) { toast.error("Seleziona un Event Type per ogni regola."); return; }
-      if (r.quantityPerBlock < 1) { toast.error("La quantità per blocco deve essere ≥ 1."); return; }
+      if (!r.eventTypeId) {
+        toast.error("Seleziona un Event Type per ogni regola.");
+        return;
+      }
+      if (r.quantityPerBlock < 1) {
+        toast.error("La quantità per blocco deve essere ≥ 1.");
+        return;
+      }
       if (r.startBlock < 1 || r.endBlock < r.startBlock || r.endBlock > totalBlocks) {
         toast.error(`Intervalli blocco non validi (1–${totalBlocks}).`);
         return;
@@ -861,10 +993,14 @@ function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) =
           <div className="space-y-2">
             <Label>Durata Percorso</Label>
             <Select value={durationPreset} onValueChange={setDurationPreset}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 {DURATION_PRESETS.map((d) => (
-                  <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
+                  <SelectItem key={d.value} value={d.value}>
+                    {d.label}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -882,7 +1018,8 @@ function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) =
             </div>
           )}
           <p className="text-xs text-muted-foreground">
-            Il percorso sarà suddiviso in <strong>{totalBlocks}</strong> blocchi mensili sequenziali (~30 giorni ciascuno).
+            Il percorso sarà suddiviso in <strong>{totalBlocks}</strong> blocchi mensili sequenziali
+            (~30 giorni ciascuno).
           </p>
         </div>
       )}
@@ -893,7 +1030,13 @@ function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) =
             <p className="text-sm text-muted-foreground">
               Definisci come distribuire le sessioni sui {totalBlocks} blocchi.
             </p>
-            <Button type="button" size="sm" variant="secondary" onClick={addRule} disabled={eventTypes.length === 0}>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={addRule}
+              disabled={eventTypes.length === 0}
+            >
               <Plus className="size-4" /> Aggiungi Regola
             </Button>
           </div>
@@ -907,64 +1050,91 @@ function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) =
               <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
                 Nessuna regola. Clicca "Aggiungi Regola" per iniziare.
               </div>
-            ) : rules.map((r) => (
-              <div key={r.id} className="rounded-md border p-3 space-y-3">
-                <div className="grid grid-cols-12 gap-2 items-end">
-                  <div className="col-span-12 sm:col-span-5 space-y-1">
-                    <Label className="text-xs">Event Type</Label>
-                    <Select value={r.eventTypeId} onValueChange={(v) => updateRule(r.id, { eventTypeId: v })}>
-                      <SelectTrigger><SelectValue placeholder="Seleziona" /></SelectTrigger>
-                      <SelectContent>
-                        {eventTypes.map((et) => (
-                          <SelectItem key={et.id} value={et.id}>{et.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="col-span-4 sm:col-span-2 space-y-1">
-                    <Label className="text-xs">Q.tà / blocco</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={r.quantityPerBlock}
-                      onChange={(e) => updateRule(r.id, { quantityPerBlock: Math.max(1, Number(e.target.value) || 1) })}
-                    />
-                  </div>
-                  <div className="col-span-4 sm:col-span-2 space-y-1">
-                    <Label className="text-xs">Dal blocco</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={totalBlocks}
-                      value={r.startBlock}
-                      onChange={(e) => updateRule(r.id, { startBlock: Math.max(1, Number(e.target.value) || 1) })}
-                    />
-                  </div>
-                  <div className="col-span-3 sm:col-span-2 space-y-1">
-                    <Label className="text-xs">Al blocco</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={totalBlocks}
-                      value={r.endBlock}
-                      onChange={(e) => updateRule(r.id, { endBlock: Math.max(1, Number(e.target.value) || 1) })}
-                    />
-                  </div>
-                  <div className="col-span-1 flex justify-end">
-                    <Button type="button" size="sm" variant="ghost" onClick={() => removeRule(r.id)}>
-                      <Trash2 className="size-4 text-destructive" />
-                    </Button>
+            ) : (
+              rules.map((r) => (
+                <div key={r.id} className="rounded-md border p-3 space-y-3">
+                  <div className="grid grid-cols-12 gap-2 items-end">
+                    <div className="col-span-12 sm:col-span-5 space-y-1">
+                      <Label className="text-xs">Event Type</Label>
+                      <Select
+                        value={r.eventTypeId}
+                        onValueChange={(v) => updateRule(r.id, { eventTypeId: v })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleziona" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {eventTypes.map((et) => (
+                            <SelectItem key={et.id} value={et.id}>
+                              {et.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="col-span-4 sm:col-span-2 space-y-1">
+                      <Label className="text-xs">Q.tà / blocco</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={r.quantityPerBlock}
+                        onChange={(e) =>
+                          updateRule(r.id, {
+                            quantityPerBlock: Math.max(1, Number(e.target.value) || 1),
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="col-span-4 sm:col-span-2 space-y-1">
+                      <Label className="text-xs">Dal blocco</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={totalBlocks}
+                        value={r.startBlock}
+                        onChange={(e) =>
+                          updateRule(r.id, { startBlock: Math.max(1, Number(e.target.value) || 1) })
+                        }
+                      />
+                    </div>
+                    <div className="col-span-3 sm:col-span-2 space-y-1">
+                      <Label className="text-xs">Al blocco</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={totalBlocks}
+                        value={r.endBlock}
+                        onChange={(e) =>
+                          updateRule(r.id, { endBlock: Math.max(1, Number(e.target.value) || 1) })
+                        }
+                      />
+                    </div>
+                    <div className="col-span-1 flex justify-end">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => removeRule(r.id)}
+                      >
+                        <Trash2 className="size-4 text-destructive" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       )}
 
       <DialogFooter className="gap-2 sm:gap-2">
         {step > 1 && (
-          <Button type="button" variant="outline" onClick={() => setStep((s) => (s - 1) as 1 | 2 | 3)} disabled={submitting}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setStep((s) => (s - 1) as 1 | 2 | 3)}
+            disabled={submitting}
+          >
             Indietro
           </Button>
         )}
@@ -978,7 +1148,11 @@ function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) =
           </Button>
         )}
         {step === 3 && (
-          <Button type="button" onClick={handleFinalSubmit} disabled={submitting || eventTypes.length === 0}>
+          <Button
+            type="button"
+            onClick={handleFinalSubmit}
+            disabled={submitting || eventTypes.length === 0}
+          >
             {submitting ? <Loader2 className="size-4 animate-spin" /> : null}
             Crea cliente
           </Button>
@@ -1014,7 +1188,12 @@ function CredentialsDialog({
   }
 
   return (
-    <Dialog open={!!creds} onOpenChange={(o) => { if (!o) onClose(); }}>
+    <Dialog
+      open={!!creds}
+      onOpenChange={(o) => {
+        if (!o) onClose();
+      }}
+    >
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Credenziali Generate</DialogTitle>
@@ -1022,7 +1201,8 @@ function CredentialsDialog({
         {creds && (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Salva o invia queste credenziali al cliente. Non saranno più visibili dopo la chiusura.
+              Salva o invia queste credenziali al cliente. Non saranno più visibili dopo la
+              chiusura.
             </p>
             <div className="rounded-lg border bg-muted/40 p-4 space-y-3">
               <div>
@@ -1030,25 +1210,45 @@ function CredentialsDialog({
                 <div className="flex items-center justify-between gap-2 mt-1">
                   <code className="text-sm font-mono break-all">{creds.email}</code>
                   <Button size="sm" variant="ghost" onClick={() => copy(creds.email, "email")}>
-                    {copiedField === "email" ? <Check className="size-4" /> : <Copy className="size-4" />}
+                    {copiedField === "email" ? (
+                      <Check className="size-4" />
+                    ) : (
+                      <Copy className="size-4" />
+                    )}
                   </Button>
                 </div>
               </div>
               <Separator />
               <div>
-                <Label className="text-xs uppercase text-muted-foreground">Password Temporanea</Label>
+                <Label className="text-xs uppercase text-muted-foreground">
+                  Password Temporanea
+                </Label>
                 <div className="flex items-center justify-between gap-2 mt-1">
                   <code className="text-sm font-mono break-all">{creds.password}</code>
-                  <Button size="sm" variant="ghost" onClick={() => copy(creds.password, "password")}>
-                    {copiedField === "password" ? <Check className="size-4" /> : <Copy className="size-4" />}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => copy(creds.password, "password")}
+                  >
+                    {copiedField === "password" ? (
+                      <Check className="size-4" />
+                    ) : (
+                      <Copy className="size-4" />
+                    )}
                   </Button>
                 </div>
               </div>
             </div>
             <DialogFooter className="gap-2 sm:gap-2">
-              <Button variant="outline" onClick={onClose}>Chiudi</Button>
+              <Button variant="outline" onClick={onClose}>
+                Chiudi
+              </Button>
               <Button onClick={() => copy(message, "message")}>
-                {copiedField === "message" ? <Check className="size-4" /> : <Copy className="size-4" />}
+                {copiedField === "message" ? (
+                  <Check className="size-4" />
+                ) : (
+                  <Copy className="size-4" />
+                )}
                 Copia Messaggio
               </Button>
             </DialogFooter>
@@ -1058,4 +1258,3 @@ function CredentialsDialog({
     </Dialog>
   );
 }
-

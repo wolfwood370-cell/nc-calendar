@@ -20,7 +20,12 @@ function TrainerLayout() {
     }
   }, [loading, session, allowed]);
 
-  if (loading) return <div className="min-h-screen grid place-items-center"><Loader2 className="size-5 animate-spin text-muted-foreground" /></div>;
+  if (loading)
+    return (
+      <div className="min-h-screen grid place-items-center">
+        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+      </div>
+    );
   if (!session) return <Navigate to="/auth" />;
   if (!allowed) return <Navigate to={pathForRole(role)} />;
 

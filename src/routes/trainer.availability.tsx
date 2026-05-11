@@ -8,7 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import { Plus, Trash2, Copy, Loader2, CalendarOff, Info, Save } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -131,7 +137,10 @@ function AvailabilityPage() {
       ...prev,
       [dow]: {
         active,
-        blocks: active && prev[dow].blocks.length === 0 ? [{ start: "09:00", end: "13:00" }] : prev[dow].blocks,
+        blocks:
+          active && prev[dow].blocks.length === 0
+            ? [{ start: "09:00", end: "13:00" }]
+            : prev[dow].blocks,
       },
     }));
   };
@@ -177,7 +186,12 @@ function AvailabilityPage() {
       if (!meId) throw new Error("Non autenticato");
 
       // Validate
-      const rows: { coach_id: string; day_of_week: number; start_time: string; end_time: string }[] = [];
+      const rows: {
+        coach_id: string;
+        day_of_week: number;
+        start_time: string;
+        end_time: string;
+      }[] = [];
       for (const d of DAYS) {
         const ds = week[d.dow];
         if (!ds.active) continue;
@@ -204,17 +218,15 @@ function AvailabilityPage() {
       }
 
       // Upsert settings
-      const up = await supabase
-        .from("trainer_settings")
-        .upsert(
-          {
-            coach_id: meId,
-            buffer_minutes: bufferMin,
-            min_notice_hours: minNotice,
-            booking_horizon_days: horizon,
-          },
-          { onConflict: "coach_id" },
-        );
+      const up = await supabase.from("trainer_settings").upsert(
+        {
+          coach_id: meId,
+          buffer_minutes: bufferMin,
+          min_notice_hours: minNotice,
+          booking_horizon_days: horizon,
+        },
+        { onConflict: "coach_id" },
+      );
       if (up.error) throw up.error;
     },
     onSuccess: () => {
@@ -242,7 +254,11 @@ function AvailabilityPage() {
             disabled={saveMut.isPending || loading}
             className="rounded-full px-6 h-11"
           >
-            {saveMut.isPending ? <Loader2 className="size-4 animate-spin mr-2" /> : <Save className="size-4 mr-2" />}
+            {saveMut.isPending ? (
+              <Loader2 className="size-4 animate-spin mr-2" />
+            ) : (
+              <Save className="size-4 mr-2" />
+            )}
             Salva Modifiche
           </Button>
         </div>
@@ -255,7 +271,8 @@ function AvailabilityPage() {
               <div className="text-sm">
                 <p className="font-medium text-blue-900">Sincronizzato con Google Calendar</p>
                 <p className="text-blue-700/80 mt-0.5">
-                  Le tue disponibilità verranno automaticamente confrontate con gli eventi del tuo calendario per evitare doppie prenotazioni.
+                  Le tue disponibilità verranno automaticamente confrontate con gli eventi del tuo
+                  calendario per evitare doppie prenotazioni.
                 </p>
               </div>
             </div>
@@ -277,14 +294,19 @@ function AvailabilityPage() {
                   {DAYS.map((d, dayIdx) => {
                     const ds = week[d.dow];
                     return (
-                      <div key={d.dow} className="py-4 flex flex-col sm:flex-row sm:items-start gap-4">
+                      <div
+                        key={d.dow}
+                        className="py-4 flex flex-col sm:flex-row sm:items-start gap-4"
+                      >
                         <div className="flex items-center gap-3 sm:w-40 shrink-0 pt-2">
                           <Switch
                             checked={ds.active}
                             onCheckedChange={(v) => toggleDay(d.dow, v)}
                             aria-label={`Attiva ${d.label}`}
                           />
-                          <span className={`font-medium ${ds.active ? "text-slate-900" : "text-slate-400"}`}>
+                          <span
+                            className={`font-medium ${ds.active ? "text-slate-900" : "text-slate-400"}`}
+                          >
                             {d.label}
                           </span>
                         </div>
@@ -296,21 +318,35 @@ function AvailabilityPage() {
                             <div className="space-y-2">
                               {ds.blocks.map((b, idx) => (
                                 <div key={idx} className="flex items-center gap-2 flex-wrap">
-                                  <Select value={b.start} onValueChange={(v) => updateBlock(d.dow, idx, "start", v)}>
+                                  <Select
+                                    value={b.start}
+                                    onValueChange={(v) => updateBlock(d.dow, idx, "start", v)}
+                                  >
                                     <SelectTrigger className="h-10 w-[110px] rounded-full bg-slate-50 border-slate-200">
                                       <SelectValue placeholder="--:--" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      {HOURS.map((h) => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                                      {HOURS.map((h) => (
+                                        <SelectItem key={h} value={h}>
+                                          {h}
+                                        </SelectItem>
+                                      ))}
                                     </SelectContent>
                                   </Select>
                                   <span className="text-slate-400">—</span>
-                                  <Select value={b.end} onValueChange={(v) => updateBlock(d.dow, idx, "end", v)}>
+                                  <Select
+                                    value={b.end}
+                                    onValueChange={(v) => updateBlock(d.dow, idx, "end", v)}
+                                  >
                                     <SelectTrigger className="h-10 w-[110px] rounded-full bg-slate-50 border-slate-200">
                                       <SelectValue placeholder="--:--" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      {HOURS.map((h) => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                                      {HOURS.map((h) => (
+                                        <SelectItem key={h} value={h}>
+                                          {h}
+                                        </SelectItem>
+                                      ))}
                                     </SelectContent>
                                   </Select>
                                   <Button
@@ -423,7 +459,8 @@ function ExceptionsCard({ coachId }: { coachId?: string }) {
   const addMut = useMutation({
     mutationFn: async () => {
       if (!date) throw new Error("Seleziona una data");
-      if (mode === "range" && end <= start) throw new Error("L'ora di fine deve essere successiva a quella di inizio");
+      if (mode === "range" && end <= start)
+        throw new Error("L'ora di fine deve essere successiva a quella di inizio");
       const { error } = await supabase.from("availability_exceptions").insert({
         coach_id: coachId!,
         date: toDateKey(date),
@@ -483,13 +520,29 @@ function ExceptionsCard({ coachId }: { coachId?: string }) {
       {mode === "range" && (
         <div className="flex items-center gap-2 mb-3">
           <Select value={start} onValueChange={setStart}>
-            <SelectTrigger className="h-10 rounded-full bg-slate-50 border-slate-200"><SelectValue /></SelectTrigger>
-            <SelectContent>{HOURS.map((h) => <SelectItem key={h} value={h}>{h}</SelectItem>)}</SelectContent>
+            <SelectTrigger className="h-10 rounded-full bg-slate-50 border-slate-200">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {HOURS.map((h) => (
+                <SelectItem key={h} value={h}>
+                  {h}
+                </SelectItem>
+              ))}
+            </SelectContent>
           </Select>
           <span className="text-slate-400">—</span>
           <Select value={end} onValueChange={setEnd}>
-            <SelectTrigger className="h-10 rounded-full bg-slate-50 border-slate-200"><SelectValue /></SelectTrigger>
-            <SelectContent>{HOURS.map((h) => <SelectItem key={h} value={h}>{h}</SelectItem>)}</SelectContent>
+            <SelectTrigger className="h-10 rounded-full bg-slate-50 border-slate-200">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {HOURS.map((h) => (
+                <SelectItem key={h} value={h}>
+                  {h}
+                </SelectItem>
+              ))}
+            </SelectContent>
           </Select>
         </div>
       )}
@@ -506,7 +559,11 @@ function ExceptionsCard({ coachId }: { coachId?: string }) {
         disabled={addMut.isPending || !date}
         className="w-full rounded-full h-11"
       >
-        {addMut.isPending ? <Loader2 className="size-4 animate-spin mr-2" /> : <Plus className="size-4 mr-2" />}
+        {addMut.isPending ? (
+          <Loader2 className="size-4 animate-spin mr-2" />
+        ) : (
+          <Plus className="size-4 mr-2" />
+        )}
         Aggiungi eccezione
       </Button>
 
@@ -519,12 +576,19 @@ function ExceptionsCard({ coachId }: { coachId?: string }) {
           const fullDay = !ex.start_time || !ex.end_time;
           const d = new Date(ex.date + "T00:00:00");
           return (
-            <div key={ex.id} className="flex items-center justify-between rounded-2xl bg-slate-50 p-3">
+            <div
+              key={ex.id}
+              className="flex items-center justify-between rounded-2xl bg-slate-50 p-3"
+            >
               <div className="flex items-center gap-3 min-w-0">
                 <CalendarOff className="size-4 text-muted-foreground shrink-0" />
                 <div className="min-w-0">
                   <p className="text-sm font-medium truncate">
-                    {d.toLocaleDateString("it-IT", { day: "numeric", month: "short", year: "numeric" })}
+                    {d.toLocaleDateString("it-IT", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}
                   </p>
                   <p className="text-xs text-muted-foreground truncate">
                     {fullDay ? "Tutto il giorno" : `${fmt(ex.start_time!)} – ${fmt(ex.end_time!)}`}

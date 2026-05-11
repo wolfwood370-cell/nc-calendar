@@ -3,11 +3,16 @@ import type { BookingStatus } from "@/lib/mock-data";
 
 export function statusItalianLabel(s: BookingStatus): string {
   switch (s) {
-    case "scheduled": return "In programma";
-    case "completed": return "Completato";
-    case "cancelled": return "Annullato";
-    case "late_cancelled": return "Cancellazione tardiva";
-    case "no_show": return "No Show";
+    case "scheduled":
+      return "In programma";
+    case "completed":
+      return "Completato";
+    case "cancelled":
+      return "Annullato";
+    case "late_cancelled":
+      return "Cancellazione tardiva";
+    case "no_show":
+      return "No Show";
   }
 }
 

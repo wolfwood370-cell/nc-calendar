@@ -3,16 +3,41 @@ import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { useCoachClients, useCoachBookings, useCoachBlocks, useCoachEventTypes } from "@/lib/queries";
+import {
+  useCoachClients,
+  useCoachBookings,
+  useCoachBlocks,
+  useCoachEventTypes,
+} from "@/lib/queries";
 import { sessionLabel } from "@/lib/mock-data";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
-  Users, CalendarCheck2, Wallet, UserPlus, AlertTriangle, Hourglass,
-  Dumbbell, Stethoscope, Sparkles, CheckCircle2,
+  Users,
+  CalendarCheck2,
+  Wallet,
+  UserPlus,
+  AlertTriangle,
+  Hourglass,
+  Dumbbell,
+  Stethoscope,
+  Sparkles,
+  CheckCircle2,
 } from "lucide-react";
 
 export const Route = createFileRoute("/trainer/")({
@@ -21,15 +46,45 @@ export const Route = createFileRoute("/trainer/")({
 
 const SOFT_SHADOW = "shadow-[0px_4px_20px_rgba(0,86,133,0.05)]";
 
-function startOfToday() { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }
-function endOfToday() { const d = new Date(); d.setHours(23, 59, 59, 999); return d; }
-function startOfMonth() { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); }
-function endOfMonth() { const d = new Date(); return new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999); }
-function sevenDaysAgo() { const d = new Date(); d.setDate(d.getDate() - 7); d.setHours(0,0,0,0); return d; }
-function thirtyDaysAgo() { const d = new Date(); d.setDate(d.getDate() - 30); return d; }
+function startOfToday() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+function endOfToday() {
+  const d = new Date();
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
+function startOfMonth() {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+}
+function endOfMonth() {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
+}
+function sevenDaysAgo() {
+  const d = new Date();
+  d.setDate(d.getDate() - 7);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+function thirtyDaysAgo() {
+  const d = new Date();
+  d.setDate(d.getDate() - 30);
+  return d;
+}
 
 function initials(name: string) {
-  return name.split(" ").filter(Boolean).slice(0, 2).map(s => s[0]?.toUpperCase() ?? "").join("") || "?";
+  return (
+    name
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((s) => s[0]?.toUpperCase() ?? "")
+      .join("") || "?"
+  );
 }
 
 function iconForType(name: string | undefined) {
@@ -56,12 +111,12 @@ function Overview() {
 
   const clientById = useMemo(() => {
     const m = new Map<string, (typeof clients)[number]>();
-    clients.forEach(c => m.set(c.id, c));
+    clients.forEach((c) => m.set(c.id, c));
     return m;
   }, [clients]);
   const eventTypeById = useMemo(() => {
     const m = new Map<string, (typeof eventTypes)[number]>();
-    eventTypes.forEach(e => m.set(e.id, e));
+    eventTypes.forEach((e) => m.set(e.id, e));
     return m;
   }, [eventTypes]);
 
@@ -86,10 +141,14 @@ function Overview() {
 
   // Today's appointments
   const todayItems = useMemo(() => {
-    const s = startOfToday().getTime(), e = endOfToday().getTime();
+    const s = startOfToday().getTime(),
+      e = endOfToday().getTime();
     return bookings
-      .filter(b => b.client_id && b.status === "scheduled")
-      .filter(b => { const t = new Date(b.scheduled_at).getTime(); return t >= s && t <= e; })
+      .filter((b) => b.client_id && b.status === "scheduled")
+      .filter((b) => {
+        const t = new Date(b.scheduled_at).getTime();
+        return t >= s && t <= e;
+      })
       .sort((a, b) => +new Date(a.scheduled_at) - +new Date(b.scheduled_at))
       .slice(0, 5);
   }, [bookings]);
@@ -101,7 +160,10 @@ function Overview() {
     for (const b of blocks) {
       if (b.status !== "active") continue;
       if (new Date(b.end_date).getTime() < now) continue;
-      const rem = b.allocations.reduce((s, a) => s + Math.max(0, a.quantity_assigned - a.quantity_booked), 0);
+      const rem = b.allocations.reduce(
+        (s, a) => s + Math.max(0, a.quantity_assigned - a.quantity_booked),
+        0,
+      );
       if (rem <= 2) map.set(b.client_id, (map.get(b.client_id) ?? 0) + rem);
     }
     return Array.from(map.entries())
@@ -116,7 +178,8 @@ function Overview() {
 
   // Service distribution this month
   const distribution = useMemo(() => {
-    const s = startOfMonth().getTime(), e = endOfMonth().getTime();
+    const s = startOfMonth().getTime(),
+      e = endOfMonth().getTime();
     const counts = new Map<string, number>();
     let total = 0;
     for (const b of bookings) {
@@ -127,15 +190,18 @@ function Overview() {
       counts.set(key, (counts.get(key) ?? 0) + 1);
       total++;
     }
-    const arr = Array.from(counts.entries()).map(([key, count]) => {
-      const et = key.startsWith("__") ? null : eventTypeById.get(key);
-      return {
-        key,
-        label: et?.name ?? sessionLabel(key.replace("__", "") as never),
-        color: et?.color ?? "#003e62",
-        pct: total ? Math.round((count / total) * 100) : 0,
-      };
-    }).sort((a, b) => b.pct - a.pct).slice(0, 5);
+    const arr = Array.from(counts.entries())
+      .map(([key, count]) => {
+        const et = key.startsWith("__") ? null : eventTypeById.get(key);
+        return {
+          key,
+          label: et?.name ?? sessionLabel(key.replace("__", "") as never),
+          color: et?.color ?? "#003e62",
+          pct: total ? Math.round((count / total) * 100) : 0,
+        };
+      })
+      .sort((a, b) => b.pct - a.pct)
+      .slice(0, 5);
     return { items: arr, total };
   }, [bookings, eventTypeById]);
 
@@ -157,14 +223,15 @@ function Overview() {
 
   // Quick stats
   const stats = useMemo(() => {
-    const s = startOfMonth().getTime(), e = endOfMonth().getTime();
-    const sessionsMonth = bookings.filter(b => {
+    const s = startOfMonth().getTime(),
+      e = endOfMonth().getTime();
+    const sessionsMonth = bookings.filter((b) => {
       const t = new Date(b.scheduled_at).getTime();
       return t >= s && t <= e && b.status !== "cancelled";
     }).length;
     const creditsIssued = blocks
-      .filter(b => b.status === "active")
-      .flatMap(b => b.allocations)
+      .filter((b) => b.status === "active")
+      .flatMap((b) => b.allocations)
       .reduce((s, a) => s + a.quantity_assigned, 0);
     return {
       activeClients: clients.length,
@@ -177,7 +244,10 @@ function Overview() {
   // Mutations
   const checkIn = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("bookings").update({ status: "completed" }).eq("id", id);
+      const { error } = await supabase
+        .from("bookings")
+        .update({ status: "completed" })
+        .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -189,7 +259,10 @@ function Overview() {
 
   const ignoreBooking = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("bookings").update({ deleted_at: new Date().toISOString() }).eq("id", id);
+      const { error } = await supabase
+        .from("bookings")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -220,7 +293,11 @@ function Overview() {
 
   const loading = clientsQ.isLoading || bookingsQ.isLoading || blocksQ.isLoading;
   const userName = (user?.user_metadata?.full_name as string) || user?.email || "Coach";
-  const todayLabel = new Date().toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" });
+  const todayLabel = new Date().toLocaleDateString("it-IT", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
 
   return (
     <div className="bg-surface text-on-background -m-6 p-6 md:p-10 min-h-[calc(100vh-3.5rem)]">
@@ -230,7 +307,8 @@ function Overview() {
           Bentornato, {userName.split(" ")[0]}
         </h1>
         <p className="text-on-surface-variant mt-2 text-lg">
-          Oggi è <span className="capitalize">{todayLabel}</span>. Hai {todayItems.length} {todayItems.length === 1 ? "sessione programmata" : "sessioni programmate"}.
+          Oggi è <span className="capitalize">{todayLabel}</span>. Hai {todayItems.length}{" "}
+          {todayItems.length === 1 ? "sessione programmata" : "sessioni programmate"}.
         </p>
       </header>
 
@@ -240,21 +318,34 @@ function Overview() {
         <div className="lg:col-span-7 flex flex-col gap-6">
           {/* Centro Revisione */}
           {reviewItems.length > 0 && (
-            <section className={`bg-surface-container-lowest rounded-[32px] p-6 ${SOFT_SHADOW} border border-[#ffb77b]/40`}>
+            <section
+              className={`bg-surface-container-lowest rounded-[32px] p-6 ${SOFT_SHADOW} border border-[#ffb77b]/40`}
+            >
               <div className="flex items-center gap-3 mb-5">
                 <AlertTriangle className="size-6 text-tertiary-container" />
                 <h2 className="text-2xl font-semibold">
-                  Centro Revisione <span className="text-tertiary-container">({reviewItems.length})</span>
+                  Centro Revisione{" "}
+                  <span className="text-tertiary-container">({reviewItems.length})</span>
                 </h2>
               </div>
               <div className="flex flex-col gap-3">
                 {reviewItems.slice(0, 5).map((r) => {
-                  const date = new Date(r.scheduled_at).toLocaleDateString("it-IT", { day: "2-digit", month: "short" });
+                  const date = new Date(r.scheduled_at).toLocaleDateString("it-IT", {
+                    day: "2-digit",
+                    month: "short",
+                  });
                   return (
-                    <div key={r.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-surface-container-low p-4 rounded-2xl">
+                    <div
+                      key={r.id}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-surface-container-low p-4 rounded-2xl"
+                    >
                       <div>
-                        <p className="text-xs font-semibold text-[#ba1a1a] uppercase tracking-wider mb-1">Cliente non assegnato</p>
-                        <p className="font-semibold text-on-background">{r.title || "Evento da Google Calendar"}</p>
+                        <p className="text-xs font-semibold text-[#ba1a1a] uppercase tracking-wider mb-1">
+                          Cliente non assegnato
+                        </p>
+                        <p className="font-semibold text-on-background">
+                          {r.title || "Evento da Google Calendar"}
+                        </p>
                         <p className="text-sm text-on-surface-variant">{date}</p>
                       </div>
                       <div className="flex gap-2 shrink-0">
@@ -269,7 +360,10 @@ function Overview() {
                         <Button
                           size="sm"
                           className="rounded-full bg-[#003e62] text-white hover:bg-[#003e62]/90"
-                          onClick={() => { setAssignTarget({ id: r.id, title: r.title || "Sessione" }); setAssignClientId(""); }}
+                          onClick={() => {
+                            setAssignTarget({ id: r.id, title: r.title || "Sessione" });
+                            setAssignClientId("");
+                          }}
                         >
                           Assegna
                         </Button>
@@ -285,14 +379,22 @@ function Overview() {
           <section className={`bg-surface-container-lowest rounded-[32px] p-6 ${SOFT_SHADOW}`}>
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-2xl font-semibold">Oggi</h2>
-              <Link to="/trainer/calendar" className="text-sm font-semibold text-[#003e62] hover:underline">
+              <Link
+                to="/trainer/calendar"
+                className="text-sm font-semibold text-[#003e62] hover:underline"
+              >
                 Vedi tutto
               </Link>
             </div>
             {loading ? (
-              <div className="space-y-3"><Skeleton className="h-16 w-full" /><Skeleton className="h-16 w-full" /></div>
+              <div className="space-y-3">
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-16 w-full" />
+              </div>
             ) : todayItems.length === 0 ? (
-              <p className="text-sm text-on-surface-variant py-6 text-center">Nessuna sessione programmata per oggi.</p>
+              <p className="text-sm text-on-surface-variant py-6 text-center">
+                Nessuna sessione programmata per oggi.
+              </p>
             ) : (
               <div className="flex flex-col">
                 {todayItems.map((b) => {
@@ -303,18 +405,30 @@ function Overview() {
                   const Icon = iconForType(label);
                   const start = new Date(b.scheduled_at);
                   const dur = et?.duration ?? 60;
-                  const time = start.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+                  const time = start.toLocaleTimeString("it-IT", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
                   return (
-                    <div key={b.id} className="group flex items-center justify-between py-3 border-b border-surface-variant/60 last:border-0">
+                    <div
+                      key={b.id}
+                      className="group flex items-center justify-between py-3 border-b border-surface-variant/60 last:border-0"
+                    >
                       <div className="flex items-center gap-4 min-w-0">
                         <div className="w-16 text-center shrink-0">
                           <p className="font-semibold text-on-background">{time}</p>
-                          <p className="text-xs text-on-surface-variant">{dur >= 60 ? `${Math.floor(dur/60)}h${dur%60 ? ` ${dur%60}m` : ""}` : `${dur}m`}</p>
+                          <p className="text-xs text-on-surface-variant">
+                            {dur >= 60
+                              ? `${Math.floor(dur / 60)}h${dur % 60 ? ` ${dur % 60}m` : ""}`
+                              : `${dur}m`}
+                          </p>
                         </div>
                         <div className="w-1 h-12 bg-[#003e62] rounded-full shrink-0" />
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center shrink-0">
-                            <span className="font-bold text-on-secondary-container text-sm">{initials(name)}</span>
+                            <span className="font-bold text-on-secondary-container text-sm">
+                              {initials(name)}
+                            </span>
                           </div>
                           <div className="min-w-0">
                             <p className="font-semibold text-on-background truncate">{name}</p>
@@ -352,26 +466,51 @@ function Overview() {
             {loading ? (
               <Skeleton className="h-12 w-full" />
             ) : expiring.length === 0 ? (
-              <p className="text-sm text-on-surface-variant py-2">Nessun cliente con crediti in esaurimento.</p>
+              <p className="text-sm text-on-surface-variant py-2">
+                Nessun cliente con crediti in esaurimento.
+              </p>
             ) : (
               <ul className="flex flex-col gap-2">
                 {expiring.map((c) => {
                   const isZero = c.remaining === 0;
                   const isOne = c.remaining === 1;
-                  const rowBg = isZero ? "bg-error-container/30" : isOne ? "bg-tertiary-container/10" : "bg-surface-container-low";
-                  const badgeBg = isZero ? "bg-error-container text-[#93000a]" : isOne ? "bg-[#ffdcc2] text-tertiary-container" : "bg-surface-variant text-on-surface-variant";
-                  const avatarBg = isZero ? "bg-[#ba1a1a] text-white" : isOne ? "bg-tertiary text-white" : "bg-surface-variant text-on-surface-variant";
+                  const rowBg = isZero
+                    ? "bg-error-container/30"
+                    : isOne
+                      ? "bg-tertiary-container/10"
+                      : "bg-surface-container-low";
+                  const badgeBg = isZero
+                    ? "bg-error-container text-[#93000a]"
+                    : isOne
+                      ? "bg-[#ffdcc2] text-tertiary-container"
+                      : "bg-surface-variant text-on-surface-variant";
+                  const avatarBg = isZero
+                    ? "bg-[#ba1a1a] text-white"
+                    : isOne
+                      ? "bg-tertiary text-white"
+                      : "bg-surface-variant text-on-surface-variant";
                   return (
-                    <li key={c.clientId} className={`flex items-center justify-between p-3 rounded-2xl ${rowBg}`}>
+                    <li
+                      key={c.clientId}
+                      className={`flex items-center justify-between p-3 rounded-2xl ${rowBg}`}
+                    >
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs ${avatarBg}`}>
+                        <div
+                          className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs ${avatarBg}`}
+                        >
                           {initials(c.name)}
                         </div>
-                        <Link to="/trainer/clients/$id" params={{ id: c.clientId }} className="font-semibold truncate hover:underline">
+                        <Link
+                          to="/trainer/clients/$id"
+                          params={{ id: c.clientId }}
+                          className="font-semibold truncate hover:underline"
+                        >
                           {c.name}
                         </Link>
                       </div>
-                      <span className={`text-xs font-semibold px-2 py-1 rounded-md whitespace-nowrap ${badgeBg}`}>
+                      <span
+                        className={`text-xs font-semibold px-2 py-1 rounded-md whitespace-nowrap ${badgeBg}`}
+                      >
                         {c.remaining} {c.remaining === 1 ? "rimanente" : "rimanenti"}
                       </span>
                     </li>
@@ -387,7 +526,9 @@ function Overview() {
             {loading ? (
               <Skeleton className="h-20 w-full" />
             ) : distribution.items.length === 0 ? (
-              <p className="text-sm text-on-surface-variant">Nessuna sessione registrata questo mese.</p>
+              <p className="text-sm text-on-surface-variant">
+                Nessuna sessione registrata questo mese.
+              </p>
             ) : (
               <div className="flex flex-col gap-4">
                 {distribution.items.map((d) => (
@@ -397,7 +538,10 @@ function Overview() {
                       <span style={{ color: d.color }}>{d.pct}%</span>
                     </div>
                     <div className="w-full h-2 bg-surface-variant rounded-full overflow-hidden">
-                      <div className="h-full rounded-full" style={{ width: `${d.pct}%`, backgroundColor: d.color }} />
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${d.pct}%`, backgroundColor: d.color }}
+                      />
                     </div>
                   </div>
                 ))}
@@ -416,25 +560,39 @@ function Overview() {
       </section>
 
       {/* Assign client dialog */}
-      <Dialog open={!!assignTarget} onOpenChange={(o) => { if (!o) setAssignTarget(null); }}>
+      <Dialog
+        open={!!assignTarget}
+        onOpenChange={(o) => {
+          if (!o) setAssignTarget(null);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Assegna sessione a un cliente</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">{assignTarget?.title}</p>
           <Select value={assignClientId} onValueChange={setAssignClientId}>
-            <SelectTrigger><SelectValue placeholder="Seleziona cliente" /></SelectTrigger>
+            <SelectTrigger>
+              <SelectValue placeholder="Seleziona cliente" />
+            </SelectTrigger>
             <SelectContent>
-              {clients.map(c => (
-                <SelectItem key={c.id} value={c.id}>{c.full_name ?? c.email ?? "Cliente"}</SelectItem>
+              {clients.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.full_name ?? c.email ?? "Cliente"}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAssignTarget(null)}>Annulla</Button>
+            <Button variant="outline" onClick={() => setAssignTarget(null)}>
+              Annulla
+            </Button>
             <Button
               disabled={!assignClientId || assignBooking.isPending}
-              onClick={() => assignTarget && assignBooking.mutate({ bookingId: assignTarget.id, clientId: assignClientId })}
+              onClick={() =>
+                assignTarget &&
+                assignBooking.mutate({ bookingId: assignTarget.id, clientId: assignClientId })
+              }
             >
               Assegna
             </Button>
@@ -445,11 +603,23 @@ function Overview() {
   );
 }
 
-function QuickStat({ icon: Icon, label, value }: { icon: React.ComponentType<{ className?: string }>; label: string; value: number }) {
+function QuickStat({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: number;
+}) {
   return (
-    <div className={`bg-surface-container-lowest p-6 rounded-[32px] ${SOFT_SHADOW} flex flex-col items-center justify-center text-center`}>
+    <div
+      className={`bg-surface-container-lowest p-6 rounded-[32px] ${SOFT_SHADOW} flex flex-col items-center justify-center text-center`}
+    >
       <Icon className="size-7 text-[#003e62] mb-2" />
-      <p className="text-xs uppercase tracking-wider text-on-surface-variant mb-1 font-semibold">{label}</p>
+      <p className="text-xs uppercase tracking-wider text-on-surface-variant mb-1 font-semibold">
+        {label}
+      </p>
       <p className="font-display text-4xl font-bold text-on-background tabular-nums">{value}</p>
     </div>
   );

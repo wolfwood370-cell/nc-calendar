@@ -45,10 +45,22 @@ function ClientHome() {
 
   // Aggrega per event_type (o session_type fallback)
   const rings = useMemo(() => {
-    if (!block) return [] as Array<{ key: string; name: string; color: string; booked: number; assigned: number }>;
-    const map = new Map<string, { name: string; color: string; booked: number; assigned: number }>();
+    if (!block)
+      return [] as Array<{
+        key: string;
+        name: string;
+        color: string;
+        booked: number;
+        assigned: number;
+      }>;
+    const map = new Map<
+      string,
+      { name: string; color: string; booked: number; assigned: number }
+    >();
     for (const a of block.allocations) {
-      const et = a.event_type_id ? (eventTypesQ.data ?? []).find((e) => e.id === a.event_type_id) : null;
+      const et = a.event_type_id
+        ? (eventTypesQ.data ?? []).find((e) => e.id === a.event_type_id)
+        : null;
       const key = a.event_type_id ?? a.session_type;
       const cur = map.get(key) ?? {
         name: et?.name ?? sessionLabel(a.session_type),
@@ -104,7 +116,10 @@ function ClientHome() {
           <h2 className="text-lg font-semibold text-on-surface mb-6">I Tuoi Progressi</h2>
 
           {isLoading ? (
-            <div className="flex justify-around"><Skeleton className="h-24 w-24 rounded-full" /><Skeleton className="h-24 w-24 rounded-full" /></div>
+            <div className="flex justify-around">
+              <Skeleton className="h-24 w-24 rounded-full" />
+              <Skeleton className="h-24 w-24 rounded-full" />
+            </div>
           ) : rings.length === 0 ? (
             <p className="text-sm text-on-surface-variant py-6 text-center">
               Nessun blocco attivo. Il tuo Coach te ne assegnerà uno a breve.
@@ -186,9 +201,19 @@ function ClientHome() {
 }
 
 function NextAppointmentCard({
-  bookingId, date, durationMin, label, color, calendarUrl,
+  bookingId,
+  date,
+  durationMin,
+  label,
+  color,
+  calendarUrl,
 }: {
-  bookingId: string; date: Date; durationMin: number; label: string; color: string; calendarUrl: string;
+  bookingId: string;
+  date: Date;
+  durationMin: number;
+  label: string;
+  color: string;
+  calendarUrl: string;
 }) {
   const end = new Date(date.getTime() + durationMin * 60_000);
   const startStr = date.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
@@ -196,12 +221,16 @@ function NextAppointmentCard({
 
   const today = new Date();
   const sameDay = (a: Date, b: Date) =>
-    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
   let dayLabel: string;
   if (sameDay(date, today)) dayLabel = "Oggi";
   else if (sameDay(date, tomorrow)) dayLabel = "Domani";
-  else dayLabel = date.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" });
+  else
+    dayLabel = date.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" });
 
   const isFuture = date.getTime() > Date.now();
 
@@ -222,10 +251,14 @@ function NextAppointmentCard({
         </span>
       </div>
       <div className="flex flex-col gap-2">
-        <h4 className="text-2xl font-semibold text-on-surface capitalize leading-tight">{dayLabel}</h4>
+        <h4 className="text-2xl font-semibold text-on-surface capitalize leading-tight">
+          {dayLabel}
+        </h4>
         <div className="flex items-center gap-2 text-on-surface-variant">
           <Clock className="size-[18px]" />
-          <span className="text-base">{startStr} - {endStr}</span>
+          <span className="text-base">
+            {startStr} - {endStr}
+          </span>
         </div>
       </div>
       {isFuture && (
@@ -256,7 +289,9 @@ function EmptyAppointment({ onBook }: { onBook: () => void }) {
         </div>
         <div>
           <p className="text-base font-semibold text-on-surface">Nessuna sessione in programma</p>
-          <p className="text-sm text-on-surface-variant">Prenota la tua prossima sessione per iniziare.</p>
+          <p className="text-sm text-on-surface-variant">
+            Prenota la tua prossima sessione per iniziare.
+          </p>
         </div>
         <Button
           onClick={onBook}
@@ -273,11 +308,12 @@ function HistoryList() {
   const { user } = useAuth();
   const bookingsQ = useClientBookings(user?.id);
   const past = useMemo(
-    () => (bookingsQ.data ?? [])
-      .filter((b) => new Date(b.scheduled_at).getTime() < Date.now())
-      .sort((a, b) => +new Date(b.scheduled_at) - +new Date(a.scheduled_at))
-      .slice(0, 10),
-    [bookingsQ.data]
+    () =>
+      (bookingsQ.data ?? [])
+        .filter((b) => new Date(b.scheduled_at).getTime() < Date.now())
+        .sort((a, b) => +new Date(b.scheduled_at) - +new Date(a.scheduled_at))
+        .slice(0, 10),
+    [bookingsQ.data],
   );
   if (bookingsQ.isLoading) return <Skeleton className="h-24 w-full rounded-[1rem]" />;
   if (past.length === 0) {
@@ -292,11 +328,15 @@ function HistoryList() {
       {past.map((b) => {
         const d = new Date(b.scheduled_at);
         const statusLabel =
-          b.status === "completed" ? "Completata"
-          : b.status === "cancelled" ? "Annullata"
-          : b.status === "late_cancelled" ? "Cancellazione tardiva"
-          : b.status === "no_show" ? "No Show"
-          : "In programma";
+          b.status === "completed"
+            ? "Completata"
+            : b.status === "cancelled"
+              ? "Annullata"
+              : b.status === "late_cancelled"
+                ? "Cancellazione tardiva"
+                : b.status === "no_show"
+                  ? "No Show"
+                  : "In programma";
         const statusClass =
           b.status === "completed"
             ? "bg-success/10 text-success"
@@ -311,12 +351,21 @@ function HistoryList() {
             className="bg-surface-container-lowest rounded-[1.25rem] p-5 border border-outline-variant/20 flex items-center justify-between gap-4 hover:bg-surface-container-low transition-colors active:scale-[0.99]"
           >
             <div className="min-w-0 flex flex-col gap-1">
-              <p className="text-lg font-semibold text-on-surface truncate">{sessionLabel(b.session_type)}</p>
+              <p className="text-lg font-semibold text-on-surface truncate">
+                {sessionLabel(b.session_type)}
+              </p>
               <p className="text-base text-on-surface-variant">
-                {d.toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short" })} · {d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
+                {d.toLocaleDateString("it-IT", {
+                  weekday: "short",
+                  day: "numeric",
+                  month: "short",
+                })}{" "}
+                · {d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
               </p>
             </div>
-            <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-semibold shrink-0 ${statusClass}`}>
+            <span
+              className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-semibold shrink-0 ${statusClass}`}
+            >
               {statusLabel}
             </span>
           </Link>

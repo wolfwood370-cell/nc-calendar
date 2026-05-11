@@ -9,8 +9,14 @@ import { format, differenceInHours } from "date-fns";
 import { it } from "date-fns/locale";
 import { useState } from "react";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useCancelBooking } from "@/lib/queries";
 import { toast } from "sonner";
@@ -63,7 +69,9 @@ function BookingDetailPage() {
     queryFn: async (): Promise<BookingDetail | null> => {
       const { data: booking, error } = await supabase
         .from("bookings")
-        .select("id, scheduled_at, status, session_type, trainer_notes, meeting_link, coach_id, event_type_id, block_id")
+        .select(
+          "id, scheduled_at, status, session_type, trainer_notes, meeting_link, coach_id, event_type_id, block_id",
+        )
         .eq("id", bookingId)
         .maybeSingle();
       if (error) throw error;
@@ -153,10 +161,19 @@ function BookingDetailView({ booking }: { booking: BookingDetail }) {
       .from("block_allocations")
       .select("id, event_type_id, session_type, quantity_booked")
       .eq("block_id", booking.block_id);
-    const list = (data ?? []) as Array<{ id: string; event_type_id: string | null; session_type: SessionType; quantity_booked: number }>;
+    const list = (data ?? []) as Array<{
+      id: string;
+      event_type_id: string | null;
+      session_type: SessionType;
+      quantity_booked: number;
+    }>;
     const match =
-      list.find((a) => booking.event_type_id && a.event_type_id === booking.event_type_id && a.quantity_booked > 0) ??
-      list.find((a) => a.session_type === booking.session_type && a.quantity_booked > 0);
+      list.find(
+        (a) =>
+          booking.event_type_id &&
+          a.event_type_id === booking.event_type_id &&
+          a.quantity_booked > 0,
+      ) ?? list.find((a) => a.session_type === booking.session_type && a.quantity_booked > 0);
     return match?.id ?? null;
   }
 
@@ -179,7 +196,9 @@ function BookingDetailView({ booking }: { booking: BookingDetail }) {
       { id: booking.id, late: true },
       {
         onSuccess: () => {
-          toast.warning("Sessione annullata", { description: "Credito perso (cancellazione tardiva)." });
+          toast.warning("Sessione annullata", {
+            description: "Credito perso (cancellazione tardiva).",
+          });
           navigate({ to: "/client" });
         },
         onError: (e: unknown) => toast.error("Errore", { description: (e as Error).message }),
@@ -204,7 +223,9 @@ function BookingDetailView({ booking }: { booking: BookingDetail }) {
           <div className="space-y-stack-sm mt-stack-sm">
             <div className="flex items-center gap-3 text-on-surface-variant">
               <CalendarDays className="size-5 text-primary shrink-0" />
-              <span className="capitalize">{dateStr} • {timeStr}</span>
+              <span className="capitalize">
+                {dateStr} • {timeStr}
+              </span>
             </div>
 
             <div className="flex items-start gap-3 text-on-surface-variant">
@@ -306,10 +327,13 @@ function BookingDetailView({ booking }: { booking: BookingDetail }) {
                   { id: booking.id, late: false, allocationId },
                   {
                     onSuccess: () => {
-                      toast.success("Credito rimborsato", { description: "Scegli un nuovo orario." });
+                      toast.success("Credito rimborsato", {
+                        description: "Scegli un nuovo orario.",
+                      });
                       navigate({ to: "/client/book" });
                     },
-                    onError: (e: unknown) => toast.error("Errore", { description: (e as Error).message }),
+                    onError: (e: unknown) =>
+                      toast.error("Errore", { description: (e as Error).message }),
                   },
                 );
               }}
@@ -371,7 +395,8 @@ function BookingDetailView({ booking }: { booking: BookingDetail }) {
           <AlertDialogHeader>
             <AlertDialogTitle>Cancellazione tardiva</AlertDialogTitle>
             <AlertDialogDescription>
-              Mancano meno di 24 ore. L'annullamento comporterà la perdita del credito (sessione erogata).
+              Mancano meno di 24 ore. L'annullamento comporterà la perdita del credito (sessione
+              erogata).
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

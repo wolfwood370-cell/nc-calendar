@@ -9,11 +9,28 @@ import nccLogo from "@/assets/ncc-logo.png";
 
 function GoogleIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.99.66-2.25 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-      <path fill="#FBBC05" d="M5.84 14.1A6.97 6.97 0 0 1 5.46 12c0-.73.13-1.44.36-2.1V7.06H2.18A11 11 0 0 0 1 12c0 1.78.43 3.46 1.18 4.94l3.66-2.84z"/>
-      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.46 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z"/>
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <path
+        fill="#4285F4"
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.99.66-2.25 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.84 14.1A6.97 6.97 0 0 1 5.46 12c0-.73.13-1.44.36-2.1V7.06H2.18A11 11 0 0 0 1 12c0 1.78.43 3.46 1.18 4.94l3.66-2.84z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.46 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z"
+      />
     </svg>
   );
 }
@@ -72,15 +89,20 @@ function AuthPage() {
       });
       if (result.error) {
         toast.error("Accesso con Google non riuscito", {
-          description: traduciErrore(String((result.error as any)?.message ?? result.error)),
+          description: traduciErrore(
+            String((result.error as { message?: string })?.message ?? result.error),
+          ),
         });
         setBusy(false);
         return;
       }
       if (result.redirected) return;
       navigate({ to: "/" });
-    } catch (err: any) {
-      toast.error("Accesso con Google non riuscito", { description: traduciErrore(err?.message ?? "") });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "";
+      toast.error("Accesso con Google non riuscito", {
+        description: traduciErrore(message),
+      });
       setBusy(false);
     }
   };
@@ -101,7 +123,9 @@ function AuthPage() {
             className="w-20 h-20 rounded-3xl object-cover shadow-lg transition-transform hover:scale-105 duration-300"
           />
           <div className="space-y-2">
-            <h1 className="text-aura-primary text-[28px] leading-9 font-bold tracking-tight">NC Calendar</h1>
+            <h1 className="text-aura-primary text-[28px] leading-9 font-bold tracking-tight">
+              NC Calendar
+            </h1>
             <p className="text-base text-on-surface-variant">Il tuo percorso, organizzato.</p>
           </div>
         </header>
@@ -134,7 +158,10 @@ function AuthPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {isSignUp && (
               <div className="space-y-2">
-                <label className="text-sm font-semibold text-on-surface-variant ml-2 block" htmlFor="fullName">
+                <label
+                  className="text-sm font-semibold text-on-surface-variant ml-2 block"
+                  htmlFor="fullName"
+                >
                   Nome completo
                 </label>
                 <input
@@ -149,7 +176,10 @@ function AuthPage() {
               </div>
             )}
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-on-surface-variant ml-2 block" htmlFor="email">
+              <label
+                className="text-sm font-semibold text-on-surface-variant ml-2 block"
+                htmlFor="email"
+              >
                 Email
               </label>
               <input
@@ -163,7 +193,10 @@ function AuthPage() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-on-surface-variant ml-2 block" htmlFor="password">
+              <label
+                className="text-sm font-semibold text-on-surface-variant ml-2 block"
+                htmlFor="password"
+              >
                 Password
               </label>
               <div className="relative">
@@ -192,7 +225,13 @@ function AuthPage() {
               disabled={busy}
               className="w-full py-4 bg-primary-container text-on-primary text-sm font-semibold rounded-full hover:brightness-110 active:scale-[0.97] transition-all shadow-md mt-4 disabled:opacity-60 disabled:pointer-events-none flex items-center justify-center"
             >
-              {busy ? <Loader2 className="size-5 animate-spin" /> : isSignUp ? "Registrati" : "Entra"}
+              {busy ? (
+                <Loader2 className="size-5 animate-spin" />
+              ) : isSignUp ? (
+                "Registrati"
+              ) : (
+                "Entra"
+              )}
             </button>
           </form>
 
@@ -220,7 +259,8 @@ function AuthPage() {
 
         <footer className="text-center">
           <p className="text-xs text-outline px-5">
-            Effettuando l'accesso, accetti i nostri Termini di Servizio e la nostra Informativa sulla Privacy.
+            Effettuando l'accesso, accetti i nostri Termini di Servizio e la nostra Informativa
+            sulla Privacy.
           </p>
         </footer>
       </main>

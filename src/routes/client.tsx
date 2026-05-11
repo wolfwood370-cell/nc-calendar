@@ -32,7 +32,14 @@ function ClientLayout() {
           </div>
           <div className="flex items-center gap-2">
             <InstallPwaButton />
-            <Button variant="ghost" size="sm" onClick={async () => { await signOut(); navigate({ to: "/auth" }); }}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={async () => {
+                await signOut();
+                navigate({ to: "/auth" });
+              }}
+            >
               <LogOut className="size-4" /> Esci
             </Button>
           </div>
@@ -47,4 +54,3 @@ function ClientLayout() {
     </div>
   );
 }
-

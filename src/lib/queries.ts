@@ -82,7 +82,9 @@ export function useCoachBookings(coachId?: string) {
     queryFn: async (): Promise<BookingRow[]> => {
       const { data, error } = await supabase
         .from("bookings")
-        .select("id, client_id, coach_id, block_id, session_type, scheduled_at, status, meeting_link, deleted_at, event_type_id, notes, trainer_notes, google_event_id")
+        .select(
+          "id, client_id, coach_id, block_id, session_type, scheduled_at, status, meeting_link, deleted_at, event_type_id, notes, trainer_notes, google_event_id",
+        )
         .eq("coach_id", coachId!)
         .is("deleted_at", null)
         .order("scheduled_at", { ascending: true });
@@ -99,7 +101,9 @@ export function useClientBookings(clientId?: string) {
     queryFn: async (): Promise<BookingRow[]> => {
       const { data, error } = await supabase
         .from("bookings")
-        .select("id, client_id, coach_id, block_id, session_type, scheduled_at, status, meeting_link, deleted_at, event_type_id, notes, trainer_notes, google_event_id")
+        .select(
+          "id, client_id, coach_id, block_id, session_type, scheduled_at, status, meeting_link, deleted_at, event_type_id, notes, trainer_notes, google_event_id",
+        )
         .eq("client_id", clientId!)
         .is("deleted_at", null)
         .order("scheduled_at", { ascending: true });
@@ -124,7 +128,9 @@ async function loadBlocks(filter: { coach_id?: string; client_id?: string }): Pr
   if (ids.length === 0) return [];
   const { data: allocs, error: aerr } = await supabase
     .from("block_allocations")
-    .select("id, block_id, week_number, session_type, event_type_id, quantity_assigned, quantity_booked, valid_until")
+    .select(
+      "id, block_id, week_number, session_type, event_type_id, quantity_assigned, quantity_booked, valid_until",
+    )
     .in("block_id", ids);
   if (aerr) throw aerr;
   return (blocks ?? []).map((b) => ({
@@ -177,7 +183,9 @@ export function useCoachEventTypes(coachId?: string | null) {
     queryFn: async (): Promise<EventTypeRow[]> => {
       const { data, error } = await supabase
         .from("event_types")
-        .select("id, coach_id, name, description, color, duration, base_type, location_type, buffer_minutes, location_address")
+        .select(
+          "id, coach_id, name, description, color, duration, base_type, location_type, buffer_minutes, location_address",
+        )
         .eq("coach_id", coachId!)
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -213,7 +221,8 @@ export function useCoachOptimizationEnabled(coachId?: string | null) {
         .select("calendar_optimization_enabled")
         .eq("coach_id", coachId!)
         .maybeSingle();
-      const v = (data as { calendar_optimization_enabled?: boolean } | null)?.calendar_optimization_enabled;
+      const v = (data as { calendar_optimization_enabled?: boolean } | null)
+        ?.calendar_optimization_enabled;
       return v ?? true;
     },
   });
@@ -230,7 +239,9 @@ export function useCancelBooking() {
       // Recupera info per Google Calendar sync prima di marcare deleted_at
       const { data: bk } = await supabase
         .from("bookings")
-        .select("id, coach_id, client_id, google_event_id, scheduled_at, session_type, event_type_id")
+        .select(
+          "id, coach_id, client_id, google_event_id, scheduled_at, session_type, event_type_id",
+        )
         .eq("id", input.id)
         .maybeSingle();
 
@@ -266,10 +277,15 @@ export function useCancelBooking() {
                 ? supabase.from("profiles").select("full_name").eq("id", bk.client_id).maybeSingle()
                 : Promise.resolve({ data: null }),
               bk.event_type_id
-                ? supabase.from("event_types").select("name").eq("id", bk.event_type_id).maybeSingle()
+                ? supabase
+                    .from("event_types")
+                    .select("name")
+                    .eq("id", bk.event_type_id)
+                    .maybeSingle()
                 : Promise.resolve({ data: null }),
             ]);
-            clientName = (clientRes.data as { full_name: string | null } | null)?.full_name ?? "Cliente";
+            clientName =
+              (clientRes.data as { full_name: string | null } | null)?.full_name ?? "Cliente";
             sessionLabel = (etRes.data as { name: string } | null)?.name ?? "Sessione";
           }
           await supabase.functions.invoke("sync-calendar", {
@@ -324,10 +340,19 @@ export function useCoachCancelBooking() {
           .from("block_allocations")
           .select("id, event_type_id, session_type, quantity_booked")
           .eq("block_id", booking.block_id);
-        const list = (allocs ?? []) as Array<{ id: string; event_type_id: string | null; session_type: SessionType; quantity_booked: number }>;
+        const list = (allocs ?? []) as Array<{
+          id: string;
+          event_type_id: string | null;
+          session_type: SessionType;
+          quantity_booked: number;
+        }>;
         const match =
-          list.find((a) => booking.event_type_id && a.event_type_id === booking.event_type_id && a.quantity_booked > 0) ??
-          list.find((a) => a.session_type === booking.session_type && a.quantity_booked > 0);
+          list.find(
+            (a) =>
+              booking.event_type_id &&
+              a.event_type_id === booking.event_type_id &&
+              a.quantity_booked > 0,
+          ) ?? list.find((a) => a.session_type === booking.session_type && a.quantity_booked > 0);
         if (match) {
           await supabase
             .from("block_allocations")

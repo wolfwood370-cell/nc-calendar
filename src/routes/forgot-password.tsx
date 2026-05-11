@@ -64,7 +64,10 @@ function ForgotPassword() {
                 <div className="space-y-2">
                   <Label htmlFor="fp-email">Email</Label>
                   <Input
-                    id="fp-email" type="email" required value={email}
+                    id="fp-email"
+                    type="email"
+                    required
+                    value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="tu@esempio.it"
                   />
@@ -74,7 +77,10 @@ function ForgotPassword() {
                 </Button>
               </form>
             )}
-            <Link to="/auth" className="mt-6 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+            <Link
+              to="/auth"
+              className="mt-6 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            >
               <ArrowLeft className="size-3" /> Torna all'accesso
             </Link>
           </CardContent>
