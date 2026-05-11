@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/select";
 import {
   ArrowLeft, CalendarIcon, Loader2, Save, RotateCcw, Settings, Sparkles,
-  Check, X as XIcon, Plus, Trash2,
+  Check, X as XIcon, Plus, Trash2, Unlink,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
