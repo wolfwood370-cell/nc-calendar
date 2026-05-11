@@ -141,6 +141,22 @@ function ClientsPage() {
     load();
   }
 
+  async function deleteClient(id: string, name: string) {
+    const { data: res, error } = await supabase.functions.invoke("admin-delete-user", {
+      body: { client_id: id },
+    });
+    const errMsg = (res as { error?: string } | null)?.error;
+    if (error || errMsg) {
+      toast.error("Eliminazione non riuscita", { description: errMsg ?? error?.message });
+      return;
+    }
+    toast.success(`${name} eliminato definitivamente.`);
+    qc.invalidateQueries({ queryKey: ["clients"] });
+    qc.invalidateQueries({ queryKey: ["bookings"] });
+    qc.invalidateQueries({ queryKey: ["blocks"] });
+    load();
+  }
+
   const [credentials, setCredentials] = useState<{ firstName: string; email: string; password: string } | null>(null);
 
   async function createClientAccount(data: {
