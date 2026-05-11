@@ -204,11 +204,7 @@ function AvailabilityPage() {
       }
 
       // Upsert settings
-      const up = await (supabase as unknown as {
-        from: (t: string) => {
-          upsert: (v: unknown, o: { onConflict: string }) => Promise<{ error: { message: string } | null }>;
-        };
-      })
+      const up = await supabase
         .from("trainer_settings")
         .upsert(
           {
