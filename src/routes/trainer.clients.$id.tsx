@@ -449,7 +449,6 @@ function ClientPathPage() {
   }, [rows, originalRows]);
 
   const today = startOfDay(new Date());
-  const blockTints = ["bg-muted/30", "bg-primary/5", "bg-accent/30", "bg-secondary/40"];
 
   // Map sequence_order -> block aggregate
   const blockAggregates = useMemo(() => {
@@ -460,9 +459,53 @@ function ClientPathPage() {
         const allocs = allocations.filter((a) => a.block_id === b.id);
         const totalCredits = allocs.reduce((s, a) => s + a.quantity_assigned, 0);
         const completed = bookingsByBlock[b.id] ?? 0;
-        return { ...b, allocations: allocs, totalCredits, completed };
+        const grouped = new Map<string, { name: string; qty: number }>();
+        allocs.forEach((a) => {
+          const et = eventTypes.find((e) => e.id === a.event_type_id);
+          const key = a.event_type_id ?? a.session_type;
+          const name = et?.name ?? a.session_type;
+          const cur = grouped.get(key);
+          grouped.set(key, { name, qty: (cur?.qty ?? 0) + a.quantity_assigned });
+        });
+        return { ...b, allocations: allocs, totalCredits, completed, pills: Array.from(grouped.values()) };
       });
-  }, [blocks, allocations, bookingsByBlock]);
+  }, [blocks, allocations, bookingsByBlock, eventTypes]);
+
+  // Group rows by block_number
+  const rowsByBlock = useMemo(() => {
+    const map = new Map<number, Array<{ row: WeekRow; idx: number }>>();
+    rows.forEach((row, idx) => {
+      const arr = map.get(row.block_number) ?? [];
+      arr.push({ row, idx });
+      map.set(row.block_number, arr);
+    });
+    return map;
+  }, [rows]);
+
+  // Group client bookings by row index (week)
+  const bookingsByRowIdx = useMemo(() => {
+    const map: Record<number, ClientBooking[]> = {};
+    clientBookings.forEach((b) => {
+      const at = new Date(b.scheduled_at);
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
+        if (!r.monday_date) continue;
+        const start = parseISO(r.monday_date);
+        const end = addDays(start, 7);
+        if (at >= start && at < end) {
+          (map[i] ||= []).push(b);
+          break;
+        }
+      }
+    });
+    return map;
+  }, [clientBookings, rows]);
+
+  function iconForSession(st: SessionType) {
+    if (st === "Triage" || (st as string).toLowerCase().includes("triage")) return Stethoscope;
+    return Dumbbell;
+  }
+
 
   return (
     <div className="space-y-6">
