@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Bell, Calendar, LogOut, Mail, Link as LinkIcon, CheckCircle, Loader2 } from "lucide-react";
+import { Bell, Calendar, LogOut, Mail, Link as LinkIcon, CheckCircle, Loader2, Lock } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -43,6 +43,10 @@ function ClientSettings() {
 
   const [googleLinked, setGoogleLinked] = useState(false);
   const [googleLinking, setGoogleLinking] = useState(false);
+
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [updatingPassword, setUpdatingPassword] = useState(false);
 
   useEffect(() => {
     setPushSupported(isPushSupported());
@@ -147,6 +151,28 @@ function ClientSettings() {
     });
     await signOut();
     navigate({ to: "/auth" });
+  };
+
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 6) {
+      toast.error("La password deve contenere almeno 6 caratteri.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("Le password non coincidono.");
+      return;
+    }
+    setUpdatingPassword(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setUpdatingPassword(false);
+    if (error) {
+      toast.error("Aggiornamento non riuscito", { description: error.message });
+      return;
+    }
+    toast.success("Password aggiornata con successo.");
+    setNewPassword("");
+    setConfirmPassword("");
   };
 
   const fullName = profile?.full_name ?? user?.email ?? "Cliente";
@@ -287,6 +313,60 @@ function ClientSettings() {
                 </button>
               </div>
             )}
+          </div>
+        </section>
+
+        {/* Sicurezza */}
+        <section>
+          <h3 className="text-sm font-semibold text-on-surface-variant uppercase tracking-wider mb-stack-sm ml-2">
+            Sicurezza
+          </h3>
+          <div className="bg-surface-container-lowest rounded-[1.5rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-outline-variant/30 overflow-hidden">
+            <form onSubmit={handleUpdatePassword} className="px-5 py-4 flex flex-col gap-4">
+              <div className="flex items-center gap-4">
+                <span className="size-10 rounded-full bg-primary-container/10 text-primary-container grid place-items-center">
+                  <Lock className="size-5" />
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-base font-medium text-on-surface">Cambia password</p>
+                  <p className="text-sm text-on-surface-variant">Aggiorna la password fornita dal coach.</p>
+                </div>
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium text-on-surface" htmlFor="new-password">Nuova Password</label>
+                <input
+                  id="new-password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  minLength={6}
+                  required
+                  autoComplete="new-password"
+                  className="w-full rounded-2xl border border-outline-variant/60 bg-surface-container-lowest px-4 py-3 text-base text-on-surface focus:outline-none focus:ring-2 focus:ring-primary-container"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium text-on-surface" htmlFor="confirm-password">Conferma Nuova Password</label>
+                <input
+                  id="confirm-password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  minLength={6}
+                  required
+                  autoComplete="new-password"
+                  className="w-full rounded-2xl border border-outline-variant/60 bg-surface-container-lowest px-4 py-3 text-base text-on-surface focus:outline-none focus:ring-2 focus:ring-primary-container"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={updatingPassword}
+                className="w-full bg-[#003e62] text-white font-semibold text-sm py-3 rounded-full hover:opacity-90 transition active:scale-95 flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                {updatingPassword ? <Loader2 className="size-4 animate-spin" /> : <Lock className="size-4" />}
+                Aggiorna Password
+              </button>
+            </form>
           </div>
         </section>
 
