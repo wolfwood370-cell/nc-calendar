@@ -845,24 +845,17 @@ function ClientPathPage() {
                                     <div
                                       key={bk.id}
                                       onClick={() => setEditingBooking(bk)}
-                                      className="group cursor-pointer bg-muted/60 rounded-2xl p-3 flex items-start gap-3 border-l-4 border-muted-foreground/40 shadow-sm hover:bg-muted transition-colors"
+                                      className="cursor-pointer bg-[#d8dade] opacity-80 rounded-2xl p-3 flex items-start gap-3 shadow-sm hover:scale-[1.02] transition-transform"
                                     >
-                                      <div className="bg-muted-foreground/10 text-muted-foreground p-2 rounded-full flex-shrink-0">
+                                      <div className="bg-black/10 text-[#191c1f] p-2 rounded-full flex-shrink-0">
                                         <Ban className="size-4" />
                                       </div>
                                       <div className="flex-1 min-w-0">
-                                        <p className="text-xs text-muted-foreground mb-1 line-through">{timeRange}</p>
-                                        <p className="text-sm text-muted-foreground font-medium line-through truncate">
-                                          {label}
+                                        <p className="text-xs text-[#191c1f]/70 mb-1 line-through">{timeRange}</p>
+                                        <p className="text-sm text-[#191c1f] font-medium line-through truncate">
+                                          🚫 {label}
                                         </p>
                                       </div>
-                                      <button
-                                        onClick={(e) => { e.stopPropagation(); void unlinkBooking(bk); }}
-                                        className="text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
-                                        title="Scollega"
-                                      >
-                                        <Unlink className="size-4" />
-                                      </button>
                                     </div>
                                   );
                                 }
@@ -872,31 +865,24 @@ function ClientPathPage() {
                                     key={bk.id}
                                     onClick={() => setEditingBooking(bk)}
                                     className={cn(
-                                      "group cursor-pointer rounded-2xl p-3 flex items-start gap-3 shadow-sm hover:-translate-y-0.5 transition-all border-l-4 bg-card",
-                                      isCompleted ? "border-emerald-500" : "border-primary",
+                                      "cursor-pointer rounded-2xl p-3 flex items-start gap-3 shadow-sm bg-white border-l-4 hover:scale-[1.02] transition-transform",
+                                      isCompleted ? "border-emerald-500" : "border-[#005685]",
                                     )}
                                   >
                                     <div
                                       className={cn(
                                         "p-2 rounded-full flex-shrink-0",
                                         isCompleted
-                                          ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400"
-                                          : "bg-primary/10 text-primary",
+                                          ? "bg-emerald-50 text-emerald-600"
+                                          : "bg-[#005685]/10 text-[#005685]",
                                       )}
                                     >
                                       <Icon className="size-4" />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                      <p className="text-xs text-muted-foreground mb-1">{timeRange}</p>
-                                      <p className="text-sm text-foreground font-semibold truncate">{label}</p>
+                                      <p className="text-xs text-[#191c1f]/70 mb-1">{timeRange}</p>
+                                      <p className="text-sm text-[#191c1f] font-semibold truncate">{label}</p>
                                     </div>
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); void unlinkBooking(bk); }}
-                                      className="text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
-                                      title="Scollega"
-                                    >
-                                      <Unlink className="size-4" />
-                                    </button>
                                   </div>
                                 );
                               })}
