@@ -139,6 +139,22 @@ function Overview() {
     return { items: arr, total };
   }, [bookings, eventTypeById]);
 
+  // New clients (last 30 days)
+  const newClientsQ = useQuery({
+    queryKey: ["profiles", "new-30d", coachId],
+    enabled: !!coachId,
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("profiles")
+        .select("id", { count: "exact", head: true })
+        .eq("coach_id", coachId!)
+        .is("deleted_at", null)
+        .gte("created_at", thirtyDaysAgo().toISOString());
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+
   // Quick stats
   const stats = useMemo(() => {
     const s = startOfMonth().getTime(), e = endOfMonth().getTime();
@@ -150,18 +166,13 @@ function Overview() {
       .filter(b => b.status === "active")
       .flatMap(b => b.allocations)
       .reduce((s, a) => s + a.quantity_assigned, 0);
-    const cutoff = thirtyDaysAgo().getTime();
-    const newClients = clients.filter(c => {
-      const created = (c as unknown as { created_at?: string }).created_at;
-      return created ? new Date(created).getTime() >= cutoff : false;
-    }).length;
     return {
       activeClients: clients.length,
       sessionsMonth,
       creditsIssued,
-      newClients,
+      newClients: newClientsQ.data ?? 0,
     };
-  }, [bookings, blocks, clients]);
+  }, [bookings, blocks, clients, newClientsQ.data]);
 
   // Mutations
   const checkIn = useMutation({
