@@ -110,7 +110,7 @@ function ClientPathPage() {
   const [pathStart, setPathStart] = useState<Date | undefined>(undefined);
   const [blocks, setBlocks] = useState<BlockRecord[]>([]);
   const [allocations, setAllocations] = useState<AllocationRecord[]>([]);
-  const [bookingsByBlock, setBookingsByBlock] = useState<Record<string, number>>({});
+  const [completedByBlockType, setCompletedByBlockType] = useState<Record<string, Record<string, number>>>({});
   const [rows, setRows] = useState<WeekRow[]>([]);
   const [originalRows, setOriginalRows] = useState<WeekRow[]>([]);
   const [orphans, setOrphans] = useState<OrphanBooking[]>([]);
@@ -164,21 +164,24 @@ function ClientPathPage() {
 
       const { data: bks } = await supabase
         .from("bookings")
-        .select("id, block_id, status")
+        .select("id, block_id, status, event_type_id, session_type")
         .in("block_id", blockIds)
         .is("deleted_at", null);
-      const counts: Record<string, number> = {};
+      const counts: Record<string, Record<string, number>> = {};
       (bks ?? []).forEach((b) => {
         const bid = b.block_id as string | null;
         if (!bid) return;
-        if (b.status === "scheduled" || b.status === "completed") {
-          counts[bid] = (counts[bid] ?? 0) + 1;
+        // Count completed + cancellate in ritardo (addebitate)
+        if (b.status === "completed" || b.status === "late_cancelled") {
+          const key = (b.event_type_id as string | null) ?? (b.session_type as string);
+          counts[bid] ||= {};
+          counts[bid][key] = (counts[bid][key] ?? 0) + 1;
         }
       });
-      setBookingsByBlock(counts);
+      setCompletedByBlockType(counts);
     } else {
       setAllocations([]);
-      setBookingsByBlock({});
+      setCompletedByBlockType({});
     }
 
     const { data: existing } = await supabase
@@ -562,19 +565,23 @@ function ClientPathPage() {
       .sort((a, b) => a.sequence_order - b.sequence_order)
       .map((b) => {
         const allocs = allocations.filter((a) => a.block_id === b.id);
-        const totalCredits = allocs.reduce((s, a) => s + a.quantity_assigned, 0);
-        const completed = bookingsByBlock[b.id] ?? 0;
-        const grouped = new Map<string, { name: string; qty: number }>();
+        const completedMap = completedByBlockType[b.id] ?? {};
+        const grouped = new Map<string, { name: string; assigned: number; completed: number }>();
         allocs.forEach((a) => {
           const et = eventTypes.find((e) => e.id === a.event_type_id);
           const key = a.event_type_id ?? a.session_type;
           const name = et?.name ?? a.session_type;
           const cur = grouped.get(key);
-          grouped.set(key, { name, qty: (cur?.qty ?? 0) + a.quantity_assigned });
+          grouped.set(key, {
+            name,
+            assigned: (cur?.assigned ?? 0) + a.quantity_assigned,
+            completed: completedMap[key] ?? 0,
+          });
         });
-        return { ...b, allocations: allocs, totalCredits, completed, pills: Array.from(grouped.values()) };
+        const pills = Array.from(grouped.values());
+        return { ...b, allocations: allocs, pills };
       });
-  }, [blocks, allocations, bookingsByBlock, eventTypes]);
+  }, [blocks, allocations, completedByBlockType, eventTypes]);
 
   // Group rows by block_number
   const rowsByBlock = useMemo(() => {
@@ -734,41 +741,34 @@ function ClientPathPage() {
           <div className="space-y-10">
             {blockAggregates.map((b) => {
               const blockRows = rowsByBlock.get(b.sequence_order) ?? [];
-              const isComplete = b.totalCredits > 0 && b.completed >= b.totalCredits;
               return (
                 <section key={b.id}>
                   {/* Block header */}
                   <div className="bg-card rounded-[32px] shadow-[0_4px_20px_rgba(0,86,133,0.05)] hover:shadow-[0_8px_24px_rgba(0,86,133,0.08)] transition-shadow duration-300 p-6 mb-4">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                       <h3 className="text-2xl font-semibold text-foreground">Blocco {b.sequence_order}</h3>
-                      <div className="flex flex-wrap items-center gap-3">
+                      <div className="flex flex-wrap items-center gap-2">
                         {b.pills.length === 0 ? (
                           <span className="text-xs text-muted-foreground italic">Nessun credito impostato</span>
                         ) : (
-                          b.pills.map((p, i) => (
-                            <span
-                              key={i}
-                              className="bg-secondary text-secondary-foreground text-[13px] font-semibold px-3 py-1 rounded-full"
-                            >
-                              {p.qty} {p.name}
-                            </span>
-                          ))
+                          b.pills.map((p, i) => {
+                            const done = p.completed >= p.assigned;
+                            return (
+                              <span
+                                key={i}
+                                className={cn(
+                                  "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold",
+                                  done
+                                    ? "bg-primary/10 text-primary"
+                                    : "bg-surface-container-low text-primary",
+                                )}
+                              >
+                                {done ? <CheckCircle2 className="size-3.5" /> : <Clock className="size-3.5" />}
+                                {p.name}: {p.completed}/{p.assigned} completate
+                              </span>
+                            );
+                          })
                         )}
-                        <div className="flex items-center gap-2 bg-muted px-3 py-1 rounded-full">
-                          {isComplete ? (
-                            <CheckCircle2 className="size-4 text-primary" />
-                          ) : (
-                            <Clock className="size-4 text-muted-foreground" />
-                          )}
-                          <span
-                            className={cn(
-                              "text-[13px] font-semibold",
-                              isComplete ? "text-primary" : "text-muted-foreground",
-                            )}
-                          >
-                            {b.completed} / {b.totalCredits} sessioni completate
-                          </span>
-                        </div>
                         <BlockCreditsDialog
                           blockId={b.id}
                           sequenceOrder={b.sequence_order}
@@ -837,7 +837,9 @@ function ClientPathPage() {
                                 const durationMin = et?.duration ?? 60;
                                 const end = addDays(at, 0);
                                 end.setMinutes(end.getMinutes() + durationMin);
-                                const timeRange = `${format(at, "HH:mm")} - ${format(end, "HH:mm")}`;
+                                const dayLabel = format(at, "EEE d MMM", { locale: it })
+                                  .replace(/^./, (c) => c.toUpperCase());
+                                const timeRange = `${dayLabel}, ${format(at, "HH:mm")} - ${format(end, "HH:mm")}`;
                                 const label = et?.name ?? bk.title ?? bk.session_type;
 
                                 if (isCancelled) {
@@ -845,15 +847,15 @@ function ClientPathPage() {
                                     <div
                                       key={bk.id}
                                       onClick={() => setEditingBooking(bk)}
-                                      className="cursor-pointer bg-[#d8dade] opacity-80 rounded-2xl p-3 flex items-start gap-3 shadow-sm hover:scale-[1.02] transition-transform"
+                                      className="cursor-pointer bg-surface-dim rounded-2xl p-3 flex items-start gap-3 shadow-sm hover:scale-[1.02] transition-transform"
                                     >
-                                      <div className="bg-black/10 text-[#191c1f] p-2 rounded-full flex-shrink-0">
+                                      <div className="bg-black/5 text-outline p-2 rounded-full flex-shrink-0">
                                         <Ban className="size-4" />
                                       </div>
                                       <div className="flex-1 min-w-0">
-                                        <p className="text-xs text-[#191c1f]/70 mb-1 line-through">{timeRange}</p>
-                                        <p className="text-sm text-[#191c1f] font-medium line-through truncate">
-                                          🚫 {label}
+                                        <p className="text-xs text-outline mb-1 line-through">{timeRange}</p>
+                                        <p className="text-sm text-outline font-medium line-through truncate">
+                                          {label}
                                         </p>
                                       </div>
                                     </div>
@@ -866,7 +868,7 @@ function ClientPathPage() {
                                     onClick={() => setEditingBooking(bk)}
                                     className={cn(
                                       "cursor-pointer rounded-2xl p-3 flex items-start gap-3 shadow-sm bg-white border-l-4 hover:scale-[1.02] transition-transform",
-                                      isCompleted ? "border-emerald-500" : "border-[#005685]",
+                                      isCompleted ? "border-emerald-500" : "border-primary",
                                     )}
                                   >
                                     <div
@@ -874,14 +876,14 @@ function ClientPathPage() {
                                         "p-2 rounded-full flex-shrink-0",
                                         isCompleted
                                           ? "bg-emerald-50 text-emerald-600"
-                                          : "bg-[#005685]/10 text-[#005685]",
+                                          : "bg-primary/10 text-primary",
                                       )}
                                     >
                                       <Icon className="size-4" />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                      <p className="text-xs text-[#191c1f]/70 mb-1">{timeRange}</p>
-                                      <p className="text-sm text-[#191c1f] font-semibold truncate">{label}</p>
+                                      <p className="text-xs text-foreground/70 mb-1 font-medium">{timeRange}</p>
+                                      <p className="text-sm text-foreground font-semibold truncate">{label}</p>
                                     </div>
                                   </div>
                                 );
