@@ -322,7 +322,34 @@ function ClientPathPage() {
     setOrphans((prev) => prev.filter((p) => p.id !== o.id));
   }
 
-  function regenerateFromStart(start: Date) {
+  async function unlinkBooking(b: ClientBooking) {
+    if (!confirm("Scollegare questa sessione dal cliente? Verrà mostrata nuovamente come 'da revisionare'.")) return;
+    // Restituisci credito se era contabilizzato
+    if (b.block_id) {
+      const alloc = allocations.find(
+        (a) => a.block_id === b.block_id &&
+          (b.event_type_id ? a.event_type_id === b.event_type_id : a.session_type === b.session_type) &&
+          a.quantity_booked > 0,
+      );
+      if (alloc) {
+        await supabase
+          .from("block_allocations")
+          .update({ quantity_booked: Math.max(0, alloc.quantity_booked - 1) })
+          .eq("id", alloc.id);
+      }
+    }
+    const { error } = await supabase
+      .from("bookings")
+      .update({ client_id: null, block_id: null })
+      .eq("id", b.id);
+    if (error) {
+      toast.error("Scollegamento non riuscito", { description: error.message });
+      return;
+    }
+    toast.success("Sessione scollegata dal cliente");
+    void load();
+  }
+
     const updated = rows.map((r, idx) => ({
       ...r,
       monday_date: toIso(addDays(start, idx * 7)),
