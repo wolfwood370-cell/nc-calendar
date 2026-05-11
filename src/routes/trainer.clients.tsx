@@ -16,7 +16,8 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Plus, Search, Loader2, Mail, X, Archive, CalendarPlus, PlusCircle, UserPlus, Copy, Check, Trash2 } from "lucide-react";
+import { Plus, Search, Loader2, Mail, X, Archive, CalendarPlus, PlusCircle, UserPlus, Copy, Check, Trash2, History } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -368,6 +369,7 @@ function ClientsPage() {
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
                         <AssignBlocksSheet clientId={c.id} clientName={c.full_name ?? c.email ?? "Cliente"} />
+                        <LogPastSessionButton clientId={c.id} clientName={c.full_name ?? c.email ?? "Cliente"} />
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button size="sm" variant="ghost">
@@ -937,5 +939,165 @@ function AssignBlocksSheet({ clientId, clientName }: { clientId: string; clientN
         </div>
       </SheetContent>
     </Sheet>
+  );
+}
+
+function LogPastSessionButton({ clientId, clientName }: { clientId: string; clientName: string }) {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  const eventTypesQ = useCoachEventTypes(user?.id);
+  const eventTypes = eventTypesQ.data ?? [];
+
+  const [open, setOpen] = useState(false);
+  const [eventTypeId, setEventTypeId] = useState<string>("");
+  const [whenLocal, setWhenLocal] = useState<string>(() => {
+    const d = new Date();
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0, 16);
+  });
+  const [status, setStatus] = useState<"completed" | "late_cancelled">("completed");
+  const [deductCredit, setDeductCredit] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!user) return;
+    if (!eventTypeId) { toast.error("Seleziona una tipologia evento."); return; }
+    const et = eventTypes.find((x) => x.id === eventTypeId);
+    if (!et) return;
+    const scheduledAt = new Date(whenLocal);
+    if (isNaN(scheduledAt.getTime())) { toast.error("Data non valida."); return; }
+
+    setSubmitting(true);
+    try {
+      let blockId: string | null = null;
+      let allocToUpdate: { id: string; quantity_booked: number } | null = null;
+
+      if (deductCredit) {
+        const { data: blocks } = await supabase
+          .from("training_blocks")
+          .select("id")
+          .eq("client_id", clientId)
+          .eq("status", "active")
+          .is("deleted_at", null)
+          .order("sequence_order", { ascending: true });
+        const blockIds = (blocks ?? []).map((b) => b.id as string);
+        if (blockIds.length > 0) {
+          const { data: allocs } = await supabase
+            .from("block_allocations")
+            .select("id, block_id, quantity_assigned, quantity_booked")
+            .in("block_id", blockIds)
+            .eq("event_type_id", eventTypeId);
+          const candidate = (allocs ?? []).find(
+            (a) => (a.quantity_booked as number) < (a.quantity_assigned as number)
+          );
+          if (candidate) {
+            allocToUpdate = { id: candidate.id as string, quantity_booked: candidate.quantity_booked as number };
+            blockId = candidate.block_id as string;
+          } else {
+            toast.warning("Nessun credito disponibile da scalare. Sessione registrata senza scalare.");
+          }
+        }
+      }
+
+      const { error: bErr } = await supabase.from("bookings").insert({
+        client_id: clientId,
+        coach_id: user.id,
+        block_id: blockId,
+        event_type_id: eventTypeId,
+        session_type: et.base_type as SessionType,
+        scheduled_at: scheduledAt.toISOString(),
+        status,
+      });
+      if (bErr) throw bErr;
+
+      if (allocToUpdate) {
+        const { error: aErr } = await supabase
+          .from("block_allocations")
+          .update({ quantity_booked: allocToUpdate.quantity_booked + 1 })
+          .eq("id", allocToUpdate.id);
+        if (aErr) throw aErr;
+      }
+
+      toast.success("Sessione passata registrata con successo nello storico.");
+      qc.invalidateQueries({ queryKey: ["bookings"] });
+      qc.invalidateQueries({ queryKey: ["block-allocations"] });
+      qc.invalidateQueries({ queryKey: ["blocks"] });
+      setOpen(false);
+      setEventTypeId("");
+      setDeductCredit(false);
+      setStatus("completed");
+    } catch (err) {
+      toast.error("Errore", { description: (err as Error).message });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="ghost">
+          <History className="size-4" /> Registra Sessione Passata
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Registra Sessione Passata — {clientName}</DialogTitle>
+        </DialogHeader>
+        <form className="space-y-4" onSubmit={handleSubmit}>
+          <div className="space-y-2">
+            <Label>Tipologia Evento</Label>
+            <Select value={eventTypeId} onValueChange={setEventTypeId}>
+              <SelectTrigger><SelectValue placeholder="Seleziona tipologia" /></SelectTrigger>
+              <SelectContent>
+                {eventTypes.map((et) => (
+                  <SelectItem key={et.id} value={et.id}>{et.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Data e Ora</Label>
+            <Input
+              type="datetime-local"
+              value={whenLocal}
+              onChange={(e) => setWhenLocal(e.target.value)}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Stato della Sessione</Label>
+            <Select value={status} onValueChange={(v) => setStatus(v as "completed" | "late_cancelled")}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="completed">Completata</SelectItem>
+                <SelectItem value="late_cancelled">Cancellata (Addebitata)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-start gap-3 rounded-md border p-3">
+            <Checkbox
+              id="deduct-credit"
+              checked={deductCredit}
+              onCheckedChange={(v) => setDeductCredit(v === true)}
+            />
+            <div className="space-y-1">
+              <Label htmlFor="deduct-credit" className="cursor-pointer">Scala dal Blocco Attuale?</Label>
+              <p className="text-xs text-muted-foreground">
+                Scala un credito dal blocco attivo del cliente. (Lascia deselezionato se hai già sottratto il credito manualmente)
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={submitting}>Annulla</Button>
+            <Button type="submit" disabled={submitting || !eventTypeId}>
+              {submitting ? <Loader2 className="size-4 animate-spin" /> : null}
+              Registra Sessione
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

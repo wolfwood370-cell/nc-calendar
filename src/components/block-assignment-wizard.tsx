@@ -1,20 +1,16 @@
 import { Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { CardDescription } from "@/components/ui/card";
-import { ChevronLeft, ChevronRight, Check, Sparkles, Loader2 } from "lucide-react";
-import { sessionLabel, type SessionType } from "@/lib/mock-data";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Trash2, Loader2, Check } from "lucide-react";
+import type { SessionType } from "@/lib/mock-data";
 import { useCoachEventTypes } from "@/lib/queries";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-
-type BlockQuotas = Record<string, number>;
 
 interface Props {
   clientId: string;
@@ -22,274 +18,257 @@ interface Props {
   onCreated?: () => void;
 }
 
+interface RuleDraft {
+  id: string;
+  eventTypeId: string;
+  quantityPerBlock: number;
+  startBlock: number;
+  endBlock: number;
+}
+
+const DURATION_PRESETS: Array<{ value: string; label: string; months: number | null }> = [
+  { value: "1", label: "1 Mese", months: 1 },
+  { value: "3", label: "3 Mesi", months: 3 },
+  { value: "6", label: "6 Mesi", months: 6 },
+  { value: "12", label: "12 Mesi", months: 12 },
+  { value: "custom", label: "Personalizzato", months: null },
+];
+
 export function BlockAssignmentWizard({ clientId, clientName, onCreated }: Props) {
   const { user } = useAuth();
   const eventTypesQ = useCoachEventTypes(user?.id);
+  const eventTypes = eventTypesQ.data ?? [];
   const qc = useQueryClient();
 
-  const [step, setStep] = useState(1);
-  const [startDate, setStartDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
-  const [numBlocks, setNumBlocks] = useState<number>(1);
-  const [quotas, setQuotas] = useState<BlockQuotas>({});
+  const [durationPreset, setDurationPreset] = useState<string>("3");
+  const [customMonths, setCustomMonths] = useState<number>(3);
+  const [rules, setRules] = useState<RuleDraft[]>([]);
 
-  const eventTypes = eventTypesQ.data ?? [];
-  const setQty = (id: string, v: number) =>
-    setQuotas((cur) => ({ ...cur, [id]: Math.max(0, v) }));
+  const totalBlocks = durationPreset === "custom"
+    ? Math.max(1, customMonths)
+    : (DURATION_PRESETS.find((d) => d.value === durationPreset)?.months ?? 1);
 
-  const blockTotal = useMemo(
-    () => Object.values(quotas).reduce((a, b) => a + b, 0),
-    [quotas]
-  );
-
-  const blockRanges = useMemo(() => {
-    const out: { idx: number; start: Date; end: Date }[] = [];
-    const base = new Date(startDate);
-    for (let i = 0; i < numBlocks; i++) {
-      const s = new Date(base); s.setDate(base.getDate() + i * 28);
-      const e = new Date(s); e.setDate(s.getDate() + 28);
-      out.push({ idx: i + 1, start: s, end: e });
-    }
-    return out;
-  }, [startDate, numBlocks]);
-
-  const noEventTypes = !eventTypesQ.isLoading && eventTypes.length === 0;
+  function addRule() {
+    setRules((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        eventTypeId: eventTypes[0]?.id ?? "",
+        quantityPerBlock: 4,
+        startBlock: 1,
+        endBlock: totalBlocks,
+      },
+    ]);
+  }
+  const updateRule = (id: string, patch: Partial<RuleDraft>) =>
+    setRules((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  const removeRule = (id: string) => setRules((prev) => prev.filter((r) => r.id !== id));
 
   const createBlocks = useMutation({
     mutationFn: async () => {
       if (!user || !clientId) throw new Error("Cliente non selezionato");
-      const { data: maxRow } = await supabase
+      if (rules.length === 0) throw new Error("Aggiungi almeno una regola.");
+      for (const r of rules) {
+        if (!r.eventTypeId) throw new Error("Seleziona una tipologia per ogni regola.");
+        if (r.quantityPerBlock < 1) throw new Error("La quantità per blocco deve essere ≥ 1.");
+        if (r.startBlock < 1 || r.endBlock < r.startBlock || r.endBlock > totalBlocks) {
+          throw new Error(`Intervalli blocco non validi (1–${totalBlocks}).`);
+        }
+      }
+
+      // Determina sequence_order e data di partenza in base ai blocchi esistenti
+      const { data: lastRow } = await supabase
         .from("training_blocks")
-        .select("sequence_order")
+        .select("sequence_order, end_date")
         .eq("client_id", clientId)
         .is("deleted_at", null)
         .order("sequence_order", { ascending: false })
         .limit(1)
         .maybeSingle();
-      const startSeq = (maxRow?.sequence_order ?? 0) + 1;
+      const startSeq = ((lastRow?.sequence_order as number | undefined) ?? 0) + 1;
+      const baseDate = lastRow?.end_date ? new Date(lastRow.end_date as string) : new Date();
+      if (lastRow?.end_date) baseDate.setDate(baseDate.getDate() + 1);
 
-      for (let i = 0; i < blockRanges.length; i++) {
-        const r = blockRanges[i];
-        const { data: block, error } = await supabase
-          .from("training_blocks")
-          .insert({
-            client_id: clientId,
-            coach_id: user.id,
-            start_date: r.start.toISOString().slice(0, 10),
-            end_date: r.end.toISOString().slice(0, 10),
-            status: "active",
-            sequence_order: startSeq + i,
-          })
-          .select("id")
-          .single();
-        if (error) throw error;
+      const blocksToInsert = Array.from({ length: totalBlocks }, (_, i) => {
+        const start = new Date(baseDate); start.setDate(baseDate.getDate() + i * 30);
+        const end = new Date(baseDate); end.setDate(baseDate.getDate() + (i + 1) * 30 - 1);
+        return {
+          client_id: clientId,
+          coach_id: user.id,
+          start_date: start.toISOString().slice(0, 10),
+          end_date: end.toISOString().slice(0, 10),
+          status: "active" as const,
+          sequence_order: startSeq + i,
+        };
+      });
 
-        const rows: Array<{
-          block_id: string;
-          week_number: number;
-          session_type: SessionType;
-          event_type_id: string;
-          quantity_assigned: number;
-        }> = [];
-        for (const et of eventTypes) {
-          const total = quotas[et.id] ?? 0;
-          if (total <= 0) continue;
-          rows.push({
-            block_id: block.id,
+      const { data: blocks, error: bErr } = await supabase
+        .from("training_blocks")
+        .insert(blocksToInsert)
+        .select("id, sequence_order, end_date");
+      if (bErr) throw bErr;
+
+      const blockBySeq = new Map<number, { id: string; end_date: string }>();
+      (blocks ?? []).forEach((b) =>
+        blockBySeq.set(b.sequence_order as number, { id: b.id as string, end_date: b.end_date as string })
+      );
+
+      const allocs: Array<{
+        block_id: string;
+        week_number: number;
+        session_type: SessionType;
+        event_type_id: string;
+        quantity_assigned: number;
+        quantity_booked: number;
+        valid_until: string;
+      }> = [];
+      for (const rule of rules) {
+        const et = eventTypes.find((e) => e.id === rule.eventTypeId);
+        if (!et) continue;
+        for (let m = rule.startBlock; m <= rule.endBlock; m++) {
+          const seq = startSeq + (m - 1);
+          const b = blockBySeq.get(seq);
+          if (!b) continue;
+          allocs.push({
+            block_id: b.id,
             week_number: 1,
             session_type: et.base_type as SessionType,
-            event_type_id: et.id,
-            quantity_assigned: total,
+            event_type_id: rule.eventTypeId,
+            quantity_assigned: rule.quantityPerBlock,
+            quantity_booked: 0,
+            valid_until: b.end_date,
           });
         }
-        if (rows.length > 0) {
-          const { error: aerr } = await supabase.from("block_allocations").insert(rows);
-          if (aerr) throw aerr;
-        }
+      }
+      if (allocs.length > 0) {
+        const { error: aErr } = await supabase.from("block_allocations").insert(allocs);
+        if (aErr) throw aErr;
       }
     },
     onSuccess: () => {
-      toast.success(
-        numBlocks === 1 ? "Blocco creato" : `${numBlocks} blocchi sequenziali creati`,
-        { description: `${blockTotal} sessioni per blocco · ${blockTotal * numBlocks} totali.` }
-      );
+      toast.success("Percorso creato", {
+        description: `${totalBlocks} ${totalBlocks === 1 ? "blocco" : "blocchi"} per ${clientName}.`,
+      });
       qc.invalidateQueries({ queryKey: ["blocks"] });
-      setStep(1); setQuotas({}); setNumBlocks(1);
+      qc.invalidateQueries({ queryKey: ["block-allocations"] });
+      setRules([]);
       onCreated?.();
     },
-    onError: (e: unknown) => toast.error("Errore creazione blocco", { description: (e as Error).message }),
+    onError: (e: unknown) => toast.error("Errore", { description: (e as Error).message }),
   });
+
+  const noEventTypes = !eventTypesQ.isLoading && eventTypes.length === 0;
 
   return (
     <div className="space-y-5">
-      <Stepper step={step} />
+      <div className="rounded-md bg-accent/40 p-3 text-sm">
+        Cliente: <span className="font-medium">{clientName}</span>
+      </div>
 
-      {step === 1 && (
-        <div className="space-y-4">
-          <div className="rounded-md bg-accent/40 p-3 text-sm">
-            Cliente: <span className="font-medium">{clientName}</span>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Data di inizio (Blocco 1)</Label>
-              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Numero di Blocchi</Label>
-              <Input
-                type="number" min={1} max={12}
-                value={numBlocks}
-                onChange={(e) => setNumBlocks(Math.min(12, Math.max(1, parseInt(e.target.value) || 1)))}
-              />
-              <p className="text-xs text-muted-foreground">Ciascun blocco dura 4 settimane.</p>
-            </div>
-          </div>
-          <div className="rounded-md bg-accent/40 p-3 text-sm space-y-1">
-            {blockRanges.map((r) => (
-              <p key={r.idx} className="text-muted-foreground">
-                Blocco {r.idx}: <span className="text-foreground font-medium">
-                  {r.start.toLocaleDateString("it-IT")} → {r.end.toLocaleDateString("it-IT")}
-                </span>
-              </p>
+      <div className="space-y-2">
+        <Label>Durata Percorso</Label>
+        <Select value={durationPreset} onValueChange={setDurationPreset}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {DURATION_PRESETS.map((d) => (
+              <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
             ))}
-          </div>
-        </div>
-      )}
+          </SelectContent>
+        </Select>
+        {durationPreset === "custom" && (
+          <Input
+            type="number" min={1} max={36}
+            value={customMonths}
+            onChange={(e) => setCustomMonths(Math.max(1, Number(e.target.value) || 1))}
+          />
+        )}
+        <p className="text-xs text-muted-foreground">
+          Verranno creati <strong>{totalBlocks}</strong> blocchi mensili sequenziali (~30 giorni).
+        </p>
+      </div>
 
-      {step === 2 && (
-        <div className="space-y-4">
-          <CardDescription>
-            Crediti totali per Blocco (4 settimane) per ciascuna tipologia. Le stesse quote saranno applicate a tutti i blocchi creati.
-          </CardDescription>
-          {eventTypesQ.isLoading ? (
-            <Skeleton className="h-32 w-full" />
-          ) : noEventTypes ? (
-            <div className="rounded-lg border border-dashed p-6 text-center space-y-3">
-              <p className="text-sm text-muted-foreground">
-                Non hai ancora creato nessuna tipologia di sessione.
-              </p>
-              <Button asChild variant="outline" size="sm">
-                <Link to="/trainer/event-types">Crea tipologie sessione</Link>
-              </Button>
-            </div>
-          ) : (
-            <div className="grid gap-3">
-              {eventTypes.map((et) => (
-                <div key={et.id} className="flex items-center justify-between gap-3 rounded-lg border p-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className="size-3 rounded-full shrink-0" style={{ backgroundColor: et.color }} />
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{et.name}</p>
-                      <p className="text-xs text-muted-foreground">{et.duration} min · {sessionLabel(et.base_type)}</p>
-                    </div>
+      {noEventTypes ? (
+        <div className="rounded-lg border border-dashed p-6 text-center space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Non hai ancora creato nessuna tipologia di sessione.
+          </p>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/trainer/event-types">Crea tipologie sessione</Link>
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <Label>Regole di Assegnazione</Label>
+            <Button type="button" size="sm" variant="secondary" onClick={addRule}>
+              <Plus className="size-4" /> Aggiungi Regola
+            </Button>
+          </div>
+
+          <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-1">
+            {rules.length === 0 ? (
+              <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+                Nessuna regola. Clicca "Aggiungi Regola" per iniziare.
+              </div>
+            ) : rules.map((r) => (
+              <div key={r.id} className="rounded-md border p-3">
+                <div className="grid grid-cols-12 gap-2 items-end">
+                  <div className="col-span-12 sm:col-span-5 space-y-1">
+                    <Label className="text-xs">Tipologia</Label>
+                    <Select value={r.eventTypeId} onValueChange={(v) => updateRule(r.id, { eventTypeId: v })}>
+                      <SelectTrigger><SelectValue placeholder="Seleziona" /></SelectTrigger>
+                      <SelectContent>
+                        {eventTypes.map((et) => (
+                          <SelectItem key={et.id} value={et.id}>{et.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="col-span-4 sm:col-span-2 space-y-1">
+                    <Label className="text-xs">Q.tà / blocco</Label>
                     <Input
-                      type="number" min={0}
-                      className="w-20 text-center"
-                      value={quotas[et.id] ?? 0}
-                      onChange={(e) => setQty(et.id, parseInt(e.target.value) || 0)}
+                      type="number" min={1}
+                      value={r.quantityPerBlock}
+                      onChange={(e) => updateRule(r.id, { quantityPerBlock: Math.max(1, Number(e.target.value) || 1) })}
                     />
-                    <span className="text-xs text-muted-foreground">/ blocco</span>
+                  </div>
+                  <div className="col-span-4 sm:col-span-2 space-y-1">
+                    <Label className="text-xs">Dal blocco</Label>
+                    <Input
+                      type="number" min={1} max={totalBlocks}
+                      value={r.startBlock}
+                      onChange={(e) => updateRule(r.id, { startBlock: Math.max(1, Number(e.target.value) || 1) })}
+                    />
+                  </div>
+                  <div className="col-span-3 sm:col-span-2 space-y-1">
+                    <Label className="text-xs">Al blocco</Label>
+                    <Input
+                      type="number" min={1} max={totalBlocks}
+                      value={r.endBlock}
+                      onChange={(e) => updateRule(r.id, { endBlock: Math.max(1, Number(e.target.value) || 1) })}
+                    />
+                  </div>
+                  <div className="col-span-1 flex justify-end">
+                    <Button type="button" size="sm" variant="ghost" onClick={() => removeRule(r.id)}>
+                      <Trash2 className="size-4 text-destructive" />
+                    </Button>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-          {!noEventTypes && (
-            <div className="rounded-md bg-accent/40 p-3 text-sm">
-              Totale per blocco: <span className="font-medium tabular-nums">{blockTotal}</span> sessioni
-              {numBlocks > 1 && (
-                <> · Totale {numBlocks} blocchi: <span className="font-medium tabular-nums">{blockTotal * numBlocks}</span></>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {step === 3 && (
-        <div className="space-y-4">
-          <div className="rounded-lg border bg-accent/40 p-4">
-            <div className="flex items-center gap-2">
-              <Sparkles className="size-4 text-primary" />
-              <p className="text-sm font-medium">Riepilogo</p>
-            </div>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {clientName} · {numBlocks} {numBlocks === 1 ? "blocco" : "blocchi"} ·{" "}
-              {blockRanges[0].start.toLocaleDateString("it-IT")} → {blockRanges[blockRanges.length - 1].end.toLocaleDateString("it-IT")}
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {eventTypes.map((et) => {
-                const w = quotas[et.id] ?? 0;
-                if (w === 0) return null;
-                return (
-                  <Badge key={et.id} variant="secondary" style={{ borderColor: et.color }}>
-                    <span className="size-2 rounded-full mr-1.5" style={{ backgroundColor: et.color }} />
-                    {et.name}: {w}/blocco
-                  </Badge>
-                );
-              })}
-              <Badge>Totale: {blockTotal * numBlocks}</Badge>
-            </div>
-          </div>
-          <div className="grid gap-2">
-            {blockRanges.map((r) => (
-              <div key={r.idx} className="flex items-center justify-between rounded-md border p-3 text-sm">
-                <span className="font-medium">Blocco {r.idx}</span>
-                <span className="text-muted-foreground tabular-nums">
-                  {r.start.toLocaleDateString("it-IT")} → {r.end.toLocaleDateString("it-IT")}
-                </span>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      <div className="flex items-center justify-between border-t pt-4">
-        <Button variant="ghost" onClick={() => setStep((s) => Math.max(1, s - 1))} disabled={step === 1}>
-          <ChevronLeft className="size-4" /> Indietro
+      <div className="flex items-center justify-end border-t pt-4">
+        <Button
+          onClick={() => createBlocks.mutate()}
+          disabled={createBlocks.isPending || noEventTypes || rules.length === 0}
+        >
+          {createBlocks.isPending ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+          Crea Percorso
         </Button>
-        {step < 3 ? (
-          <Button
-            onClick={() => setStep((s) => s + 1)}
-            disabled={(step === 2 && (noEventTypes || blockTotal === 0))}
-          >
-            Avanti <ChevronRight className="size-4" />
-          </Button>
-        ) : (
-          <Button onClick={() => createBlocks.mutate()} disabled={createBlocks.isPending || blockTotal === 0}>
-            {createBlocks.isPending ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
-            Crea {numBlocks === 1 ? "blocco" : `${numBlocks} blocchi`}
-          </Button>
-        )}
       </div>
-    </div>
-  );
-}
-
-function Stepper({ step }: { step: number }) {
-  const steps = ["Date", "Crediti per Blocco", "Riepilogo"];
-  return (
-    <div className="flex items-center gap-2 flex-wrap">
-      {steps.map((label, i) => {
-        const n = i + 1;
-        const active = step === n;
-        const done = step > n;
-        return (
-          <div key={label} className="flex items-center gap-2">
-            <div
-              className={`size-6 rounded-full grid place-items-center text-xs font-medium border ${
-                active ? "bg-primary text-primary-foreground border-primary"
-                : done ? "bg-success text-success-foreground border-success"
-                : "bg-card text-muted-foreground"
-              }`}
-            >
-              {done ? <Check className="size-3" /> : n}
-            </div>
-            <span className={`text-xs ${active ? "font-medium" : "text-muted-foreground"}`}>{label}</span>
-            {n < steps.length && <div className="w-6 h-px bg-border" />}
-          </div>
-        );
-      })}
     </div>
   );
 }
