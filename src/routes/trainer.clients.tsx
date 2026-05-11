@@ -164,10 +164,14 @@ function ClientsPage() {
     lastName: string;
     email: string;
     password: string;
-    eventTypeId: string;
-    sessionType: SessionType;
-    totalSessions: number;
-    sessionsDone: number;
+    totalBlocks: number;
+    rules: Array<{
+      eventTypeId: string;
+      sessionType: SessionType;
+      quantityPerBlock: number;
+      startBlock: number;
+      endBlock: number;
+    }>;
   }) {
     if (!user) return;
     const { data: res, error } = await supabase.functions.invoke("admin-create-user", {
@@ -185,34 +189,59 @@ function ClientsPage() {
       return;
     }
 
-    // Crea blocco iniziale + allocation con la storia del cliente
+    // Espande regole in blocchi mensili sequenziali + allocazioni
     try {
       const today = new Date();
-      const end = new Date(today); end.setDate(today.getDate() + 28);
-      const { data: block, error: bErr } = await supabase
-        .from("training_blocks")
-        .insert({
+      const blocksToInsert = Array.from({ length: data.totalBlocks }, (_, i) => {
+        const start = new Date(today); start.setDate(today.getDate() + i * 30);
+        const end = new Date(today); end.setDate(today.getDate() + (i + 1) * 30 - 1);
+        return {
           client_id: newUserId,
           coach_id: user.id,
-          start_date: today.toISOString().slice(0, 10),
+          start_date: start.toISOString().slice(0, 10),
           end_date: end.toISOString().slice(0, 10),
-          status: "active",
-          sequence_order: 1,
-        })
-        .select("id")
-        .single();
-      if (bErr) throw bErr;
-      const { error: aErr } = await supabase.from("block_allocations").insert({
-        block_id: block.id,
-        week_number: 1,
-        session_type: data.sessionType,
-        event_type_id: data.eventTypeId,
-        quantity_assigned: data.totalSessions,
-        quantity_booked: data.sessionsDone,
+          status: "active" as const,
+          sequence_order: i + 1,
+        };
       });
-      if (aErr) throw aErr;
+      const { data: blocks, error: bErr } = await supabase
+        .from("training_blocks")
+        .insert(blocksToInsert)
+        .select("id, sequence_order, end_date");
+      if (bErr) throw bErr;
+      const blockBySeq = new Map<number, { id: string; end_date: string }>();
+      (blocks ?? []).forEach((b) => blockBySeq.set(b.sequence_order as number, { id: b.id as string, end_date: b.end_date as string }));
+
+      const allocsToInsert: Array<{
+        block_id: string;
+        week_number: number;
+        session_type: SessionType;
+        event_type_id: string;
+        quantity_assigned: number;
+        quantity_booked: number;
+        valid_until: string;
+      }> = [];
+      for (const rule of data.rules) {
+        for (let m = rule.startBlock; m <= rule.endBlock; m++) {
+          const b = blockBySeq.get(m);
+          if (!b) continue;
+          allocsToInsert.push({
+            block_id: b.id,
+            week_number: 1,
+            session_type: rule.sessionType,
+            event_type_id: rule.eventTypeId,
+            quantity_assigned: rule.quantityPerBlock,
+            quantity_booked: 0,
+            valid_until: b.end_date,
+          });
+        }
+      }
+      if (allocsToInsert.length > 0) {
+        const { error: aErr } = await supabase.from("block_allocations").insert(allocsToInsert);
+        if (aErr) throw aErr;
+      }
     } catch (e) {
-      toast.warning("Cliente creato, ma allocazione sessioni non riuscita", {
+      toast.warning("Cliente creato, ma assegnazione blocchi non riuscita", {
         description: (e as Error).message,
       });
     }
