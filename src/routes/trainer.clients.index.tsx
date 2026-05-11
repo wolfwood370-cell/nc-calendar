@@ -72,28 +72,42 @@ interface ClientCardData {
   eventTypeLabel: string;
 }
 
+function initials(name: string | null, email: string | null): string {
+  const src = (name && name.trim()) || (email ?? "?");
+  return src.split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((s) => s[0]?.toUpperCase() ?? "").join("") || "?";
+}
+
 function ClientsPage() {
   const { user, role } = useAuth();
   const qc = useQueryClient();
   const [clients, setClients] = useState<ClientRow[]>([]);
   const [invitations, setInvitations] = useState<InvitationRow[]>([]);
+  const [blocks, setBlocks] = useState<BlockLite[]>([]);
+  const [allocs, setAllocs] = useState<AllocLite[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"all" | ClientStatus>("all");
 
   const isAdmin = role === "admin";
+  const eventTypesQ = useCoachEventTypes(user?.id);
+  const eventTypeById = useMemo(() => {
+    const m = new Map<string, string>();
+    (eventTypesQ.data ?? []).forEach((e) => m.set(e.id, e.name));
+    return m;
+  }, [eventTypesQ.data]);
 
   async function load() {
     setLoading(true);
     let cq = supabase
       .from("profiles")
-      .select("id, full_name, email, phone")
-      .is("deleted_at", null)
-      .eq("status", "active");
+      .select("id, full_name, email, phone, status")
+      .is("deleted_at", null);
     if (!isAdmin && user) cq = cq.eq("coach_id", user.id);
     const { data: cs } = await cq;
-    setClients((cs as ClientRow[]) ?? []);
+    const clientList = (cs as ClientRow[]) ?? [];
+    setClients(clientList);
 
     let iq = supabase.from("client_invitations")
       .select("id, email, full_name, phone, status, created_at")
@@ -101,6 +115,35 @@ function ClientsPage() {
     if (!isAdmin && user) iq = iq.eq("coach_id", user.id);
     const { data: invs } = await iq;
     setInvitations((invs as InvitationRow[]) ?? []);
+
+    // Fetch blocks + allocations for status calculation
+    const ids = clientList.map((c) => c.id);
+    if (ids.length > 0) {
+      let bq = supabase
+        .from("training_blocks")
+        .select("id, client_id, sequence_order, start_date")
+        .in("client_id", ids)
+        .is("deleted_at", null)
+        .order("sequence_order", { ascending: true });
+      if (!isAdmin && user) bq = bq.eq("coach_id", user.id);
+      const { data: bs } = await bq;
+      const blockList = (bs as BlockLite[]) ?? [];
+      setBlocks(blockList);
+
+      const blockIds = blockList.map((b) => b.id);
+      if (blockIds.length > 0) {
+        const { data: as } = await supabase
+          .from("block_allocations")
+          .select("block_id, event_type_id, session_type, quantity_assigned, quantity_booked")
+          .in("block_id", blockIds);
+        setAllocs((as as AllocLite[]) ?? []);
+      } else {
+        setAllocs([]);
+      }
+    } else {
+      setBlocks([]);
+      setAllocs([]);
+    }
     setLoading(false);
   }
 
@@ -109,10 +152,75 @@ function ClientsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-  const filtered = clients.filter((c) =>
-    (c.full_name ?? "").toLowerCase().includes(q.toLowerCase()) ||
-    (c.email ?? "").toLowerCase().includes(q.toLowerCase())
-  );
+  const cardData = useMemo<ClientCardData[]>(() => {
+    const allocsByBlock = new Map<string, AllocLite[]>();
+    for (const a of allocs) {
+      const arr = allocsByBlock.get(a.block_id) ?? [];
+      arr.push(a);
+      allocsByBlock.set(a.block_id, arr);
+    }
+    const blocksByClient = new Map<string, BlockLite[]>();
+    for (const b of blocks) {
+      const arr = blocksByClient.get(b.client_id) ?? [];
+      arr.push(b);
+      blocksByClient.set(b.client_id, arr);
+    }
+
+    return clients.map((c) => {
+      const cb = (blocksByClient.get(c.id) ?? []).slice().sort((a, b) => a.sequence_order - b.sequence_order);
+      // Find first block with remaining capacity, else most recent
+      let activeBlock: BlockLite | null = null;
+      for (const b of cb) {
+        const al = allocsByBlock.get(b.id) ?? [];
+        const remaining = al.reduce((s, x) => s + Math.max(0, x.quantity_assigned - x.quantity_booked), 0);
+        if (remaining > 0) { activeBlock = b; break; }
+      }
+      if (!activeBlock && cb.length > 0) activeBlock = cb[cb.length - 1];
+
+      const al = activeBlock ? (allocsByBlock.get(activeBlock.id) ?? []) : [];
+      const total = al.reduce((s, x) => s + x.quantity_assigned, 0);
+      const completed = al.reduce((s, x) => s + Math.min(x.quantity_booked, x.quantity_assigned), 0);
+      const remaining = total - completed;
+
+      const dominant = al.slice().sort((a, b) => b.quantity_assigned - a.quantity_assigned)[0];
+      const eventTypeLabel = dominant
+        ? (dominant.event_type_id ? (eventTypeById.get(dominant.event_type_id) ?? "Sessioni") : "Sessioni")
+        : "Sessioni";
+
+      let status: ClientStatus;
+      if (c.status === "archived") status = "archived";
+      else if (cb.length === 0) status = "active";
+      else if (remaining <= 1) status = "expiring";
+      else status = "active";
+
+      return {
+        client: c,
+        status,
+        totalBlocks: cb.length,
+        activeBlockSeq: activeBlock?.sequence_order ?? null,
+        completed,
+        total,
+        eventTypeLabel,
+      };
+    });
+  }, [clients, blocks, allocs, eventTypeById]);
+
+  const counts = useMemo(() => {
+    const c = { all: cardData.length, active: 0, expiring: 0, archived: 0 };
+    for (const d of cardData) c[d.status]++;
+    return c;
+  }, [cardData]);
+
+  const visibleCards = useMemo(() => {
+    const term = q.toLowerCase();
+    return cardData.filter((d) => {
+      if (activeTab !== "all" && d.status !== activeTab) return false;
+      if (activeTab === "all" && d.status === "archived") return false;
+      if (!term) return true;
+      return (d.client.full_name ?? "").toLowerCase().includes(term)
+        || (d.client.email ?? "").toLowerCase().includes(term);
+    });
+  }, [cardData, activeTab, q]);
 
   const pending = invitations.filter((i) => i.status === "pending");
 
@@ -124,56 +232,31 @@ function ClientsPage() {
       phone: data.phone || null,
       coach_id: user.id,
     });
-    if (error) {
-      toast.error("Invito non riuscito", { description: error.message });
-      return;
-    }
+    if (error) { toast.error("Invito non riuscito", { description: error.message }); return; }
     const coachName = (user.user_metadata?.full_name as string) || user.email || "il tuo Coach";
     await sendInvitationEmail({ to: data.email, clientName: data.name, coachName });
-    toast.success("Invito creato", {
-      description: `Email di invito inviata a ${data.email}.`,
-    });
+    toast.success("Invito creato", { description: `Email di invito inviata a ${data.email}.` });
     setOpen(false);
     load();
   }
 
   async function cancelInvite(id: string) {
-    const { error } = await supabase
-      .from("client_invitations")
-      .update({ status: "cancelled" })
-      .eq("id", id);
-    if (error) {
-      toast.error("Errore", { description: error.message });
-      return;
-    }
-    toast.success("Invito annullato");
-    load();
+    const { error } = await supabase.from("client_invitations").update({ status: "cancelled" }).eq("id", id);
+    if (error) { toast.error("Errore", { description: error.message }); return; }
+    toast.success("Invito annullato"); load();
   }
 
-  async function archiveClient(id: string) {
-    const { error } = await supabase
-      .from("profiles")
-      .update({ status: "archived" })
-      .eq("id", id);
-    if (error) {
-      toast.error("Errore", { description: error.message });
-      return;
-    }
-    toast.success("Cliente archiviato", {
-      description: "Lo storico resta consultabile ma non comparirà tra gli attivi.",
-    });
+  async function setClientStatus(id: string, status: "active" | "archived") {
+    const { error } = await supabase.from("profiles").update({ status }).eq("id", id);
+    if (error) { toast.error("Errore", { description: error.message }); return; }
+    toast.success(status === "archived" ? "Cliente archiviato" : "Cliente ripristinato");
     load();
   }
 
   async function deleteClient(id: string, name: string) {
-    const { data: res, error } = await supabase.functions.invoke("admin-delete-user", {
-      body: { client_id: id },
-    });
+    const { data: res, error } = await supabase.functions.invoke("admin-delete-user", { body: { client_id: id } });
     const errMsg = (res as { error?: string } | null)?.error;
-    if (error || errMsg) {
-      toast.error("Eliminazione non riuscita", { description: errMsg ?? error?.message });
-      return;
-    }
+    if (error || errMsg) { toast.error("Eliminazione non riuscita", { description: errMsg ?? error?.message }); return; }
     toast.success(`${name} eliminato definitivamente.`);
     qc.invalidateQueries({ queryKey: ["clients"] });
     qc.invalidateQueries({ queryKey: ["bookings"] });
@@ -213,7 +296,6 @@ function ClientsPage() {
       return;
     }
 
-    // Espande regole in blocchi mensili sequenziali + allocazioni
     try {
       const today = new Date();
       const blocksToInsert = Array.from({ length: data.totalBlocks }, (_, i) => {
@@ -228,13 +310,13 @@ function ClientsPage() {
           sequence_order: i + 1,
         };
       });
-      const { data: blocks, error: bErr } = await supabase
+      const { data: blocksRes, error: bErr } = await supabase
         .from("training_blocks")
         .insert(blocksToInsert)
         .select("id, sequence_order, end_date");
       if (bErr) throw bErr;
       const blockBySeq = new Map<number, { id: string; end_date: string }>();
-      (blocks ?? []).forEach((b) => blockBySeq.set(b.sequence_order as number, { id: b.id as string, end_date: b.end_date as string }));
+      (blocksRes ?? []).forEach((b) => blockBySeq.set(b.sequence_order as number, { id: b.id as string, end_date: b.end_date as string }));
 
       const allocsToInsert: Array<{
         block_id: string;
@@ -265,9 +347,7 @@ function ClientsPage() {
         if (aErr) throw aErr;
       }
     } catch (e) {
-      toast.warning("Cliente creato, ma assegnazione blocchi non riuscita", {
-        description: (e as Error).message,
-      });
+      toast.warning("Cliente creato, ma assegnazione blocchi non riuscita", { description: (e as Error).message });
     }
 
     qc.invalidateQueries({ queryKey: ["clients"] });
@@ -278,38 +358,77 @@ function ClientsPage() {
     load();
   }
 
+  const tabs: Array<{ key: "all" | ClientStatus; label: string; count: number }> = [
+    { key: "all", label: "Tutti", count: counts.all - counts.archived },
+    { key: "active", label: "Attivi", count: counts.active },
+    { key: "expiring", label: "In Scadenza", count: counts.expiring },
+    { key: "archived", label: "Archiviati", count: counts.archived },
+  ];
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+    <div className="-m-6 p-6 md:p-10 bg-[#f8f9fe] min-h-[calc(100vh-3.5rem)]">
+      {/* Header */}
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-8">
         <div>
-          <h1 className="font-display text-3xl font-semibold tracking-tight">Clienti</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Invita nuovi clienti e gestisci il roster.
-          </p>
+          <h1 className="font-display text-3xl md:text-4xl font-bold text-[#003e62] tracking-tight">I tuoi Clienti</h1>
+          <p className="text-sm text-[#41474f] mt-1">Invita nuovi clienti e gestisci il roster.</p>
         </div>
         <div className="flex items-center gap-2">
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
             <DialogTrigger asChild>
-              <Button><UserPlus className="size-4" /> Aggiungi Cliente</Button>
+              <Button className="rounded-full px-6 py-3 h-auto bg-[#003e62] hover:bg-[#005685] text-white shadow-[0px_4px_20px_rgba(0,86,133,0.05)]">
+                <UserPlus className="size-4" /> Aggiungi Cliente
+              </Button>
             </DialogTrigger>
             <CreateClientDialog onSubmit={createClientAccount} />
           </Dialog>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button variant="secondary"><Plus className="size-4" /> Invita cliente</Button>
+              <Button variant="secondary" className="rounded-full px-5 py-3 h-auto">
+                <Plus className="size-4" /> Invita
+              </Button>
             </DialogTrigger>
             <InviteClientDialog onSubmit={inviteClient} />
           </Dialog>
         </div>
       </div>
 
-      <CredentialsDialog
-        creds={credentials}
-        onClose={() => setCredentials(null)}
-      />
+      <CredentialsDialog creds={credentials} onClose={() => setCredentials(null)} />
 
+      {/* Search */}
+      <div className="mb-6 relative w-full md:w-96">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-[#717880]" />
+        <Input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Cerca per nome o email…"
+          className="pl-12 pr-4 py-3 h-auto bg-[#F1F3F9] border-none rounded-full focus-visible:ring-2 focus-visible:ring-[#003e62] focus-visible:bg-white"
+        />
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2 mb-8 overflow-x-auto pb-1">
+        {tabs.map((t) => {
+          const isActive = activeTab === t.key;
+          return (
+            <button
+              key={t.key}
+              onClick={() => setActiveTab(t.key)}
+              className={`px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-colors ${
+                isActive
+                  ? "bg-[#cde5ff] text-[#004b74]"
+                  : "bg-[#eceef2] text-[#41474f] hover:bg-[#e1e2e7]"
+              }`}
+            >
+              {t.label} ({t.count})
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Pending invitations */}
       {pending.length > 0 && (
-        <Card>
+        <Card className="mb-6 rounded-[24px] border-none shadow-[0px_4px_20px_rgba(0,86,133,0.05)]">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Mail className="size-4" /> Inviti in attesa ({pending.length})
@@ -332,9 +451,7 @@ function ClientsPage() {
                     <TableCell className="font-medium">{i.full_name ?? "—"}</TableCell>
                     <TableCell className="text-muted-foreground">{i.email}</TableCell>
                     <TableCell className="text-muted-foreground">{i.phone ?? "—"}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">In attesa</Badge>
-                    </TableCell>
+                    <TableCell><Badge variant="outline">In attesa</Badge></TableCell>
                     <TableCell className="text-right">
                       <Button size="sm" variant="ghost" onClick={() => cancelInvite(i.id)}>
                         <X className="size-4" /> Annulla
@@ -348,112 +465,203 @@ function ClientsPage() {
         </Card>
       )}
 
-      <Card>
-        <CardContent className="p-0">
-          <div className="flex items-center gap-2 border-b p-4">
-            <Search className="size-4 text-muted-foreground" />
-            <Input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Cerca clienti…"
-              className="border-0 shadow-none focus-visible:ring-0 px-0"
-            />
-          </div>
-          {loading ? (
-            <div className="p-8 grid place-items-center text-muted-foreground">
-              <Loader2 className="size-5 animate-spin" />
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Telefono</TableHead>
-                  <TableHead>Stato</TableHead>
-                  <TableHead className="text-right">Azioni</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                      Nessun cliente registrato. Invia un invito per iniziare.
-                    </TableCell>
-                  </TableRow>
-                ) : filtered.map((c) => (
-                  <TableRow key={c.id}>
-                    <TableCell className="font-medium">{c.full_name ?? "—"}</TableCell>
-                    <TableCell className="text-muted-foreground">{c.email}</TableCell>
-                    <TableCell className="text-muted-foreground">{c.phone ?? "—"}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className="bg-success/10 text-success border-success/20">Attivo</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button size="sm" variant="ghost" asChild>
-                          <Link to="/trainer/clients/$id" params={{ id: c.id }}>
-                            <CalendarRange className="size-4" /> Pianifica
-                          </Link>
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button size="sm" variant="ghost">
-                              <Archive className="size-4" /> Archivia
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Archiviare questo cliente?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Il cliente {c.full_name ?? c.email} verrà archiviato. I dati storici (blocchi, prenotazioni)
-                                restano conservati nel sistema e non saranno persi.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Annulla</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => archiveClient(c.id)}>
-                                Archivia
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive">
-                              <Trash2 className="size-4" /> Elimina
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Eliminare definitivamente {c.full_name ?? c.email}?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Questa azione è <strong>irreversibile</strong>. Verranno eliminati: account di accesso,
-                                profilo, prenotazioni, blocchi, allocazioni di sessioni e notifiche push del cliente.
-                                I dati non potranno essere recuperati.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Annulla</AlertDialogCancel>
-                              <AlertDialogAction
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                onClick={() => deleteClient(c.id, c.full_name ?? c.email ?? "Cliente")}
-                              >
-                                Elimina definitivamente
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+      {/* Cards */}
+      {loading ? (
+        <div className="grid place-items-center py-16 text-[#717880]">
+          <Loader2 className="size-6 animate-spin" />
+        </div>
+      ) : visibleCards.length === 0 ? (
+        <div className="bg-white rounded-[32px] p-12 text-center text-[#717880] shadow-[0px_4px_20px_rgba(0,86,133,0.05)]">
+          {clients.length === 0
+            ? "Nessun cliente ancora. Aggiungi il primo per iniziare."
+            : "Nessun cliente in questa categoria."}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {visibleCards.map((d) => {
+            const c = d.client;
+            const isExpiring = d.status === "expiring";
+            const isArchived = d.status === "archived";
+            const pct = d.total > 0 ? Math.round((d.completed / d.total) * 100) : 0;
+            const phoneDigits = (c.phone ?? "").replace(/\D/g, "");
+
+            return (
+              <div
+                key={c.id}
+                className="bg-white rounded-[32px] p-6 shadow-[0px_4px_20px_rgba(0,86,133,0.05)] hover:shadow-[0px_8px_30px_rgba(0,86,133,0.08)] transition-all flex flex-col"
+              >
+                <div className="flex justify-between items-start mb-6">
+                  <div className="flex items-center gap-4 min-w-0">
+                    <div className="w-12 h-12 shrink-0 rounded-full bg-[#d6e5ec] text-[#3b494f] flex items-center justify-center text-base font-bold">
+                      {initials(c.full_name, c.email)}
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="text-lg leading-6 font-bold text-[#191c1f] truncate">{c.full_name ?? "Senza nome"}</h3>
+                      <p className="text-sm text-[#717880] truncate">
+                        {d.totalBlocks > 0 ? `Percorso ${d.totalBlocks} ${d.totalBlocks === 1 ? "Blocco" : "Blocchi"}` : (c.email ?? "—")}
+                      </p>
+                    </div>
+                  </div>
+                  <span
+                    className={`shrink-0 ml-2 px-3 py-1 rounded-full text-xs font-semibold ${
+                      isArchived
+                        ? "bg-[#eceef2] text-[#41474f]"
+                        : isExpiring
+                        ? "bg-orange-50 text-orange-600"
+                        : "bg-emerald-50 text-emerald-600"
+                    }`}
+                  >
+                    {isArchived ? "Archiviato" : isExpiring ? "In Scadenza" : "Attivo"}
+                  </span>
+                </div>
+
+                <div className="mb-6 flex-1">
+                  {d.activeBlockSeq && d.total > 0 ? (
+                    <>
+                      <div className="flex justify-between mb-2">
+                        <span className="text-xs font-semibold text-[#41474f]">
+                          Blocco {d.activeBlockSeq} - {d.completed}/{d.total} {d.eventTypeLabel} completati
+                        </span>
                       </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                      <div className="w-full h-2 bg-[#e1e2e7] rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-[#003e62] rounded-full transition-all"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-xs text-[#717880] italic">Nessun percorso attivo.</p>
+                  )}
+                </div>
+
+                <div className="pt-4 border-t border-[#e1e2e7] flex items-center gap-2">
+                  <Button
+                    asChild
+                    className="flex-1 rounded-full bg-[#003e62]/10 text-[#003e62] hover:bg-[#003e62]/20 shadow-none"
+                  >
+                    <Link to="/trainer/clients/$id" params={{ id: c.id }}>
+                      {isExpiring ? "Rinnova" : "Pianifica"}
+                    </Link>
+                  </Button>
+
+                  {phoneDigits ? (
+                    <a
+                      href={`https://wa.me/${phoneDigits}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      title="Apri WhatsApp"
+                      className="w-10 h-10 flex items-center justify-center rounded-full border border-[#c1c7d0] text-[#41474f] hover:bg-[#eceef2] transition-colors"
+                    >
+                      <MessageCircle className="size-4" />
+                    </a>
+                  ) : (
+                    <button
+                      disabled
+                      title="Telefono non disponibile"
+                      className="w-10 h-10 flex items-center justify-center rounded-full border border-[#e1e2e7] text-[#c1c7d0] cursor-not-allowed"
+                    >
+                      <MessageCircle className="size-4" />
+                    </button>
+                  )}
+
+                  <ClientCardMenu
+                    client={c}
+                    isArchived={isArchived}
+                    onArchive={() => setClientStatus(c.id, "archived")}
+                    onRestore={() => setClientStatus(c.id, "active")}
+                    onDelete={() => deleteClient(c.id, c.full_name ?? c.email ?? "Cliente")}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
+  );
+}
+
+function ClientCardMenu({
+  client, isArchived, onArchive, onRestore, onDelete,
+}: {
+  client: ClientRow;
+  isArchived: boolean;
+  onArchive: () => void;
+  onRestore: () => void;
+  onDelete: () => void;
+}) {
+  const [confirmArchive, setConfirmArchive] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            className="w-10 h-10 flex items-center justify-center rounded-full text-[#41474f] hover:bg-[#eceef2] transition-colors"
+            aria-label="Altre azioni"
+          >
+            <MoreVertical className="size-4" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem asChild>
+            <Link to="/trainer/clients/$id" params={{ id: client.id }}>
+              Modifica dettagli
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          {isArchived ? (
+            <DropdownMenuItem onClick={onRestore}>
+              <ArchiveRestore className="size-4" /> Ripristina
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem onClick={() => setConfirmArchive(true)}>
+              <Archive className="size-4" /> Archivia
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem onClick={() => setConfirmDelete(true)} className="text-destructive focus:text-destructive">
+            <Trash2 className="size-4" /> Elimina
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <AlertDialog open={confirmArchive} onOpenChange={setConfirmArchive}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archiviare questo cliente?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {client.full_name ?? client.email} verrà archiviato. I dati storici (blocchi, prenotazioni) restano conservati.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction onClick={onArchive}>Archivia</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminare definitivamente {client.full_name ?? client.email}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Questa azione è <strong>irreversibile</strong>. Verranno eliminati account, profilo, prenotazioni, blocchi e allocazioni.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={onDelete}
+            >
+              Elimina definitivamente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
