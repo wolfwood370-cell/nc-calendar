@@ -1,12 +1,12 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Bell, Calendar, LogOut, Mail, ChevronRight, Link as LinkIcon, CheckCircle, Loader2 } from "lucide-react";
+import { Bell, Calendar, LogOut, Mail, Link as LinkIcon, CheckCircle, Loader2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
-import { isPushSupported, subscribeToPush, getCurrentPushSubscription } from "@/lib/push";
+import { isPushSupported, isPushReady, subscribeToPush, getCurrentPushSubscription } from "@/lib/push";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/client/settings")({
