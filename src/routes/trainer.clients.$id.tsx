@@ -19,7 +19,8 @@ import {
 } from "@/components/ui/select";
 import {
   ArrowLeft, CalendarIcon, Loader2, Save, RotateCcw, Settings, Sparkles,
-  Check, X as XIcon, Plus, Trash2, Unlink,
+  Check, X as XIcon, Plus, Trash2, Unlink, Edit3, CalendarDays,
+  Dumbbell, Stethoscope, Ban, CheckCircle2, Clock,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
