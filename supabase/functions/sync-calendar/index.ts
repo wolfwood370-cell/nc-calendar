@@ -85,15 +85,18 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: String(e) }, 200);
   }
 
-  // Helper: carica clienti + event types del coach (per matching)
+  // Helper: carica clienti + event types + email coach (per matching)
   async function loadCoachContext() {
-    const [clientsRes, etRes] = await Promise.all([
+    const [clientsRes, etRes, coachUserRes] = await Promise.all([
       supabase.from("profiles").select("id, full_name, email").eq("coach_id", body.coach_id).is("deleted_at", null),
       supabase.from("event_types").select("id, name, base_type").eq("coach_id", body.coach_id),
+      supabase.auth.admin.getUserById(body.coach_id).catch(() => ({ data: { user: null } })),
     ]);
+    const coachEmail = ((coachUserRes as { data?: { user?: { email?: string | null } } })?.data?.user?.email ?? null) ?? null;
     return {
       clients: (clientsRes.data ?? []) as ClientLite[],
       eventTypes: (etRes.data ?? []) as EventTypeLite[],
+      coachEmail,
     };
   }
 
@@ -491,41 +494,52 @@ function json(payload: unknown, status: number) {
   });
 }
 
-/** Smart matcher per cliente + tipo evento. */
+/**
+ * Strict matcher per cliente + tipo evento.
+ * - Cliente: solo email esatta (escludendo email del coach) OPPURE
+ *   "nome cognome" / "cognome nome" presente esattamente nel titolo o descrizione.
+ * - Tipo evento: nome più lungo presente nel titolo/descrizione.
+ */
 function matchEvent(
   summary: string,
   attendees: Array<{ email?: string }>,
-  ctx: { clients: ClientLite[]; eventTypes: EventTypeLite[] },
+  ctx: { clients: ClientLite[]; eventTypes: EventTypeLite[]; coachEmail?: string | null },
   description?: string,
 ): { client: ClientLite | null; eventType: EventTypeLite | null } {
   const lower = `${summary ?? ""} ${description ?? ""}`.toLowerCase();
-  const emails = new Set(attendees.map((a) => (a.email ?? "").toLowerCase()).filter(Boolean));
+  const coachEmail = (ctx.coachEmail ?? "").toLowerCase();
+  const emails = new Set(
+    attendees
+      .map((a) => (a.email ?? "").toLowerCase())
+      .filter((e) => e && e !== coachEmail),
+  );
 
-  // 1) Match cliente per email attendee, poi per full_name nel titolo
+  // Priorità 1: match esatto su email attendee (escluso coach)
   let client: ClientLite | null = null;
   for (const c of ctx.clients) {
-    if (c.email && emails.has(c.email.toLowerCase())) { client = c; break; }
-  }
-  if (!client) {
-    // preferisci match più lungo (full_name più specifico)
-    let best: { c: ClientLite; len: number } | null = null;
-    for (const c of ctx.clients) {
-      const name = (c.full_name ?? "").trim().toLowerCase();
-      if (name.length < 3) continue;
-      if (lower.includes(name)) {
-        if (!best || name.length > best.len) best = { c, len: name.length };
-      } else {
-        // prova primo nome
-        const first = name.split(/\s+/)[0];
-        if (first && first.length >= 3 && new RegExp(`\\b${escapeRe(first)}\\b`).test(lower)) {
-          if (!best || first.length > best.len) best = { c, len: first.length };
-        }
-      }
-    }
-    if (best) client = best.c;
+    const ce = (c.email ?? "").toLowerCase();
+    if (!ce || ce === coachEmail) continue;
+    if (emails.has(ce)) { client = c; break; }
   }
 
-  // 2) Match tipo evento per nome più lungo presente nel titolo
+  // Priorità 2: match esatto su "nome cognome" o "cognome nome" (case-insensitive).
+  // Match parziale (solo nome o solo cognome) è VIETATO.
+  if (!client) {
+    for (const c of ctx.clients) {
+      const fn = (c.full_name ?? "").trim();
+      if (!fn) continue;
+      const parts = fn.split(/\s+/);
+      if (parts.length < 2) continue;
+      const first = parts[0].toLowerCase();
+      const last = parts.slice(1).join(" ").toLowerCase();
+      if (!first || !last) continue;
+      const a = `${first} ${last}`;
+      const b = `${last} ${first}`;
+      if (lower.includes(a) || lower.includes(b)) { client = c; break; }
+    }
+  }
+
+  // Tipo evento: nome più lungo presente nel titolo/descrizione
   let eventType: EventTypeLite | null = null;
   let bestLen = 0;
   for (const et of ctx.eventTypes) {
