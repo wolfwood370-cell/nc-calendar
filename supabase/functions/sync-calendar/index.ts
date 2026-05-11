@@ -248,13 +248,14 @@ Deno.serve(async (req) => {
         const startIso = start?.dateTime ?? (start?.date ? `${start.date}T00:00:00Z` : null);
         if (!id || !startIso) continue;
         const summary = (ev.summary as string) ?? "Evento";
+        const description = (ev.description as string) ?? "";
         const attendees = (ev.attendees ?? []) as Array<{ email?: string }>;
         const status = ev.status === "cancelled" ? "cancelled"
           : new Date(startIso).getTime() < now ? "completed" : "scheduled";
 
-        const match = matchEvent(summary, attendees, ctx);
+        const match = matchEvent(summary, attendees, ctx, description);
         if (match.client) matched++;
-        const clientId = match.client?.id ?? body.coach_id;
+        const clientId = match.client?.id ?? null;
         const sessionType = match.eventType?.base_type ?? "PT Session";
         const eventTypeId = match.eventType?.id ?? null;
 
@@ -281,11 +282,13 @@ Deno.serve(async (req) => {
 
         if (existing) {
           const patch: Record<string, unknown> = {
-            client_id: clientId,
             session_type: sessionType,
             event_type_id: eventTypeId,
             notes: `Importato da Google Calendar: ${summary}`,
           };
+          // Solo scrivi client_id se abbiamo un match certo (non sovrascrivere
+          // un client_id già impostato manualmente con null).
+          if (match.client) patch.client_id = clientId;
           if (existing.scheduled_at !== startIso) patch.scheduled_at = startIso;
           if (existing.status !== status) patch.status = status;
 
@@ -377,19 +380,21 @@ Deno.serve(async (req) => {
         const start = ev.start as { dateTime?: string; date?: string } | undefined;
         const evStart = start?.dateTime ?? (start?.date ? `${start.date}T00:00:00Z` : null);
         const summary = (ev.summary as string) ?? "";
+        const description = (ev.description as string) ?? "";
         const attendees = (ev.attendees ?? []) as Array<{ email?: string }>;
 
         const patch: Record<string, unknown> = {};
         if (evStart && evStart !== b.scheduled_at) { patch.scheduled_at = evStart; moved++; }
 
-        const match = matchEvent(summary, attendees, ctx);
-        const newClient = match.client?.id ?? body.coach_id;
+        const match = matchEvent(summary, attendees, ctx, description);
+        const newClient = match.client?.id ?? null;
         const newEt = match.eventType?.id ?? null;
         const newType = match.eventType?.base_type ?? "PT Session";
-        const clientChanged = newClient !== b.client_id;
+        // Non sovrascrivere un client_id esistente con null se non c'è match
+        const clientChanged = match.client ? newClient !== b.client_id : false;
         const etChanged = newEt !== b.event_type_id;
         if (clientChanged || etChanged) {
-          patch.client_id = newClient;
+          if (match.client) patch.client_id = newClient;
           patch.event_type_id = newEt;
           patch.session_type = newType;
           patch.notes = `Importato da Google Calendar: ${summary}`;
@@ -397,7 +402,7 @@ Deno.serve(async (req) => {
             await refundCreditFor(b.block_id, b.event_type_id ?? null, b.session_type, b.scheduled_at);
             patch.block_id = null;
           }
-          if (match.client) {
+          if (match.client && newClient) {
             const newBlockId = await consumeCreditFor(newClient, newEt, newType, evStart ?? b.scheduled_at);
             if (newBlockId) patch.block_id = newBlockId;
           }
@@ -425,9 +430,10 @@ Deno.serve(async (req) => {
         if (existing) continue;
 
         const summary = (ev.summary as string) ?? "Evento";
+        const description = (ev.description as string) ?? "";
         const attendees = (ev.attendees ?? []) as Array<{ email?: string }>;
-        const match = matchEvent(summary, attendees, ctx);
-        const clientId = match.client?.id ?? body.coach_id;
+        const match = matchEvent(summary, attendees, ctx, description);
+        const clientId = match.client?.id ?? null;
         const sessionType = match.eventType?.base_type ?? "PT Session";
         const eventTypeId = match.eventType?.id ?? null;
         const status = new Date(startIso).getTime() < now ? "completed" : "scheduled";
@@ -490,8 +496,9 @@ function matchEvent(
   summary: string,
   attendees: Array<{ email?: string }>,
   ctx: { clients: ClientLite[]; eventTypes: EventTypeLite[] },
+  description?: string,
 ): { client: ClientLite | null; eventType: EventTypeLite | null } {
-  const lower = (summary ?? "").toLowerCase();
+  const lower = `${summary ?? ""} ${description ?? ""}`.toLowerCase();
   const emails = new Set(attendees.map((a) => (a.email ?? "").toLowerCase()).filter(Boolean));
 
   // 1) Match cliente per email attendee, poi per full_name nel titolo

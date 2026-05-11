@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/select";
 import {
   ArrowLeft, CalendarIcon, Loader2, Save, RotateCcw, Settings, Sparkles,
-  Check, X as XIcon, Plus, Trash2,
+  Check, X as XIcon, Plus, Trash2, Unlink,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -68,6 +68,18 @@ interface OrphanBooking {
   session_type: SessionType;
 }
 
+interface ClientBooking {
+  id: string;
+  scheduled_at: string;
+  title: string | null;
+  status: string;
+  block_id: string | null;
+  event_type_id: string | null;
+  session_type: SessionType;
+  google_event_id: string | null;
+  created_at: string;
+}
+
 function toIso(d: Date) {
   return format(d, "yyyy-MM-dd");
 }
@@ -100,6 +112,7 @@ function ClientPathPage() {
   const [rows, setRows] = useState<WeekRow[]>([]);
   const [originalRows, setOriginalRows] = useState<WeekRow[]>([]);
   const [orphans, setOrphans] = useState<OrphanBooking[]>([]);
+  const [clientBookings, setClientBookings] = useState<ClientBooking[]>([]);
 
   const totalBlocks = blocks.length;
   const totalWeeks = totalBlocks * WEEKS_PER_BLOCK;
@@ -199,6 +212,25 @@ function ClientPathPage() {
     setRows(generated);
     setOriginalRows(generated.map((r) => ({ ...r })));
 
+    // Carica le sessioni del cliente (linkate)
+    const { data: cbs } = await supabase
+      .from("bookings")
+      .select("id, scheduled_at, title, status, block_id, event_type_id, session_type, google_event_id, created_at")
+      .eq("client_id", clientId)
+      .is("deleted_at", null)
+      .order("scheduled_at", { ascending: false });
+    const bookingsList = (cbs ?? []) as ClientBooking[];
+    setClientBookings(bookingsList);
+
+    // Toast: nuove sessioni auto-assegnate negli ultimi 5 minuti
+    const fiveMinAgo = Date.now() - 5 * 60 * 1000;
+    const recentAuto = bookingsList.filter(
+      (b) => b.google_event_id && new Date(b.created_at).getTime() > fiveMinAgo,
+    ).length;
+    if (recentAuto > 0) {
+      toast.success(`Ho assegnato automaticamente ${recentAuto} ${recentAuto === 1 ? "nuova sessione" : "nuove sessioni"} a questo cliente.`);
+    }
+
     await loadOrphans(fn);
     setLoading(false);
   }
@@ -288,6 +320,34 @@ function ClientPathPage() {
     }
     toast.info("Sessione ignorata per questo cliente");
     setOrphans((prev) => prev.filter((p) => p.id !== o.id));
+  }
+
+  async function unlinkBooking(b: ClientBooking) {
+    if (!confirm("Scollegare questa sessione dal cliente? Verrà mostrata nuovamente come 'da revisionare'.")) return;
+    // Restituisci credito se era contabilizzato
+    if (b.block_id) {
+      const alloc = allocations.find(
+        (a) => a.block_id === b.block_id &&
+          (b.event_type_id ? a.event_type_id === b.event_type_id : a.session_type === b.session_type) &&
+          a.quantity_booked > 0,
+      );
+      if (alloc) {
+        await supabase
+          .from("block_allocations")
+          .update({ quantity_booked: Math.max(0, alloc.quantity_booked - 1) })
+          .eq("id", alloc.id);
+      }
+    }
+    const { error } = await supabase
+      .from("bookings")
+      .update({ client_id: null, block_id: null })
+      .eq("id", b.id);
+    if (error) {
+      toast.error("Scollegamento non riuscito", { description: error.message });
+      return;
+    }
+    toast.success("Sessione scollegata dal cliente");
+    void load();
   }
 
   function regenerateFromStart(start: Date) {
@@ -627,6 +687,55 @@ function ClientPathPage() {
                         ) : (
                           <Badge variant="outline">Pianificata</Badge>
                         )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Sessioni del Cliente ({clientBookings.length})</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {clientBookings.length === 0 ? (
+            <div className="p-6 text-center text-sm text-muted-foreground">
+              Nessuna sessione assegnata a questo cliente.
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Data</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Stato</TableHead>
+                  <TableHead>Origine</TableHead>
+                  <TableHead className="text-right">Azioni</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {clientBookings.map((b) => {
+                  const et = eventTypes.find((e) => e.id === b.event_type_id);
+                  return (
+                    <TableRow key={b.id}>
+                      <TableCell className="text-sm">
+                        {format(parseISO(b.scheduled_at), "EEE dd MMM yyyy HH:mm", { locale: it })}
+                      </TableCell>
+                      <TableCell className="text-sm">{et?.name ?? b.session_type}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="capitalize">{b.status}</Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {b.google_event_id ? "Google Calendar" : "Manuale"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button size="sm" variant="ghost" onClick={() => unlinkBooking(b)}>
+                          <Unlink className="size-4" /> Scollega
+                        </Button>
                       </TableCell>
                     </TableRow>
                   );
