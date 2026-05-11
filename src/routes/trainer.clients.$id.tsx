@@ -112,6 +112,7 @@ function ClientPathPage() {
   const [rows, setRows] = useState<WeekRow[]>([]);
   const [originalRows, setOriginalRows] = useState<WeekRow[]>([]);
   const [orphans, setOrphans] = useState<OrphanBooking[]>([]);
+  const [clientBookings, setClientBookings] = useState<ClientBooking[]>([]);
 
   const totalBlocks = blocks.length;
   const totalWeeks = totalBlocks * WEEKS_PER_BLOCK;
