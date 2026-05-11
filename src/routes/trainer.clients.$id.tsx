@@ -793,15 +793,15 @@ function ClientPathPage() {
                             <PopoverTrigger asChild>
                               <button
                                 className={cn(
-                                  "w-full bg-muted hover:bg-muted/70 transition-colors rounded-full px-4 py-2 flex items-center justify-between border",
+                                  "w-full bg-[#eceef2] hover:bg-[#dfe2e8] transition-colors rounded-full px-4 py-2 flex items-center justify-between border",
                                   row.shifted ? "border-primary" : "border-transparent",
                                 )}
                                 title={row.shifted ? "Settimana spostata" : "Modifica data"}
                               >
-                                <span className="text-sm font-semibold text-foreground px-2">
+                                <span className="text-sm font-bold text-[#191c1f] px-2">
                                   {date ? format(date, "EEEE d MMM", { locale: it }) : "—"}
                                 </span>
-                                <CalendarDays className="size-4 text-muted-foreground" />
+                                <CalendarDays className="size-4 text-[#191c1f]" />
                               </button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="start">
