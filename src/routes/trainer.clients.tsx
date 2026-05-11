@@ -397,28 +397,75 @@ function InviteClientDialog({ onSubmit }: { onSubmit: (d: { name: string; email:
   );
 }
 
-function CreateClientDialog({ onSubmit }: { onSubmit: (d: { firstName: string; lastName: string; email: string; password: string }) => Promise<void> }) {
+function generateSecurePassword(): string {
+  const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const lower = "abcdefghjkmnpqrstuvwxyz";
+  const digits = "23456789";
+  const special = "!@#$%&*";
+  const all = upper + lower + digits + special;
+  const pick = (s: string) => s[Math.floor(Math.random() * s.length)];
+  const out = [pick(upper), pick(lower), pick(digits), pick(special)];
+  for (let i = 0; i < 6; i++) out.push(pick(all));
+  return out.sort(() => Math.random() - 0.5).join("");
+}
+
+interface CreateClientPayload {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  eventTypeId: string;
+  sessionType: SessionType;
+  totalSessions: number;
+  sessionsDone: number;
+}
+
+function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) => Promise<void> }) {
+  const { user } = useAuth();
+  const eventTypesQ = useCoachEventTypes(user?.id);
+  const eventTypes = eventTypesQ.data ?? [];
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [eventTypeId, setEventTypeId] = useState<string>("");
+  const [totalSessions, setTotalSessions] = useState<number>(1);
+  const [sessionsDone, setSessionsDone] = useState<number>(0);
   const [submitting, setSubmitting] = useState(false);
+
   return (
-    <DialogContent>
+    <DialogContent className="sm:max-w-lg">
       <DialogHeader>
-        <DialogTitle>Crea nuovo cliente</DialogTitle>
+        <DialogTitle>Aggiungi Cliente</DialogTitle>
       </DialogHeader>
       <form
         className="space-y-4"
         onSubmit={async (e) => {
           e.preventDefault();
-          if (password.length < 8) {
-            toast.error("La password deve contenere almeno 8 caratteri.");
+          const et = eventTypes.find((x) => x.id === eventTypeId);
+          if (!et) {
+            toast.error("Seleziona una tipologia di percorso.");
+            return;
+          }
+          if (totalSessions < 1) {
+            toast.error("Il totale sessioni deve essere almeno 1.");
+            return;
+          }
+          if (sessionsDone < 0 || sessionsDone > totalSessions) {
+            toast.error("Le sessioni già effettuate non possono superare il totale.");
             return;
           }
           setSubmitting(true);
           try {
-            await onSubmit({ firstName, lastName, email, password });
+            await onSubmit({
+              firstName: firstName.trim(),
+              lastName: lastName.trim(),
+              email,
+              password: generateSecurePassword(),
+              eventTypeId,
+              sessionType: et.base_type as SessionType,
+              totalSessions,
+              sessionsDone,
+            });
           } finally {
             setSubmitting(false);
           }
@@ -439,20 +486,122 @@ function CreateClientDialog({ onSubmit }: { onSubmit: (d: { firstName: string; l
           <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
         </div>
         <div className="space-y-2">
-          <Label>Password Temporanea</Label>
-          <Input type="text" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
-          <p className="text-xs text-muted-foreground">
-            Comunica queste credenziali al cliente. Potrà accedere subito e modificarla in seguito.
-          </p>
+          <Label>Tipologia Percorso</Label>
+          <Select value={eventTypeId} onValueChange={setEventTypeId}>
+            <SelectTrigger>
+              <SelectValue placeholder={eventTypes.length === 0 ? "Crea prima un Event Type" : "Seleziona percorso"} />
+            </SelectTrigger>
+            <SelectContent>
+              {eventTypes.map((et) => (
+                <SelectItem key={et.id} value={et.id}>{et.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-2">
+            <Label>Totale Sessioni del Pacchetto</Label>
+            <Input
+              type="number"
+              min={1}
+              value={totalSessions}
+              onChange={(e) => setTotalSessions(Math.max(1, Number(e.target.value) || 1))}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Sessioni Già Effettuate</Label>
+            <Input
+              type="number"
+              min={0}
+              value={sessionsDone}
+              onChange={(e) => setSessionsDone(Math.max(0, Number(e.target.value) || 0))}
+              required
+            />
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Verrà generata automaticamente una password sicura. Potrai copiarla nel passaggio successivo.
+        </p>
         <DialogFooter>
-          <Button type="submit" disabled={submitting}>
+          <Button type="submit" disabled={submitting || eventTypes.length === 0}>
             {submitting ? <Loader2 className="size-4 animate-spin" /> : null}
             Crea cliente
           </Button>
         </DialogFooter>
       </form>
     </DialogContent>
+  );
+}
+
+function CredentialsDialog({
+  creds,
+  onClose,
+}: {
+  creds: { firstName: string; email: string; password: string } | null;
+  onClose: () => void;
+}) {
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const appUrl = typeof window !== "undefined" ? window.location.origin : "";
+  const message = creds
+    ? `Ciao ${creds.firstName}, la tua area personale su NC Calendar è pronta! Puoi accedere da qui: ${appUrl}. Email: ${creds.email} | Password temporanea: ${creds.password}. Ricordati di cambiarla al tuo primo accesso.`
+    : "";
+
+  async function copy(value: string, field: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedField(field);
+      toast.success("Copiato negli appunti");
+      setTimeout(() => setCopiedField((c) => (c === field ? null : c)), 1500);
+    } catch {
+      toast.error("Impossibile copiare");
+    }
+  }
+
+  return (
+    <Dialog open={!!creds} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Credenziali Generate</DialogTitle>
+        </DialogHeader>
+        {creds && (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Salva o invia queste credenziali al cliente. Non saranno più visibili dopo la chiusura.
+            </p>
+            <div className="rounded-lg border bg-muted/40 p-4 space-y-3">
+              <div>
+                <Label className="text-xs uppercase text-muted-foreground">Email</Label>
+                <div className="flex items-center justify-between gap-2 mt-1">
+                  <code className="text-sm font-mono break-all">{creds.email}</code>
+                  <Button size="sm" variant="ghost" onClick={() => copy(creds.email, "email")}>
+                    {copiedField === "email" ? <Check className="size-4" /> : <Copy className="size-4" />}
+                  </Button>
+                </div>
+              </div>
+              <Separator />
+              <div>
+                <Label className="text-xs uppercase text-muted-foreground">Password Temporanea</Label>
+                <div className="flex items-center justify-between gap-2 mt-1">
+                  <code className="text-sm font-mono break-all">{creds.password}</code>
+                  <Button size="sm" variant="ghost" onClick={() => copy(creds.password, "password")}>
+                    {copiedField === "password" ? <Check className="size-4" /> : <Copy className="size-4" />}
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <DialogFooter className="gap-2 sm:gap-2">
+              <Button variant="outline" onClick={onClose}>Chiudi</Button>
+              <Button onClick={() => copy(message, "message")}>
+                {copiedField === "message" ? <Check className="size-4" /> : <Copy className="size-4" />}
+                Copia Messaggio
+              </Button>
+            </DialogFooter>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
