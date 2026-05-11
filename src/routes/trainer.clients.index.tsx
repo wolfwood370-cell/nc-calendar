@@ -31,7 +31,7 @@ import { Separator } from "@/components/ui/separator";
 import { useQueryClient } from "@tanstack/react-query";
 import { sessionLabel } from "@/lib/mock-data";
 
-export const Route = createFileRoute("/trainer/clients")({
+export const Route = createFileRoute("/trainer/clients/")({
   component: ClientsPage,
 });
 
