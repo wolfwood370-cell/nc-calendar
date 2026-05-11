@@ -347,7 +347,7 @@ function ClientsPage() {
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader>
-                              <AlertDialogTitle>Sei sicuro di voler eliminare questo cliente?</AlertDialogTitle>
+                              <AlertDialogTitle>Archiviare questo cliente?</AlertDialogTitle>
                               <AlertDialogDescription>
                                 Il cliente {c.full_name ?? c.email} verrà archiviato. I dati storici (blocchi, prenotazioni)
                                 restano conservati nel sistema e non saranno persi.
@@ -357,6 +357,32 @@ function ClientsPage() {
                               <AlertDialogCancel>Annulla</AlertDialogCancel>
                               <AlertDialogAction onClick={() => archiveClient(c.id)}>
                                 Archivia
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive">
+                              <Trash2 className="size-4" /> Elimina
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Eliminare definitivamente {c.full_name ?? c.email}?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Questa azione è <strong>irreversibile</strong>. Verranno eliminati: account di accesso,
+                                profilo, prenotazioni, blocchi, allocazioni di sessioni e notifiche push del cliente.
+                                I dati non potranno essere recuperati.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Annulla</AlertDialogCancel>
+                              <AlertDialogAction
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                onClick={() => deleteClient(c.id, c.full_name ?? c.email ?? "Cliente")}
+                              >
+                                Elimina definitivamente
                               </AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
