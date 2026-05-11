@@ -22,6 +22,7 @@ import {
   Check, X as XIcon, Plus, Trash2, Unlink, Edit3, CalendarDays,
   Dumbbell, Stethoscope, Ban, CheckCircle2, Clock,
 } from "lucide-react";
+type EditableStatus = "scheduled" | "completed" | "cancelled" | "late_cancelled";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useCoachEventTypes } from "@/lib/queries";
