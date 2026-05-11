@@ -16,7 +16,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Plus, Search, Loader2, Mail, X, Archive, CalendarPlus, PlusCircle, UserPlus, Copy, Check } from "lucide-react";
+import { Plus, Search, Loader2, Mail, X, Archive, CalendarPlus, PlusCircle, UserPlus, Copy, Check, Trash2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -138,6 +138,22 @@ function ClientsPage() {
     toast.success("Cliente archiviato", {
       description: "I dati storici restano disponibili.",
     });
+    load();
+  }
+
+  async function deleteClient(id: string, name: string) {
+    const { data: res, error } = await supabase.functions.invoke("admin-delete-user", {
+      body: { client_id: id },
+    });
+    const errMsg = (res as { error?: string } | null)?.error;
+    if (error || errMsg) {
+      toast.error("Eliminazione non riuscita", { description: errMsg ?? error?.message });
+      return;
+    }
+    toast.success(`${name} eliminato definitivamente.`);
+    qc.invalidateQueries({ queryKey: ["clients"] });
+    qc.invalidateQueries({ queryKey: ["bookings"] });
+    qc.invalidateQueries({ queryKey: ["blocks"] });
     load();
   }
 
@@ -331,7 +347,7 @@ function ClientsPage() {
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader>
-                              <AlertDialogTitle>Sei sicuro di voler eliminare questo cliente?</AlertDialogTitle>
+                              <AlertDialogTitle>Archiviare questo cliente?</AlertDialogTitle>
                               <AlertDialogDescription>
                                 Il cliente {c.full_name ?? c.email} verrà archiviato. I dati storici (blocchi, prenotazioni)
                                 restano conservati nel sistema e non saranno persi.
@@ -341,6 +357,32 @@ function ClientsPage() {
                               <AlertDialogCancel>Annulla</AlertDialogCancel>
                               <AlertDialogAction onClick={() => archiveClient(c.id)}>
                                 Archivia
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive">
+                              <Trash2 className="size-4" /> Elimina
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Eliminare definitivamente {c.full_name ?? c.email}?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Questa azione è <strong>irreversibile</strong>. Verranno eliminati: account di accesso,
+                                profilo, prenotazioni, blocchi, allocazioni di sessioni e notifiche push del cliente.
+                                I dati non potranno essere recuperati.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Annulla</AlertDialogCancel>
+                              <AlertDialogAction
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                onClick={() => deleteClient(c.id, c.full_name ?? c.email ?? "Cliente")}
+                              >
+                                Elimina definitivamente
                               </AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
