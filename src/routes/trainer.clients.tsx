@@ -124,6 +124,21 @@ function ClientsPage() {
     load();
   }
 
+  async function archiveClient(id: string) {
+    const { error } = await supabase
+      .from("profiles")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) {
+      toast.error("Errore", { description: error.message });
+      return;
+    }
+    toast.success("Cliente archiviato", {
+      description: "I dati storici restano disponibili.",
+    });
+    load();
+  }
+
   async function createClientAccount(data: { firstName: string; lastName: string; email: string; password: string }) {
     const { data: res, error } = await supabase.functions.invoke("admin-create-user", {
       body: {
