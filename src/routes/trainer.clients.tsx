@@ -51,6 +51,7 @@ interface InvitationRow {
 
 function ClientsPage() {
   const { user, role } = useAuth();
+  const qc = useQueryClient();
   const [clients, setClients] = useState<ClientRow[]>([]);
   const [invitations, setInvitations] = useState<InvitationRow[]>([]);
   const [loading, setLoading] = useState(true);
