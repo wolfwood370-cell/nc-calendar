@@ -153,6 +153,28 @@ function ClientSettings() {
     navigate({ to: "/auth" });
   };
 
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 6) {
+      toast.error("La password deve contenere almeno 6 caratteri.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("Le password non coincidono.");
+      return;
+    }
+    setUpdatingPassword(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setUpdatingPassword(false);
+    if (error) {
+      toast.error("Aggiornamento non riuscito", { description: error.message });
+      return;
+    }
+    toast.success("Password aggiornata con successo.");
+    setNewPassword("");
+    setConfirmPassword("");
+  };
+
   const fullName = profile?.full_name ?? user?.email ?? "Cliente";
   const email = profile?.email ?? user?.email ?? "";
 
