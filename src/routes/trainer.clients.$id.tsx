@@ -964,9 +964,13 @@ function BlockCreditsDialog({ blockId, sequenceOrder, allocations, eventTypes, o
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline">
-          <Settings className="size-4" /> Imposta
-        </Button>
+        <button
+          className="flex items-center justify-center p-1.5 rounded-full hover:bg-muted text-muted-foreground transition-colors"
+          title="Imposta Crediti"
+          aria-label="Imposta Crediti"
+        >
+          <Edit3 className="size-5" />
+        </button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
