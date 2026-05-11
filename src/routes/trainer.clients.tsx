@@ -16,7 +16,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Plus, Search, Loader2, Mail, X, Archive, CalendarPlus, PlusCircle, UserPlus, Copy, Check, Trash2, History } from "lucide-react";
+import { Plus, Search, Loader2, Mail, X, Archive, CalendarPlus, PlusCircle, UserPlus, Copy, Check, Trash2, History, CalendarRange } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
