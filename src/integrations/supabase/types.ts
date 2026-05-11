@@ -315,6 +315,7 @@ export type Database = {
           email_notifications: boolean
           full_name: string | null
           id: string
+          path_start_date: string | null
           phone: string | null
         }
         Insert: {
@@ -325,6 +326,7 @@ export type Database = {
           email_notifications?: boolean
           full_name?: string | null
           id: string
+          path_start_date?: string | null
           phone?: string | null
         }
         Update: {
@@ -335,6 +337,7 @@ export type Database = {
           email_notifications?: boolean
           full_name?: string | null
           id?: string
+          path_start_date?: string | null
           phone?: string | null
         }
         Relationships: [
@@ -486,6 +489,42 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      weekly_schedule: {
+        Row: {
+          block_number: number
+          client_id: string
+          coach_id: string
+          created_at: string
+          id: string
+          monday_date: string
+          shifted: boolean
+          updated_at: string
+          week_number: number
+        }
+        Insert: {
+          block_number: number
+          client_id: string
+          coach_id: string
+          created_at?: string
+          id?: string
+          monday_date: string
+          shifted?: boolean
+          updated_at?: string
+          week_number: number
+        }
+        Update: {
+          block_number?: number
+          client_id?: string
+          coach_id?: string
+          created_at?: string
+          id?: string
+          monday_date?: string
+          shifted?: boolean
+          updated_at?: string
+          week_number?: number
         }
         Relationships: []
       }
