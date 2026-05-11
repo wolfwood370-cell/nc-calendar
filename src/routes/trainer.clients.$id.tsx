@@ -741,41 +741,34 @@ function ClientPathPage() {
           <div className="space-y-10">
             {blockAggregates.map((b) => {
               const blockRows = rowsByBlock.get(b.sequence_order) ?? [];
-              const isComplete = b.totalCredits > 0 && b.completed >= b.totalCredits;
               return (
                 <section key={b.id}>
                   {/* Block header */}
                   <div className="bg-card rounded-[32px] shadow-[0_4px_20px_rgba(0,86,133,0.05)] hover:shadow-[0_8px_24px_rgba(0,86,133,0.08)] transition-shadow duration-300 p-6 mb-4">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                       <h3 className="text-2xl font-semibold text-foreground">Blocco {b.sequence_order}</h3>
-                      <div className="flex flex-wrap items-center gap-3">
+                      <div className="flex flex-wrap items-center gap-2">
                         {b.pills.length === 0 ? (
                           <span className="text-xs text-muted-foreground italic">Nessun credito impostato</span>
                         ) : (
-                          b.pills.map((p, i) => (
-                            <span
-                              key={i}
-                              className="bg-secondary text-secondary-foreground text-[13px] font-semibold px-3 py-1 rounded-full"
-                            >
-                              {p.qty} {p.name}
-                            </span>
-                          ))
+                          b.pills.map((p, i) => {
+                            const done = p.completed >= p.assigned;
+                            return (
+                              <span
+                                key={i}
+                                className={cn(
+                                  "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold",
+                                  done
+                                    ? "bg-primary/10 text-primary"
+                                    : "bg-surface-container-low text-primary",
+                                )}
+                              >
+                                {done ? <CheckCircle2 className="size-3.5" /> : <Clock className="size-3.5" />}
+                                {p.name}: {p.completed}/{p.assigned} completate
+                              </span>
+                            );
+                          })
                         )}
-                        <div className="flex items-center gap-2 bg-muted px-3 py-1 rounded-full">
-                          {isComplete ? (
-                            <CheckCircle2 className="size-4 text-primary" />
-                          ) : (
-                            <Clock className="size-4 text-muted-foreground" />
-                          )}
-                          <span
-                            className={cn(
-                              "text-[13px] font-semibold",
-                              isComplete ? "text-primary" : "text-muted-foreground",
-                            )}
-                          >
-                            {b.completed} / {b.totalCredits} sessioni completate
-                          </span>
-                        </div>
                         <BlockCreditsDialog
                           blockId={b.id}
                           sequenceOrder={b.sequence_order}
