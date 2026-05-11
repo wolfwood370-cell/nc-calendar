@@ -366,8 +366,6 @@ function ClientsPage() {
                             <CalendarRange className="size-4" /> Pianifica
                           </Link>
                         </Button>
-                        <AssignBlocksSheet clientId={c.id} clientName={c.full_name ?? c.email ?? "Cliente"} />
-                        <LogPastSessionButton clientId={c.id} clientName={c.full_name ?? c.email ?? "Cliente"} />
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button size="sm" variant="ghost">
