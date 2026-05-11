@@ -904,6 +904,8 @@ function ClientPathPage() {
         eventTypes={eventTypes.map((e) => ({ id: e.id, name: e.name, base_type: e.base_type }))}
         onClose={() => setEditingBooking(null)}
         onSave={saveBookingEdit}
+        onUnlink={(b) => unlinkBooking(b, { confirmFirst: false })}
+        onDeleteEverywhere={deleteBookingEverywhere}
       />
 
       {/* Suppress unused warning */}
