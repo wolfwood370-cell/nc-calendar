@@ -368,6 +368,11 @@ function ClientsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
+                        <Button size="sm" variant="ghost" asChild>
+                          <Link to="/trainer/clients/$id" params={{ id: c.id }}>
+                            <CalendarRange className="size-4" /> Pianifica
+                          </Link>
+                        </Button>
                         <AssignBlocksSheet clientId={c.id} clientName={c.full_name ?? c.email ?? "Cliente"} />
                         <LogPastSessionButton clientId={c.id} clientName={c.full_name ?? c.email ?? "Cliente"} />
                         <AlertDialog>
