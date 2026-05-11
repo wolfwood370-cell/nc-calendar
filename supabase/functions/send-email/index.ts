@@ -1,10 +1,6 @@
 import { Resend } from "npm:resend@4.0.1";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
+import { requireAuth } from "../_shared/auth.ts";
 
 interface Payload {
   to: string;
@@ -13,25 +9,24 @@ interface Payload {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
+
+  // Auth: only coach/admin may send transactional emails
+  const auth = await requireAuth(req, ["coach", "admin"]);
+  if (auth instanceof Response) return auth;
 
   try {
     const apiKey = Deno.env.get("RESEND_API_KEY");
-    if (!apiKey) {
-      return new Response(JSON.stringify({ error: "RESEND_API_KEY non configurata" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    if (!apiKey) return jsonResponse({ error: "RESEND_API_KEY non configurata" }, 500);
 
     const { to, subject, html } = (await req.json()) as Payload;
     if (!to || !subject || !html) {
-      return new Response(JSON.stringify({ error: "Parametri mancanti: to, subject, html" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: "Parametri mancanti: to, subject, html" }, 400);
+    }
+    // Basic email format check
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+      return jsonResponse({ error: "Indirizzo email non valido" }, 400);
     }
 
     const resend = new Resend(apiKey);
@@ -44,22 +39,13 @@ Deno.serve(async (req) => {
 
     if (error) {
       console.error("[send-email] Resend error:", error);
-      return new Response(JSON.stringify({ error: error.message ?? "Errore Resend" }), {
-        status: 502,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: error.message ?? "Errore Resend" }, 502);
     }
 
-    return new Response(JSON.stringify({ ok: true, id: data?.id }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ ok: true, id: data?.id });
   } catch (err) {
     console.error("[send-email] error", err);
     const message = err instanceof Error ? err.message : "Errore sconosciuto";
-    return new Response(JSON.stringify({ error: message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ error: message }, 500);
   }
 });

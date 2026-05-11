@@ -1,13 +1,8 @@
 // Edge function: invia notifiche WhatsApp e sincronizza Google Calendar per una prenotazione.
 // Invocata dal frontend dopo la creazione di una booking.
 
-import { createClient } from "npm:@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
+import { requireAuth } from "../_shared/auth.ts";
 
 interface Payload {
   coach_id: string;
@@ -20,26 +15,23 @@ interface Payload {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
-      status: 405,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+  if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
+
+  const auth = await requireAuth(req);
+  if (auth instanceof Response) return auth;
 
   try {
     const body = (await req.json()) as Payload;
     if (!body.coach_id || !body.scheduled_at) {
-      return new Response(JSON.stringify({ error: "Missing fields" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: "Missing fields" }, 400);
     }
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    // Caller must be the coach itself or an admin
+    if (body.coach_id !== auth.userId && auth.role !== "admin") {
+      return jsonResponse({ error: "Permesso negato" }, 403);
+    }
+
+    const supabase = auth.admin;
 
     const { data: settings, error } = await supabase
       .from("integration_settings")
