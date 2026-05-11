@@ -5,6 +5,7 @@ import { useAuth, pathForRole } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import { toast } from "sonner";
+import nccLogo from "@/assets/ncc-logo.png";
 
 function GoogleIcon({ className }: { className?: string }) {
   return (
@@ -94,9 +95,11 @@ function AuthPage() {
 
       <main className="w-full max-w-md mx-auto space-y-8">
         <header className="flex flex-col items-center text-center space-y-4 pt-8">
-          <div className="w-20 h-20 rounded-full bg-aura-primary flex items-center justify-center shadow-lg transition-transform hover:scale-105 duration-300">
-            <span className="text-on-primary text-2xl font-bold tracking-tight">NCC</span>
-          </div>
+          <img
+            src={nccLogo}
+            alt="NCC"
+            className="w-20 h-20 rounded-full object-cover shadow-lg transition-transform hover:scale-105 duration-300"
+          />
           <div className="space-y-2">
             <h1 className="text-aura-primary text-[28px] leading-9 font-bold tracking-tight">NC Calendar</h1>
             <p className="text-base text-on-surface-variant">Il tuo percorso, organizzato.</p>
