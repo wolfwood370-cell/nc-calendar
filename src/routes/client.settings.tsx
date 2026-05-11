@@ -1,12 +1,12 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Bell, Calendar, LogOut, Mail, ChevronRight, Link as LinkIcon, CheckCircle, Loader2 } from "lucide-react";
+import { Bell, Calendar, LogOut, Mail, Link as LinkIcon, CheckCircle, Loader2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
-import { isPushSupported, subscribeToPush, getCurrentPushSubscription } from "@/lib/push";
+import { isPushSupported, isPushReady, subscribeToPush, getCurrentPushSubscription } from "@/lib/push";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/client/settings")({
@@ -37,6 +37,7 @@ function ClientSettings() {
   const [savingEmail, setSavingEmail] = useState(false);
 
   const [pushSupported, setPushSupported] = useState(false);
+  const [pushReady, setPushReady] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
 
@@ -45,6 +46,7 @@ function ClientSettings() {
 
   useEffect(() => {
     setPushSupported(isPushSupported());
+    void isPushReady().then(setPushReady);
     void getCurrentPushSubscription().then((s) => setPushEnabled(!!s));
     if (!user) return;
     (async () => {
@@ -87,6 +89,12 @@ function ClientSettings() {
     if (!pushSupported) {
       toast.error("Notifiche non supportate", {
         description: "Il tuo dispositivo o browser non supporta le notifiche push.",
+      });
+      return;
+    }
+    if (!pushReady) {
+      toast.warning("Non disponibili in anteprima", {
+        description: "Le notifiche push funzionano solo sull'app installata o sul sito pubblicato.",
       });
       return;
     }
@@ -192,16 +200,24 @@ function ClientSettings() {
               icon={<Bell className="size-5" />}
               title="Notifiche Push"
               subtitle={
-                pushSupported
-                  ? "Ricevi avvisi sul telefono"
-                  : "Non supportate su questo dispositivo"
+                !pushSupported
+                  ? "Non supportate su questo dispositivo"
+                  : !pushReady
+                    ? "Disponibili solo sull'app installata o sul sito pubblicato"
+                    : pushEnabled
+                      ? "Attive — riceverai avvisi sul telefono"
+                      : "Ricevi avvisi sul telefono"
               }
               control={
-                <Switch
-                  checked={pushEnabled}
-                  disabled={!pushSupported || pushBusy}
-                  onCheckedChange={togglePush}
-                />
+                pushBusy ? (
+                  <Loader2 className="size-5 animate-spin text-on-surface-variant" />
+                ) : (
+                  <Switch
+                    checked={pushEnabled}
+                    disabled={!pushSupported || !pushReady || pushBusy}
+                    onCheckedChange={togglePush}
+                  />
+                )
               }
             />
             <Divider />
@@ -318,6 +334,3 @@ function Row({
 function Divider() {
   return <div className="h-px bg-outline-variant/40 mx-5" />;
 }
-
-// Suppress unused import warning when ChevronRight isn't used in current layout
-void ChevronRight;
