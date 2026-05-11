@@ -184,7 +184,6 @@ function ServiceCard({
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const iconName = t.location_type === "online" ? "videocam" : "fitness_center";
   const tintBg = `color-mix(in oklab, ${t.color} 15%, white)`;
   return (
     <div
@@ -196,13 +195,13 @@ function ServiceCard({
           className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
           style={{ backgroundColor: tintBg, color: t.color }}
         >
-          <span className="material-symbols-outlined">{iconName}</span>
+          {t.location_type === "online" ? <Video className="size-6" /> : <Dumbbell className="size-6" />}
         </div>
         <div className="min-w-0">
           <h3 className="text-[20px] leading-tight font-bold text-foreground truncate">{t.name}</h3>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1 bg-muted px-3 py-1 rounded-full text-muted-foreground text-[12px] font-semibold">
-              <span className="material-symbols-outlined text-[14px]">schedule</span>
+              <Clock className="size-3" />
               {t.duration} min
             </span>
             <span className="inline-flex items-center gap-1 bg-muted px-3 py-1 rounded-full text-muted-foreground text-[12px] font-semibold">
