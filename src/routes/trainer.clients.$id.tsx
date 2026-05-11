@@ -558,32 +558,7 @@ function ClientPathPage() {
 
   const today = startOfDay(new Date());
 
-  // Map sequence_order -> block aggregate
-  const blockAggregates = useMemo(() => {
-    return blocks
-      .slice()
-      .sort((a, b) => a.sequence_order - b.sequence_order)
-      .map((b) => {
-        const allocs = allocations.filter((a) => a.block_id === b.id);
-        const completedMap = completedByBlockType[b.id] ?? {};
-        const grouped = new Map<string, { name: string; assigned: number; completed: number }>();
-        allocs.forEach((a) => {
-          const et = eventTypes.find((e) => e.id === a.event_type_id);
-          const key = a.event_type_id ?? a.session_type;
-          const name = et?.name ?? a.session_type;
-          const cur = grouped.get(key);
-          grouped.set(key, {
-            name,
-            assigned: (cur?.assigned ?? 0) + a.quantity_assigned,
-            completed: completedMap[key] ?? 0,
-          });
-        });
-        const pills = Array.from(grouped.values());
-        return { ...b, allocations: allocs, pills };
-      });
-  }, [blocks, allocations, completedByBlockType, eventTypes]);
-
-  // Group rows by block_number
+  // Group rows by block_number (needed by blockAggregates for date ranges)
   const rowsByBlock = useMemo(() => {
     const map = new Map<number, Array<{ row: WeekRow; idx: number }>>();
     rows.forEach((row, idx) => {
@@ -593,6 +568,53 @@ function ClientPathPage() {
     });
     return map;
   }, [rows]);
+
+  // Map sequence_order -> block aggregate. La completion viene calcolata
+  // sulle date reali del blocco (non sul block_id) per essere robusta a
+  // booking importati senza assegnazione di credito.
+  const blockAggregates = useMemo(() => {
+    const sorted = blocks.slice().sort((a, b) => a.sequence_order - b.sequence_order);
+    return sorted.map((b, sortedIdx) => {
+      const allocs = allocations.filter((a) => a.block_id === b.id);
+      const blockNumber = sortedIdx + 1;
+      const blockRows = rowsByBlock.get(blockNumber) ?? [];
+      const dateRange: { start: Date | null; end: Date | null } = { start: null, end: null };
+      if (blockRows.length > 0) {
+        const firstMon = blockRows[0].row.monday_date;
+        const lastMon = blockRows[blockRows.length - 1].row.monday_date;
+        if (firstMon) dateRange.start = parseISO(firstMon);
+        if (lastMon) dateRange.end = addDays(parseISO(lastMon), 7);
+      }
+      const inRange = (iso: string) => {
+        if (!dateRange.start || !dateRange.end) return false;
+        const t = new Date(iso).getTime();
+        return t >= dateRange.start.getTime() && t < dateRange.end.getTime();
+      };
+      const grouped = new Map<string, { name: string; assigned: number; completed: number }>();
+      allocs.forEach((a) => {
+        const et = eventTypes.find((e) => e.id === a.event_type_id);
+        const key = a.event_type_id ?? a.session_type;
+        const name = et?.name ?? a.session_type;
+        const completed = clientBookings.filter((bk) => {
+          if (!(bk.status === "completed" || bk.status === "late_cancelled")) return false;
+          if (a.event_type_id) {
+            if (bk.event_type_id !== a.event_type_id) return false;
+          } else {
+            if (bk.event_type_id || bk.session_type !== a.session_type) return false;
+          }
+          return inRange(bk.scheduled_at);
+        }).length;
+        const cur = grouped.get(key);
+        grouped.set(key, {
+          name,
+          assigned: (cur?.assigned ?? 0) + a.quantity_assigned,
+          completed: cur ? cur.completed : completed,
+        });
+      });
+      const pills = Array.from(grouped.values());
+      return { ...b, allocations: allocs, pills };
+    });
+  }, [blocks, allocations, clientBookings, rowsByBlock, eventTypes]);
 
   // Group client bookings by row index (week)
   const bookingsByRowIdx = useMemo(() => {
