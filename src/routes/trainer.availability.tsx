@@ -92,12 +92,12 @@ function AvailabilityPage() {
     enabled: !!meId,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("trainer_settings" as never)
+        .from("trainer_settings")
         .select("buffer_minutes, min_notice_hours, booking_horizon_days")
         .eq("coach_id", meId!)
         .maybeSingle();
       if (error) throw error;
-      return (data as { buffer_minutes: number; min_notice_hours: number; booking_horizon_days: number } | null) ?? null;
+      return data ?? null;
     },
   });
 
