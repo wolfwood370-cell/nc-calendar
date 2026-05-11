@@ -89,16 +89,19 @@ function AuthPage() {
       });
       if (result.error) {
         toast.error("Accesso con Google non riuscito", {
-          description: traduciErrore(String((result.error as any)?.message ?? result.error)),
+          description: traduciErrore(
+            String((result.error as { message?: string })?.message ?? result.error),
+          ),
         });
         setBusy(false);
         return;
       }
       if (result.redirected) return;
       navigate({ to: "/" });
-    } catch (err: any) {
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "";
       toast.error("Accesso con Google non riuscito", {
-        description: traduciErrore(err?.message ?? ""),
+        description: traduciErrore(message),
       });
       setBusy(false);
     }
