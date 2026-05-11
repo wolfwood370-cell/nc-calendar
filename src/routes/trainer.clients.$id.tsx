@@ -325,8 +325,63 @@ function ClientPathPage() {
     setOrphans((prev) => prev.filter((p) => p.id !== o.id));
   }
 
-  async function unlinkBooking(b: ClientBooking) {
-    if (!confirm("Scollegare questa sessione dal cliente? Verrà mostrata nuovamente come 'da revisionare'.")) return;
+  async function unlinkBooking(b: ClientBooking, opts: { confirmFirst?: boolean; silent?: boolean } = {}) {
+    if (opts.confirmFirst !== false) {
+      if (!confirm("Scollegare questa sessione dal profilo? Verrà ignorata dallo Smart Matcher per questo cliente.")) return;
+    }
+    // Restituisci credito se era contabilizzato
+    if (b.block_id) {
+      const alloc = allocations.find(
+        (a) => a.block_id === b.block_id &&
+          (b.event_type_id ? a.event_type_id === b.event_type_id : a.session_type === b.session_type) &&
+          a.quantity_booked > 0,
+      );
+      if (alloc) {
+        await supabase
+          .from("block_allocations")
+          .update({ quantity_booked: Math.max(0, alloc.quantity_booked - 1) })
+          .eq("id", alloc.id);
+      }
+    }
+    // Anti-ghosting: aggiungi clientId a ignored_by_clients
+    const { data: row } = await supabase
+      .from("bookings")
+      .select("ignored_by_clients")
+      .eq("id", b.id)
+      .maybeSingle();
+    const ignored = (row?.ignored_by_clients as string[] | null) ?? [];
+    if (!ignored.includes(clientId)) ignored.push(clientId);
+
+    const { error } = await supabase
+      .from("bookings")
+      .update({ client_id: null, block_id: null, ignored_by_clients: ignored })
+      .eq("id", b.id);
+    if (error) {
+      toast.error("Scollegamento non riuscito", { description: error.message });
+      return;
+    }
+    // Rimozione istantanea dalla griglia
+    setClientBookings((prev) => prev.filter((x) => x.id !== b.id));
+    setEditingBooking(null);
+    if (!opts.silent) toast.success("Evento rimosso solo dal profilo");
+    void load();
+  }
+
+  async function deleteBookingEverywhere(b: ClientBooking) {
+    // Sync Google Calendar delete
+    if (b.google_event_id && user) {
+      try {
+        await supabase.functions.invoke("sync-calendar", {
+          body: {
+            action: "cancel",
+            coach_id: user.id,
+            google_event_id: b.google_event_id,
+          },
+        });
+      } catch (err) {
+        console.error("sync-calendar delete failed", err);
+      }
+    }
     // Restituisci credito se era contabilizzato
     if (b.block_id) {
       const alloc = allocations.find(
@@ -343,13 +398,15 @@ function ClientPathPage() {
     }
     const { error } = await supabase
       .from("bookings")
-      .update({ client_id: null, block_id: null })
+      .update({ deleted_at: new Date().toISOString(), status: "cancelled" })
       .eq("id", b.id);
     if (error) {
-      toast.error("Scollegamento non riuscito", { description: error.message });
+      toast.error("Eliminazione non riuscita", { description: error.message });
       return;
     }
-    toast.success("Sessione scollegata dal cliente");
+    setClientBookings((prev) => prev.filter((x) => x.id !== b.id));
+    setEditingBooking(null);
+    toast.success("Evento eliminato definitivamente");
     void load();
   }
 
@@ -736,15 +793,15 @@ function ClientPathPage() {
                             <PopoverTrigger asChild>
                               <button
                                 className={cn(
-                                  "w-full bg-muted hover:bg-muted/70 transition-colors rounded-full px-4 py-2 flex items-center justify-between border",
+                                  "w-full bg-[#eceef2] hover:bg-[#dfe2e8] transition-colors rounded-full px-4 py-2 flex items-center justify-between border",
                                   row.shifted ? "border-primary" : "border-transparent",
                                 )}
                                 title={row.shifted ? "Settimana spostata" : "Modifica data"}
                               >
-                                <span className="text-sm font-semibold text-foreground px-2">
+                                <span className="text-sm font-bold text-[#191c1f] px-2">
                                   {date ? format(date, "EEEE d MMM", { locale: it }) : "—"}
                                 </span>
-                                <CalendarDays className="size-4 text-muted-foreground" />
+                                <CalendarDays className="size-4 text-[#191c1f]" />
                               </button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="start">
@@ -788,24 +845,17 @@ function ClientPathPage() {
                                     <div
                                       key={bk.id}
                                       onClick={() => setEditingBooking(bk)}
-                                      className="group cursor-pointer bg-muted/60 rounded-2xl p-3 flex items-start gap-3 border-l-4 border-muted-foreground/40 shadow-sm hover:bg-muted transition-colors"
+                                      className="cursor-pointer bg-[#d8dade] opacity-80 rounded-2xl p-3 flex items-start gap-3 shadow-sm hover:scale-[1.02] transition-transform"
                                     >
-                                      <div className="bg-muted-foreground/10 text-muted-foreground p-2 rounded-full flex-shrink-0">
+                                      <div className="bg-black/10 text-[#191c1f] p-2 rounded-full flex-shrink-0">
                                         <Ban className="size-4" />
                                       </div>
                                       <div className="flex-1 min-w-0">
-                                        <p className="text-xs text-muted-foreground mb-1 line-through">{timeRange}</p>
-                                        <p className="text-sm text-muted-foreground font-medium line-through truncate">
-                                          {label}
+                                        <p className="text-xs text-[#191c1f]/70 mb-1 line-through">{timeRange}</p>
+                                        <p className="text-sm text-[#191c1f] font-medium line-through truncate">
+                                          🚫 {label}
                                         </p>
                                       </div>
-                                      <button
-                                        onClick={(e) => { e.stopPropagation(); void unlinkBooking(bk); }}
-                                        className="text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
-                                        title="Scollega"
-                                      >
-                                        <Unlink className="size-4" />
-                                      </button>
                                     </div>
                                   );
                                 }
@@ -815,31 +865,24 @@ function ClientPathPage() {
                                     key={bk.id}
                                     onClick={() => setEditingBooking(bk)}
                                     className={cn(
-                                      "group cursor-pointer rounded-2xl p-3 flex items-start gap-3 shadow-sm hover:-translate-y-0.5 transition-all border-l-4 bg-card",
-                                      isCompleted ? "border-emerald-500" : "border-primary",
+                                      "cursor-pointer rounded-2xl p-3 flex items-start gap-3 shadow-sm bg-white border-l-4 hover:scale-[1.02] transition-transform",
+                                      isCompleted ? "border-emerald-500" : "border-[#005685]",
                                     )}
                                   >
                                     <div
                                       className={cn(
                                         "p-2 rounded-full flex-shrink-0",
                                         isCompleted
-                                          ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400"
-                                          : "bg-primary/10 text-primary",
+                                          ? "bg-emerald-50 text-emerald-600"
+                                          : "bg-[#005685]/10 text-[#005685]",
                                       )}
                                     >
                                       <Icon className="size-4" />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                      <p className="text-xs text-muted-foreground mb-1">{timeRange}</p>
-                                      <p className="text-sm text-foreground font-semibold truncate">{label}</p>
+                                      <p className="text-xs text-[#191c1f]/70 mb-1">{timeRange}</p>
+                                      <p className="text-sm text-[#191c1f] font-semibold truncate">{label}</p>
                                     </div>
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); void unlinkBooking(bk); }}
-                                      className="text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
-                                      title="Scollega"
-                                    >
-                                      <Unlink className="size-4" />
-                                    </button>
                                   </div>
                                 );
                               })}
@@ -861,6 +904,8 @@ function ClientPathPage() {
         eventTypes={eventTypes.map((e) => ({ id: e.id, name: e.name, base_type: e.base_type }))}
         onClose={() => setEditingBooking(null)}
         onSave={saveBookingEdit}
+        onUnlink={(b) => unlinkBooking(b, { confirmFirst: false })}
+        onDeleteEverywhere={deleteBookingEverywhere}
       />
 
       {/* Suppress unused warning */}
@@ -1056,9 +1101,11 @@ interface EditBookingDialogProps {
     prevEventTypeId: string | null;
     prevSessionType: SessionType;
   }) => Promise<void>;
+  onUnlink: (b: ClientBooking) => Promise<void>;
+  onDeleteEverywhere: (b: ClientBooking) => Promise<void>;
 }
 
-function EditBookingDialog({ booking, eventTypes, onClose, onSave }: EditBookingDialogProps) {
+function EditBookingDialog({ booking, eventTypes, onClose, onSave, onUnlink, onDeleteEverywhere }: EditBookingDialogProps) {
   const [date, setDate] = useState<string>("");
   const [time, setTime] = useState<string>("");
   const [eventTypeId, setEventTypeId] = useState<string>("");
@@ -1144,6 +1191,36 @@ function EditBookingDialog({ booking, eventTypes, onClose, onSave }: EditBooking
             </Select>
           </div>
         </div>
+
+        <div className="border-t pt-4 mt-2 space-y-2">
+          <Label className="text-xs uppercase tracking-wide text-muted-foreground">Elimina</Label>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              className="flex-1"
+              disabled={saving}
+              onClick={async () => {
+                if (!booking) return;
+                await onUnlink(booking);
+              }}
+            >
+              <Unlink className="size-4" /> Scollega dal Profilo
+            </Button>
+            <Button
+              variant="destructive"
+              className="flex-1"
+              disabled={saving}
+              onClick={async () => {
+                if (!booking) return;
+                if (!confirm("Sei sicuro? L'evento verrà eliminato anche da Google Calendar.")) return;
+                await onDeleteEverywhere(booking);
+              }}
+            >
+              <Trash2 className="size-4" /> Elimina ovunque
+            </Button>
+          </div>
+        </div>
+
         <DialogFooter className="gap-2 sm:gap-2">
           <Button variant="outline" onClick={onClose} disabled={saving}>Annulla</Button>
           <Button onClick={handleSave} disabled={saving}>
