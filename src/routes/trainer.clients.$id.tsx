@@ -697,6 +697,55 @@ function ClientPathPage() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Sessioni del Cliente ({clientBookings.length})</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {clientBookings.length === 0 ? (
+            <div className="p-6 text-center text-sm text-muted-foreground">
+              Nessuna sessione assegnata a questo cliente.
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Data</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Stato</TableHead>
+                  <TableHead>Origine</TableHead>
+                  <TableHead className="text-right">Azioni</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {clientBookings.map((b) => {
+                  const et = eventTypes.find((e) => e.id === b.event_type_id);
+                  return (
+                    <TableRow key={b.id}>
+                      <TableCell className="text-sm">
+                        {format(parseISO(b.scheduled_at), "EEE dd MMM yyyy HH:mm", { locale: it })}
+                      </TableCell>
+                      <TableCell className="text-sm">{et?.name ?? b.session_type}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="capitalize">{b.status}</Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {b.google_event_id ? "Google Calendar" : "Manuale"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button size="sm" variant="ghost" onClick={() => unlinkBooking(b)}>
+                          <Unlink className="size-4" /> Scollega
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Suppress unused warning */}
       <span className="hidden">{firstName}{lastName}</span>
     </div>
