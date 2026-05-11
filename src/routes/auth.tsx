@@ -1,14 +1,9 @@
 import { createFileRoute, useNavigate, Link, Navigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { Dumbbell, ArrowRight, Loader2 } from "lucide-react";
+import { Loader2, Eye, EyeOff } from "lucide-react";
 import { useAuth, pathForRole } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 
 function GoogleIcon({ className }: { className?: string }) {
@@ -29,48 +24,43 @@ export const Route = createFileRoute("/auth")({
 function AuthPage() {
   const { session, role, loading } = useAuth();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<"login" | "register">("login");
+  const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
 
   if (!loading && session && role) {
     return <Navigate to={pathForRole(role)} />;
   }
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setBusy(false);
-    if (error) {
-      toast.error("Accesso non riuscito", { description: traduciErrore(error.message) });
-      return;
+    if (isSignUp) {
+      const redirectUrl = `${window.location.origin}/`;
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { emailRedirectTo: redirectUrl, data: { full_name: fullName } },
+      });
+      setBusy(false);
+      if (error) {
+        toast.error("Registrazione non riuscita", { description: traduciErrore(error.message) });
+        return;
+      }
+      toast.success("Account creato", { description: "Benvenuto!" });
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      setBusy(false);
+      if (error) {
+        toast.error("Accesso non riuscito", { description: traduciErrore(error.message) });
+        return;
+      }
+      toast.success("Accesso effettuato");
+      navigate({ to: "/" });
     }
-    toast.success("Accesso effettuato");
-    // role will be fetched by AuthProvider; navigate to root which redirects by role
-    navigate({ to: "/" });
-  };
-
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setBusy(true);
-    const redirectUrl = `${window.location.origin}/`;
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: { full_name: fullName },
-      },
-    });
-    setBusy(false);
-    if (error) {
-      toast.error("Registrazione non riuscita", { description: traduciErrore(error.message) });
-      return;
-    }
-    toast.success("Account creato", { description: "Benvenuto!" });
   };
 
   const handleGoogleLogin = async () => {
@@ -95,101 +85,142 @@ function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 bg-surface">
-      <div className="w-full max-w-md">
-        <div className="flex flex-col items-center gap-3 mb-8">
-          <div className="size-12 rounded-2xl bg-primary text-primary-foreground grid place-items-center shadow-sm">
-            <Dumbbell className="size-6" />
-          </div>
-          <span className="font-display text-xl font-semibold tracking-tight">Stride</span>
-        </div>
+    <div className="relative min-h-screen flex items-center justify-center p-5 bg-surface">
+      {/* Ambient glow background */}
+      <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+        <div className="absolute top-[-10%] right-[-10%] w-[400px] h-[400px] rounded-full bg-primary-fixed-dim/20 blur-[120px]" />
+        <div className="absolute bottom-[-5%] left-[-5%] w-[300px] h-[300px] rounded-full bg-primary-fixed-dim/20 blur-[100px]" />
+      </div>
 
-        <div className="rounded-[24px] border border-outline-variant/40 bg-surface-container-lowest shadow-[0_8px_32px_-12px_rgba(0,0,0,0.08)] p-6 sm:p-8 space-y-6">
-          <div className="text-center space-y-1">
-            <h2 className="font-display text-2xl font-semibold tracking-tight">Bentornato</h2>
-            <p className="text-sm text-muted-foreground">
-              Accedi al tuo account o registrati per iniziare.
-            </p>
+      <main className="w-full max-w-md mx-auto space-y-8">
+        <header className="flex flex-col items-center text-center space-y-4 pt-8">
+          <div className="w-20 h-20 rounded-full bg-aura-primary flex items-center justify-center shadow-lg transition-transform hover:scale-105 duration-300">
+            <span className="text-on-primary text-2xl font-bold tracking-tight">NCC</span>
           </div>
+          <div className="space-y-2">
+            <h1 className="text-aura-primary text-[28px] leading-9 font-bold tracking-tight">NC Calendar</h1>
+            <p className="text-base text-on-surface-variant">Il tuo percorso, organizzato.</p>
+          </div>
+        </header>
 
+        <section className="bg-white rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-8 space-y-8">
           <button
             type="button"
             onClick={handleGoogleLogin}
             disabled={busy}
-            className="w-full h-12 rounded-full border border-outline-variant bg-white text-on-surface font-medium text-sm flex items-center justify-center gap-3 hover:bg-surface-container transition-colors disabled:opacity-60 disabled:pointer-events-none"
+            className="w-full flex items-center justify-center gap-3 py-4 px-6 border border-outline-variant bg-surface-container-lowest rounded-full hover:bg-surface-container-low active:scale-[0.98] transition-all duration-200 disabled:opacity-60 disabled:pointer-events-none"
           >
             {busy ? (
-              <Loader2 className="size-4 animate-spin" />
+              <Loader2 className="size-5 animate-spin" />
             ) : (
               <>
                 <GoogleIcon className="size-5" />
-                Continua con Google
+                <span className="text-sm font-semibold text-on-surface">Continua con Google</span>
               </>
             )}
           </button>
 
-          <div className="flex items-center gap-3">
-            <Separator className="flex-1" />
-            <span className="text-xs text-muted-foreground whitespace-nowrap">oppure con email</span>
-            <Separator className="flex-1" />
+          <div className="relative flex items-center">
+            <div className="flex-grow border-t border-outline-variant" />
+            <span className="flex-shrink mx-4 text-[10px] font-semibold text-outline uppercase tracking-wider">
+              oppure {isSignUp ? "registrati" : "accedi"} con email
+            </span>
+            <div className="flex-grow border-t border-outline-variant" />
           </div>
 
-          <Tabs value={tab} onValueChange={(v) => setTab(v as "login" | "register")}>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="login">Accedi</TabsTrigger>
-              <TabsTrigger value="register">Registrati</TabsTrigger>
-            </TabsList>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {isSignUp && (
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-on-surface-variant ml-2 block" htmlFor="fullName">
+                  Nome completo
+                </label>
+                <input
+                  id="fullName"
+                  type="text"
+                  required
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Mario Rossi"
+                  className="w-full px-6 py-4 bg-surface-container-lowest border border-outline-variant rounded-[16px] text-base text-on-surface transition-all focus:outline-none focus:border-aura-primary focus:ring-4 focus:ring-aura-primary/5"
+                />
+              </div>
+            )}
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-on-surface-variant ml-2 block" htmlFor="email">
+                Email
+              </label>
+              <input
+                id="email"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="nome@esempio.it"
+                className="w-full px-6 py-4 bg-surface-container-lowest border border-outline-variant rounded-[16px] text-base text-on-surface transition-all focus:outline-none focus:border-aura-primary focus:ring-4 focus:ring-aura-primary/5"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-on-surface-variant ml-2 block" htmlFor="password">
+                Password
+              </label>
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  required
+                  minLength={6}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full px-6 py-4 pr-14 bg-surface-container-lowest border border-outline-variant rounded-[16px] text-base text-on-surface transition-all focus:outline-none focus:border-aura-primary focus:ring-4 focus:ring-aura-primary/5"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-outline hover:text-aura-primary transition-colors"
+                  aria-label={showPassword ? "Nascondi password" : "Mostra password"}
+                >
+                  {showPassword ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
+                </button>
+              </div>
+            </div>
+            <button
+              type="submit"
+              disabled={busy}
+              className="w-full py-4 bg-primary-container text-on-primary text-sm font-semibold rounded-full hover:brightness-110 active:scale-[0.97] transition-all shadow-md mt-4 disabled:opacity-60 disabled:pointer-events-none flex items-center justify-center"
+            >
+              {busy ? <Loader2 className="size-5 animate-spin" /> : isSignUp ? "Registrati" : "Entra"}
+            </button>
+          </form>
 
-            <TabsContent value="login" className="mt-6">
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email-login">Email</Label>
-                  <Input id="email-login" type="email" required value={email}
-                    onChange={(e) => setEmail(e.target.value)} placeholder="tu@esempio.it" />
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="pw-login">Password</Label>
-                    <Link to="/forgot-password" className="text-xs text-primary hover:underline">
-                      Password dimenticata?
-                    </Link>
-                  </div>
-                  <Input id="pw-login" type="password" required minLength={6} value={password}
-                    onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
-                </div>
-                <Button type="submit" className="w-full" disabled={busy}>
-                  {busy ? <Loader2 className="size-4 animate-spin" /> : <>Accedi <ArrowRight className="size-4" /></>}
-                </Button>
-              </form>
-            </TabsContent>
+          <div className="flex flex-col items-center space-y-4 pt-2">
+            {!isSignUp && (
+              <Link
+                to="/forgot-password"
+                className="text-sm font-semibold text-aura-primary hover:underline decoration-2 underline-offset-4"
+              >
+                Password dimenticata?
+              </Link>
+            )}
+            <div className="flex items-center gap-1 text-base text-on-surface-variant">
+              <span>{isSignUp ? "Hai già un account?" : "Non hai un account?"}</span>
+              <button
+                type="button"
+                onClick={() => setIsSignUp((v) => !v)}
+                className="text-sm font-semibold text-primary-container hover:underline decoration-2 underline-offset-4"
+              >
+                {isSignUp ? "Accedi" : "Crea un account"}
+              </button>
+            </div>
+          </div>
+        </section>
 
-            <TabsContent value="register" className="mt-6">
-              <form onSubmit={handleRegister} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name-reg">Nome completo</Label>
-                  <Input id="name-reg" type="text" required value={fullName}
-                    onChange={(e) => setFullName(e.target.value)} placeholder="Mario Rossi" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email-reg">Email</Label>
-                  <Input id="email-reg" type="email" required value={email}
-                    onChange={(e) => setEmail(e.target.value)} placeholder="tu@esempio.it" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="pw-reg">Password</Label>
-                  <Input id="pw-reg" type="password" required minLength={6} value={password}
-                    onChange={(e) => setPassword(e.target.value)} placeholder="Almeno 6 caratteri" />
-                </div>
-                <Button type="submit" className="w-full" disabled={busy}>
-                  {busy ? <Loader2 className="size-4 animate-spin" /> : <>Crea account <ArrowRight className="size-4" /></>}
-                </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
-        </div>
-
-        <p className="text-xs text-muted-foreground text-center mt-6">© Stride Studio</p>
-      </div>
+        <footer className="text-center">
+          <p className="text-xs text-outline px-5">
+            Effettuando l'accesso, accetti i nostri Termini di Servizio e la nostra Informativa sulla Privacy.
+          </p>
+        </footer>
+      </main>
     </div>
   );
 }
