@@ -124,18 +124,22 @@ function ClientsPage() {
     load();
   }
 
-  async function archiveClient(id: string) {
-    const { error } = await supabase
-      .from("profiles")
-      .update({ deleted_at: new Date().toISOString() })
-      .eq("id", id);
-    if (error) {
-      toast.error("Errore", { description: error.message });
+  async function createClientAccount(data: { firstName: string; lastName: string; email: string; password: string }) {
+    const { data: res, error } = await supabase.functions.invoke("admin-create-user", {
+      body: {
+        email: data.email.toLowerCase().trim(),
+        password: data.password,
+        first_name: data.firstName,
+        last_name: data.lastName,
+      },
+    });
+    const errMsg = (res as { error?: string } | null)?.error;
+    if (error || errMsg) {
+      toast.error("Creazione cliente non riuscita", { description: errMsg ?? error?.message });
       return;
     }
-    toast.success("Cliente archiviato", {
-      description: "I dati storici restano disponibili.",
-    });
+    toast.success("Cliente creato. Puoi fornirgli le credenziali.");
+    setCreateOpen(false);
     load();
   }
 
@@ -156,6 +160,12 @@ function ClientsPage() {
               onDone={load}
             />
           )}
+          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+            <DialogTrigger asChild>
+              <Button variant="secondary"><UserPlus className="size-4" /> Nuovo Cliente</Button>
+            </DialogTrigger>
+            <CreateClientDialog onSubmit={createClientAccount} />
+          </Dialog>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button><Plus className="size-4" /> Invita cliente</Button>
