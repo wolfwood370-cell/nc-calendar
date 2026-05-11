@@ -502,9 +502,10 @@ function ClientPathPage() {
   }, [clientBookings, rows]);
 
   function iconForSession(st: SessionType) {
-    if (st === "Triage" || (st as string).toLowerCase().includes("triage")) return Stethoscope;
+    if ((st as string).toLowerCase().includes("triage")) return Stethoscope;
     return Dumbbell;
   }
+
 
 
   return (
