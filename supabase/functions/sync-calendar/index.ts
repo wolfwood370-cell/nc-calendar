@@ -490,8 +490,9 @@ function matchEvent(
   summary: string,
   attendees: Array<{ email?: string }>,
   ctx: { clients: ClientLite[]; eventTypes: EventTypeLite[] },
+  description?: string,
 ): { client: ClientLite | null; eventType: EventTypeLite | null } {
-  const lower = (summary ?? "").toLowerCase();
+  const lower = `${summary ?? ""} ${description ?? ""}`.toLowerCase();
   const emails = new Set(attendees.map((a) => (a.email ?? "").toLowerCase()).filter(Boolean));
 
   // 1) Match cliente per email attendee, poi per full_name nel titolo
