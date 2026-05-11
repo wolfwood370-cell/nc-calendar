@@ -16,7 +16,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Plus, Search, Loader2, Mail, X, Archive, CalendarPlus, PlusCircle } from "lucide-react";
+import { Plus, Search, Loader2, Mail, X, Archive, CalendarPlus, PlusCircle, UserPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
@@ -55,6 +55,7 @@ function ClientsPage() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const isAdmin = role === "admin";
 
@@ -138,6 +139,25 @@ function ClientsPage() {
     load();
   }
 
+  async function createClientAccount(data: { firstName: string; lastName: string; email: string; password: string }) {
+    const { data: res, error } = await supabase.functions.invoke("admin-create-user", {
+      body: {
+        email: data.email.toLowerCase().trim(),
+        password: data.password,
+        first_name: data.firstName,
+        last_name: data.lastName,
+      },
+    });
+    const errMsg = (res as { error?: string } | null)?.error;
+    if (error || errMsg) {
+      toast.error("Creazione cliente non riuscita", { description: errMsg ?? error?.message });
+      return;
+    }
+    toast.success("Cliente creato. Puoi fornirgli le credenziali.");
+    setCreateOpen(false);
+    load();
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -155,6 +175,12 @@ function ClientsPage() {
               onDone={load}
             />
           )}
+          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+            <DialogTrigger asChild>
+              <Button variant="secondary"><UserPlus className="size-4" /> Nuovo Cliente</Button>
+            </DialogTrigger>
+            <CreateClientDialog onSubmit={createClientAccount} />
+          </Dialog>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button><Plus className="size-4" /> Invita cliente</Button>
@@ -316,6 +342,65 @@ function InviteClientDialog({ onSubmit }: { onSubmit: (d: { name: string; email:
         </div>
         <DialogFooter>
           <Button type="submit">Invia invito</Button>
+        </DialogFooter>
+      </form>
+    </DialogContent>
+  );
+}
+
+function CreateClientDialog({ onSubmit }: { onSubmit: (d: { firstName: string; lastName: string; email: string; password: string }) => Promise<void> }) {
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  return (
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>Crea nuovo cliente</DialogTitle>
+      </DialogHeader>
+      <form
+        className="space-y-4"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if (password.length < 8) {
+            toast.error("La password deve contenere almeno 8 caratteri.");
+            return;
+          }
+          setSubmitting(true);
+          try {
+            await onSubmit({ firstName, lastName, email, password });
+          } finally {
+            setSubmitting(false);
+          }
+        }}
+      >
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-2">
+            <Label>Nome</Label>
+            <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+          </div>
+          <div className="space-y-2">
+            <Label>Cognome</Label>
+            <Input value={lastName} onChange={(e) => setLastName(e.target.value)} required />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label>Email</Label>
+          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        </div>
+        <div className="space-y-2">
+          <Label>Password Temporanea</Label>
+          <Input type="text" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
+          <p className="text-xs text-muted-foreground">
+            Comunica queste credenziali al cliente. Potrà accedere subito e modificarla in seguito.
+          </p>
+        </div>
+        <DialogFooter>
+          <Button type="submit" disabled={submitting}>
+            {submitting ? <Loader2 className="size-4 animate-spin" /> : null}
+            Crea cliente
+          </Button>
         </DialogFooter>
       </form>
     </DialogContent>
