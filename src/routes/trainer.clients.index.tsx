@@ -10,26 +10,19 @@ import {
 } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import {
-  Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger,
-} from "@/components/ui/sheet";
-import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Plus, Search, Loader2, Mail, X, Archive, CalendarPlus, PlusCircle, UserPlus, Copy, Check, Trash2, History, CalendarRange } from "lucide-react";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Plus, Search, Loader2, Mail, X, Archive, UserPlus, Copy, Check, Trash2, CalendarRange } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { sendInvitationEmail } from "@/lib/email";
-import { BlockAssignmentWizard } from "@/components/block-assignment-wizard";
-import { useClientBlocks, useCoachBookings, useCoachEventTypes } from "@/lib/queries";
+import { useCoachEventTypes } from "@/lib/queries";
 import type { SessionType } from "@/lib/mock-data";
-import { DeleteBlockButton } from "@/routes/trainer.blocks";
 import { Separator } from "@/components/ui/separator";
 import { useQueryClient } from "@tanstack/react-query";
-import { sessionLabel } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/trainer/clients/")({
   component: ClientsPage,
