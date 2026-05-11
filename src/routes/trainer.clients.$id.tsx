@@ -787,20 +787,21 @@ function ClientPathPage() {
                                   return (
                                     <div
                                       key={bk.id}
-                                      className="bg-muted/40 rounded-2xl p-3 flex items-start gap-3 border-l-4 border-border shadow-sm"
+                                      onClick={() => setEditingBooking(bk)}
+                                      className="group cursor-pointer bg-muted/60 rounded-2xl p-3 flex items-start gap-3 border-l-4 border-muted-foreground/40 shadow-sm hover:bg-muted transition-colors"
                                     >
-                                      <div className="bg-muted text-muted-foreground p-2 rounded-full flex-shrink-0">
+                                      <div className="bg-muted-foreground/10 text-muted-foreground p-2 rounded-full flex-shrink-0">
                                         <Ban className="size-4" />
                                       </div>
                                       <div className="flex-1 min-w-0">
-                                        <p className="text-xs text-muted-foreground mb-1">{timeRange}</p>
+                                        <p className="text-xs text-muted-foreground mb-1 line-through">{timeRange}</p>
                                         <p className="text-sm text-muted-foreground font-medium line-through truncate">
                                           {label}
                                         </p>
                                       </div>
                                       <button
-                                        onClick={() => unlinkBooking(bk)}
-                                        className="text-muted-foreground hover:text-destructive transition-colors"
+                                        onClick={(e) => { e.stopPropagation(); void unlinkBooking(bk); }}
+                                        className="text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
                                         title="Scollega"
                                       >
                                         <Unlink className="size-4" />
@@ -812,29 +813,28 @@ function ClientPathPage() {
                                 return (
                                   <div
                                     key={bk.id}
+                                    onClick={() => setEditingBooking(bk)}
                                     className={cn(
-                                      "rounded-2xl p-3 flex items-start gap-3 shadow-sm hover:-translate-y-0.5 transition-transform border-l-4",
-                                      isCompleted
-                                        ? "bg-card border-emerald-500"
-                                        : "bg-secondary border-primary",
+                                      "group cursor-pointer rounded-2xl p-3 flex items-start gap-3 shadow-sm hover:-translate-y-0.5 transition-all border-l-4 bg-card",
+                                      isCompleted ? "border-emerald-500" : "border-primary",
                                     )}
                                   >
                                     <div
                                       className={cn(
                                         "p-2 rounded-full flex-shrink-0",
                                         isCompleted
-                                          ? "bg-emerald-50 text-emerald-600"
-                                          : "bg-background/60 text-primary",
+                                          ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400"
+                                          : "bg-primary/10 text-primary",
                                       )}
                                     >
                                       <Icon className="size-4" />
                                     </div>
                                     <div className="flex-1 min-w-0">
                                       <p className="text-xs text-muted-foreground mb-1">{timeRange}</p>
-                                      <p className="text-sm text-foreground font-medium truncate">{label}</p>
+                                      <p className="text-sm text-foreground font-semibold truncate">{label}</p>
                                     </div>
                                     <button
-                                      onClick={() => unlinkBooking(bk)}
+                                      onClick={(e) => { e.stopPropagation(); void unlinkBooking(bk); }}
                                       className="text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
                                       title="Scollega"
                                     >
@@ -856,54 +856,12 @@ function ClientPathPage() {
         )}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Sessioni del Cliente ({clientBookings.length})</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {clientBookings.length === 0 ? (
-            <div className="p-6 text-center text-sm text-muted-foreground">
-              Nessuna sessione assegnata a questo cliente.
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Stato</TableHead>
-                  <TableHead>Origine</TableHead>
-                  <TableHead className="text-right">Azioni</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {clientBookings.map((b) => {
-                  const et = eventTypes.find((e) => e.id === b.event_type_id);
-                  return (
-                    <TableRow key={b.id}>
-                      <TableCell className="text-sm">
-                        {format(parseISO(b.scheduled_at), "EEE dd MMM yyyy HH:mm", { locale: it })}
-                      </TableCell>
-                      <TableCell className="text-sm">{et?.name ?? b.session_type}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="capitalize">{b.status}</Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {b.google_event_id ? "Google Calendar" : "Manuale"}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button size="sm" variant="ghost" onClick={() => unlinkBooking(b)}>
-                          <Unlink className="size-4" /> Scollega
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      <EditBookingDialog
+        booking={editingBooking}
+        eventTypes={eventTypes.map((e) => ({ id: e.id, name: e.name, base_type: e.base_type }))}
+        onClose={() => setEditingBooking(null)}
+        onSave={saveBookingEdit}
+      />
 
       {/* Suppress unused warning */}
       <span className="hidden">{firstName}{lastName}</span>
