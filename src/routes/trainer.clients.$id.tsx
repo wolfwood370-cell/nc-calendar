@@ -68,6 +68,18 @@ interface OrphanBooking {
   session_type: SessionType;
 }
 
+interface ClientBooking {
+  id: string;
+  scheduled_at: string;
+  title: string | null;
+  status: string;
+  block_id: string | null;
+  event_type_id: string | null;
+  session_type: SessionType;
+  google_event_id: string | null;
+  created_at: string;
+}
+
 function toIso(d: Date) {
   return format(d, "yyyy-MM-dd");
 }
