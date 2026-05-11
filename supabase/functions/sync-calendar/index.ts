@@ -430,9 +430,10 @@ Deno.serve(async (req) => {
         if (existing) continue;
 
         const summary = (ev.summary as string) ?? "Evento";
+        const description = (ev.description as string) ?? "";
         const attendees = (ev.attendees ?? []) as Array<{ email?: string }>;
-        const match = matchEvent(summary, attendees, ctx);
-        const clientId = match.client?.id ?? body.coach_id;
+        const match = matchEvent(summary, attendees, ctx, description);
+        const clientId = match.client?.id ?? null;
         const sessionType = match.eventType?.base_type ?? "PT Session";
         const eventTypeId = match.eventType?.id ?? null;
         const status = new Date(startIso).getTime() < now ? "completed" : "scheduled";
