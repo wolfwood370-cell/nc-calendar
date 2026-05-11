@@ -92,6 +92,12 @@ function ClientSettings() {
       });
       return;
     }
+    if (!pushReady) {
+      toast.warning("Non disponibili in anteprima", {
+        description: "Le notifiche push funzionano solo sull'app installata o sul sito pubblicato.",
+      });
+      return;
+    }
     setPushBusy(true);
     try {
       if (next) {
