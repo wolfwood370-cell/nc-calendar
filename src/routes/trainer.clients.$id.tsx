@@ -1191,6 +1191,36 @@ function EditBookingDialog({ booking, eventTypes, onClose, onSave, onUnlink, onD
             </Select>
           </div>
         </div>
+
+        <div className="border-t pt-4 mt-2 space-y-2">
+          <Label className="text-xs uppercase tracking-wide text-muted-foreground">Elimina</Label>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              className="flex-1"
+              disabled={saving}
+              onClick={async () => {
+                if (!booking) return;
+                await onUnlink(booking);
+              }}
+            >
+              <Unlink className="size-4" /> Scollega dal Profilo
+            </Button>
+            <Button
+              variant="destructive"
+              className="flex-1"
+              disabled={saving}
+              onClick={async () => {
+                if (!booking) return;
+                if (!confirm("Sei sicuro? L'evento verrà eliminato anche da Google Calendar.")) return;
+                await onDeleteEverywhere(booking);
+              }}
+            >
+              <Trash2 className="size-4" /> Elimina ovunque
+            </Button>
+          </div>
+        </div>
+
         <DialogFooter className="gap-2 sm:gap-2">
           <Button variant="outline" onClick={onClose} disabled={saving}>Annulla</Button>
           <Button onClick={handleSave} disabled={saving}>
