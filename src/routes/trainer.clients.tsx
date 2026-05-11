@@ -164,10 +164,14 @@ function ClientsPage() {
     lastName: string;
     email: string;
     password: string;
-    eventTypeId: string;
-    sessionType: SessionType;
-    totalSessions: number;
-    sessionsDone: number;
+    totalBlocks: number;
+    rules: Array<{
+      eventTypeId: string;
+      sessionType: SessionType;
+      quantityPerBlock: number;
+      startBlock: number;
+      endBlock: number;
+    }>;
   }) {
     if (!user) return;
     const { data: res, error } = await supabase.functions.invoke("admin-create-user", {
@@ -185,34 +189,59 @@ function ClientsPage() {
       return;
     }
 
-    // Crea blocco iniziale + allocation con la storia del cliente
+    // Espande regole in blocchi mensili sequenziali + allocazioni
     try {
       const today = new Date();
-      const end = new Date(today); end.setDate(today.getDate() + 28);
-      const { data: block, error: bErr } = await supabase
-        .from("training_blocks")
-        .insert({
+      const blocksToInsert = Array.from({ length: data.totalBlocks }, (_, i) => {
+        const start = new Date(today); start.setDate(today.getDate() + i * 30);
+        const end = new Date(today); end.setDate(today.getDate() + (i + 1) * 30 - 1);
+        return {
           client_id: newUserId,
           coach_id: user.id,
-          start_date: today.toISOString().slice(0, 10),
+          start_date: start.toISOString().slice(0, 10),
           end_date: end.toISOString().slice(0, 10),
-          status: "active",
-          sequence_order: 1,
-        })
-        .select("id")
-        .single();
-      if (bErr) throw bErr;
-      const { error: aErr } = await supabase.from("block_allocations").insert({
-        block_id: block.id,
-        week_number: 1,
-        session_type: data.sessionType,
-        event_type_id: data.eventTypeId,
-        quantity_assigned: data.totalSessions,
-        quantity_booked: data.sessionsDone,
+          status: "active" as const,
+          sequence_order: i + 1,
+        };
       });
-      if (aErr) throw aErr;
+      const { data: blocks, error: bErr } = await supabase
+        .from("training_blocks")
+        .insert(blocksToInsert)
+        .select("id, sequence_order, end_date");
+      if (bErr) throw bErr;
+      const blockBySeq = new Map<number, { id: string; end_date: string }>();
+      (blocks ?? []).forEach((b) => blockBySeq.set(b.sequence_order as number, { id: b.id as string, end_date: b.end_date as string }));
+
+      const allocsToInsert: Array<{
+        block_id: string;
+        week_number: number;
+        session_type: SessionType;
+        event_type_id: string;
+        quantity_assigned: number;
+        quantity_booked: number;
+        valid_until: string;
+      }> = [];
+      for (const rule of data.rules) {
+        for (let m = rule.startBlock; m <= rule.endBlock; m++) {
+          const b = blockBySeq.get(m);
+          if (!b) continue;
+          allocsToInsert.push({
+            block_id: b.id,
+            week_number: 1,
+            session_type: rule.sessionType,
+            event_type_id: rule.eventTypeId,
+            quantity_assigned: rule.quantityPerBlock,
+            quantity_booked: 0,
+            valid_until: b.end_date,
+          });
+        }
+      }
+      if (allocsToInsert.length > 0) {
+        const { error: aErr } = await supabase.from("block_allocations").insert(allocsToInsert);
+        if (aErr) throw aErr;
+      }
     } catch (e) {
-      toast.warning("Cliente creato, ma allocazione sessioni non riuscita", {
+      toast.warning("Cliente creato, ma assegnazione blocchi non riuscita", {
         description: (e as Error).message,
       });
     }
@@ -451,127 +480,274 @@ function generateSecurePassword(): string {
   return out.sort(() => Math.random() - 0.5).join("");
 }
 
+interface RuleDraft {
+  id: string;
+  eventTypeId: string;
+  quantityPerBlock: number;
+  startBlock: number;
+  endBlock: number;
+}
+
 interface CreateClientPayload {
   firstName: string;
   lastName: string;
   email: string;
   password: string;
-  eventTypeId: string;
-  sessionType: SessionType;
-  totalSessions: number;
-  sessionsDone: number;
+  totalBlocks: number;
+  rules: Array<{
+    eventTypeId: string;
+    sessionType: SessionType;
+    quantityPerBlock: number;
+    startBlock: number;
+    endBlock: number;
+  }>;
 }
+
+const DURATION_PRESETS: Array<{ value: string; label: string; months: number | null }> = [
+  { value: "1", label: "1 Mese", months: 1 },
+  { value: "3", label: "3 Mesi", months: 3 },
+  { value: "6", label: "6 Mesi", months: 6 },
+  { value: "12", label: "12 Mesi", months: 12 },
+  { value: "custom", label: "Personalizzato", months: null },
+];
 
 function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) => Promise<void> }) {
   const { user } = useAuth();
   const eventTypesQ = useCoachEventTypes(user?.id);
   const eventTypes = eventTypesQ.data ?? [];
+
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
-  const [eventTypeId, setEventTypeId] = useState<string>("");
-  const [totalSessions, setTotalSessions] = useState<number>(1);
-  const [sessionsDone, setSessionsDone] = useState<number>(0);
+  const [durationPreset, setDurationPreset] = useState<string>("3");
+  const [customMonths, setCustomMonths] = useState<number>(3);
+  const [rules, setRules] = useState<RuleDraft[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
+  const totalBlocks = durationPreset === "custom"
+    ? Math.max(1, customMonths)
+    : (DURATION_PRESETS.find((d) => d.value === durationPreset)?.months ?? 1);
+
+  function addRule() {
+    setRules((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        eventTypeId: eventTypes[0]?.id ?? "",
+        quantityPerBlock: 4,
+        startBlock: 1,
+        endBlock: totalBlocks,
+      },
+    ]);
+  }
+
+  function updateRule(id: string, patch: Partial<RuleDraft>) {
+    setRules((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  }
+
+  function removeRule(id: string) {
+    setRules((prev) => prev.filter((r) => r.id !== id));
+  }
+
+  function canProceedFrom1() {
+    return firstName.trim() && lastName.trim() && /\S+@\S+\.\S+/.test(email);
+  }
+
+  async function handleFinalSubmit() {
+    if (rules.length === 0) {
+      toast.error("Aggiungi almeno una regola di assegnazione.");
+      return;
+    }
+    for (const r of rules) {
+      if (!r.eventTypeId) { toast.error("Seleziona un Event Type per ogni regola."); return; }
+      if (r.quantityPerBlock < 1) { toast.error("La quantità per blocco deve essere ≥ 1."); return; }
+      if (r.startBlock < 1 || r.endBlock < r.startBlock || r.endBlock > totalBlocks) {
+        toast.error(`Intervalli blocco non validi (1–${totalBlocks}).`);
+        return;
+      }
+    }
+    setSubmitting(true);
+    try {
+      const expandedRules = rules.map((r) => {
+        const et = eventTypes.find((e) => e.id === r.eventTypeId)!;
+        return {
+          eventTypeId: r.eventTypeId,
+          sessionType: et.base_type as SessionType,
+          quantityPerBlock: r.quantityPerBlock,
+          startBlock: r.startBlock,
+          endBlock: r.endBlock,
+        };
+      });
+      await onSubmit({
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email,
+        password: generateSecurePassword(),
+        totalBlocks,
+        rules: expandedRules,
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
-    <DialogContent className="sm:max-w-lg">
+    <DialogContent className="sm:max-w-2xl">
       <DialogHeader>
-        <DialogTitle>Aggiungi Cliente</DialogTitle>
+        <DialogTitle>Aggiungi Cliente — Step {step} di 3</DialogTitle>
       </DialogHeader>
-      <form
-        className="space-y-4"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          const et = eventTypes.find((x) => x.id === eventTypeId);
-          if (!et) {
-            toast.error("Seleziona una tipologia di percorso.");
-            return;
-          }
-          if (totalSessions < 1) {
-            toast.error("Il totale sessioni deve essere almeno 1.");
-            return;
-          }
-          if (sessionsDone < 0 || sessionsDone > totalSessions) {
-            toast.error("Le sessioni già effettuate non possono superare il totale.");
-            return;
-          }
-          setSubmitting(true);
-          try {
-            await onSubmit({
-              firstName: firstName.trim(),
-              lastName: lastName.trim(),
-              email,
-              password: generateSecurePassword(),
-              eventTypeId,
-              sessionType: et.base_type as SessionType,
-              totalSessions,
-              sessionsDone,
-            });
-          } finally {
-            setSubmitting(false);
-          }
-        }}
-      >
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-2">
-            <Label>Nome</Label>
-            <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+
+      {step === 1 && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Nome</Label>
+              <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+            </div>
+            <div className="space-y-2">
+              <Label>Cognome</Label>
+              <Input value={lastName} onChange={(e) => setLastName(e.target.value)} required />
+            </div>
           </div>
           <div className="space-y-2">
-            <Label>Cognome</Label>
-            <Input value={lastName} onChange={(e) => setLastName(e.target.value)} required />
+            <Label>Email</Label>
+            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
           </div>
+          <p className="text-xs text-muted-foreground">
+            Verrà generata automaticamente una password sicura. Potrai copiarla al termine.
+          </p>
         </div>
-        <div className="space-y-2">
-          <Label>Email</Label>
-          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-        </div>
-        <div className="space-y-2">
-          <Label>Tipologia Percorso</Label>
-          <Select value={eventTypeId} onValueChange={setEventTypeId}>
-            <SelectTrigger>
-              <SelectValue placeholder={eventTypes.length === 0 ? "Crea prima un Event Type" : "Seleziona percorso"} />
-            </SelectTrigger>
-            <SelectContent>
-              {eventTypes.map((et) => (
-                <SelectItem key={et.id} value={et.id}>{et.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
+      )}
+
+      {step === 2 && (
+        <div className="space-y-4">
           <div className="space-y-2">
-            <Label>Totale Sessioni del Pacchetto</Label>
-            <Input
-              type="number"
-              min={1}
-              value={totalSessions}
-              onChange={(e) => setTotalSessions(Math.max(1, Number(e.target.value) || 1))}
-              required
-            />
+            <Label>Durata Percorso</Label>
+            <Select value={durationPreset} onValueChange={setDurationPreset}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {DURATION_PRESETS.map((d) => (
+                  <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <div className="space-y-2">
-            <Label>Sessioni Già Effettuate</Label>
-            <Input
-              type="number"
-              min={0}
-              value={sessionsDone}
-              onChange={(e) => setSessionsDone(Math.max(0, Number(e.target.value) || 0))}
-              required
-            />
+          {durationPreset === "custom" && (
+            <div className="space-y-2">
+              <Label>Numero di Blocchi (mesi)</Label>
+              <Input
+                type="number"
+                min={1}
+                max={36}
+                value={customMonths}
+                onChange={(e) => setCustomMonths(Math.max(1, Number(e.target.value) || 1))}
+              />
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Il percorso sarà suddiviso in <strong>{totalBlocks}</strong> blocchi mensili sequenziali (~30 giorni ciascuno).
+          </p>
+        </div>
+      )}
+
+      {step === 3 && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              Definisci come distribuire le sessioni sui {totalBlocks} blocchi.
+            </p>
+            <Button type="button" size="sm" variant="secondary" onClick={addRule} disabled={eventTypes.length === 0}>
+              <Plus className="size-4" /> Aggiungi Regola
+            </Button>
+          </div>
+
+          {eventTypes.length === 0 && (
+            <p className="text-xs text-destructive">Crea prima almeno un Event Type.</p>
+          )}
+
+          <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-1">
+            {rules.length === 0 ? (
+              <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+                Nessuna regola. Clicca "Aggiungi Regola" per iniziare.
+              </div>
+            ) : rules.map((r) => (
+              <div key={r.id} className="rounded-md border p-3 space-y-3">
+                <div className="grid grid-cols-12 gap-2 items-end">
+                  <div className="col-span-12 sm:col-span-5 space-y-1">
+                    <Label className="text-xs">Event Type</Label>
+                    <Select value={r.eventTypeId} onValueChange={(v) => updateRule(r.id, { eventTypeId: v })}>
+                      <SelectTrigger><SelectValue placeholder="Seleziona" /></SelectTrigger>
+                      <SelectContent>
+                        {eventTypes.map((et) => (
+                          <SelectItem key={et.id} value={et.id}>{et.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="col-span-4 sm:col-span-2 space-y-1">
+                    <Label className="text-xs">Q.tà / blocco</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={r.quantityPerBlock}
+                      onChange={(e) => updateRule(r.id, { quantityPerBlock: Math.max(1, Number(e.target.value) || 1) })}
+                    />
+                  </div>
+                  <div className="col-span-4 sm:col-span-2 space-y-1">
+                    <Label className="text-xs">Dal blocco</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={totalBlocks}
+                      value={r.startBlock}
+                      onChange={(e) => updateRule(r.id, { startBlock: Math.max(1, Number(e.target.value) || 1) })}
+                    />
+                  </div>
+                  <div className="col-span-3 sm:col-span-2 space-y-1">
+                    <Label className="text-xs">Al blocco</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={totalBlocks}
+                      value={r.endBlock}
+                      onChange={(e) => updateRule(r.id, { endBlock: Math.max(1, Number(e.target.value) || 1) })}
+                    />
+                  </div>
+                  <div className="col-span-1 flex justify-end">
+                    <Button type="button" size="sm" variant="ghost" onClick={() => removeRule(r.id)}>
+                      <Trash2 className="size-4 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Verrà generata automaticamente una password sicura. Potrai copiarla nel passaggio successivo.
-        </p>
-        <DialogFooter>
-          <Button type="submit" disabled={submitting || eventTypes.length === 0}>
+      )}
+
+      <DialogFooter className="gap-2 sm:gap-2">
+        {step > 1 && (
+          <Button type="button" variant="outline" onClick={() => setStep((s) => (s - 1) as 1 | 2 | 3)} disabled={submitting}>
+            Indietro
+          </Button>
+        )}
+        {step < 3 && (
+          <Button
+            type="button"
+            onClick={() => setStep((s) => (s + 1) as 1 | 2 | 3)}
+            disabled={step === 1 ? !canProceedFrom1() : false}
+          >
+            Avanti
+          </Button>
+        )}
+        {step === 3 && (
+          <Button type="button" onClick={handleFinalSubmit} disabled={submitting || eventTypes.length === 0}>
             {submitting ? <Loader2 className="size-4 animate-spin" /> : null}
             Crea cliente
           </Button>
-        </DialogFooter>
-      </form>
+        )}
+      </DialogFooter>
     </DialogContent>
   );
 }
