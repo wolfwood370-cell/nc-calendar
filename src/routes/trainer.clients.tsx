@@ -55,6 +55,7 @@ function ClientsPage() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const isAdmin = role === "admin";
 
