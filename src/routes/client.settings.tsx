@@ -37,6 +37,7 @@ function ClientSettings() {
   const [savingEmail, setSavingEmail] = useState(false);
 
   const [pushSupported, setPushSupported] = useState(false);
+  const [pushReady, setPushReady] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
 
@@ -45,6 +46,7 @@ function ClientSettings() {
 
   useEffect(() => {
     setPushSupported(isPushSupported());
+    void isPushReady().then(setPushReady);
     void getCurrentPushSubscription().then((s) => setPushEnabled(!!s));
     if (!user) return;
     (async () => {
