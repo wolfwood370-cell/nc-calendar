@@ -12,6 +12,21 @@ export function isPushSupported(): boolean {
   );
 }
 
+/**
+ * Verifica che il service worker sia effettivamente registrato.
+ * In anteprima/iframe `pwa-register` disattiva il SW, quindi le push
+ * non possono funzionare anche se le API del browser sono presenti.
+ */
+export async function isPushReady(): Promise<boolean> {
+  if (!isPushSupported()) return false;
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    return !!reg;
+  } catch {
+    return false;
+  }
+}
+
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
