@@ -85,15 +85,18 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: String(e) }, 200);
   }
 
-  // Helper: carica clienti + event types del coach (per matching)
+  // Helper: carica clienti + event types + email coach (per matching)
   async function loadCoachContext() {
-    const [clientsRes, etRes] = await Promise.all([
+    const [clientsRes, etRes, coachUserRes] = await Promise.all([
       supabase.from("profiles").select("id, full_name, email").eq("coach_id", body.coach_id).is("deleted_at", null),
       supabase.from("event_types").select("id, name, base_type").eq("coach_id", body.coach_id),
+      supabase.auth.admin.getUserById(body.coach_id).catch(() => ({ data: { user: null } })),
     ]);
+    const coachEmail = ((coachUserRes as { data?: { user?: { email?: string | null } } })?.data?.user?.email ?? null) ?? null;
     return {
       clients: (clientsRes.data ?? []) as ClientLite[],
       eventTypes: (etRes.data ?? []) as EventTypeLite[],
+      coachEmail,
     };
   }
 
