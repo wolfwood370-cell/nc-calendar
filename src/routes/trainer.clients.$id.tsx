@@ -1101,9 +1101,11 @@ interface EditBookingDialogProps {
     prevEventTypeId: string | null;
     prevSessionType: SessionType;
   }) => Promise<void>;
+  onUnlink: (b: ClientBooking) => Promise<void>;
+  onDeleteEverywhere: (b: ClientBooking) => Promise<void>;
 }
 
-function EditBookingDialog({ booking, eventTypes, onClose, onSave }: EditBookingDialogProps) {
+function EditBookingDialog({ booking, eventTypes, onClose, onSave, onUnlink, onDeleteEverywhere }: EditBookingDialogProps) {
   const [date, setDate] = useState<string>("");
   const [time, setTime] = useState<string>("");
   const [eventTypeId, setEventTypeId] = useState<string>("");
