@@ -348,6 +348,65 @@ function InviteClientDialog({ onSubmit }: { onSubmit: (d: { name: string; email:
   );
 }
 
+function CreateClientDialog({ onSubmit }: { onSubmit: (d: { firstName: string; lastName: string; email: string; password: string }) => Promise<void> }) {
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  return (
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>Crea nuovo cliente</DialogTitle>
+      </DialogHeader>
+      <form
+        className="space-y-4"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if (password.length < 8) {
+            toast.error("La password deve contenere almeno 8 caratteri.");
+            return;
+          }
+          setSubmitting(true);
+          try {
+            await onSubmit({ firstName, lastName, email, password });
+          } finally {
+            setSubmitting(false);
+          }
+        }}
+      >
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-2">
+            <Label>Nome</Label>
+            <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+          </div>
+          <div className="space-y-2">
+            <Label>Cognome</Label>
+            <Input value={lastName} onChange={(e) => setLastName(e.target.value)} required />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label>Email</Label>
+          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        </div>
+        <div className="space-y-2">
+          <Label>Password Temporanea</Label>
+          <Input type="text" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
+          <p className="text-xs text-muted-foreground">
+            Comunica queste credenziali al cliente. Potrà accedere subito e modificarla in seguito.
+          </p>
+        </div>
+        <DialogFooter>
+          <Button type="submit" disabled={submitting}>
+            {submitting ? <Loader2 className="size-4 animate-spin" /> : null}
+            Crea cliente
+          </Button>
+        </DialogFooter>
+      </form>
+    </DialogContent>
+  );
+}
+
 function AssignBlocksSheet({ clientId, clientName }: { clientId: string; clientName: string }) {
   const [open, setOpen] = useState(false);
   const blocksQ = useClientBlocks(open ? clientId : undefined);
