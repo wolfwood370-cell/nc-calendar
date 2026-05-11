@@ -44,6 +44,10 @@ function ClientSettings() {
   const [googleLinked, setGoogleLinked] = useState(false);
   const [googleLinking, setGoogleLinking] = useState(false);
 
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [updatingPassword, setUpdatingPassword] = useState(false);
+
   useEffect(() => {
     setPushSupported(isPushSupported());
     void isPushReady().then(setPushReady);
