@@ -350,6 +350,7 @@ function ClientPathPage() {
     void load();
   }
 
+  function regenerateFromStart(start: Date) {
     const updated = rows.map((r, idx) => ({
       ...r,
       monday_date: toIso(addDays(start, idx * 7)),
