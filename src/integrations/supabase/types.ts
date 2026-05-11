@@ -94,52 +94,58 @@ export type Database = {
       bookings: {
         Row: {
           block_id: string | null
-          client_id: string
+          client_id: string | null
           coach_id: string
           created_at: string
           deleted_at: string | null
           event_type_id: string | null
           google_event_id: string | null
           id: string
+          ignored_by_clients: string[]
           meeting_link: string | null
           notes: string | null
           scheduled_at: string
           session_type: Database["public"]["Enums"]["session_type"]
           status: Database["public"]["Enums"]["booking_status"]
+          title: string | null
           trainer_notes: string | null
           updated_at: string
         }
         Insert: {
           block_id?: string | null
-          client_id: string
+          client_id?: string | null
           coach_id: string
           created_at?: string
           deleted_at?: string | null
           event_type_id?: string | null
           google_event_id?: string | null
           id?: string
+          ignored_by_clients?: string[]
           meeting_link?: string | null
           notes?: string | null
           scheduled_at: string
           session_type: Database["public"]["Enums"]["session_type"]
           status?: Database["public"]["Enums"]["booking_status"]
+          title?: string | null
           trainer_notes?: string | null
           updated_at?: string
         }
         Update: {
           block_id?: string | null
-          client_id?: string
+          client_id?: string | null
           coach_id?: string
           created_at?: string
           deleted_at?: string | null
           event_type_id?: string | null
           google_event_id?: string | null
           id?: string
+          ignored_by_clients?: string[]
           meeting_link?: string | null
           notes?: string | null
           scheduled_at?: string
           session_type?: Database["public"]["Enums"]["session_type"]
           status?: Database["public"]["Enums"]["booking_status"]
+          title?: string | null
           trainer_notes?: string | null
           updated_at?: string
         }
@@ -317,6 +323,7 @@ export type Database = {
           id: string
           path_start_date: string | null
           phone: string | null
+          status: string
         }
         Insert: {
           coach_id?: string | null
@@ -328,6 +335,7 @@ export type Database = {
           id: string
           path_start_date?: string | null
           phone?: string | null
+          status?: string
         }
         Update: {
           coach_id?: string | null
@@ -339,6 +347,7 @@ export type Database = {
           id?: string
           path_start_date?: string | null
           phone?: string | null
+          status?: string
         }
         Relationships: [
           {
