@@ -262,7 +262,9 @@ export function useCancelBooking() {
           let sessionLabel: string | undefined;
           if (input.late) {
             const [clientRes, etRes] = await Promise.all([
-              supabase.from("profiles").select("full_name").eq("id", bk.client_id).maybeSingle(),
+              bk.client_id
+                ? supabase.from("profiles").select("full_name").eq("id", bk.client_id).maybeSingle()
+                : Promise.resolve({ data: null }),
               bk.event_type_id
                 ? supabase.from("event_types").select("name").eq("id", bk.event_type_id).maybeSingle()
                 : Promise.resolve({ data: null }),
