@@ -212,6 +212,25 @@ function ClientPathPage() {
     setRows(generated);
     setOriginalRows(generated.map((r) => ({ ...r })));
 
+    // Carica le sessioni del cliente (linkate)
+    const { data: cbs } = await supabase
+      .from("bookings")
+      .select("id, scheduled_at, title, status, block_id, event_type_id, session_type, google_event_id, created_at")
+      .eq("client_id", clientId)
+      .is("deleted_at", null)
+      .order("scheduled_at", { ascending: false });
+    const bookingsList = (cbs ?? []) as ClientBooking[];
+    setClientBookings(bookingsList);
+
+    // Toast: nuove sessioni auto-assegnate negli ultimi 5 minuti
+    const fiveMinAgo = Date.now() - 5 * 60 * 1000;
+    const recentAuto = bookingsList.filter(
+      (b) => b.google_event_id && new Date(b.created_at).getTime() > fiveMinAgo,
+    ).length;
+    if (recentAuto > 0) {
+      toast.success(`Ho assegnato automaticamente ${recentAuto} ${recentAuto === 1 ? "nuova sessione" : "nuove sessioni"} a questo cliente.`);
+    }
+
     await loadOrphans(fn);
     setLoading(false);
   }
