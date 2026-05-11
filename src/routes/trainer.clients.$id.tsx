@@ -164,21 +164,24 @@ function ClientPathPage() {
 
       const { data: bks } = await supabase
         .from("bookings")
-        .select("id, block_id, status")
+        .select("id, block_id, status, event_type_id, session_type")
         .in("block_id", blockIds)
         .is("deleted_at", null);
-      const counts: Record<string, number> = {};
+      const counts: Record<string, Record<string, number>> = {};
       (bks ?? []).forEach((b) => {
         const bid = b.block_id as string | null;
         if (!bid) return;
-        if (b.status === "scheduled" || b.status === "completed") {
-          counts[bid] = (counts[bid] ?? 0) + 1;
+        // Count completed + cancellate in ritardo (addebitate)
+        if (b.status === "completed" || b.status === "late_cancelled") {
+          const key = (b.event_type_id as string | null) ?? (b.session_type as string);
+          counts[bid] ||= {};
+          counts[bid][key] = (counts[bid][key] ?? 0) + 1;
         }
       });
-      setBookingsByBlock(counts);
+      setCompletedByBlockType(counts);
     } else {
       setAllocations([]);
-      setBookingsByBlock({});
+      setCompletedByBlockType({});
     }
 
     const { data: existing } = await supabase
