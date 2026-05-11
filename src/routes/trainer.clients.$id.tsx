@@ -610,137 +610,203 @@ function ClientPathPage() {
         </CardContent>
       </Card>
 
-      {blockAggregates.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Blocchi & Crediti</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
+      {/* Timeline del Percorso */}
+      <div>
+        <div className="mb-6">
+          <h2 className="font-display text-3xl font-bold text-primary">Timeline del Percorso</h2>
+          <p className="text-base text-muted-foreground mt-1">Pianificazione e stato degli appuntamenti</p>
+        </div>
+
+        {loading ? (
+          <div className="p-8 grid place-items-center text-muted-foreground">
+            <Loader2 className="size-5 animate-spin" />
+          </div>
+        ) : totalBlocks === 0 ? (
+          <div className="p-8 text-center text-sm text-muted-foreground rounded-2xl border border-dashed">
+            Nessun blocco assegnato a questo cliente. Crea il cliente con un percorso dalla pagina Clienti.
+          </div>
+        ) : (
+          <div className="space-y-10">
             {blockAggregates.map((b) => {
-              const pct = b.totalCredits > 0 ? Math.min(100, (b.completed / b.totalCredits) * 100) : 0;
+              const blockRows = rowsByBlock.get(b.sequence_order) ?? [];
+              const isComplete = b.totalCredits > 0 && b.completed >= b.totalCredits;
               return (
-                <div key={b.id} className="rounded-lg border p-3 flex flex-wrap items-center gap-4">
-                  <div className="flex-1 min-w-[200px]">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline">Blocco {b.sequence_order}</Badge>
-                      <span className="text-sm text-muted-foreground">
-                        {b.allocations.length === 0
-                          ? "Nessun credito impostato"
-                          : b.allocations.map((a) => {
-                              const et = eventTypes.find((e) => e.id === a.event_type_id);
-                              return `${et?.name ?? a.session_type} ×${a.quantity_assigned}`;
-                            }).join(" · ")}
-                      </span>
-                    </div>
-                    <div className="mt-2 flex items-center gap-3">
-                      <Progress value={pct} className="h-2 flex-1" />
-                      <span className="text-xs text-muted-foreground w-20 text-right">
-                        {b.completed} / {b.totalCredits}
-                      </span>
+                <section key={b.id}>
+                  {/* Block header */}
+                  <div className="bg-card rounded-[32px] shadow-[0_4px_20px_rgba(0,86,133,0.05)] hover:shadow-[0_8px_24px_rgba(0,86,133,0.08)] transition-shadow duration-300 p-6 mb-4">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <h3 className="text-2xl font-semibold text-foreground">Blocco {b.sequence_order}</h3>
+                      <div className="flex flex-wrap items-center gap-3">
+                        {b.pills.length === 0 ? (
+                          <span className="text-xs text-muted-foreground italic">Nessun credito impostato</span>
+                        ) : (
+                          b.pills.map((p, i) => (
+                            <span
+                              key={i}
+                              className="bg-secondary text-secondary-foreground text-[13px] font-semibold px-3 py-1 rounded-full"
+                            >
+                              {p.qty} {p.name}
+                            </span>
+                          ))
+                        )}
+                        <div className="flex items-center gap-2 bg-muted px-3 py-1 rounded-full">
+                          {isComplete ? (
+                            <CheckCircle2 className="size-4 text-primary" />
+                          ) : (
+                            <Clock className="size-4 text-muted-foreground" />
+                          )}
+                          <span
+                            className={cn(
+                              "text-[13px] font-semibold",
+                              isComplete ? "text-primary" : "text-muted-foreground",
+                            )}
+                          >
+                            {b.completed} / {b.totalCredits} sessioni completate
+                          </span>
+                        </div>
+                        <BlockCreditsDialog
+                          blockId={b.id}
+                          sequenceOrder={b.sequence_order}
+                          allocations={b.allocations}
+                          eventTypes={eventTypes.map((e) => ({ id: e.id, name: e.name, base_type: e.base_type }))}
+                          onSaved={() => void load()}
+                        />
+                      </div>
                     </div>
                   </div>
-                  <BlockCreditsDialog
-                    blockId={b.id}
-                    sequenceOrder={b.sequence_order}
-                    allocations={b.allocations}
-                    eventTypes={eventTypes.map((e) => ({ id: e.id, name: e.name, base_type: e.base_type }))}
-                    onSaved={() => void load()}
-                  />
-                </div>
+
+                  {/* 4-week grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+                    {blockRows.map(({ row, idx }) => {
+                      const date = row.monday_date ? parseISO(row.monday_date) : null;
+                      const isPast = date ? isBefore(date, today) : false;
+                      const weekBookings = bookingsByRowIdx[idx] ?? [];
+                      return (
+                        <div key={row.week_number} className={cn("space-y-3", isPast && "opacity-60")}>
+                          {/* Pill date header */}
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button
+                                className={cn(
+                                  "w-full bg-muted hover:bg-muted/70 transition-colors rounded-full px-4 py-2 flex items-center justify-between border",
+                                  row.shifted ? "border-primary" : "border-transparent",
+                                )}
+                                title={row.shifted ? "Settimana spostata" : "Modifica data"}
+                              >
+                                <span className="text-sm font-semibold text-foreground px-2">
+                                  {date ? format(date, "EEEE d MMM", { locale: it }) : "—"}
+                                </span>
+                                <CalendarDays className="size-4 text-muted-foreground" />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={date ?? undefined}
+                                onSelect={(d) => d && handleWeekDateChange(idx, d)}
+                                weekStartsOn={1}
+                                initialFocus
+                                className={cn("p-3 pointer-events-auto")}
+                              />
+                            </PopoverContent>
+                          </Popover>
+
+                          {/* Bookings */}
+                          {weekBookings.length === 0 ? (
+                            <div className="border border-dashed border-border rounded-2xl p-4 flex items-center justify-center text-center bg-background/50 h-24">
+                              <span className="text-sm text-muted-foreground italic">
+                                Nessun appuntamento previsto
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col gap-2">
+                              {weekBookings.map((bk) => {
+                                const at = parseISO(bk.scheduled_at);
+                                const et = eventTypes.find((e) => e.id === bk.event_type_id);
+                                const Icon = iconForSession(bk.session_type);
+                                const isCancelled =
+                                  bk.status === "cancelled" ||
+                                  bk.status === "late_cancelled" ||
+                                  bk.status === "no_show";
+                                const isCompleted = bk.status === "completed";
+                                const durationMin = et?.duration ?? 60;
+                                const end = addDays(at, 0);
+                                end.setMinutes(end.getMinutes() + durationMin);
+                                const timeRange = `${format(at, "HH:mm")} - ${format(end, "HH:mm")}`;
+                                const label = et?.name ?? bk.title ?? bk.session_type;
+
+                                if (isCancelled) {
+                                  return (
+                                    <div
+                                      key={bk.id}
+                                      className="bg-muted/40 rounded-2xl p-3 flex items-start gap-3 border-l-4 border-border shadow-sm"
+                                    >
+                                      <div className="bg-muted text-muted-foreground p-2 rounded-full flex-shrink-0">
+                                        <Ban className="size-4" />
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-xs text-muted-foreground mb-1">{timeRange}</p>
+                                        <p className="text-sm text-muted-foreground font-medium line-through truncate">
+                                          {label}
+                                        </p>
+                                      </div>
+                                      <button
+                                        onClick={() => unlinkBooking(bk)}
+                                        className="text-muted-foreground hover:text-destructive transition-colors"
+                                        title="Scollega"
+                                      >
+                                        <Unlink className="size-4" />
+                                      </button>
+                                    </div>
+                                  );
+                                }
+
+                                return (
+                                  <div
+                                    key={bk.id}
+                                    className={cn(
+                                      "rounded-2xl p-3 flex items-start gap-3 shadow-sm hover:-translate-y-0.5 transition-transform border-l-4",
+                                      isCompleted
+                                        ? "bg-card border-emerald-500"
+                                        : "bg-secondary border-primary",
+                                    )}
+                                  >
+                                    <div
+                                      className={cn(
+                                        "p-2 rounded-full flex-shrink-0",
+                                        isCompleted
+                                          ? "bg-emerald-50 text-emerald-600"
+                                          : "bg-background/60 text-primary",
+                                      )}
+                                    >
+                                      <Icon className="size-4" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs text-muted-foreground mb-1">{timeRange}</p>
+                                      <p className="text-sm text-foreground font-medium truncate">{label}</p>
+                                    </div>
+                                    <button
+                                      onClick={() => unlinkBooking(bk)}
+                                      className="text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
+                                      title="Scollega"
+                                    >
+                                      <Unlink className="size-4" />
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
               );
             })}
-          </CardContent>
-        </Card>
-      )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Calendario Settimanale</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {loading ? (
-            <div className="p-8 grid place-items-center text-muted-foreground">
-              <Loader2 className="size-5 animate-spin" />
-            </div>
-          ) : totalBlocks === 0 ? (
-            <div className="p-8 text-center text-sm text-muted-foreground">
-              Nessun blocco assegnato a questo cliente. Crea il cliente con un percorso dalla pagina Clienti.
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[120px]">Settimana</TableHead>
-                  <TableHead className="w-[120px]">Blocco</TableHead>
-                  <TableHead>Data (Lunedì)</TableHead>
-                  <TableHead className="text-right">Stato</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((r, idx) => {
-                  const date = r.monday_date ? parseISO(r.monday_date) : null;
-                  const isPast = date ? isBefore(date, today) : false;
-                  const tint = blockTints[(r.block_number - 1) % blockTints.length];
-                  const isFirstOfBlock = idx === 0 || rows[idx - 1].block_number !== r.block_number;
-                  return (
-                    <TableRow
-                      key={r.week_number}
-                      className={cn(
-                        tint,
-                        isPast && "opacity-60",
-                        isFirstOfBlock && "border-t-2 border-t-primary/30",
-                      )}
-                    >
-                      <TableCell className="font-medium">N° {r.week_number}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">Blocco {r.block_number}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className={cn(
-                                "h-8 px-2 font-normal",
-                                r.shifted && "text-warning font-medium",
-                              )}
-                            >
-                              <CalendarIcon className="size-3.5" />
-                              {date ? format(date, "EEE dd MMM yyyy", { locale: it }) : "—"}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={date ?? undefined}
-                              onSelect={(d) => d && handleWeekDateChange(idx, d)}
-                              weekStartsOn={1}
-                              initialFocus
-                              className={cn("p-3 pointer-events-auto")}
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {isPast ? (
-                          <Badge variant="secondary">Completata</Badge>
-                        ) : r.shifted ? (
-                          <Badge className="bg-warning/15 text-warning border-warning/30" variant="outline">
-                            Spostata
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline">Pianificata</Badge>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+          </div>
+        )}
+      </div>
 
       <Card>
         <CardHeader>
