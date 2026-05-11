@@ -837,7 +837,9 @@ function ClientPathPage() {
                                 const durationMin = et?.duration ?? 60;
                                 const end = addDays(at, 0);
                                 end.setMinutes(end.getMinutes() + durationMin);
-                                const timeRange = `${format(at, "HH:mm")} - ${format(end, "HH:mm")}`;
+                                const dayLabel = format(at, "EEE d MMM", { locale: it })
+                                  .replace(/^./, (c) => c.toUpperCase());
+                                const timeRange = `${dayLabel}, ${format(at, "HH:mm")} - ${format(end, "HH:mm")}`;
                                 const label = et?.name ?? bk.title ?? bk.session_type;
 
                                 if (isCancelled) {
@@ -845,15 +847,15 @@ function ClientPathPage() {
                                     <div
                                       key={bk.id}
                                       onClick={() => setEditingBooking(bk)}
-                                      className="cursor-pointer bg-[#d8dade] opacity-80 rounded-2xl p-3 flex items-start gap-3 shadow-sm hover:scale-[1.02] transition-transform"
+                                      className="cursor-pointer bg-surface-dim rounded-2xl p-3 flex items-start gap-3 shadow-sm hover:scale-[1.02] transition-transform"
                                     >
-                                      <div className="bg-black/10 text-[#191c1f] p-2 rounded-full flex-shrink-0">
+                                      <div className="bg-black/5 text-outline p-2 rounded-full flex-shrink-0">
                                         <Ban className="size-4" />
                                       </div>
                                       <div className="flex-1 min-w-0">
-                                        <p className="text-xs text-[#191c1f]/70 mb-1 line-through">{timeRange}</p>
-                                        <p className="text-sm text-[#191c1f] font-medium line-through truncate">
-                                          🚫 {label}
+                                        <p className="text-xs text-outline mb-1 line-through">{timeRange}</p>
+                                        <p className="text-sm text-outline font-medium line-through truncate">
+                                          {label}
                                         </p>
                                       </div>
                                     </div>
@@ -866,7 +868,7 @@ function ClientPathPage() {
                                     onClick={() => setEditingBooking(bk)}
                                     className={cn(
                                       "cursor-pointer rounded-2xl p-3 flex items-start gap-3 shadow-sm bg-white border-l-4 hover:scale-[1.02] transition-transform",
-                                      isCompleted ? "border-emerald-500" : "border-[#005685]",
+                                      isCompleted ? "border-emerald-500" : "border-primary",
                                     )}
                                   >
                                     <div
@@ -874,14 +876,14 @@ function ClientPathPage() {
                                         "p-2 rounded-full flex-shrink-0",
                                         isCompleted
                                           ? "bg-emerald-50 text-emerald-600"
-                                          : "bg-[#005685]/10 text-[#005685]",
+                                          : "bg-primary/10 text-primary",
                                       )}
                                     >
                                       <Icon className="size-4" />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                      <p className="text-xs text-[#191c1f]/70 mb-1">{timeRange}</p>
-                                      <p className="text-sm text-[#191c1f] font-semibold truncate">{label}</p>
+                                      <p className="text-xs text-foreground/70 mb-1 font-medium">{timeRange}</p>
+                                      <p className="text-sm text-foreground font-semibold truncate">{label}</p>
                                     </div>
                                   </div>
                                 );
