@@ -222,7 +222,7 @@ function CalendarPage() {
     }
 
     if (isExternal) {
-      const title = (b.notes ?? "").replace(/^Importato da Google Calendar:\s*/i, "") || b.title || "Evento esterno";
+      const title = (b.notes ?? "").replace(/^Importato da Google Calendar:\s*/i, "") || "Evento esterno";
       return (
         <div
           key={b.id}
@@ -447,7 +447,7 @@ function CalendarPage() {
             <DialogTitle>Assegna evento a un cliente</DialogTitle>
             <DialogDescription>
               {assignTarget && new Date(assignTarget.scheduled_at).toLocaleString("it-IT", { dateStyle: "full", timeStyle: "short" })}
-              {assignTarget?.title ? ` · ${assignTarget.title}` : ""}
+              {""}
             </DialogDescription>
           </DialogHeader>
           <Select value={assignClientId} onValueChange={setAssignClientId}>
