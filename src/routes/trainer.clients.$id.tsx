@@ -110,7 +110,7 @@ function ClientPathPage() {
   const [pathStart, setPathStart] = useState<Date | undefined>(undefined);
   const [blocks, setBlocks] = useState<BlockRecord[]>([]);
   const [allocations, setAllocations] = useState<AllocationRecord[]>([]);
-  const [bookingsByBlock, setBookingsByBlock] = useState<Record<string, number>>({});
+  const [completedByBlockType, setCompletedByBlockType] = useState<Record<string, Record<string, number>>>({});
   const [rows, setRows] = useState<WeekRow[]>([]);
   const [originalRows, setOriginalRows] = useState<WeekRow[]>([]);
   const [orphans, setOrphans] = useState<OrphanBooking[]>([]);
