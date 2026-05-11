@@ -429,6 +429,36 @@ export type Database = {
           },
         ]
       }
+      trainer_settings: {
+        Row: {
+          booking_horizon_days: number
+          buffer_minutes: number
+          coach_id: string
+          created_at: string
+          id: string
+          min_notice_hours: number
+          updated_at: string
+        }
+        Insert: {
+          booking_horizon_days?: number
+          buffer_minutes?: number
+          coach_id: string
+          created_at?: string
+          id?: string
+          min_notice_hours?: number
+          updated_at?: string
+        }
+        Update: {
+          booking_horizon_days?: number
+          buffer_minutes?: number
+          coach_id?: string
+          created_at?: string
+          id?: string
+          min_notice_hours?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       training_blocks: {
         Row: {
           client_id: string
