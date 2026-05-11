@@ -134,6 +134,7 @@ function EventTypesPage() {
             <Button onClick={() => setEditing(null)}><Plus className="size-4" /> Nuova tipologia</Button>
           </DialogTrigger>
           <EventTypeDialog
+            key={editing?.id ?? "new"}
             initial={editing}
             onSubmit={(values) => upsert.mutate({ ...values, id: editing?.id })}
             submitting={upsert.isPending}
