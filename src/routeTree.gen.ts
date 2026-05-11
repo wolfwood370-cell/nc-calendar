@@ -21,7 +21,6 @@ import { Route as ClientIndexRouteImport } from './routes/client.index'
 import { Route as TrainerIntegrationsRouteImport } from './routes/trainer.integrations'
 import { Route as TrainerEventTypesRouteImport } from './routes/trainer.event-types'
 import { Route as TrainerCalendarRouteImport } from './routes/trainer.calendar'
-import { Route as TrainerBlocksRouteImport } from './routes/trainer.blocks'
 import { Route as TrainerAvailabilityRouteImport } from './routes/trainer.availability'
 import { Route as ClientSettingsRouteImport } from './routes/client.settings'
 import { Route as ClientBookRouteImport } from './routes/client.book'
@@ -89,11 +88,6 @@ const TrainerCalendarRoute = TrainerCalendarRouteImport.update({
   path: '/calendar',
   getParentRoute: () => TrainerRoute,
 } as any)
-const TrainerBlocksRoute = TrainerBlocksRouteImport.update({
-  id: '/blocks',
-  path: '/blocks',
-  getParentRoute: () => TrainerRoute,
-} as any)
 const TrainerAvailabilityRoute = TrainerAvailabilityRouteImport.update({
   id: '/availability',
   path: '/availability',
@@ -136,7 +130,6 @@ export interface FileRoutesByFullPath {
   '/client/book': typeof ClientBookRoute
   '/client/settings': typeof ClientSettingsRoute
   '/trainer/availability': typeof TrainerAvailabilityRoute
-  '/trainer/blocks': typeof TrainerBlocksRoute
   '/trainer/calendar': typeof TrainerCalendarRoute
   '/trainer/event-types': typeof TrainerEventTypesRoute
   '/trainer/integrations': typeof TrainerIntegrationsRoute
@@ -155,7 +148,6 @@ export interface FileRoutesByTo {
   '/client/book': typeof ClientBookRoute
   '/client/settings': typeof ClientSettingsRoute
   '/trainer/availability': typeof TrainerAvailabilityRoute
-  '/trainer/blocks': typeof TrainerBlocksRoute
   '/trainer/calendar': typeof TrainerCalendarRoute
   '/trainer/event-types': typeof TrainerEventTypesRoute
   '/trainer/integrations': typeof TrainerIntegrationsRoute
@@ -177,7 +169,6 @@ export interface FileRoutesById {
   '/client/book': typeof ClientBookRoute
   '/client/settings': typeof ClientSettingsRoute
   '/trainer/availability': typeof TrainerAvailabilityRoute
-  '/trainer/blocks': typeof TrainerBlocksRoute
   '/trainer/calendar': typeof TrainerCalendarRoute
   '/trainer/event-types': typeof TrainerEventTypesRoute
   '/trainer/integrations': typeof TrainerIntegrationsRoute
@@ -200,7 +191,6 @@ export interface FileRouteTypes {
     | '/client/book'
     | '/client/settings'
     | '/trainer/availability'
-    | '/trainer/blocks'
     | '/trainer/calendar'
     | '/trainer/event-types'
     | '/trainer/integrations'
@@ -219,7 +209,6 @@ export interface FileRouteTypes {
     | '/client/book'
     | '/client/settings'
     | '/trainer/availability'
-    | '/trainer/blocks'
     | '/trainer/calendar'
     | '/trainer/event-types'
     | '/trainer/integrations'
@@ -240,7 +229,6 @@ export interface FileRouteTypes {
     | '/client/book'
     | '/client/settings'
     | '/trainer/availability'
-    | '/trainer/blocks'
     | '/trainer/calendar'
     | '/trainer/event-types'
     | '/trainer/integrations'
@@ -347,13 +335,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TrainerCalendarRouteImport
       parentRoute: typeof TrainerRoute
     }
-    '/trainer/blocks': {
-      id: '/trainer/blocks'
-      path: '/blocks'
-      fullPath: '/trainer/blocks'
-      preLoaderRoute: typeof TrainerBlocksRouteImport
-      parentRoute: typeof TrainerRoute
-    }
     '/trainer/availability': {
       id: '/trainer/availability'
       path: '/availability'
@@ -418,7 +399,6 @@ const ClientRouteWithChildren =
 
 interface TrainerRouteChildren {
   TrainerAvailabilityRoute: typeof TrainerAvailabilityRoute
-  TrainerBlocksRoute: typeof TrainerBlocksRoute
   TrainerCalendarRoute: typeof TrainerCalendarRoute
   TrainerEventTypesRoute: typeof TrainerEventTypesRoute
   TrainerIntegrationsRoute: typeof TrainerIntegrationsRoute
@@ -429,7 +409,6 @@ interface TrainerRouteChildren {
 
 const TrainerRouteChildren: TrainerRouteChildren = {
   TrainerAvailabilityRoute: TrainerAvailabilityRoute,
-  TrainerBlocksRoute: TrainerBlocksRoute,
   TrainerCalendarRoute: TrainerCalendarRoute,
   TrainerEventTypesRoute: TrainerEventTypesRoute,
   TrainerIntegrationsRoute: TrainerIntegrationsRoute,
@@ -453,3 +432,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
