@@ -16,14 +16,15 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Plus, Search, Loader2, Mail, X, Archive, CalendarPlus, PlusCircle, UserPlus } from "lucide-react";
+import { Plus, Search, Loader2, Mail, X, Archive, CalendarPlus, PlusCircle, UserPlus, Copy, Check } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { sendInvitationEmail } from "@/lib/email";
 import { BlockAssignmentWizard } from "@/components/block-assignment-wizard";
-import { CsvImportClients } from "@/components/csv-import-clients";
-import { useClientBlocks, useCoachBookings } from "@/lib/queries";
+import { useClientBlocks, useCoachBookings, useCoachEventTypes } from "@/lib/queries";
+import type { SessionType } from "@/lib/mock-data";
 import { DeleteBlockButton } from "@/routes/trainer.blocks";
 import { Separator } from "@/components/ui/separator";
 import { useQueryClient } from "@tanstack/react-query";
