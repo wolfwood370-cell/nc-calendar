@@ -26,6 +26,7 @@ import { Route as TrainerBlocksRouteImport } from './routes/trainer.blocks'
 import { Route as TrainerAvailabilityRouteImport } from './routes/trainer.availability'
 import { Route as ClientSettingsRouteImport } from './routes/client.settings'
 import { Route as ClientBookRouteImport } from './routes/client.book'
+import { Route as TrainerClientsIdRouteImport } from './routes/trainer.clients.$id'
 import { Route as ClientBookingsBookingIdRouteImport } from './routes/client.bookings.$bookingId'
 
 const TrainerRoute = TrainerRouteImport.update({
@@ -113,6 +114,11 @@ const ClientBookRoute = ClientBookRouteImport.update({
   path: '/book',
   getParentRoute: () => ClientRoute,
 } as any)
+const TrainerClientsIdRoute = TrainerClientsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => TrainerClientsRoute,
+} as any)
 const ClientBookingsBookingIdRoute = ClientBookingsBookingIdRouteImport.update({
   id: '/bookings/$bookingId',
   path: '/bookings/$bookingId',
@@ -132,12 +138,13 @@ export interface FileRoutesByFullPath {
   '/trainer/availability': typeof TrainerAvailabilityRoute
   '/trainer/blocks': typeof TrainerBlocksRoute
   '/trainer/calendar': typeof TrainerCalendarRoute
-  '/trainer/clients': typeof TrainerClientsRoute
+  '/trainer/clients': typeof TrainerClientsRouteWithChildren
   '/trainer/event-types': typeof TrainerEventTypesRoute
   '/trainer/integrations': typeof TrainerIntegrationsRoute
   '/client/': typeof ClientIndexRoute
   '/trainer/': typeof TrainerIndexRoute
   '/client/bookings/$bookingId': typeof ClientBookingsBookingIdRoute
+  '/trainer/clients/$id': typeof TrainerClientsIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -150,12 +157,13 @@ export interface FileRoutesByTo {
   '/trainer/availability': typeof TrainerAvailabilityRoute
   '/trainer/blocks': typeof TrainerBlocksRoute
   '/trainer/calendar': typeof TrainerCalendarRoute
-  '/trainer/clients': typeof TrainerClientsRoute
+  '/trainer/clients': typeof TrainerClientsRouteWithChildren
   '/trainer/event-types': typeof TrainerEventTypesRoute
   '/trainer/integrations': typeof TrainerIntegrationsRoute
   '/client': typeof ClientIndexRoute
   '/trainer': typeof TrainerIndexRoute
   '/client/bookings/$bookingId': typeof ClientBookingsBookingIdRoute
+  '/trainer/clients/$id': typeof TrainerClientsIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -171,12 +179,13 @@ export interface FileRoutesById {
   '/trainer/availability': typeof TrainerAvailabilityRoute
   '/trainer/blocks': typeof TrainerBlocksRoute
   '/trainer/calendar': typeof TrainerCalendarRoute
-  '/trainer/clients': typeof TrainerClientsRoute
+  '/trainer/clients': typeof TrainerClientsRouteWithChildren
   '/trainer/event-types': typeof TrainerEventTypesRoute
   '/trainer/integrations': typeof TrainerIntegrationsRoute
   '/client/': typeof ClientIndexRoute
   '/trainer/': typeof TrainerIndexRoute
   '/client/bookings/$bookingId': typeof ClientBookingsBookingIdRoute
+  '/trainer/clients/$id': typeof TrainerClientsIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -199,6 +208,7 @@ export interface FileRouteTypes {
     | '/client/'
     | '/trainer/'
     | '/client/bookings/$bookingId'
+    | '/trainer/clients/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -217,6 +227,7 @@ export interface FileRouteTypes {
     | '/client'
     | '/trainer'
     | '/client/bookings/$bookingId'
+    | '/trainer/clients/$id'
   id:
     | '__root__'
     | '/'
@@ -237,6 +248,7 @@ export interface FileRouteTypes {
     | '/client/'
     | '/trainer/'
     | '/client/bookings/$bookingId'
+    | '/trainer/clients/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -370,6 +382,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClientBookRouteImport
       parentRoute: typeof ClientRoute
     }
+    '/trainer/clients/$id': {
+      id: '/trainer/clients/$id'
+      path: '/$id'
+      fullPath: '/trainer/clients/$id'
+      preLoaderRoute: typeof TrainerClientsIdRouteImport
+      parentRoute: typeof TrainerClientsRoute
+    }
     '/client/bookings/$bookingId': {
       id: '/client/bookings/$bookingId'
       path: '/bookings/$bookingId'
@@ -397,11 +416,23 @@ const ClientRouteChildren: ClientRouteChildren = {
 const ClientRouteWithChildren =
   ClientRoute._addFileChildren(ClientRouteChildren)
 
+interface TrainerClientsRouteChildren {
+  TrainerClientsIdRoute: typeof TrainerClientsIdRoute
+}
+
+const TrainerClientsRouteChildren: TrainerClientsRouteChildren = {
+  TrainerClientsIdRoute: TrainerClientsIdRoute,
+}
+
+const TrainerClientsRouteWithChildren = TrainerClientsRoute._addFileChildren(
+  TrainerClientsRouteChildren,
+)
+
 interface TrainerRouteChildren {
   TrainerAvailabilityRoute: typeof TrainerAvailabilityRoute
   TrainerBlocksRoute: typeof TrainerBlocksRoute
   TrainerCalendarRoute: typeof TrainerCalendarRoute
-  TrainerClientsRoute: typeof TrainerClientsRoute
+  TrainerClientsRoute: typeof TrainerClientsRouteWithChildren
   TrainerEventTypesRoute: typeof TrainerEventTypesRoute
   TrainerIntegrationsRoute: typeof TrainerIntegrationsRoute
   TrainerIndexRoute: typeof TrainerIndexRoute
@@ -411,7 +442,7 @@ const TrainerRouteChildren: TrainerRouteChildren = {
   TrainerAvailabilityRoute: TrainerAvailabilityRoute,
   TrainerBlocksRoute: TrainerBlocksRoute,
   TrainerCalendarRoute: TrainerCalendarRoute,
-  TrainerClientsRoute: TrainerClientsRoute,
+  TrainerClientsRoute: TrainerClientsRouteWithChildren,
   TrainerEventTypesRoute: TrainerEventTypesRoute,
   TrainerIntegrationsRoute: TrainerIntegrationsRoute,
   TrainerIndexRoute: TrainerIndexRoute,
