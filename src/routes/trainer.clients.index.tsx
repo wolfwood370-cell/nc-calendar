@@ -36,6 +36,7 @@ interface ClientRow {
   full_name: string | null;
   email: string | null;
   phone: string | null;
+  status: string;
 }
 interface InvitationRow {
   id: string;
@@ -44,6 +45,31 @@ interface InvitationRow {
   phone: string | null;
   status: string;
   created_at: string;
+}
+interface BlockLite {
+  id: string;
+  client_id: string;
+  sequence_order: number;
+  start_date: string;
+}
+interface AllocLite {
+  block_id: string;
+  event_type_id: string | null;
+  session_type: SessionType;
+  quantity_assigned: number;
+  quantity_booked: number;
+}
+
+type ClientStatus = "active" | "expiring" | "archived";
+
+interface ClientCardData {
+  client: ClientRow;
+  status: ClientStatus;
+  totalBlocks: number;
+  activeBlockSeq: number | null;
+  completed: number;
+  total: number;
+  eventTypeLabel: string;
 }
 
 function ClientsPage() {
