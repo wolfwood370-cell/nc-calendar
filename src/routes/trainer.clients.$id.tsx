@@ -325,8 +325,63 @@ function ClientPathPage() {
     setOrphans((prev) => prev.filter((p) => p.id !== o.id));
   }
 
-  async function unlinkBooking(b: ClientBooking) {
-    if (!confirm("Scollegare questa sessione dal cliente? Verrà mostrata nuovamente come 'da revisionare'.")) return;
+  async function unlinkBooking(b: ClientBooking, opts: { confirmFirst?: boolean; silent?: boolean } = {}) {
+    if (opts.confirmFirst !== false) {
+      if (!confirm("Scollegare questa sessione dal profilo? Verrà ignorata dallo Smart Matcher per questo cliente.")) return;
+    }
+    // Restituisci credito se era contabilizzato
+    if (b.block_id) {
+      const alloc = allocations.find(
+        (a) => a.block_id === b.block_id &&
+          (b.event_type_id ? a.event_type_id === b.event_type_id : a.session_type === b.session_type) &&
+          a.quantity_booked > 0,
+      );
+      if (alloc) {
+        await supabase
+          .from("block_allocations")
+          .update({ quantity_booked: Math.max(0, alloc.quantity_booked - 1) })
+          .eq("id", alloc.id);
+      }
+    }
+    // Anti-ghosting: aggiungi clientId a ignored_by_clients
+    const { data: row } = await supabase
+      .from("bookings")
+      .select("ignored_by_clients")
+      .eq("id", b.id)
+      .maybeSingle();
+    const ignored = (row?.ignored_by_clients as string[] | null) ?? [];
+    if (!ignored.includes(clientId)) ignored.push(clientId);
+
+    const { error } = await supabase
+      .from("bookings")
+      .update({ client_id: null, block_id: null, ignored_by_clients: ignored })
+      .eq("id", b.id);
+    if (error) {
+      toast.error("Scollegamento non riuscito", { description: error.message });
+      return;
+    }
+    // Rimozione istantanea dalla griglia
+    setClientBookings((prev) => prev.filter((x) => x.id !== b.id));
+    setEditingBooking(null);
+    if (!opts.silent) toast.success("Evento rimosso solo dal profilo");
+    void load();
+  }
+
+  async function deleteBookingEverywhere(b: ClientBooking) {
+    // Sync Google Calendar delete
+    if (b.google_event_id && user) {
+      try {
+        await supabase.functions.invoke("sync-calendar", {
+          body: {
+            action: "cancel",
+            coach_id: user.id,
+            google_event_id: b.google_event_id,
+          },
+        });
+      } catch (err) {
+        console.error("sync-calendar delete failed", err);
+      }
+    }
     // Restituisci credito se era contabilizzato
     if (b.block_id) {
       const alloc = allocations.find(
@@ -343,13 +398,15 @@ function ClientPathPage() {
     }
     const { error } = await supabase
       .from("bookings")
-      .update({ client_id: null, block_id: null })
+      .update({ deleted_at: new Date().toISOString(), status: "cancelled" })
       .eq("id", b.id);
     if (error) {
-      toast.error("Scollegamento non riuscito", { description: error.message });
+      toast.error("Eliminazione non riuscita", { description: error.message });
       return;
     }
-    toast.success("Sessione scollegata dal cliente");
+    setClientBookings((prev) => prev.filter((x) => x.id !== b.id));
+    setEditingBooking(null);
+    toast.success("Evento eliminato definitivamente");
     void load();
   }
 
