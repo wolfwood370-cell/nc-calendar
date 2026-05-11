@@ -282,11 +282,13 @@ Deno.serve(async (req) => {
 
         if (existing) {
           const patch: Record<string, unknown> = {
-            client_id: clientId,
             session_type: sessionType,
             event_type_id: eventTypeId,
             notes: `Importato da Google Calendar: ${summary}`,
           };
+          // Solo scrivi client_id se abbiamo un match certo (non sovrascrivere
+          // un client_id già impostato manualmente con null).
+          if (match.client) patch.client_id = clientId;
           if (existing.scheduled_at !== startIso) patch.scheduled_at = startIso;
           if (existing.status !== status) patch.status = status;
 
