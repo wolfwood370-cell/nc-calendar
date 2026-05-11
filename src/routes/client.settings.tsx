@@ -320,6 +320,3 @@ function Row({
 function Divider() {
   return <div className="h-px bg-outline-variant/40 mx-5" />;
 }
-
-// Suppress unused import warning when ChevronRight isn't used in current layout
-void ChevronRight;
