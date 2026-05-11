@@ -10,7 +10,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Progress } from "@/components/ui/progress";
+
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from "@/components/ui/dialog";
@@ -18,7 +18,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  ArrowLeft, CalendarIcon, Loader2, Save, RotateCcw, Settings, Sparkles,
+  ArrowLeft, CalendarIcon, Loader2, Save, RotateCcw, Sparkles,
   Check, X as XIcon, Plus, Trash2, Unlink, Edit3, CalendarDays,
   Dumbbell, Stethoscope, Ban, CheckCircle2, Clock,
 } from "lucide-react";
