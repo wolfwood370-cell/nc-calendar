@@ -21,13 +21,24 @@ export function CircularProgress({
         className="relative flex items-center justify-center"
         style={{ width: size, height: size }}
       >
-        <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">
+        <svg
+          className="w-full h-full -rotate-90"
+          viewBox="0 0 36 36"
+          xmlns="http://www.w3.org/2000/svg"
+        >
           <circle
             className="stroke-surface-container-high"
-            cx="18" cy="18" r="16" fill="none" strokeWidth="4"
+            cx="18"
+            cy="18"
+            r="16"
+            fill="none"
+            strokeWidth="4"
           />
           <circle
-            cx="18" cy="18" r="16" fill="none"
+            cx="18"
+            cy="18"
+            r="16"
+            fill="none"
             stroke={color}
             strokeWidth="4"
             strokeDasharray="100"

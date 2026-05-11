@@ -5,22 +5,51 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import {
-  ArrowLeft, CalendarIcon, Loader2, Save, RotateCcw, Sparkles,
-  Check, X as XIcon, Plus, Trash2, Unlink, Edit3, CalendarDays,
-  Dumbbell, Stethoscope, Ban, CheckCircle2, Clock,
+  ArrowLeft,
+  CalendarIcon,
+  Loader2,
+  Save,
+  RotateCcw,
+  Sparkles,
+  Check,
+  X as XIcon,
+  Plus,
+  Trash2,
+  Unlink,
+  Edit3,
+  CalendarDays,
+  Dumbbell,
+  Stethoscope,
+  Ban,
+  CheckCircle2,
+  Clock,
 } from "lucide-react";
 type EditableStatus = "scheduled" | "completed" | "cancelled" | "late_cancelled";
 import { supabase } from "@/integrations/supabase/client";
@@ -110,7 +139,9 @@ function ClientPathPage() {
   const [pathStart, setPathStart] = useState<Date | undefined>(undefined);
   const [blocks, setBlocks] = useState<BlockRecord[]>([]);
   const [allocations, setAllocations] = useState<AllocationRecord[]>([]);
-  const [completedByBlockType, setCompletedByBlockType] = useState<Record<string, Record<string, number>>>({});
+  const [completedByBlockType, setCompletedByBlockType] = useState<
+    Record<string, Record<string, number>>
+  >({});
   const [rows, setRows] = useState<WeekRow[]>([]);
   const [originalRows, setOriginalRows] = useState<WeekRow[]>([]);
   const [orphans, setOrphans] = useState<OrphanBooking[]>([]);
@@ -140,7 +171,9 @@ function ClientPathPage() {
     const parts = (profile?.full_name ?? "").trim().split(/\s+/);
     setFirstName(parts[0] ?? "");
     setLastName(parts.slice(1).join(" "));
-    setPathStart(profile?.path_start_date ? parseISO(profile.path_start_date as string) : undefined);
+    setPathStart(
+      profile?.path_start_date ? parseISO(profile.path_start_date as string) : undefined,
+    );
 
     const { data: bls } = await supabase
       .from("training_blocks")
@@ -158,7 +191,9 @@ function ClientPathPage() {
     if (blockIds.length > 0) {
       const { data: allocs } = await supabase
         .from("block_allocations")
-        .select("id, block_id, event_type_id, session_type, quantity_assigned, quantity_booked, week_number, valid_until")
+        .select(
+          "id, block_id, event_type_id, session_type, quantity_assigned, quantity_booked, week_number, valid_until",
+        )
         .in("block_id", blockIds);
       setAllocations((allocs ?? []) as AllocationRecord[]);
 
@@ -201,7 +236,9 @@ function ClientPathPage() {
     );
 
     const totalW = blockList.length * WEEKS_PER_BLOCK;
-    const start = profile?.path_start_date ? parseISO(profile.path_start_date as string) : undefined;
+    const start = profile?.path_start_date
+      ? parseISO(profile.path_start_date as string)
+      : undefined;
     const generated: WeekRow[] = [];
     for (let i = 0; i < totalW; i++) {
       const wn = i + 1;
@@ -221,7 +258,9 @@ function ClientPathPage() {
     // Carica le sessioni del cliente (linkate)
     const { data: cbs } = await supabase
       .from("bookings")
-      .select("id, scheduled_at, title, status, block_id, event_type_id, session_type, google_event_id, created_at")
+      .select(
+        "id, scheduled_at, title, status, block_id, event_type_id, session_type, google_event_id, created_at",
+      )
       .eq("client_id", clientId)
       .is("deleted_at", null)
       .order("scheduled_at", { ascending: false });
@@ -234,7 +273,9 @@ function ClientPathPage() {
       (b) => b.google_event_id && new Date(b.created_at).getTime() > fiveMinAgo,
     ).length;
     if (recentAuto > 0) {
-      toast.success(`Ho assegnato automaticamente ${recentAuto} ${recentAuto === 1 ? "nuova sessione" : "nuove sessioni"} a questo cliente.`);
+      toast.success(
+        `Ho assegnato automaticamente ${recentAuto} ${recentAuto === 1 ? "nuova sessione" : "nuove sessioni"} a questo cliente.`,
+      );
     }
 
     await loadOrphans(fn);
@@ -257,7 +298,9 @@ function ClientPathPage() {
       .eq("coach_id", user.id)
       .is("client_id", null)
       .is("deleted_at", null);
-    const matches = ((data ?? []) as Array<OrphanBooking & { ignored_by_clients: string[] | null }>).filter((b) => {
+    const matches = (
+      (data ?? []) as Array<OrphanBooking & { ignored_by_clients: string[] | null }>
+    ).filter((b) => {
       const ign = (b.ignored_by_clients ?? []) as string[];
       if (ign.includes(clientId)) return false;
       const hay = `${b.title ?? ""} ${b.notes ?? ""}`.toLowerCase();
@@ -267,14 +310,16 @@ function ClientPathPage() {
       if (l) return hay.includes(f) && hay.includes(l);
       return hay.includes(f);
     });
-    setOrphans(matches.map((m) => ({
-      id: m.id,
-      scheduled_at: m.scheduled_at,
-      title: m.title,
-      notes: m.notes,
-      event_type_id: m.event_type_id,
-      session_type: m.session_type,
-    })));
+    setOrphans(
+      matches.map((m) => ({
+        id: m.id,
+        scheduled_at: m.scheduled_at,
+        title: m.title,
+        notes: m.notes,
+        event_type_id: m.event_type_id,
+        session_type: m.session_type,
+      })),
+    );
   }
 
   async function confirmOrphan(o: OrphanBooking) {
@@ -284,7 +329,10 @@ function ClientPathPage() {
       const sortedBlocks = [...blocks].sort((a, b) => a.sequence_order - b.sequence_order);
       for (const b of sortedBlocks) {
         const candidate = allocations.find(
-          (a) => a.block_id === b.id && a.event_type_id === o.event_type_id && a.quantity_booked < a.quantity_assigned,
+          (a) =>
+            a.block_id === b.id &&
+            a.event_type_id === o.event_type_id &&
+            a.quantity_booked < a.quantity_assigned,
         );
         if (candidate) {
           blockId = b.id;
@@ -328,15 +376,26 @@ function ClientPathPage() {
     setOrphans((prev) => prev.filter((p) => p.id !== o.id));
   }
 
-  async function unlinkBooking(b: ClientBooking, opts: { confirmFirst?: boolean; silent?: boolean } = {}) {
+  async function unlinkBooking(
+    b: ClientBooking,
+    opts: { confirmFirst?: boolean; silent?: boolean } = {},
+  ) {
     if (opts.confirmFirst !== false) {
-      if (!confirm("Scollegare questa sessione dal profilo? Verrà ignorata dallo Smart Matcher per questo cliente.")) return;
+      if (
+        !confirm(
+          "Scollegare questa sessione dal profilo? Verrà ignorata dallo Smart Matcher per questo cliente.",
+        )
+      )
+        return;
     }
     // Restituisci credito se era contabilizzato
     if (b.block_id) {
       const alloc = allocations.find(
-        (a) => a.block_id === b.block_id &&
-          (b.event_type_id ? a.event_type_id === b.event_type_id : a.session_type === b.session_type) &&
+        (a) =>
+          a.block_id === b.block_id &&
+          (b.event_type_id
+            ? a.event_type_id === b.event_type_id
+            : a.session_type === b.session_type) &&
           a.quantity_booked > 0,
       );
       if (alloc) {
@@ -388,8 +447,11 @@ function ClientPathPage() {
     // Restituisci credito se era contabilizzato
     if (b.block_id) {
       const alloc = allocations.find(
-        (a) => a.block_id === b.block_id &&
-          (b.event_type_id ? a.event_type_id === b.event_type_id : a.session_type === b.session_type) &&
+        (a) =>
+          a.block_id === b.block_id &&
+          (b.event_type_id
+            ? a.event_type_id === b.event_type_id
+            : a.session_type === b.session_type) &&
           a.quantity_booked > 0,
       );
       if (alloc) {
@@ -442,8 +504,11 @@ function ClientPathPage() {
     const wasActive = input.prevStatus === "scheduled" || input.prevStatus === "completed";
     if (input.status === "cancelled" && wasActive && input.block_id) {
       const alloc = allocations.find(
-        (a) => a.block_id === input.block_id &&
-          (input.prevEventTypeId ? a.event_type_id === input.prevEventTypeId : a.session_type === input.prevSessionType) &&
+        (a) =>
+          a.block_id === input.block_id &&
+          (input.prevEventTypeId
+            ? a.event_type_id === input.prevEventTypeId
+            : a.session_type === input.prevSessionType) &&
           a.quantity_booked > 0,
       );
       if (alloc) {
@@ -550,9 +615,9 @@ function ClientPathPage() {
 
   const dirty = useMemo(() => {
     if (rows.length !== originalRows.length) return true;
-    return rows.some((r, i) =>
-      r.monday_date !== originalRows[i]?.monday_date ||
-      r.shifted !== originalRows[i]?.shifted,
+    return rows.some(
+      (r, i) =>
+        r.monday_date !== originalRows[i]?.monday_date || r.shifted !== originalRows[i]?.shifted,
     );
   }, [rows, originalRows]);
 
@@ -640,14 +705,14 @@ function ClientPathPage() {
     return Dumbbell;
   }
 
-
-
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" asChild>
-            <Link to="/trainer/clients"><ArrowLeft className="size-4" /></Link>
+            <Link to="/trainer/clients">
+              <ArrowLeft className="size-4" />
+            </Link>
           </Button>
           <div>
             <h1 className="font-display text-3xl font-semibold tracking-tight">{clientName}</h1>
@@ -669,7 +734,8 @@ function ClientPathPage() {
         <Card className="border-primary/40">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <Sparkles className="size-4 text-primary" /> Sessioni da Revisionare ({orphans.length})
+              <Sparkles className="size-4 text-primary" /> Sessioni da Revisionare ({orphans.length}
+              )
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -689,7 +755,9 @@ function ClientPathPage() {
                     </TableCell>
                     <TableCell className="text-sm">
                       <div className="font-medium">{o.title ?? "(senza titolo)"}</div>
-                      {o.notes && <div className="text-xs text-muted-foreground line-clamp-1">{o.notes}</div>}
+                      {o.notes && (
+                        <div className="text-xs text-muted-foreground line-clamp-1">{o.notes}</div>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
@@ -724,7 +792,9 @@ function ClientPathPage() {
                 )}
               >
                 <CalendarIcon className="size-4" />
-                {pathStart ? format(pathStart, "EEEE dd MMMM yyyy", { locale: it }) : "Seleziona un lunedì"}
+                {pathStart
+                  ? format(pathStart, "EEEE dd MMMM yyyy", { locale: it })
+                  : "Seleziona un lunedì"}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
@@ -739,7 +809,8 @@ function ClientPathPage() {
             </PopoverContent>
           </Popover>
           <p className="text-sm text-muted-foreground">
-            Solo i lunedì sono validi. Settimane totali: <strong>{totalWeeks}</strong> ({totalBlocks} blocchi × {WEEKS_PER_BLOCK})
+            Solo i lunedì sono validi. Settimane totali: <strong>{totalWeeks}</strong> (
+            {totalBlocks} blocchi × {WEEKS_PER_BLOCK})
           </p>
         </CardContent>
       </Card>
@@ -748,7 +819,9 @@ function ClientPathPage() {
       <div>
         <div className="mb-6">
           <h2 className="font-display text-3xl font-bold text-primary">Timeline del Percorso</h2>
-          <p className="text-base text-muted-foreground mt-1">Pianificazione e stato degli appuntamenti</p>
+          <p className="text-base text-muted-foreground mt-1">
+            Pianificazione e stato degli appuntamenti
+          </p>
         </div>
 
         {loading ? (
@@ -757,7 +830,8 @@ function ClientPathPage() {
           </div>
         ) : totalBlocks === 0 ? (
           <div className="p-8 text-center text-sm text-muted-foreground rounded-2xl border border-dashed">
-            Nessun blocco assegnato a questo cliente. Crea il cliente con un percorso dalla pagina Clienti.
+            Nessun blocco assegnato a questo cliente. Crea il cliente con un percorso dalla pagina
+            Clienti.
           </div>
         ) : (
           <div className="space-y-10">
@@ -768,10 +842,14 @@ function ClientPathPage() {
                   {/* Block header */}
                   <div className="bg-card rounded-[32px] shadow-[0_4px_20px_rgba(0,86,133,0.05)] hover:shadow-[0_8px_24px_rgba(0,86,133,0.08)] transition-shadow duration-300 p-6 mb-4">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                      <h3 className="text-2xl font-semibold text-foreground">Blocco {b.sequence_order}</h3>
+                      <h3 className="text-2xl font-semibold text-foreground">
+                        Blocco {b.sequence_order}
+                      </h3>
                       <div className="flex flex-wrap items-center gap-2">
                         {b.pills.length === 0 ? (
-                          <span className="text-xs text-muted-foreground italic">Nessun credito impostato</span>
+                          <span className="text-xs text-muted-foreground italic">
+                            Nessun credito impostato
+                          </span>
                         ) : (
                           b.pills.map((p, i) => {
                             const done = p.completed >= p.assigned;
@@ -785,7 +863,11 @@ function ClientPathPage() {
                                     : "bg-surface-container-low text-primary",
                                 )}
                               >
-                                {done ? <CheckCircle2 className="size-3.5" /> : <Clock className="size-3.5" />}
+                                {done ? (
+                                  <CheckCircle2 className="size-3.5" />
+                                ) : (
+                                  <Clock className="size-3.5" />
+                                )}
                                 {p.name}: {p.completed}/{p.assigned} completate
                               </span>
                             );
@@ -795,7 +877,11 @@ function ClientPathPage() {
                           blockId={b.id}
                           sequenceOrder={b.sequence_order}
                           allocations={b.allocations}
-                          eventTypes={eventTypes.map((e) => ({ id: e.id, name: e.name, base_type: e.base_type }))}
+                          eventTypes={eventTypes.map((e) => ({
+                            id: e.id,
+                            name: e.name,
+                            base_type: e.base_type,
+                          }))}
                           onSaved={() => void load()}
                         />
                       </div>
@@ -809,7 +895,10 @@ function ClientPathPage() {
                       const isPast = date ? isBefore(date, today) : false;
                       const weekBookings = bookingsByRowIdx[idx] ?? [];
                       return (
-                        <div key={row.week_number} className={cn("space-y-3", isPast && "opacity-60")}>
+                        <div
+                          key={row.week_number}
+                          className={cn("space-y-3", isPast && "opacity-60")}
+                        >
                           {/* Pill date header */}
                           <Popover>
                             <PopoverTrigger asChild>
@@ -859,8 +948,10 @@ function ClientPathPage() {
                                 const durationMin = et?.duration ?? 60;
                                 const end = addDays(at, 0);
                                 end.setMinutes(end.getMinutes() + durationMin);
-                                const dayLabel = format(at, "EEE d MMM", { locale: it })
-                                  .replace(/^./, (c) => c.toUpperCase());
+                                const dayLabel = format(at, "EEE d MMM", { locale: it }).replace(
+                                  /^./,
+                                  (c) => c.toUpperCase(),
+                                );
                                 const timeRange = `${dayLabel}, ${format(at, "HH:mm")} - ${format(end, "HH:mm")}`;
                                 const label = et?.name ?? bk.title ?? bk.session_type;
 
@@ -875,7 +966,9 @@ function ClientPathPage() {
                                         <Ban className="size-4" />
                                       </div>
                                       <div className="flex-1 min-w-0">
-                                        <p className="text-xs text-outline mb-1 line-through">{timeRange}</p>
+                                        <p className="text-xs text-outline mb-1 line-through">
+                                          {timeRange}
+                                        </p>
                                         <p className="text-sm text-outline font-medium line-through truncate">
                                           {label}
                                         </p>
@@ -904,8 +997,12 @@ function ClientPathPage() {
                                       <Icon className="size-4" />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                      <p className="text-xs text-foreground/70 mb-1 font-medium">{timeRange}</p>
-                                      <p className="text-sm text-foreground font-semibold truncate">{label}</p>
+                                      <p className="text-xs text-foreground/70 mb-1 font-medium">
+                                        {timeRange}
+                                      </p>
+                                      <p className="text-sm text-foreground font-semibold truncate">
+                                        {label}
+                                      </p>
                                     </div>
                                   </div>
                                 );
@@ -933,7 +1030,10 @@ function ClientPathPage() {
       />
 
       {/* Suppress unused warning */}
-      <span className="hidden">{firstName}{lastName}</span>
+      <span className="hidden">
+        {firstName}
+        {lastName}
+      </span>
     </div>
   );
 }
@@ -946,7 +1046,13 @@ interface BlockCreditsDialogProps {
   onSaved: () => void;
 }
 
-function BlockCreditsDialog({ blockId, sequenceOrder, allocations, eventTypes, onSaved }: BlockCreditsDialogProps) {
+function BlockCreditsDialog({
+  blockId,
+  sequenceOrder,
+  allocations,
+  eventTypes,
+  onSaved,
+}: BlockCreditsDialogProps) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<AllocationRecord[]>([]);
   const [saving, setSaving] = useState(false);
@@ -1065,13 +1171,20 @@ function BlockCreditsDialog({ blockId, sequenceOrder, allocations, eventTypes, o
                   value={r.event_type_id ?? ""}
                   onValueChange={(v) => {
                     const et = eventTypes.find((e) => e.id === v);
-                    updateRow(r.id, { event_type_id: v, session_type: et?.base_type ?? r.session_type });
+                    updateRow(r.id, {
+                      event_type_id: v,
+                      session_type: et?.base_type ?? r.session_type,
+                    });
                   }}
                 >
-                  <SelectTrigger><SelectValue placeholder="Seleziona" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleziona" />
+                  </SelectTrigger>
                   <SelectContent>
                     {eventTypes.map((et) => (
-                      <SelectItem key={et.id} value={et.id}>{et.name}</SelectItem>
+                      <SelectItem key={et.id} value={et.id}>
+                        {et.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -1082,7 +1195,9 @@ function BlockCreditsDialog({ blockId, sequenceOrder, allocations, eventTypes, o
                   type="number"
                   min={1}
                   value={r.quantity_assigned}
-                  onChange={(e) => updateRow(r.id, { quantity_assigned: Math.max(1, Number(e.target.value) || 1) })}
+                  onChange={(e) =>
+                    updateRow(r.id, { quantity_assigned: Math.max(1, Number(e.target.value) || 1) })
+                  }
                 />
               </div>
               <div className="col-span-1 flex justify-end">
@@ -1098,7 +1213,9 @@ function BlockCreditsDialog({ blockId, sequenceOrder, allocations, eventTypes, o
             <Plus className="size-4" /> Aggiungi
           </Button>
           <DialogFooter className="gap-2 sm:gap-2">
-            <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>Annulla</Button>
+            <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>
+              Annulla
+            </Button>
             <Button onClick={save} disabled={saving}>
               {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
               Salva
@@ -1129,7 +1246,14 @@ interface EditBookingDialogProps {
   onDeleteEverywhere: (b: ClientBooking) => Promise<void>;
 }
 
-function EditBookingDialog({ booking, eventTypes, onClose, onSave, onUnlink, onDeleteEverywhere }: EditBookingDialogProps) {
+function EditBookingDialog({
+  booking,
+  eventTypes,
+  onClose,
+  onSave,
+  onUnlink,
+  onDeleteEverywhere,
+}: EditBookingDialogProps) {
   const [date, setDate] = useState<string>("");
   const [time, setTime] = useState<string>("");
   const [eventTypeId, setEventTypeId] = useState<string>("");
@@ -1143,7 +1267,9 @@ function EditBookingDialog({ booking, eventTypes, onClose, onSave, onUnlink, onD
     setTime(format(d, "HH:mm"));
     setEventTypeId(booking.event_type_id ?? "");
     const s = booking.status as EditableStatus;
-    setStatus(["scheduled", "completed", "cancelled", "late_cancelled"].includes(s) ? s : "scheduled");
+    setStatus(
+      ["scheduled", "completed", "cancelled", "late_cancelled"].includes(s) ? s : "scheduled",
+    );
   }, [booking]);
 
   if (!booking) return null;
@@ -1194,10 +1320,14 @@ function EditBookingDialog({ booking, eventTypes, onClose, onSave, onUnlink, onD
           <div className="space-y-1">
             <Label className="text-xs">Tipologia Evento</Label>
             <Select value={eventTypeId} onValueChange={setEventTypeId}>
-              <SelectTrigger><SelectValue placeholder="Seleziona" /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue placeholder="Seleziona" />
+              </SelectTrigger>
               <SelectContent>
                 {eventTypes.map((et) => (
-                  <SelectItem key={et.id} value={et.id}>{et.name}</SelectItem>
+                  <SelectItem key={et.id} value={et.id}>
+                    {et.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -1205,7 +1335,9 @@ function EditBookingDialog({ booking, eventTypes, onClose, onSave, onUnlink, onD
           <div className="space-y-1">
             <Label className="text-xs">Stato Sessione</Label>
             <Select value={status} onValueChange={(v) => setStatus(v as EditableStatus)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="scheduled">Pianificata</SelectItem>
                 <SelectItem value="completed">Completata</SelectItem>
@@ -1236,7 +1368,8 @@ function EditBookingDialog({ booking, eventTypes, onClose, onSave, onUnlink, onD
               disabled={saving}
               onClick={async () => {
                 if (!booking) return;
-                if (!confirm("Sei sicuro? L'evento verrà eliminato anche da Google Calendar.")) return;
+                if (!confirm("Sei sicuro? L'evento verrà eliminato anche da Google Calendar."))
+                  return;
                 await onDeleteEverywhere(booking);
               }}
             >
@@ -1246,7 +1379,9 @@ function EditBookingDialog({ booking, eventTypes, onClose, onSave, onUnlink, onD
         </div>
 
         <DialogFooter className="gap-2 sm:gap-2">
-          <Button variant="outline" onClick={onClose} disabled={saving}>Annulla</Button>
+          <Button variant="outline" onClick={onClose} disabled={saving}>
+            Annulla
+          </Button>
           <Button onClick={handleSave} disabled={saving}>
             {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
             Salva

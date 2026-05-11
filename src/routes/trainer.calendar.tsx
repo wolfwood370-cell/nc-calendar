@@ -3,15 +3,37 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient, useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
-import { Loader2, ChevronLeft, ChevronRight, UserSearch, MessageCircle, HelpCircle, Calendar as CalendarIcon } from "lucide-react";
+import {
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  UserSearch,
+  MessageCircle,
+  HelpCircle,
+  Calendar as CalendarIcon,
+} from "lucide-react";
 import { sessionLabel } from "@/lib/mock-data";
 import { supabase } from "@/integrations/supabase/client";
-import { useCoachBookings, useCoachClients, useCoachEventTypes, type BookingRow } from "@/lib/queries";
+import {
+  useCoachBookings,
+  useCoachClients,
+  useCoachEventTypes,
+  type BookingRow,
+} from "@/lib/queries";
 import { useAuth } from "@/lib/auth";
 import { syncCalendarAwait } from "@/lib/sync-calendar";
 import { toast } from "sonner";
@@ -41,7 +63,11 @@ function addDays(d: Date, n: number): Date {
   return x;
 }
 function sameDay(a: Date, b: Date) {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
 }
 function fmtRange(start: Date, end: Date): string {
   const opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "long" };
@@ -79,7 +105,7 @@ function CalendarPage() {
 
   // ----- Focus Cliente -----
   const [focusClientId, setFocusClientId] = useState<string | null>(null);
-  const focusClient = focusClientId ? clientsMap.get(focusClientId) ?? null : null;
+  const focusClient = focusClientId ? (clientsMap.get(focusClientId) ?? null) : null;
 
   const lastNoteQ = useQuery({
     queryKey: ["last-note", focusClientId],
@@ -119,7 +145,10 @@ function CalendarPage() {
   });
 
   // ----- Week navigation -----
-  const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
+  const weekDays = useMemo(
+    () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
+    [weekStart],
+  );
   const weekEnd = weekDays[6];
 
   const bookingsByDay = useMemo(() => {
@@ -146,12 +175,19 @@ function CalendarPage() {
     future.setFullYear(future.getFullYear() + 2);
     setMirroring(true);
     syncCalendarAwait({
-      action: "import_history", coachId: user.id,
+      action: "import_history",
+      coachId: user.id,
       rangeStartISO: "2026-01-01T00:00:00Z",
       rangeEndISO: future.toISOString(),
     })
       .then(({ data }) => {
-        const r = data as { ok?: boolean; imported?: number; updated?: number; creditsBooked?: number; skipped?: boolean } | null;
+        const r = data as {
+          ok?: boolean;
+          imported?: number;
+          updated?: number;
+          creditsBooked?: number;
+          skipped?: boolean;
+        } | null;
         if (r?.skipped) return;
         if (r?.ok) {
           toast.success("Sincronizzazione completata", {
@@ -171,15 +207,36 @@ function CalendarPage() {
     if (lastMirrorMonth.current === monthKey) return;
     lastMirrorMonth.current = monthKey;
     const start = new Date(weekStart.getFullYear(), weekStart.getMonth(), 1).toISOString();
-    const end = new Date(weekStart.getFullYear(), weekStart.getMonth() + 1, 0, 23, 59, 59).toISOString();
+    const end = new Date(
+      weekStart.getFullYear(),
+      weekStart.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+    ).toISOString();
     setMirroring(true);
     syncCalendarAwait({
-      action: "mirror_check", coachId: user.id,
-      rangeStartISO: start, rangeEndISO: end,
+      action: "mirror_check",
+      coachId: user.id,
+      rangeStartISO: start,
+      rangeEndISO: end,
     })
       .then(({ data }) => {
-        const r = data as { ok?: boolean; cancelled?: number; moved?: number; remapped?: number; imported?: number } | null;
-        if (r?.ok && ((r.cancelled ?? 0) > 0 || (r.moved ?? 0) > 0 || (r.remapped ?? 0) > 0 || (r.imported ?? 0) > 0)) {
+        const r = data as {
+          ok?: boolean;
+          cancelled?: number;
+          moved?: number;
+          remapped?: number;
+          imported?: number;
+        } | null;
+        if (
+          r?.ok &&
+          ((r.cancelled ?? 0) > 0 ||
+            (r.moved ?? 0) > 0 ||
+            (r.remapped ?? 0) > 0 ||
+            (r.imported ?? 0) > 0)
+        ) {
           toast.info("Calendario aggiornato");
           qc.invalidateQueries({ queryKey: ["bookings"] });
         }
@@ -209,7 +266,10 @@ function CalendarPage() {
       return (
         <button
           key={b.id}
-          onClick={() => { setAssignTarget(b); setAssignClientId(""); }}
+          onClick={() => {
+            setAssignTarget(b);
+            setAssignClientId("");
+          }}
           style={{ top, height }}
           className="absolute left-1 right-1 z-10 border-2 border-dashed border-[#ffb77b] bg-[#ffdcc2]/40 rounded-2xl p-2 flex flex-col items-center justify-center gap-1 text-[#5b2f00] hover:bg-[#ffdcc2]/70 hover:scale-[1.02] transition-all cursor-pointer"
         >
@@ -222,7 +282,8 @@ function CalendarPage() {
     }
 
     if (isExternal) {
-      const title = (b.notes ?? "").replace(/^Importato da Google Calendar:\s*/i, "") || "Evento esterno";
+      const title =
+        (b.notes ?? "").replace(/^Importato da Google Calendar:\s*/i, "") || "Evento esterno";
       return (
         <div
           key={b.id}
@@ -303,7 +364,9 @@ function CalendarPage() {
         </header>
 
         {/* Grid */}
-        <div className={`flex-1 bg-white rounded-[32px] ${SOFT_SHADOW} border border-[#eceef2] overflow-hidden flex flex-col`}>
+        <div
+          className={`flex-1 bg-white rounded-[32px] ${SOFT_SHADOW} border border-[#eceef2] overflow-hidden flex flex-col`}
+        >
           {/* Days header */}
           <div className="flex border-b border-[#eceef2] bg-[#f8f9fe] sticky top-0 z-20">
             <div className="w-16 shrink-0 border-r border-[#eceef2]" />
@@ -315,10 +378,14 @@ function CalendarPage() {
                     key={i}
                     className={`p-3 text-center border-r border-[#eceef2] last:border-r-0 ${isToday ? "bg-[#cde5ff]/30" : ""}`}
                   >
-                    <div className={`text-[11px] uppercase tracking-wider ${isToday ? "text-[#003e62] font-bold" : "text-[#717880]"}`}>
+                    <div
+                      className={`text-[11px] uppercase tracking-wider ${isToday ? "text-[#003e62] font-bold" : "text-[#717880]"}`}
+                    >
                       {DAY_LABELS[i]}
                     </div>
-                    <div className={`text-xl mt-1 ${isToday ? "text-[#003e62] font-bold" : "font-semibold"}`}>
+                    <div
+                      className={`text-xl mt-1 ${isToday ? "text-[#003e62] font-bold" : "font-semibold"}`}
+                    >
                       {d.getDate()}
                     </div>
                   </div>
@@ -379,7 +446,9 @@ function CalendarPage() {
         </div>
         <div className="p-6 overflow-y-auto flex-1 space-y-4">
           {!focusClient && (
-            <div className={`bg-white rounded-[24px] p-6 ${SOFT_SHADOW} border border-[#f2f3f8] text-center text-sm text-[#717880]`}>
+            <div
+              className={`bg-white rounded-[24px] p-6 ${SOFT_SHADOW} border border-[#f2f3f8] text-center text-sm text-[#717880]`}
+            >
               <CalendarIcon className="size-10 mx-auto mb-3 text-[#c1c7d0]" />
               Seleziona una sessione confermata per vedere il dettaglio cliente.
             </div>
@@ -387,11 +456,20 @@ function CalendarPage() {
 
           {focusClient && (
             <>
-              <div className={`bg-white rounded-[24px] p-6 ${SOFT_SHADOW} border border-[#f2f3f8] flex flex-col items-center text-center`}>
+              <div
+                className={`bg-white rounded-[24px] p-6 ${SOFT_SHADOW} border border-[#f2f3f8] flex flex-col items-center text-center`}
+              >
                 <div className="size-20 rounded-full bg-[#cde5ff] text-[#003e62] flex items-center justify-center text-2xl font-bold border-4 border-[#f8f9fe] mb-3 shadow-sm">
-                  {(focusClient.full_name ?? "?").split(" ").filter(Boolean).slice(0, 2).map((s) => s[0]?.toUpperCase()).join("")}
+                  {(focusClient.full_name ?? "?")
+                    .split(" ")
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .map((s) => s[0]?.toUpperCase())
+                    .join("")}
                 </div>
-                <h4 className="text-lg font-bold text-[#191c1f]">{focusClient.full_name ?? "Cliente"}</h4>
+                <h4 className="text-lg font-bold text-[#191c1f]">
+                  {focusClient.full_name ?? "Cliente"}
+                </h4>
                 <p className="text-sm text-[#41474f] mb-4">{focusClient.email ?? ""}</p>
                 <a
                   href={`/trainer/clients/${focusClient.id}`}
@@ -412,16 +490,23 @@ function CalendarPage() {
                     <MessageCircle className="size-4" /> Messaggio WhatsApp
                   </a>
                 ) : (
-                  <div className="text-xs text-[#717880] text-center py-2">Numero di telefono non disponibile.</div>
+                  <div className="text-xs text-[#717880] text-center py-2">
+                    Numero di telefono non disponibile.
+                  </div>
                 )}
               </div>
 
               <div className={`bg-white rounded-[24px] p-5 ${SOFT_SHADOW} border border-[#f2f3f8]`}>
                 <div className="flex items-center justify-between mb-3">
-                  <h5 className="text-[11px] uppercase tracking-wider font-bold text-[#191c1f]">Note Ultima Sessione</h5>
+                  <h5 className="text-[11px] uppercase tracking-wider font-bold text-[#191c1f]">
+                    Note Ultima Sessione
+                  </h5>
                   {lastNoteQ.data?.scheduled_at && (
                     <span className="text-[11px] text-[#717880]">
-                      {new Date(lastNoteQ.data.scheduled_at).toLocaleDateString("it-IT", { day: "2-digit", month: "long" })}
+                      {new Date(lastNoteQ.data.scheduled_at).toLocaleDateString("it-IT", {
+                        day: "2-digit",
+                        month: "long",
+                      })}
                     </span>
                   )}
                 </div>
@@ -429,7 +514,9 @@ function CalendarPage() {
                   {lastNoteQ.isLoading ? (
                     <p className="text-sm text-[#717880]">Caricamento…</p>
                   ) : lastNoteQ.data?.trainer_notes ? (
-                    <p className="text-sm text-[#41474f] italic leading-relaxed">"{lastNoteQ.data.trainer_notes}"</p>
+                    <p className="text-sm text-[#41474f] italic leading-relaxed">
+                      "{lastNoteQ.data.trainer_notes}"
+                    </p>
                   ) : (
                     <p className="text-sm text-[#717880] italic">Nessuna nota disponibile.</p>
                   )}
@@ -446,7 +533,11 @@ function CalendarPage() {
           <DialogHeader>
             <DialogTitle>Assegna evento a un cliente</DialogTitle>
             <DialogDescription>
-              {assignTarget && new Date(assignTarget.scheduled_at).toLocaleString("it-IT", { dateStyle: "full", timeStyle: "short" })}
+              {assignTarget &&
+                new Date(assignTarget.scheduled_at).toLocaleString("it-IT", {
+                  dateStyle: "full",
+                  timeStyle: "short",
+                })}
               {""}
             </DialogDescription>
           </DialogHeader>
@@ -463,10 +554,15 @@ function CalendarPage() {
             </SelectContent>
           </Select>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setAssignTarget(null)}>Annulla</Button>
+            <Button variant="ghost" onClick={() => setAssignTarget(null)}>
+              Annulla
+            </Button>
             <Button
               disabled={!assignClientId || assignBooking.isPending}
-              onClick={() => assignTarget && assignBooking.mutate({ bookingId: assignTarget.id, clientId: assignClientId })}
+              onClick={() =>
+                assignTarget &&
+                assignBooking.mutate({ bookingId: assignTarget.id, clientId: assignClientId })
+              }
             >
               {assignBooking.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
               Assegna

@@ -76,7 +76,10 @@ export function TrainerSidebar() {
                 size="sm"
                 variant="ghost"
                 className="w-full justify-start"
-                onClick={async () => { await signOut(); navigate({ to: "/auth" }); }}
+                onClick={async () => {
+                  await signOut();
+                  navigate({ to: "/auth" });
+                }}
               >
                 <LogOut className="size-4" /> Esci
               </Button>

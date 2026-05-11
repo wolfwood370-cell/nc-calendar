@@ -39,9 +39,7 @@ export function generateGoogleCalendarLink(
   profileName?: string | null,
 ): string {
   const start =
-    booking.scheduled_at instanceof Date
-      ? booking.scheduled_at
-      : new Date(booking.scheduled_at);
+    booking.scheduled_at instanceof Date ? booking.scheduled_at : new Date(booking.scheduled_at);
   const duration = eventType?.duration ?? 60;
   const end = new Date(start.getTime() + duration * 60_000);
 
@@ -49,9 +47,7 @@ export function generateGoogleCalendarLink(
   const title = `${eventName} con NC Training`;
 
   const isOnline = eventType?.location_type === "online";
-  const location = isOnline
-    ? "Online"
-    : eventType?.location_address?.trim() || "Online";
+  const location = isOnline ? "Online" : eventType?.location_address?.trim() || "Online";
 
   const details = profileName
     ? `Sessione prenotata da ${profileName} tramite NC Training.`

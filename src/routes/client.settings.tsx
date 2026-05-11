@@ -1,12 +1,26 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Bell, Calendar, LogOut, Mail, Link as LinkIcon, CheckCircle, Loader2, Lock } from "lucide-react";
+import {
+  Bell,
+  Calendar,
+  LogOut,
+  Mail,
+  Link as LinkIcon,
+  CheckCircle,
+  Loader2,
+  Lock,
+} from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
-import { isPushSupported, isPushReady, subscribeToPush, getCurrentPushSubscription } from "@/lib/push";
+import {
+  isPushSupported,
+  isPushReady,
+  subscribeToPush,
+  getCurrentPushSubscription,
+} from "@/lib/push";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/client/settings")({
@@ -290,11 +304,11 @@ function ClientSettings() {
                     <Calendar className="size-5" />
                   </span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-base font-medium text-on-surface">
-                      Collega Account Google
-                    </p>
+                    <p className="text-base font-medium text-on-surface">Collega Account Google</p>
                     <p className="text-sm text-on-surface-variant">
-                      Per collegarlo, esci e accedi con Google usando la stessa email{email ? ` (${email})` : ""}. Il tuo account verrà collegato automaticamente, mantenendo prenotazioni e dati.
+                      Per collegarlo, esci e accedi con Google usando la stessa email
+                      {email ? ` (${email})` : ""}. Il tuo account verrà collegato automaticamente,
+                      mantenendo prenotazioni e dati.
                     </p>
                   </div>
                 </div>
@@ -329,11 +343,15 @@ function ClientSettings() {
                 </span>
                 <div className="flex-1 min-w-0">
                   <p className="text-base font-medium text-on-surface">Cambia password</p>
-                  <p className="text-sm text-on-surface-variant">Aggiorna la password fornita dal coach.</p>
+                  <p className="text-sm text-on-surface-variant">
+                    Aggiorna la password fornita dal coach.
+                  </p>
                 </div>
               </div>
               <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium text-on-surface" htmlFor="new-password">Nuova Password</label>
+                <label className="text-sm font-medium text-on-surface" htmlFor="new-password">
+                  Nuova Password
+                </label>
                 <input
                   id="new-password"
                   type="password"
@@ -346,7 +364,9 @@ function ClientSettings() {
                 />
               </div>
               <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium text-on-surface" htmlFor="confirm-password">Conferma Nuova Password</label>
+                <label className="text-sm font-medium text-on-surface" htmlFor="confirm-password">
+                  Conferma Nuova Password
+                </label>
                 <input
                   id="confirm-password"
                   type="password"
@@ -363,7 +383,11 @@ function ClientSettings() {
                 disabled={updatingPassword}
                 className="w-full bg-[#003e62] text-white font-semibold text-sm py-3 rounded-full hover:opacity-90 transition active:scale-95 flex items-center justify-center gap-2 disabled:opacity-60"
               >
-                {updatingPassword ? <Loader2 className="size-4 animate-spin" /> : <Lock className="size-4" />}
+                {updatingPassword ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Lock className="size-4" />
+                )}
                 Aggiorna Password
               </button>
             </form>

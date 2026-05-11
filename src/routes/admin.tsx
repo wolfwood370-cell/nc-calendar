@@ -5,11 +5,31 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Loader2, Shield, Users, UserCog, LogOut, Dumbbell } from "lucide-react";
 import { toast } from "sonner";
 
@@ -51,7 +71,12 @@ function AdminPage() {
     if (role === "admin") load();
   }, [role]);
 
-  if (loading) return <div className="min-h-screen grid place-items-center"><Loader2 className="size-5 animate-spin text-muted-foreground" /></div>;
+  if (loading)
+    return (
+      <div className="min-h-screen grid place-items-center">
+        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+      </div>
+    );
   if (!session) return <Navigate to="/auth" />;
   if (role !== "admin") return <Navigate to={pathForRole(role)} />;
 
@@ -96,13 +121,22 @@ function AdminPage() {
               <Dumbbell className="size-4" />
             </div>
             <span className="font-display font-semibold">Stride</span>
-            <Badge variant="secondary" className="ml-2"><Shield className="size-3 mr-1" /> Admin</Badge>
+            <Badge variant="secondary" className="ml-2">
+              <Shield className="size-3 mr-1" /> Admin
+            </Badge>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" asChild>
               <Link to="/trainer">Vista Coach</Link>
             </Button>
-            <Button variant="ghost" size="sm" onClick={async () => { await signOut(); navigate({ to: "/auth" }); }}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={async () => {
+                await signOut();
+                navigate({ to: "/auth" });
+              }}
+            >
               <LogOut className="size-4" /> Esci
             </Button>
           </div>
@@ -143,14 +177,18 @@ function AdminPage() {
                 {profiles.map((p) => {
                   const r = roleOf(p.id);
                   const coachName = p.coach_id
-                    ? profiles.find((x) => x.id === p.coach_id)?.full_name ?? "—"
+                    ? (profiles.find((x) => x.id === p.coach_id)?.full_name ?? "—")
                     : "—";
                   return (
                     <TableRow key={p.id}>
                       <TableCell className="font-medium">{p.full_name ?? "—"}</TableCell>
                       <TableCell className="text-muted-foreground">{p.email}</TableCell>
                       <TableCell>
-                        <Badge variant={r === "admin" ? "default" : r === "coach" ? "secondary" : "outline"}>
+                        <Badge
+                          variant={
+                            r === "admin" ? "default" : r === "coach" ? "secondary" : "outline"
+                          }
+                        >
                           {r}
                         </Badge>
                       </TableCell>
@@ -166,7 +204,9 @@ function AdminPage() {
                             <SelectContent>
                               <SelectItem value="none">Nessuno</SelectItem>
                               {coaches.map((c) => (
-                                <SelectItem key={c.id} value={c.id}>{c.full_name ?? c.email}</SelectItem>
+                                <SelectItem key={c.id} value={c.id}>
+                                  {c.full_name ?? c.email}
+                                </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
@@ -175,9 +215,14 @@ function AdminPage() {
                         )}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Dialog open={editOpen === p.id} onOpenChange={(o) => setEditOpen(o ? p.id : null)}>
+                        <Dialog
+                          open={editOpen === p.id}
+                          onOpenChange={(o) => setEditOpen(o ? p.id : null)}
+                        >
                           <DialogTrigger asChild>
-                            <Button size="sm" variant="ghost">Cambia ruolo</Button>
+                            <Button size="sm" variant="ghost">
+                              Cambia ruolo
+                            </Button>
                           </DialogTrigger>
                           <DialogContent>
                             <DialogHeader>
@@ -199,7 +244,15 @@ function AdminPage() {
   );
 }
 
-function StatCard({ icon: Icon, label, value }: { icon: typeof Shield; label: string; value: number }) {
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof Shield;
+  label: string;
+  value: number;
+}) {
   return (
     <Card>
       <CardContent className="p-5 flex items-center justify-between">
@@ -215,17 +268,28 @@ function StatCard({ icon: Icon, label, value }: { icon: typeof Shield; label: st
   );
 }
 
-function RoleEditor({ current, onSubmit }: { current: "admin" | "coach" | "client"; onSubmit: (r: "admin" | "coach" | "client") => void }) {
+function RoleEditor({
+  current,
+  onSubmit,
+}: {
+  current: "admin" | "coach" | "client";
+  onSubmit: (r: "admin" | "coach" | "client") => void;
+}) {
   const [r, setR] = useState(current);
   return (
     <form
       className="space-y-4"
-      onSubmit={(e) => { e.preventDefault(); onSubmit(r); }}
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSubmit(r);
+      }}
     >
       <div className="space-y-2">
         <Label>Nuovo ruolo</Label>
         <Select value={r} onValueChange={(v) => setR(v as "admin" | "coach" | "client")}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="admin">Admin</SelectItem>
             <SelectItem value="coach">Coach</SelectItem>

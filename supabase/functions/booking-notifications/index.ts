@@ -50,7 +50,12 @@ Deno.serve(async (req) => {
     const results: Record<string, unknown> = {};
 
     // WhatsApp
-    if (settings.wa_enabled && settings.wa_phone_id && settings.wa_access_token && body.client_phone) {
+    if (
+      settings.wa_enabled &&
+      settings.wa_phone_id &&
+      settings.wa_access_token &&
+      body.client_phone
+    ) {
       try {
         const dateLabel = new Date(body.scheduled_at).toLocaleString("it-IT", {
           dateStyle: "full",
