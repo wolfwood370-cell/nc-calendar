@@ -27,10 +27,8 @@ function ClientLayout() {
       <header className="hidden md:block border-b sticky top-0 bg-surface/80 backdrop-blur z-10">
         <div className="mx-auto max-w-3xl px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="size-8 rounded-md bg-primary text-primary-foreground grid place-items-center">
-              <Dumbbell className="size-4" />
-            </div>
-            <span className="font-display font-semibold">Stride</span>
+            <img src={nccLogo} alt="NC Calendar" className="size-8 rounded-md object-contain" />
+            <span className="font-display font-semibold">NC Calendar</span>
           </div>
           <div className="flex items-center gap-2">
             <InstallPwaButton />
