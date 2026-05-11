@@ -276,7 +276,7 @@ function ClientPathPage() {
       .select("ignored_by_clients")
       .eq("id", o.id)
       .maybeSingle();
-    const current = ((row?.ignored_by_clients ?? []) as string[]) ?? [];
+    const current = (row?.ignored_by_clients as string[] | null) ?? [];
     if (!current.includes(clientId)) current.push(clientId);
     const { error } = await supabase
       .from("bookings")
