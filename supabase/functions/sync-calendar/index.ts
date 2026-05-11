@@ -3,12 +3,8 @@
 // Smart parsing: identifica cliente da full_name/email e tipo evento da nome.
 
 import { google } from "npm:googleapis@140";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import { corsHeaders } from "../_shared/cors.ts";
+import { requireAuth } from "../_shared/auth.ts";
 
 interface SyncPayload {
   action: "create" | "cancel" | "update" | "import_history" | "mirror_check";
@@ -34,15 +30,23 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
+  const auth = await requireAuth(req);
+  if (auth instanceof Response) return auth;
+
   let body: SyncPayload;
-  try { body = await req.json(); } catch { return json({ error: "Invalid JSON body" }, 400); }
+  try {
+    body = await req.json();
+  } catch {
+    return json({ error: "Invalid JSON body" }, 400);
+  }
   if (!body.coach_id || !body.action) return json({ error: "Missing required fields" }, 400);
 
-  const { createClient } = await import("npm:@supabase/supabase-js@2");
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
+  // Caller must be the coach itself or an admin
+  if (body.coach_id !== auth.userId && auth.role !== "admin") {
+    return json({ error: "Permesso negato" }, 403);
+  }
+
+  const supabase = auth.admin;
 
   let serviceAccountRaw = body.service_account_json ?? null;
   let calendarId = body.calendar_id ?? null;
