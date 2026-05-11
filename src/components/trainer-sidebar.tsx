@@ -15,7 +15,7 @@ import { LayoutDashboard, CalendarDays, Users, LayersIcon, LogOut, Plug, Clock, 
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { InstallPwaButton } from "@/components/install-pwa-button";
-import logoUrl from "@/assets/nc-calendar-logo.png";
+import logoUrl from "@/assets/ncc-logo.png";
 
 const items = [
   { title: "Panoramica", url: "/trainer", icon: LayoutDashboard, exact: true },
