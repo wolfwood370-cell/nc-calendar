@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, useNavigate, Navigate } from "@tanstack/react-router";
-import { Dumbbell, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import nccLogo from "@/assets/ncc-logo.png";
 import { Button } from "@/components/ui/button";
 import { InstallPwaButton } from "@/components/install-pwa-button";
 import { PwaInstallToast } from "@/components/pwa-install-toast";
