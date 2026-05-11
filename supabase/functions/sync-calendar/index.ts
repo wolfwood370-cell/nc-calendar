@@ -380,19 +380,21 @@ Deno.serve(async (req) => {
         const start = ev.start as { dateTime?: string; date?: string } | undefined;
         const evStart = start?.dateTime ?? (start?.date ? `${start.date}T00:00:00Z` : null);
         const summary = (ev.summary as string) ?? "";
+        const description = (ev.description as string) ?? "";
         const attendees = (ev.attendees ?? []) as Array<{ email?: string }>;
 
         const patch: Record<string, unknown> = {};
         if (evStart && evStart !== b.scheduled_at) { patch.scheduled_at = evStart; moved++; }
 
-        const match = matchEvent(summary, attendees, ctx);
-        const newClient = match.client?.id ?? body.coach_id;
+        const match = matchEvent(summary, attendees, ctx, description);
+        const newClient = match.client?.id ?? null;
         const newEt = match.eventType?.id ?? null;
         const newType = match.eventType?.base_type ?? "PT Session";
-        const clientChanged = newClient !== b.client_id;
+        // Non sovrascrivere un client_id esistente con null se non c'è match
+        const clientChanged = match.client ? newClient !== b.client_id : false;
         const etChanged = newEt !== b.event_type_id;
         if (clientChanged || etChanged) {
-          patch.client_id = newClient;
+          if (match.client) patch.client_id = newClient;
           patch.event_type_id = newEt;
           patch.session_type = newType;
           patch.notes = `Importato da Google Calendar: ${summary}`;
@@ -400,7 +402,7 @@ Deno.serve(async (req) => {
             await refundCreditFor(b.block_id, b.event_type_id ?? null, b.session_type, b.scheduled_at);
             patch.block_id = null;
           }
-          if (match.client) {
+          if (match.client && newClient) {
             const newBlockId = await consumeCreditFor(newClient, newEt, newType, evStart ?? b.scheduled_at);
             if (newBlockId) patch.block_id = newBlockId;
           }
