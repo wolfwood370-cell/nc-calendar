@@ -353,7 +353,51 @@ function ClientPathPage() {
     void load();
   }
 
-  function regenerateFromStart(start: Date) {
+  async function saveBookingEdit(input: {
+    id: string;
+    scheduled_at: string;
+    event_type_id: string | null;
+    session_type: SessionType;
+    status: EditableStatus;
+    block_id: string | null;
+    prevStatus: string;
+    prevEventTypeId: string | null;
+    prevSessionType: SessionType;
+  }) {
+    const { error } = await supabase
+      .from("bookings")
+      .update({
+        scheduled_at: input.scheduled_at,
+        event_type_id: input.event_type_id,
+        session_type: input.session_type,
+        status: input.status,
+      })
+      .eq("id", input.id);
+    if (error) {
+      toast.error("Aggiornamento non riuscito", { description: error.message });
+      return;
+    }
+
+    // Restore credit if newly cancelled (refunded)
+    const wasActive = input.prevStatus === "scheduled" || input.prevStatus === "completed";
+    if (input.status === "cancelled" && wasActive && input.block_id) {
+      const alloc = allocations.find(
+        (a) => a.block_id === input.block_id &&
+          (input.prevEventTypeId ? a.event_type_id === input.prevEventTypeId : a.session_type === input.prevSessionType) &&
+          a.quantity_booked > 0,
+      );
+      if (alloc) {
+        await supabase
+          .from("block_allocations")
+          .update({ quantity_booked: Math.max(0, alloc.quantity_booked - 1) })
+          .eq("id", alloc.id);
+      }
+    }
+
+    toast.success("Sessione aggiornata");
+    setEditingBooking(null);
+    void load();
+  }
     const updated = rows.map((r, idx) => ({
       ...r,
       monday_date: toIso(addDays(start, idx * 7)),
