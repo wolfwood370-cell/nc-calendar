@@ -457,9 +457,11 @@ function EventTypeDialog({
                   onClick={() => setColor(c.hex)}
                   title={c.name}
                   aria-label={c.name}
-                  className={`size-8 rounded-full border-2 transition ${selected ? "border-foreground scale-110 ring-2 ring-offset-2 ring-offset-background ring-foreground/20" : "border-transparent hover:scale-105"}`}
+                  className={`size-8 rounded-full border-2 transition flex items-center justify-center text-white ${selected ? "border-foreground scale-110 ring-2 ring-offset-2 ring-offset-background ring-foreground/20" : "border-transparent hover:scale-105"}`}
                   style={{ backgroundColor: c.hex }}
-                />
+                >
+                  {selected && <Check className="size-4 drop-shadow" strokeWidth={3} />}
+                </button>
               );
             })}
           </div>
