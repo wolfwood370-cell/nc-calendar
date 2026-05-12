@@ -285,7 +285,7 @@ function Overview() {
     mutationFn: async (id: string) => {
       const { error } = await supabase
         .from("bookings")
-        .update({ ignored: false })
+        .update({ ignored: false, deleted_at: null })
         .eq("id", id);
       if (error) throw error;
     },
