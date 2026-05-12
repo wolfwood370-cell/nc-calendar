@@ -161,6 +161,10 @@ function CalendarPage() {
     const map: BookingRow[][] = Array.from({ length: 7 }, () => []);
     for (const b of bookings) {
       if (b.status === "cancelled") continue;
+      const isUnassigned = !b.client_id;
+      const isExternal = !!b.client_id && b.client_id === b.coach_id;
+      if (onlyToAssign && !isUnassigned) continue;
+      if (onlyPT && (isExternal || b.session_type !== "PT")) continue;
       const d = new Date(b.scheduled_at);
       for (let i = 0; i < 7; i++) {
         if (sameDay(d, weekDays[i])) {
@@ -170,7 +174,13 @@ function CalendarPage() {
       }
     }
     return map;
-  }, [bookings, weekDays]);
+  }, [bookings, weekDays, onlyToAssign, onlyPT]);
+
+  const totalVisible = useMemo(
+    () => bookingsByDay.reduce((s, day) => s + day.length, 0),
+    [bookingsByDay],
+  );
+  const filtersActive = onlyPT || onlyToAssign;
 
   // ----- Sync flows (preserved from previous impl) -----
   const didFullSync = useRef(false);
