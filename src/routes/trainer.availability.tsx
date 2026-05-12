@@ -195,11 +195,24 @@ function AvailabilityPage() {
       for (const d of DAYS) {
         const ds = week[d.dow];
         if (!ds.active) continue;
+        const dayBlocks: { start: string; end: string }[] = [];
         for (const b of ds.blocks) {
-          if (!b.start || !b.end) continue;
+          if (!b.start || !b.end) {
+            throw new Error(`${d.label}: completa entrambi gli orari di ogni fascia`);
+          }
           if (b.end <= b.start) {
             throw new Error(`${d.label}: l'ora di fine deve essere successiva a quella di inizio`);
           }
+          dayBlocks.push({ start: b.start, end: b.end });
+        }
+        // Overlap detection
+        const sorted = [...dayBlocks].sort((a, b) => a.start.localeCompare(b.start));
+        for (let i = 1; i < sorted.length; i++) {
+          if (sorted[i].start < sorted[i - 1].end) {
+            throw new Error(`${d.label}: le fasce orarie non possono sovrapporsi`);
+          }
+        }
+        for (const b of dayBlocks) {
           rows.push({
             coach_id: meId,
             day_of_week: d.dow,
