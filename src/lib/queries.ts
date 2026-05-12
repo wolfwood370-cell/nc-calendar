@@ -67,7 +67,7 @@ export function useCoachClients(coachId?: string) {
     queryFn: async (): Promise<ProfileRow[]> => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, email, phone, coach_id")
+        .select("id, full_name, email, phone, coach_id, status")
         .eq("coach_id", coachId!)
         .is("deleted_at", null);
       if (error) throw error;
