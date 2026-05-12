@@ -348,6 +348,7 @@ interface IntegrationCardProps {
   iconBg: string;
   accentColor: string;
   connected: boolean;
+  status?: "connected" | "disconnected" | "error";
   children: React.ReactNode;
 }
 
@@ -358,8 +359,11 @@ function IntegrationCard({
   iconBg,
   accentColor,
   connected,
+  status,
   children,
 }: IntegrationCardProps) {
+  const resolvedStatus: "connected" | "disconnected" | "error" =
+    status ?? (connected ? "connected" : "disconnected");
   return (
     <div className="group relative overflow-hidden bg-white rounded-[32px] p-6 shadow-[0px_4px_20px_rgba(0,86,133,0.05)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0px_10px_30px_rgba(0,86,133,0.1)]">
       <div
@@ -373,21 +377,35 @@ function IntegrationCard({
         >
           {icon}
         </div>
-        <StatusPill connected={connected} />
+        <StatusPill status={resolvedStatus} />
       </div>
       <h3 className="font-display text-lg font-semibold text-[#003a5c] mb-1">{title}</h3>
       <p className="text-sm text-[#647d8e] mb-5 min-h-[40px]">{description}</p>
-      <div className="space-y-3">{children}</div>
+      {resolvedStatus === "error" ? (
+        <div className="rounded-2xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+          Errore di connessione. Riprova a collegare l'account.
+        </div>
+      ) : (
+        <div className="space-y-3">{children}</div>
+      )}
     </div>
   );
 }
 
-function StatusPill({ connected }: { connected: boolean }) {
-  if (connected) {
+function StatusPill({ status }: { status: "connected" | "disconnected" | "error" }) {
+  if (status === "connected") {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 text-emerald-700 px-3 py-1 text-xs font-medium">
         <span className="size-1.5 rounded-full bg-emerald-500" />
         Connesso
+      </span>
+    );
+  }
+  if (status === "error") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 text-red-700 px-3 py-1 text-xs font-medium">
+        <span className="size-1.5 rounded-full bg-red-500" />
+        Errore di connessione
       </span>
     );
   }
