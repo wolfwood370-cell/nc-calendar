@@ -400,7 +400,7 @@ function Overview() {
               </div>
             ) : todayItems.length === 0 ? (
               <p className="text-sm text-on-surface-variant py-6 text-center">
-                Nessuna sessione programmata per oggi.
+                Nessun appuntamento previsto per oggi. Goditi la giornata!
               </p>
             ) : (
               <div className="flex flex-col">
