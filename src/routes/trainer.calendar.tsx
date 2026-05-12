@@ -551,12 +551,13 @@ function CalendarPage() {
                   {focusClient.full_name ?? "Cliente"}
                 </h4>
                 <p className="text-sm text-[#41474f] mb-4">{focusClient.email ?? ""}</p>
-                <a
-                  href={`/trainer/clients/${focusClient.id}`}
-                  className="w-full bg-[#f2f3f8] text-[#191c1f] text-sm font-semibold py-2 rounded-2xl hover:bg-[#eceef2] transition-colors"
+                <Link
+                  to="/trainer/clients/$id"
+                  params={{ id: focusClient.id }}
+                  className="w-full text-center bg-[#f2f3f8] text-[#191c1f] text-sm font-semibold py-2 rounded-2xl hover:bg-[#eceef2] transition-colors"
                 >
                   Profilo Completo
-                </a>
+                </Link>
               </div>
 
               <div className={`bg-white rounded-[24px] p-4 ${SOFT_SHADOW} border border-[#f2f3f8]`}>
