@@ -53,6 +53,7 @@ import {
   MoreVertical,
   MessageCircle,
   ArchiveRestore,
+  Sparkles,
 } from "lucide-react";
 import {
   Select,
