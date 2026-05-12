@@ -97,6 +97,7 @@ interface BlockLite {
   client_id: string;
   sequence_order: number;
   start_date: string;
+  end_date: string;
 }
 interface AllocLite {
   block_id: string;
@@ -113,9 +114,11 @@ interface ClientCardData {
   status: ClientStatus;
   totalBlocks: number;
   activeBlockSeq: number | null;
+  hasActiveBlock: boolean;
   completed: number;
   total: number;
   eventTypeLabel: string;
+  daysToBilling: number | null;
 }
 
 function initials(name: string | null, email: string | null): string {
