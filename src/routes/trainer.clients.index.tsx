@@ -223,24 +223,32 @@ function ClientsPage() {
       blocksByClient.set(b.client_id, arr);
     }
 
+    const today = new Date();
+    const todayIso = today.toISOString().slice(0, 10);
+
     return clients.map((c) => {
       const cb = (blocksByClient.get(c.id) ?? [])
         .slice()
         .sort((a, b) => a.sequence_order - b.sequence_order);
-      // Find first block with remaining capacity, else most recent
-      let activeBlock: BlockLite | null = null;
-      for (const b of cb) {
-        const al = allocsByBlock.get(b.id) ?? [];
-        const remaining = al.reduce(
-          (s, x) => s + Math.max(0, x.quantity_assigned - x.quantity_booked),
-          0,
-        );
-        if (remaining > 0) {
-          activeBlock = b;
-          break;
+
+      // 1. Active block by date range (today between start_date and end_date)
+      let activeBlock: BlockLite | null =
+        cb.find((b) => b.start_date <= todayIso && todayIso <= b.end_date) ?? null;
+
+      // 2. Fallback: first block with remaining capacity
+      if (!activeBlock) {
+        for (const b of cb) {
+          const al = allocsByBlock.get(b.id) ?? [];
+          const remaining = al.reduce(
+            (s, x) => s + Math.max(0, x.quantity_assigned - x.quantity_booked),
+            0,
+          );
+          if (remaining > 0) {
+            activeBlock = b;
+            break;
+          }
         }
       }
-      if (!activeBlock && cb.length > 0) activeBlock = cb[cb.length - 1];
 
       const al = activeBlock ? (allocsByBlock.get(activeBlock.id) ?? []) : [];
       const total = al.reduce((s, x) => s + x.quantity_assigned, 0);
@@ -257,10 +265,22 @@ function ClientsPage() {
           : "Sessioni"
         : "Sessioni";
 
+      // Days until next billing (only meaningful for recurring)
+      let daysToBilling: number | null = null;
+      if (c.path_type === "recurring" && c.next_billing_date) {
+        const nb = new Date(c.next_billing_date + "T00:00:00");
+        daysToBilling = Math.ceil((nb.getTime() - today.getTime()) / 86400000);
+      }
+
       let status: ClientStatus;
       if (c.status === "archived") status = "archived";
-      else if (cb.length === 0) status = "active";
-      else if (remaining <= 1) status = "expiring";
+      else if (c.path_type === "recurring") {
+        status =
+          daysToBilling !== null && daysToBilling <= 5 && daysToBilling >= 0
+            ? "expiring"
+            : "active";
+      } else if (cb.length === 0) status = "active";
+      else if (remaining <= 1 && total > 0) status = "expiring";
       else status = "active";
 
       return {
@@ -268,9 +288,11 @@ function ClientsPage() {
         status,
         totalBlocks: cb.length,
         activeBlockSeq: activeBlock?.sequence_order ?? null,
+        hasActiveBlock: !!activeBlock,
         completed,
         total,
         eventTypeLabel,
+        daysToBilling,
       };
     });
   }, [clients, blocks, allocs, eventTypeById]);
