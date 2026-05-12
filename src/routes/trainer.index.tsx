@@ -127,7 +127,7 @@ function Overview() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("bookings")
-        .select("id, scheduled_at, title, session_type, event_type_id, ignored, deleted_at")
+        .select("id, scheduled_at, title, notes, session_type, event_type_id, ignored, deleted_at")
         .eq("coach_id", coachId!)
         .is("client_id", null)
         .gte("scheduled_at", sevenDaysAgo().toISOString())
@@ -393,8 +393,13 @@ function Overview() {
                     minute: "2-digit",
                   });
                   const et = r.event_type_id ? eventTypeById.get(r.event_type_id) : null;
+                  const importedTitle =
+                    typeof r.notes === "string"
+                      ? r.notes.match(/^Importato da Google Calendar:\s*(.+)$/)?.[1]?.trim()
+                      : null;
+                  const googleTitle = r.title?.trim() || importedTitle || null;
                   const eventName =
-                    r.title?.trim() || et?.name || sessionLabel(r.session_type) || "Evento Google Calendar";
+                    googleTitle || et?.name || sessionLabel(r.session_type) || "Evento Google Calendar";
                   const typeLabel = et?.name ?? sessionLabel(r.session_type);
                   const isIgnored = reviewTab === "ignored";
                   return (

@@ -118,17 +118,21 @@ interface BookingLite {
   ignored_by_clients?: string[] | null;
 }
 
-type ClientStatus = "active" | "expiring" | "archived";
+type ClientStatus = "active" | "expiring" | "archived" | "completed";
+
+interface SessionSummaryRow {
+  type: string;
+  used: number;
+  total: number;
+}
 
 interface ClientCardData {
   client: ClientRow;
   status: ClientStatus;
   totalBlocks: number;
-  activeBlockSeq: number | null;
-  hasActiveBlock: boolean;
-  completed: number;
-  total: number;
-  eventTypeLabel: string;
+  summary: SessionSummaryRow[];
+  totalUsed: number;
+  totalQty: number;
   daysToBilling: number | null;
 }
 
@@ -200,10 +204,10 @@ function ClientsPage() {
         .is("deleted_at", null)
         .order("sequence_order", { ascending: true });
       if (!isAdmin && user) bq = bq.eq("coach_id", user.id);
-      
+
       const { data: bs } = await bq;
       const blockList = (bs as any[]) ?? [];
-      
+
       const parsedBlocks: BlockLite[] = [];
       const parsedAllocs: AllocLite[] = [];
       for (const b of blockList) {
@@ -216,7 +220,7 @@ function ClientsPage() {
         });
         if (b.block_allocations) {
           for (const a of b.block_allocations) {
-             parsedAllocs.push(a);
+            parsedAllocs.push(a);
           }
         }
       }
@@ -247,11 +251,15 @@ function ClientsPage() {
   }, [user?.id]);
 
   const cardData = useMemo<ClientCardData[]>(() => {
-    const allocsByBlock = new Map<string, AllocLite[]>();
+    const blockToClient = new Map<string, string>();
+    for (const b of blocks) blockToClient.set(b.id, b.client_id);
+    const allocsByClient = new Map<string, AllocLite[]>();
     for (const a of allocs) {
-      const arr = allocsByBlock.get(a.block_id) ?? [];
+      const cid = blockToClient.get(a.block_id);
+      if (!cid) continue;
+      const arr = allocsByClient.get(cid) ?? [];
       arr.push(a);
-      allocsByBlock.set(a.block_id, arr);
+      allocsByClient.set(cid, arr);
     }
     const blocksByClient = new Map<string, BlockLite[]>();
     for (const b of blocks) {
@@ -259,21 +267,12 @@ function ClientsPage() {
       arr.push(b);
       blocksByClient.set(b.client_id, arr);
     }
-    const bookingsByClient = new Map<string, BookingLite[]>();
-    for (const bk of bookings) {
-      const arr = bookingsByClient.get(bk.client_id) ?? [];
-      arr.push(bk);
-      bookingsByClient.set(bk.client_id, arr);
-    }
 
     const today = new Date();
-    const todayIso = today.toISOString().slice(0, 10);
 
     return clients.map((c) => {
-      const cb = (blocksByClient.get(c.id) ?? [])
-        .slice()
-        .sort((a, b) => a.sequence_order - b.sequence_order);
-      const cBookings = (bookingsByClient.get(c.id) ?? []).filter(bk => !bk.ignored_by_clients?.includes(c.id));
+      const cb = blocksByClient.get(c.id) ?? [];
+      const cAllocs = allocsByClient.get(c.id) ?? [];
 
       // Resolve a block id for each booking (fallback by date range when missing)
       const bookingBlockId = (bk: BookingLite): string | null => {
@@ -289,9 +288,9 @@ function ClientsPage() {
       for (const bk of cBookings) {
         const bid = bookingBlockId(bk);
         if (!bid) continue;
-        if (bk.status === "completed") {
+        if (bk.status === "completed" || bk.status === "late_cancelled") {
           completedByBlock.set(bid, (completedByBlock.get(bid) ?? 0) + 1);
-        } else if (bk.status === "scheduled" || bk.status === "late_cancelled") {
+        } else if (bk.status === "scheduled") {
           scheduledByBlock.set(bid, (scheduledByBlock.get(bid) ?? 0) + 1);
         }
       }
@@ -331,18 +330,14 @@ function ClientsPage() {
 
       const al = activeBlock ? (allocsByBlock.get(activeBlock.id) ?? []) : [];
       const total = al.reduce((s, x) => s + x.quantity_assigned, 0);
+      const quantity_booked = al.reduce((s, x) => s + x.quantity_booked, 0);
       const completed = activeBlock ? (completedByBlock.get(activeBlock.id) ?? 0) : 0;
       const scheduled = activeBlock ? (scheduledByBlock.get(activeBlock.id) ?? 0) : 0;
       const remaining = Math.max(0, total - completed - scheduled);
 
-      const dominant = al.slice().sort((a, b) => b.quantity_assigned - a.quantity_assigned)[0];
-      const eventTypeLabel = dominant
-        ? dominant.event_type_id
-          ? (eventTypeById.get(dominant.event_type_id) ?? "Sessioni")
-          : "Sessioni"
-        : "Sessioni";
+      const totalUsed = summary.reduce((s, r) => s + r.used, 0);
+      const totalQty = summary.reduce((s, r) => s + r.total, 0);
 
-      // Days until next billing (only meaningful for recurring)
       let daysToBilling: number | null = null;
       if (c.path_type === "recurring" && c.next_billing_date) {
         const nb = new Date(c.next_billing_date + "T00:00:00");
@@ -357,25 +352,23 @@ function ClientsPage() {
             ? "expiring"
             : "active";
       } else if (cb.length === 0) status = "active";
-      else if ((total - completed) <= 1 && total > 0) status = "expiring";
+      else if ((total - quantity_booked) <= 1 && total > 0) status = "expiring";
       else status = "active";
 
       return {
         client: c,
         status,
         totalBlocks: cb.length,
-        activeBlockSeq: activeBlock?.sequence_order ?? null,
-        hasActiveBlock: !!activeBlock,
-        completed,
-        total,
-        eventTypeLabel,
+        summary,
+        totalUsed,
+        totalQty,
         daysToBilling,
       };
     });
-  }, [clients, blocks, allocs, bookings, eventTypeById]);
+  }, [clients, blocks, allocs, eventTypeById]);
 
   const counts = useMemo(() => {
-    const c = { all: cardData.length, active: 0, expiring: 0, archived: 0 };
+    const c = { all: cardData.length, active: 0, expiring: 0, archived: 0, completed: 0 };
     for (const d of cardData) c[d.status]++;
     return c;
   }, [cardData]);
@@ -640,11 +633,10 @@ function ClientsPage() {
             <button
               key={t.key}
               onClick={() => setActiveTab(t.key)}
-              className={`px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-colors ${
-                isActive
+              className={`px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-colors ${isActive
                   ? "bg-[#cde5ff] text-[#004b74]"
                   : "bg-[#eceef2] text-[#41474f] hover:bg-[#e1e2e7]"
-              }`}
+                }`}
             >
               {t.label} ({t.count})
             </button>
@@ -748,8 +740,23 @@ function ClientsPage() {
             const c = d.client;
             const isExpiring = d.status === "expiring";
             const isArchived = d.status === "archived";
-            const pct = d.total > 0 ? Math.round((d.completed / d.total) * 100) : 0;
+            const isCompleted = d.status === "completed";
             const phoneDigits = (c.phone ?? "").replace(/\D/g, "");
+
+            const badgeClass = isArchived
+              ? "bg-[#eceef2] text-[#41474f]"
+              : isCompleted
+                ? "bg-[#eceef2] text-[#41474f]"
+                : isExpiring
+                  ? "bg-orange-50 text-orange-600"
+                  : "bg-emerald-50 text-emerald-600";
+            const badgeLabel = isArchived
+              ? "Archiviato"
+              : isCompleted
+                ? "Completato"
+                : isExpiring
+                  ? "In Scadenza"
+                  : "Attivo";
 
             return (
               <div
@@ -782,49 +789,51 @@ function ClientsPage() {
                     </div>
                   </div>
                   <span
-                    className={`shrink-0 ml-2 px-3 py-1 rounded-full text-xs font-semibold ${
-                      isArchived
-                        ? "bg-[#eceef2] text-[#41474f]"
-                        : isExpiring
-                          ? "bg-orange-50 text-orange-600"
-                          : "bg-emerald-50 text-emerald-600"
-                    }`}
+                    className={`shrink-0 ml-2 px-3 py-1 rounded-full text-xs font-semibold ${badgeClass}`}
                   >
-                    {isArchived ? "Archiviato" : isExpiring ? "In Scadenza" : "Attivo"}
+                    {badgeLabel}
                   </span>
                 </div>
 
                 <div className="mb-6 flex-1">
-                  {d.hasActiveBlock && d.total > 0 ? (
-                    <>
-                      <div className="flex justify-between mb-2">
-                        <span className="text-xs font-semibold text-[#41474f]">
-                          {c.pack_label
-                            ? `${d.completed}/${d.total} sessioni completate`
-                            : c.path_type === "recurring"
-                              ? `Mese Corrente: ${d.completed}/${d.total} sessioni`
-                              : `Blocco ${d.activeBlockSeq} di ${d.totalBlocks} - ${d.completed}/${d.total} ${d.eventTypeLabel} completati`}
-                        </span>
-                      </div>
-                      <div className="w-full h-2 bg-[#e1e2e7] rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-[#003e62] rounded-full transition-all"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
+                  {d.summary.length > 0 ? (
+                    <div className="space-y-3">
+                      <p className="text-[11px] uppercase tracking-wide font-semibold text-[#717880]">
+                        Riepilogo Sessioni
+                      </p>
+                      {d.summary.map((row) => {
+                        const pct = row.total > 0
+                          ? Math.min(100, Math.round((row.used / row.total) * 100))
+                          : 0;
+                        return (
+                          <div key={row.type}>
+                            <div className="flex items-baseline justify-between gap-2">
+                              <span className="text-xs font-medium text-[#41474f] truncate">
+                                {row.type}
+                              </span>
+                              <span className="text-sm font-bold text-[#003e62] tabular-nums shrink-0">
+                                {row.used} / {row.total}
+                              </span>
+                            </div>
+                            <div className="mt-1 w-full h-1 bg-[#e1e2e7] rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-[#003e62] rounded-full transition-all"
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
                       {c.path_type === "recurring" && d.daysToBilling !== null && (
-                        <p className="text-[11px] text-[#717880] mt-2">
+                        <p className="text-[11px] text-[#717880] pt-1">
                           {d.daysToBilling >= 0
                             ? `Rinnovo tra ${d.daysToBilling} ${d.daysToBilling === 1 ? "giorno" : "giorni"}`
                             : "Rinnovo scaduto"}
                         </p>
                       )}
-                    </>
-                  ) : (
-                    <div className="space-y-2">
-                      <p className="text-xs text-[#717880] italic">Nessun blocco attivo.</p>
-                      <div className="w-full h-2 bg-[#e1e2e7] rounded-full" />
                     </div>
+                  ) : (
+                    <p className="text-xs text-[#717880] italic">Nessun pacchetto assegnato.</p>
                   )}
                 </div>
 
@@ -1210,11 +1219,10 @@ function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) =
                   setPathType("fixed");
                   setPackLabel(null);
                 }}
-                className={`text-left rounded-xl border-2 p-3 transition-colors ${
-                  pathType === "fixed"
+                className={`text-left rounded-xl border-2 p-3 transition-colors ${pathType === "fixed"
                     ? "border-primary bg-primary/5"
                     : "border-border hover:border-primary/40"
-                }`}
+                  }`}
               >
                 <div className="font-semibold text-sm">Percorso Fisso (Pacchetto)</div>
                 <div className="text-xs text-muted-foreground">
@@ -1227,11 +1235,10 @@ function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) =
                   setPathType("recurring");
                   setPackLabel(null);
                 }}
-                className={`text-left rounded-xl border-2 p-3 transition-colors ${
-                  pathType === "recurring"
+                className={`text-left rounded-xl border-2 p-3 transition-colors ${pathType === "recurring"
                     ? "border-primary bg-primary/5"
                     : "border-border hover:border-primary/40"
-                }`}
+                  }`}
               >
                 <div className="font-semibold text-sm">Abbonamento Mensile</div>
                 <div className="text-xs text-muted-foreground">
