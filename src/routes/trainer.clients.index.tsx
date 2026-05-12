@@ -208,9 +208,22 @@ function ClientsPage() {
       } else {
         setAllocs([]);
       }
+
+      // Live bookings: source of truth for "completed" counters
+      let bq = supabase
+        .from("bookings")
+        .select("id, client_id, block_id, status, scheduled_at")
+        .in("client_id", ids)
+        .is("deleted_at", null)
+        .eq("ignored", false)
+        .in("status", ["scheduled", "completed", "late_cancelled"]);
+      if (!isAdmin && user) bq = bq.eq("coach_id", user.id);
+      const { data: bks } = await bq;
+      setBookings((bks as BookingLite[]) ?? []);
     } else {
       setBlocks([]);
       setAllocs([]);
+      setBookings([]);
     }
     setLoading(false);
   }
