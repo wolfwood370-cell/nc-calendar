@@ -219,7 +219,10 @@ function Overview() {
         .eq("coach_id", coachId!)
         .is("deleted_at", null)
         .gte("created_at", thirtyDaysAgo().toISOString());
-      if (error) throw error;
+      if (error) {
+        console.error("[Dashboard] new clients count failed", error);
+        return 0;
+      }
       return count ?? 0;
     },
   });
@@ -230,14 +233,14 @@ function Overview() {
       e = endOfMonth().getTime();
     const sessionsMonth = bookings.filter((b) => {
       const t = new Date(b.scheduled_at).getTime();
-      return t >= s && t <= e && b.status !== "cancelled";
+      return t >= s && t <= e && b.status === "completed";
     }).length;
     const creditsIssued = blocks
-      .filter((b) => b.status === "active")
       .flatMap((b) => b.allocations)
       .reduce((s, a) => s + a.quantity_assigned, 0);
+    const activeClients = clients.filter((c) => c.status === "active").length;
     return {
-      activeClients: clients.length,
+      activeClients,
       sessionsMonth,
       creditsIssued,
       newClients: newClientsQ.data ?? 0,
