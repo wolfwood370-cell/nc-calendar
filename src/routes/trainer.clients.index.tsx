@@ -68,6 +68,7 @@ import { sendInvitationEmail } from "@/lib/email";
 import { useCoachEventTypes } from "@/lib/queries";
 import type { SessionType } from "@/lib/mock-data";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useQueryClient } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/trainer/clients/")({
