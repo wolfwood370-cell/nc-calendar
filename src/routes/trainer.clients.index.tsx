@@ -1107,36 +1107,98 @@ function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) =
       {step === 2 && (
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>Durata Percorso</Label>
-            <Select value={durationPreset} onValueChange={setDurationPreset}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {DURATION_PRESETS.map((d) => (
-                  <SelectItem key={d.value} value={d.value}>
-                    {d.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          {durationPreset === "custom" && (
-            <div className="space-y-2">
-              <Label>Numero di Blocchi (mesi)</Label>
-              <Input
-                type="number"
-                min={1}
-                max={36}
-                value={customMonths}
-                onChange={(e) => setCustomMonths(Math.max(1, Number(e.target.value) || 1))}
-              />
+            <Label>Tipo di Percorso</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setPathType("fixed");
+                  setPackLabel(null);
+                }}
+                className={`text-left rounded-xl border-2 p-3 transition-colors ${
+                  pathType === "fixed"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/40"
+                }`}
+              >
+                <div className="font-semibold text-sm">Percorso Fisso (Pacchetto)</div>
+                <div className="text-xs text-muted-foreground">
+                  Durata predefinita o numero blocchi manuale.
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPathType("recurring");
+                  setPackLabel(null);
+                }}
+                className={`text-left rounded-xl border-2 p-3 transition-colors ${
+                  pathType === "recurring"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/40"
+                }`}
+              >
+                <div className="font-semibold text-sm">Abbonamento Mensile</div>
+                <div className="text-xs text-muted-foreground">
+                  Ricorrente: nuovo blocco ogni 30 giorni.
+                </div>
+              </button>
             </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" size="sm" variant="outline" onClick={applyPtPackPreset}>
+              <Sparkles className="size-4" /> PT Pack (3 sessioni)
+            </Button>
+            {packLabel && (
+              <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-semibold">
+                {packLabel}
+              </span>
+            )}
+          </div>
+
+          {pathType === "fixed" && (
+            <>
+              <div className="space-y-2">
+                <Label>Durata Percorso</Label>
+                <Select value={durationPreset} onValueChange={setDurationPreset}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DURATION_PRESETS.map((d) => (
+                      <SelectItem key={d.value} value={d.value}>
+                        {d.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {durationPreset === "custom" && (
+                <div className="space-y-2">
+                  <Label>Numero di Blocchi</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={36}
+                    value={customMonths}
+                    onChange={(e) => setCustomMonths(Math.max(1, Number(e.target.value) || 1))}
+                  />
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Il percorso sarà suddiviso in <strong>{totalBlocks}</strong> blocchi sequenziali
+                (~30 giorni ciascuno). Nessun rinnovo automatico.
+              </p>
+            </>
           )}
-          <p className="text-xs text-muted-foreground">
-            Il percorso sarà suddiviso in <strong>{totalBlocks}</strong> blocchi mensili sequenziali
-            (~30 giorni ciascuno).
-          </p>
+
+          {pathType === "recurring" && (
+            <p className="text-xs text-muted-foreground">
+              Verrà creato <strong>1 blocco mensile</strong> con rinnovo automatico ogni 30 giorni.
+              Le sessioni si resettano ad ogni rinnovo.
+            </p>
+          )}
         </div>
       )}
 
