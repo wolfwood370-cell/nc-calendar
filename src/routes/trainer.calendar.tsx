@@ -275,8 +275,9 @@ function CalendarPage() {
     const isUnassigned = !b.client_id; // To Review
     const isExternal = !!b.client_id && b.client_id === b.coach_id; // Sync senza match
     const client = b.client_id && !isExternal ? clientsMap.get(b.client_id) : undefined;
-    const typeLabel = et?.name ?? sessionLabel(b.session_type);
-    const timeLabel = `${d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })} - ${new Date(d.getTime() + duration * 60000).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}`;
+    const typeLabel = et?.name ?? (b.session_type ? sessionLabel(b.session_type) : "Sessione");
+    const safeDuration = duration > 0 ? duration : 60;
+    const timeLabel = `${d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })} - ${new Date(d.getTime() + safeDuration * 60000).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}`;
 
     if (isUnassigned) {
       return (
