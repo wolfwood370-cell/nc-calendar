@@ -232,7 +232,7 @@ function ClientsPage() {
       // Live bookings: source of truth for "completed" counters
       let bookQ = supabase
         .from("bookings")
-        .select("id, client_id, block_id, status, scheduled_at, ignored_by_clients")
+        .select("id, client_id, block_id, event_type_id, session_type, status, scheduled_at, ignored_by_clients")
         .in("client_id", ids)
         .is("deleted_at", null)
         .in("status", ["scheduled", "completed", "late_cancelled"]);
