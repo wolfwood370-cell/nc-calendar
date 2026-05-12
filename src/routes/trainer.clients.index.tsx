@@ -67,7 +67,7 @@ import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { sendInvitationEmail } from "@/lib/email";
 import { useCoachEventTypes } from "@/lib/queries";
-import type { SessionType } from "@/lib/mock-data";
+import { sessionLabel, type SessionType } from "@/lib/mock-data";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQueryClient } from "@tanstack/react-query";
