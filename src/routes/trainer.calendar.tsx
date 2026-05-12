@@ -25,7 +25,10 @@ import {
   MessageCircle,
   HelpCircle,
   Calendar as CalendarIcon,
+  RefreshCw,
+  AlertCircle,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { sessionLabel } from "@/lib/mock-data";
 import { supabase } from "@/integrations/supabase/client";
 import {
