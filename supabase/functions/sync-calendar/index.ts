@@ -591,6 +591,7 @@ Deno.serve(async (req) => {
           status,
           block_id: blockId,
           notes: `Importato da Google Calendar: ${summary}`,
+          title: summary,
           google_event_id: id,
         });
         if (!insErr) imported++;
