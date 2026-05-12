@@ -267,6 +267,13 @@ function ClientsPage() {
       arr.push(b);
       blocksByClient.set(b.client_id, arr);
     }
+    const bookingsByClient = new Map<string, BookingLite[]>();
+    for (const bk of bookings) {
+      if (!bk.client_id) continue;
+      const arr = bookingsByClient.get(bk.client_id) ?? [];
+      arr.push(bk);
+      bookingsByClient.set(bk.client_id, arr);
+    }
 
     const today = new Date();
 
