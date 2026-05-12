@@ -109,6 +109,13 @@ interface AllocLite {
   quantity_assigned: number;
   quantity_booked: number;
 }
+interface BookingLite {
+  id: string;
+  client_id: string;
+  block_id: string | null;
+  status: string;
+  scheduled_at: string;
+}
 
 type ClientStatus = "active" | "expiring" | "archived";
 
