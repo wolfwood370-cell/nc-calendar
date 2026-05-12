@@ -26,7 +26,18 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Plus, Pencil, Trash2, Loader2, MapPin, Video, Dumbbell, Clock } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Loader2,
+  MapPin,
+  Video,
+  Dumbbell,
+  Clock,
+  Check,
+  AlertCircle,
+} from "lucide-react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -76,7 +87,7 @@ function EventTypesPage() {
           "id, coach_id, name, description, color, duration, base_type, location_type, buffer_minutes, location_address",
         )
         .eq("coach_id", coachId!)
-        .order("created_at", { ascending: true });
+        .order("name", { ascending: true });
       if (error) throw error;
       return (data ?? []) as EventTypeRow[];
     },
@@ -182,11 +193,37 @@ function EventTypesPage() {
             <Skeleton key={i} className="h-56 w-full rounded-[32px]" />
           ))}
         </div>
-      ) : types.length === 0 ? (
-        <div className="rounded-[32px] bg-white p-12 text-center shadow-sm">
-          <p className="text-sm text-muted-foreground">
-            Nessuna tipologia personalizzata. Aggiungine una per iniziare.
+      ) : listQ.isError ? (
+        <div className="rounded-[32px] bg-white p-12 text-center shadow-sm space-y-4">
+          <AlertCircle className="size-10 mx-auto text-destructive" />
+          <p className="text-sm text-foreground font-semibold">
+            Errore nel caricamento delle tipologie.
           </p>
+          <Button variant="outline" onClick={() => listQ.refetch()} className="rounded-full">
+            Riprova
+          </Button>
+        </div>
+      ) : types.length === 0 ? (
+        <div className="rounded-[32px] bg-white p-16 text-center shadow-[0px_4px_20px_rgba(0,86,133,0.05)] space-y-5">
+          <div className="size-16 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto">
+            <Dumbbell className="size-8" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-xl font-bold text-foreground">Nessun servizio configurato</h3>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto">
+              Non hai ancora configurato i tuoi servizi. Inizia creando una nuova tipologia di
+              appuntamento.
+            </p>
+          </div>
+          <Button
+            onClick={() => {
+              setEditing(null);
+              setOpen(true);
+            }}
+            className="rounded-full px-6"
+          >
+            <Plus className="size-4" /> Nuova Tipologia
+          </Button>
         </div>
       ) : (
         <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
@@ -420,9 +457,11 @@ function EventTypeDialog({
                   onClick={() => setColor(c.hex)}
                   title={c.name}
                   aria-label={c.name}
-                  className={`size-8 rounded-full border-2 transition ${selected ? "border-foreground scale-110 ring-2 ring-offset-2 ring-offset-background ring-foreground/20" : "border-transparent hover:scale-105"}`}
+                  className={`size-8 rounded-full border-2 transition flex items-center justify-center text-white ${selected ? "border-foreground scale-110 ring-2 ring-offset-2 ring-offset-background ring-foreground/20" : "border-transparent hover:scale-105"}`}
                   style={{ backgroundColor: c.hex }}
-                />
+                >
+                  {selected && <Check className="size-4 drop-shadow" strokeWidth={3} />}
+                </button>
               );
             })}
           </div>
