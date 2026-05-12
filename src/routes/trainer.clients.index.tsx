@@ -1065,7 +1065,10 @@ function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) =
         lastName: lastName.trim(),
         email,
         password: generateSecurePassword(),
+        pathType,
         totalBlocks,
+        packLabel,
+        autoRenew: pathType === "recurring",
         rules: expandedRules,
       });
     } finally {
