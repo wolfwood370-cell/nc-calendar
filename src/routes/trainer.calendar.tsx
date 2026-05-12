@@ -86,6 +86,9 @@ function CalendarPage() {
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()));
   const [mirroring, setMirroring] = useState(false);
   const lastMirrorMonth = useRef<string>("");
+  const [showAvailability, setShowAvailability] = useState(false);
+  const [onlyPT, setOnlyPT] = useState(false);
+  const [onlyToAssign, setOnlyToAssign] = useState(false);
 
   const bookingsQ = useCoachBookings(user?.id);
   const clientsQ = useCoachClients(user?.id);
