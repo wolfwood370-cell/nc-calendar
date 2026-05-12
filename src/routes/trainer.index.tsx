@@ -133,7 +133,10 @@ function Overview() {
         .is("deleted_at", null)
         .gte("scheduled_at", sevenDaysAgo().toISOString())
         .order("scheduled_at", { ascending: false });
-      if (error) throw error;
+      if (error) {
+        console.error("[Dashboard] review fetch failed", error);
+        return [];
+      }
       return data ?? [];
     },
   });
