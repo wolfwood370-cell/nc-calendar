@@ -81,6 +81,8 @@ interface ClientRow {
   email: string | null;
   phone: string | null;
   status: string;
+  path_type: "fixed" | "recurring";
+  next_billing_date: string | null;
 }
 interface InvitationRow {
   id: string;
