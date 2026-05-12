@@ -127,7 +127,7 @@ function Overview() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("bookings")
-        .select("id, scheduled_at, title, session_type, event_type_id, ignored, deleted_at")
+        .select("id, scheduled_at, title, notes, session_type, event_type_id, ignored, deleted_at")
         .eq("coach_id", coachId!)
         .is("client_id", null)
         .gte("scheduled_at", sevenDaysAgo().toISOString())
