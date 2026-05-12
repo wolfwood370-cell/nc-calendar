@@ -210,16 +210,16 @@ function ClientsPage() {
       }
 
       // Live bookings: source of truth for "completed" counters
-      let bq = supabase
+      let bookQ = supabase
         .from("bookings")
         .select("id, client_id, block_id, status, scheduled_at")
         .in("client_id", ids)
         .is("deleted_at", null)
         .eq("ignored", false)
         .in("status", ["scheduled", "completed", "late_cancelled"]);
-      if (!isAdmin && user) bq = bq.eq("coach_id", user.id);
-      const { data: bks } = await bq;
-      setBookings((bks as BookingLite[]) ?? []);
+      if (!isAdmin && user) bookQ = bookQ.eq("coach_id", user.id);
+      const { data: bks } = await bookQ;
+      setBookings((bks as unknown as BookingLite[]) ?? []);
     } else {
       setBlocks([]);
       setAllocs([]);
