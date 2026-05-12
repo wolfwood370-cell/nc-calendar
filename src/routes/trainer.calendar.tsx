@@ -633,3 +633,26 @@ function CalendarPage() {
     </div>
   );
 }
+
+function FilterChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
+        active
+          ? "bg-[#003e62] text-white border-[#003e62]"
+          : "bg-white text-[#41474f] border-[#e1e2e7] hover:bg-[#eceef2]"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
