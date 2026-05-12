@@ -113,6 +113,8 @@ interface BookingLite {
   id: string;
   client_id: string;
   block_id: string | null;
+  event_type_id: string | null;
+  session_type: string;
   status: string;
   scheduled_at: string;
   ignored_by_clients?: string[] | null;
