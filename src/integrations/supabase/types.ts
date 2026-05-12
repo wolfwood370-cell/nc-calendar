@@ -321,7 +321,9 @@ export type Database = {
           email_notifications: boolean
           full_name: string | null
           id: string
+          next_billing_date: string | null
           path_start_date: string | null
+          path_type: string
           phone: string | null
           status: string
         }
@@ -333,7 +335,9 @@ export type Database = {
           email_notifications?: boolean
           full_name?: string | null
           id: string
+          next_billing_date?: string | null
           path_start_date?: string | null
+          path_type?: string
           phone?: string | null
           status?: string
         }
@@ -345,7 +349,9 @@ export type Database = {
           email_notifications?: boolean
           full_name?: string | null
           id?: string
+          next_billing_date?: string | null
           path_start_date?: string | null
+          path_type?: string
           phone?: string | null
           status?: string
         }
