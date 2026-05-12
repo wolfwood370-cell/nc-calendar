@@ -253,6 +253,11 @@ function ClientsPage() {
         }
       }
 
+      // 3. Last fallback: highest sequence_order (all consumed / past)
+      if (!activeBlock && cb.length > 0) {
+        activeBlock = cb[cb.length - 1];
+      }
+
       const al = activeBlock ? (allocsByBlock.get(activeBlock.id) ?? []) : [];
       const total = al.reduce((s, x) => s + x.quantity_assigned, 0);
       const completed = al.reduce(
@@ -693,7 +698,7 @@ function ClientsPage() {
                       </h3>
                       <p className="text-sm text-[#717880] truncate">
                         {c.pack_label
-                          ? c.pack_label
+                          ? "PT Pack"
                           : c.path_type === "recurring"
                             ? "Abbonamento Mensile"
                             : d.totalBlocks > 0
@@ -725,9 +730,11 @@ function ClientsPage() {
                     <>
                       <div className="flex justify-between mb-2">
                         <span className="text-xs font-semibold text-[#41474f]">
-                          {c.path_type === "recurring"
-                            ? `Mese Corrente: ${d.completed}/${d.total} sessioni`
-                            : `Blocco ${d.activeBlockSeq} - ${d.completed}/${d.total} ${d.eventTypeLabel} completati`}
+                          {c.pack_label
+                            ? `${d.completed}/${d.total} sessioni completate`
+                            : c.path_type === "recurring"
+                              ? `Mese Corrente: ${d.completed}/${d.total} sessioni`
+                              : `Blocco ${d.activeBlockSeq} di ${d.totalBlocks} - ${d.completed}/${d.total} ${d.eventTypeLabel} completati`}
                         </span>
                       </div>
                       <div className="w-full h-2 bg-[#e1e2e7] rounded-full overflow-hidden">
