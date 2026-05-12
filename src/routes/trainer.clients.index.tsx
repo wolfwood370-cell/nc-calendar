@@ -698,8 +698,23 @@ function ClientsPage() {
             const c = d.client;
             const isExpiring = d.status === "expiring";
             const isArchived = d.status === "archived";
-            const pct = d.total > 0 ? Math.round((d.completed / d.total) * 100) : 0;
+            const isCompleted = d.status === "completed";
             const phoneDigits = (c.phone ?? "").replace(/\D/g, "");
+
+            const badgeClass = isArchived
+              ? "bg-[#eceef2] text-[#41474f]"
+              : isCompleted
+                ? "bg-[#eceef2] text-[#41474f]"
+                : isExpiring
+                  ? "bg-orange-50 text-orange-600"
+                  : "bg-emerald-50 text-emerald-600";
+            const badgeLabel = isArchived
+              ? "Archiviato"
+              : isCompleted
+                ? "Completato"
+                : isExpiring
+                  ? "In Scadenza"
+                  : "Attivo";
 
             return (
               <div
@@ -732,49 +747,51 @@ function ClientsPage() {
                     </div>
                   </div>
                   <span
-                    className={`shrink-0 ml-2 px-3 py-1 rounded-full text-xs font-semibold ${
-                      isArchived
-                        ? "bg-[#eceef2] text-[#41474f]"
-                        : isExpiring
-                          ? "bg-orange-50 text-orange-600"
-                          : "bg-emerald-50 text-emerald-600"
-                    }`}
+                    className={`shrink-0 ml-2 px-3 py-1 rounded-full text-xs font-semibold ${badgeClass}`}
                   >
-                    {isArchived ? "Archiviato" : isExpiring ? "In Scadenza" : "Attivo"}
+                    {badgeLabel}
                   </span>
                 </div>
 
                 <div className="mb-6 flex-1">
-                  {d.hasActiveBlock && d.total > 0 ? (
-                    <>
-                      <div className="flex justify-between mb-2">
-                        <span className="text-xs font-semibold text-[#41474f]">
-                          {c.pack_label
-                            ? `${d.completed}/${d.total} sessioni completate`
-                            : c.path_type === "recurring"
-                              ? `Mese Corrente: ${d.completed}/${d.total} sessioni`
-                              : `Blocco ${d.activeBlockSeq} di ${d.totalBlocks} - ${d.completed}/${d.total} ${d.eventTypeLabel} completati`}
-                        </span>
-                      </div>
-                      <div className="w-full h-2 bg-[#e1e2e7] rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-[#003e62] rounded-full transition-all"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
+                  {d.summary.length > 0 ? (
+                    <div className="space-y-3">
+                      <p className="text-[11px] uppercase tracking-wide font-semibold text-[#717880]">
+                        Riepilogo Sessioni
+                      </p>
+                      {d.summary.map((row) => {
+                        const pct = row.total > 0
+                          ? Math.min(100, Math.round((row.used / row.total) * 100))
+                          : 0;
+                        return (
+                          <div key={row.type}>
+                            <div className="flex items-baseline justify-between gap-2">
+                              <span className="text-xs font-medium text-[#41474f] truncate">
+                                {row.type}
+                              </span>
+                              <span className="text-sm font-bold text-[#003e62] tabular-nums shrink-0">
+                                {row.used} / {row.total}
+                              </span>
+                            </div>
+                            <div className="mt-1 w-full h-1 bg-[#e1e2e7] rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-[#003e62] rounded-full transition-all"
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
                       {c.path_type === "recurring" && d.daysToBilling !== null && (
-                        <p className="text-[11px] text-[#717880] mt-2">
+                        <p className="text-[11px] text-[#717880] pt-1">
                           {d.daysToBilling >= 0
                             ? `Rinnovo tra ${d.daysToBilling} ${d.daysToBilling === 1 ? "giorno" : "giorni"}`
                             : "Rinnovo scaduto"}
                         </p>
                       )}
-                    </>
-                  ) : (
-                    <div className="space-y-2">
-                      <p className="text-xs text-[#717880] italic">Nessun blocco attivo.</p>
-                      <div className="w-full h-2 bg-[#e1e2e7] rounded-full" />
                     </div>
+                  ) : (
+                    <p className="text-xs text-[#717880] italic">Nessun pacchetto assegnato.</p>
                   )}
                 </div>
 
