@@ -87,6 +87,9 @@ function IntegrationsPage() {
         >
           {isCalendarConnected ? (
             <>
+              <p className="text-xs text-[#647d8e] flex items-center gap-1.5">
+                <Clock className="size-3" /> Ultima sincronizzazione: 5 min fa
+              </p>
               <div className="flex items-center justify-between rounded-2xl bg-[#f8f9fe] px-4 py-3">
                 <Label
                   htmlFor="cal-sync"
