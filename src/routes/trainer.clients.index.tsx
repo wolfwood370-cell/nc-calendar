@@ -671,9 +671,11 @@ function ClientsPage() {
                         {c.full_name ?? "Senza nome"}
                       </h3>
                       <p className="text-sm text-[#717880] truncate">
-                        {d.totalBlocks > 0
-                          ? `Percorso ${d.totalBlocks} ${d.totalBlocks === 1 ? "Blocco" : "Blocchi"}`
-                          : (c.email ?? "—")}
+                        {c.path_type === "recurring"
+                          ? "Abbonamento Mensile"
+                          : d.totalBlocks > 0
+                            ? `Percorso ${d.totalBlocks} ${d.totalBlocks === 1 ? "Blocco" : "Blocchi"}`
+                            : (c.email ?? "—")}
                       </p>
                     </div>
                   </div>
@@ -691,12 +693,13 @@ function ClientsPage() {
                 </div>
 
                 <div className="mb-6 flex-1">
-                  {d.activeBlockSeq && d.total > 0 ? (
+                  {d.hasActiveBlock && d.total > 0 ? (
                     <>
                       <div className="flex justify-between mb-2">
                         <span className="text-xs font-semibold text-[#41474f]">
-                          Blocco {d.activeBlockSeq} - {d.completed}/{d.total} {d.eventTypeLabel}{" "}
-                          completati
+                          {c.path_type === "recurring"
+                            ? `Mese Corrente: ${d.completed}/${d.total} sessioni`
+                            : `Blocco ${d.activeBlockSeq} - ${d.completed}/${d.total} ${d.eventTypeLabel} completati`}
                         </span>
                       </div>
                       <div className="w-full h-2 bg-[#e1e2e7] rounded-full overflow-hidden">
@@ -705,9 +708,19 @@ function ClientsPage() {
                           style={{ width: `${pct}%` }}
                         />
                       </div>
+                      {c.path_type === "recurring" && d.daysToBilling !== null && (
+                        <p className="text-[11px] text-[#717880] mt-2">
+                          {d.daysToBilling >= 0
+                            ? `Rinnovo tra ${d.daysToBilling} ${d.daysToBilling === 1 ? "giorno" : "giorni"}`
+                            : "Rinnovo scaduto"}
+                        </p>
+                      )}
                     </>
                   ) : (
-                    <p className="text-xs text-[#717880] italic">Nessun percorso attivo.</p>
+                    <div className="space-y-2">
+                      <p className="text-xs text-[#717880] italic">Nessun blocco attivo.</p>
+                      <div className="w-full h-2 bg-[#e1e2e7] rounded-full" />
+                    </div>
                   )}
                 </div>
 
