@@ -81,6 +81,8 @@ interface ClientRow {
   email: string | null;
   phone: string | null;
   status: string;
+  path_type: "fixed" | "recurring";
+  next_billing_date: string | null;
 }
 interface InvitationRow {
   id: string;
@@ -95,6 +97,7 @@ interface BlockLite {
   client_id: string;
   sequence_order: number;
   start_date: string;
+  end_date: string;
 }
 interface AllocLite {
   block_id: string;
@@ -111,9 +114,11 @@ interface ClientCardData {
   status: ClientStatus;
   totalBlocks: number;
   activeBlockSeq: number | null;
+  hasActiveBlock: boolean;
   completed: number;
   total: number;
   eventTypeLabel: string;
+  daysToBilling: number | null;
 }
 
 function initials(name: string | null, email: string | null): string {
@@ -153,7 +158,7 @@ function ClientsPage() {
     setLoading(true);
     let cq = supabase
       .from("profiles")
-      .select("id, full_name, email, phone, status")
+      .select("id, full_name, email, phone, status, path_type, next_billing_date")
       .is("deleted_at", null);
     if (!isAdmin && user) cq = cq.eq("coach_id", user.id);
     const { data: cs } = await cq;
@@ -173,7 +178,7 @@ function ClientsPage() {
     if (ids.length > 0) {
       let bq = supabase
         .from("training_blocks")
-        .select("id, client_id, sequence_order, start_date")
+        .select("id, client_id, sequence_order, start_date, end_date")
         .in("client_id", ids)
         .is("deleted_at", null)
         .order("sequence_order", { ascending: true });
@@ -218,24 +223,32 @@ function ClientsPage() {
       blocksByClient.set(b.client_id, arr);
     }
 
+    const today = new Date();
+    const todayIso = today.toISOString().slice(0, 10);
+
     return clients.map((c) => {
       const cb = (blocksByClient.get(c.id) ?? [])
         .slice()
         .sort((a, b) => a.sequence_order - b.sequence_order);
-      // Find first block with remaining capacity, else most recent
-      let activeBlock: BlockLite | null = null;
-      for (const b of cb) {
-        const al = allocsByBlock.get(b.id) ?? [];
-        const remaining = al.reduce(
-          (s, x) => s + Math.max(0, x.quantity_assigned - x.quantity_booked),
-          0,
-        );
-        if (remaining > 0) {
-          activeBlock = b;
-          break;
+
+      // 1. Active block by date range (today between start_date and end_date)
+      let activeBlock: BlockLite | null =
+        cb.find((b) => b.start_date <= todayIso && todayIso <= b.end_date) ?? null;
+
+      // 2. Fallback: first block with remaining capacity
+      if (!activeBlock) {
+        for (const b of cb) {
+          const al = allocsByBlock.get(b.id) ?? [];
+          const remaining = al.reduce(
+            (s, x) => s + Math.max(0, x.quantity_assigned - x.quantity_booked),
+            0,
+          );
+          if (remaining > 0) {
+            activeBlock = b;
+            break;
+          }
         }
       }
-      if (!activeBlock && cb.length > 0) activeBlock = cb[cb.length - 1];
 
       const al = activeBlock ? (allocsByBlock.get(activeBlock.id) ?? []) : [];
       const total = al.reduce((s, x) => s + x.quantity_assigned, 0);
@@ -252,10 +265,22 @@ function ClientsPage() {
           : "Sessioni"
         : "Sessioni";
 
+      // Days until next billing (only meaningful for recurring)
+      let daysToBilling: number | null = null;
+      if (c.path_type === "recurring" && c.next_billing_date) {
+        const nb = new Date(c.next_billing_date + "T00:00:00");
+        daysToBilling = Math.ceil((nb.getTime() - today.getTime()) / 86400000);
+      }
+
       let status: ClientStatus;
       if (c.status === "archived") status = "archived";
-      else if (cb.length === 0) status = "active";
-      else if (remaining <= 1) status = "expiring";
+      else if (c.path_type === "recurring") {
+        status =
+          daysToBilling !== null && daysToBilling <= 5 && daysToBilling >= 0
+            ? "expiring"
+            : "active";
+      } else if (cb.length === 0) status = "active";
+      else if (remaining <= 1 && total > 0) status = "expiring";
       else status = "active";
 
       return {
@@ -263,9 +288,11 @@ function ClientsPage() {
         status,
         totalBlocks: cb.length,
         activeBlockSeq: activeBlock?.sequence_order ?? null,
+        hasActiveBlock: !!activeBlock,
         completed,
         total,
         eventTypeLabel,
+        daysToBilling,
       };
     });
   }, [clients, blocks, allocs, eventTypeById]);
@@ -644,9 +671,11 @@ function ClientsPage() {
                         {c.full_name ?? "Senza nome"}
                       </h3>
                       <p className="text-sm text-[#717880] truncate">
-                        {d.totalBlocks > 0
-                          ? `Percorso ${d.totalBlocks} ${d.totalBlocks === 1 ? "Blocco" : "Blocchi"}`
-                          : (c.email ?? "—")}
+                        {c.path_type === "recurring"
+                          ? "Abbonamento Mensile"
+                          : d.totalBlocks > 0
+                            ? `Percorso ${d.totalBlocks} ${d.totalBlocks === 1 ? "Blocco" : "Blocchi"}`
+                            : (c.email ?? "—")}
                       </p>
                     </div>
                   </div>
@@ -664,12 +693,13 @@ function ClientsPage() {
                 </div>
 
                 <div className="mb-6 flex-1">
-                  {d.activeBlockSeq && d.total > 0 ? (
+                  {d.hasActiveBlock && d.total > 0 ? (
                     <>
                       <div className="flex justify-between mb-2">
                         <span className="text-xs font-semibold text-[#41474f]">
-                          Blocco {d.activeBlockSeq} - {d.completed}/{d.total} {d.eventTypeLabel}{" "}
-                          completati
+                          {c.path_type === "recurring"
+                            ? `Mese Corrente: ${d.completed}/${d.total} sessioni`
+                            : `Blocco ${d.activeBlockSeq} - ${d.completed}/${d.total} ${d.eventTypeLabel} completati`}
                         </span>
                       </div>
                       <div className="w-full h-2 bg-[#e1e2e7] rounded-full overflow-hidden">
@@ -678,9 +708,19 @@ function ClientsPage() {
                           style={{ width: `${pct}%` }}
                         />
                       </div>
+                      {c.path_type === "recurring" && d.daysToBilling !== null && (
+                        <p className="text-[11px] text-[#717880] mt-2">
+                          {d.daysToBilling >= 0
+                            ? `Rinnovo tra ${d.daysToBilling} ${d.daysToBilling === 1 ? "giorno" : "giorni"}`
+                            : "Rinnovo scaduto"}
+                        </p>
+                      )}
                     </>
                   ) : (
-                    <p className="text-xs text-[#717880] italic">Nessun percorso attivo.</p>
+                    <div className="space-y-2">
+                      <p className="text-xs text-[#717880] italic">Nessun blocco attivo.</p>
+                      <div className="w-full h-2 bg-[#e1e2e7] rounded-full" />
+                    </div>
                   )}
                 </div>
 
