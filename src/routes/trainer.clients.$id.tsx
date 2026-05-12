@@ -536,21 +536,14 @@ function ClientPathPage() {
 
   function handleStartChange(d: Date | undefined) {
     if (!d) return;
-    if (!isMonday(d)) {
-      const m = nextMonday(d);
-      toast.info("Data spostata al lunedì successivo", {
-        description: format(m, "dd MMM yyyy", { locale: it }),
-      });
-      setPathStart(m);
-      regenerateFromStart(m);
-      return;
-    }
-    setPathStart(d);
-    regenerateFromStart(d);
+    // Allow any date (including past): snap to Monday of the same week.
+    const m = isMonday(d) ? d : currentMonday(d);
+    setPathStart(m);
+    regenerateFromStart(m);
   }
 
   function handleWeekDateChange(weekIndex: number, newDate: Date) {
-    const monday = isMonday(newDate) ? newDate : nextMonday(newDate);
+    const monday = isMonday(newDate) ? newDate : currentMonday(newDate);
     const updated = [...rows];
     updated[weekIndex] = {
       ...updated[weekIndex],
