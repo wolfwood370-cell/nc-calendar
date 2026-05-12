@@ -83,6 +83,8 @@ interface ClientRow {
   status: string;
   path_type: "fixed" | "recurring";
   next_billing_date: string | null;
+  pack_label: string | null;
+  auto_renew: boolean;
 }
 interface InvitationRow {
   id: string;
