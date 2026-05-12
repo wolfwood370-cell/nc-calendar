@@ -16,6 +16,7 @@ export interface BookingRow {
   notes: string | null;
   trainer_notes: string | null;
   google_event_id: string | null;
+  title: string | null;
 }
 
 export interface AvailabilityExceptionRow {
@@ -84,7 +85,7 @@ export function useCoachBookings(coachId?: string) {
       const { data, error } = await supabase
         .from("bookings")
         .select(
-          "id, client_id, coach_id, block_id, session_type, scheduled_at, status, meeting_link, deleted_at, event_type_id, notes, trainer_notes, google_event_id",
+          "id, client_id, coach_id, block_id, session_type, scheduled_at, status, meeting_link, deleted_at, event_type_id, notes, trainer_notes, google_event_id, title",
         )
         .eq("coach_id", coachId!)
         .is("deleted_at", null)
@@ -103,7 +104,7 @@ export function useClientBookings(clientId?: string) {
       const { data, error } = await supabase
         .from("bookings")
         .select(
-          "id, client_id, coach_id, block_id, session_type, scheduled_at, status, meeting_link, deleted_at, event_type_id, notes, trainer_notes, google_event_id",
+          "id, client_id, coach_id, block_id, session_type, scheduled_at, status, meeting_link, deleted_at, event_type_id, notes, trainer_notes, google_event_id, title",
         )
         .eq("client_id", clientId!)
         .is("deleted_at", null)
