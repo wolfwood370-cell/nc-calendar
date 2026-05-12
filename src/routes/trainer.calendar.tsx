@@ -164,7 +164,7 @@ function CalendarPage() {
       const isUnassigned = !b.client_id;
       const isExternal = !!b.client_id && b.client_id === b.coach_id;
       if (onlyToAssign && !isUnassigned) continue;
-      if (onlyPT && (isExternal || b.session_type !== "PT")) continue;
+      if (onlyPT && (isExternal || b.session_type !== "PT Session")) continue;
       const d = new Date(b.scheduled_at);
       for (let i = 0; i < 7; i++) {
         if (sameDay(d, weekDays[i])) {
