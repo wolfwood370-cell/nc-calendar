@@ -160,7 +160,7 @@ function ClientsPage() {
     setLoading(true);
     let cq = supabase
       .from("profiles")
-      .select("id, full_name, email, phone, status, path_type, next_billing_date")
+      .select("id, full_name, email, phone, status, path_type, next_billing_date, pack_label, auto_renew")
       .is("deleted_at", null);
     if (!isAdmin && user) cq = cq.eq("coach_id", user.id);
     const { data: cs } = await cq;
