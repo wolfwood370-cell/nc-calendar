@@ -101,6 +101,7 @@ export type Database = {
           event_type_id: string | null
           google_event_id: string | null
           id: string
+          ignored: boolean
           ignored_by_clients: string[]
           meeting_link: string | null
           notes: string | null
@@ -120,6 +121,7 @@ export type Database = {
           event_type_id?: string | null
           google_event_id?: string | null
           id?: string
+          ignored?: boolean
           ignored_by_clients?: string[]
           meeting_link?: string | null
           notes?: string | null
@@ -139,6 +141,7 @@ export type Database = {
           event_type_id?: string | null
           google_event_id?: string | null
           id?: string
+          ignored?: boolean
           ignored_by_clients?: string[]
           meeting_link?: string | null
           notes?: string | null
@@ -314,6 +317,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          auto_renew: boolean
           coach_id: string | null
           created_at: string
           deleted_at: string | null
@@ -322,12 +326,14 @@ export type Database = {
           full_name: string | null
           id: string
           next_billing_date: string | null
+          pack_label: string | null
           path_start_date: string | null
           path_type: string
           phone: string | null
           status: string
         }
         Insert: {
+          auto_renew?: boolean
           coach_id?: string | null
           created_at?: string
           deleted_at?: string | null
@@ -336,12 +342,14 @@ export type Database = {
           full_name?: string | null
           id: string
           next_billing_date?: string | null
+          pack_label?: string | null
           path_start_date?: string | null
           path_type?: string
           phone?: string | null
           status?: string
         }
         Update: {
+          auto_renew?: boolean
           coach_id?: string | null
           created_at?: string
           deleted_at?: string | null
@@ -350,6 +358,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           next_billing_date?: string | null
+          pack_label?: string | null
           path_start_date?: string | null
           path_type?: string
           phone?: string | null
