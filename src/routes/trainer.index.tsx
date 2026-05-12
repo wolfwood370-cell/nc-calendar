@@ -120,14 +120,14 @@ function Overview() {
     return m;
   }, [eventTypes]);
 
-  // Centro Revisione: bookings with client_id NULL within last 7 days
+  // Centro Revisione: bookings with client_id NULL within last 7 days (active + ignored)
   const reviewQ = useQuery({
-    queryKey: ["bookings", "unassigned", coachId],
+    queryKey: ["bookings", "unassigned-all", coachId],
     enabled: !!coachId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("bookings")
-        .select("id, scheduled_at, title, session_type, event_type_id, ignored_by_clients")
+        .select("id, scheduled_at, title, session_type, event_type_id, ignored")
         .eq("coach_id", coachId!)
         .is("client_id", null)
         .is("deleted_at", null)
@@ -140,7 +140,10 @@ function Overview() {
       return data ?? [];
     },
   });
-  const reviewItems = reviewQ.data ?? [];
+  const allReviewItems = reviewQ.data ?? [];
+  const reviewItems = allReviewItems.filter((r) => !r.ignored);
+  const ignoredItems = allReviewItems.filter((r) => r.ignored);
+  const [reviewTab, setReviewTab] = useState<"todo" | "ignored">("todo");
 
   // Today's appointments
   const todayItems = useMemo(() => {
@@ -268,12 +271,27 @@ function Overview() {
     mutationFn: async (id: string) => {
       const { error } = await supabase
         .from("bookings")
-        .update({ deleted_at: new Date().toISOString() })
+        .update({ ignored: true })
         .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Evento ignorato");
+      toast.success("Evento spostato negli ignorati");
+      qc.invalidateQueries({ queryKey: ["bookings"] });
+    },
+    onError: (e: Error) => toast.error("Errore", { description: e.message }),
+  });
+
+  const restoreBooking = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("bookings")
+        .update({ ignored: false })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Evento ripristinato");
       qc.invalidateQueries({ queryKey: ["bookings"] });
     },
     onError: (e: Error) => toast.error("Errore", { description: e.message }),
@@ -324,19 +342,42 @@ function Overview() {
         {/* LEFT */}
         <div className="lg:col-span-7 flex flex-col gap-6">
           {/* Centro Revisione */}
-          {reviewItems.length > 0 && (
+          {(reviewItems.length > 0 || ignoredItems.length > 0) && (
             <section
               className={`bg-surface-container-lowest rounded-[32px] p-6 ${SOFT_SHADOW} border border-[#ffb77b]/40`}
             >
-              <div className="flex items-center gap-3 mb-5">
-                <AlertTriangle className="size-6 text-tertiary-container" />
-                <h2 className="text-2xl font-semibold">
-                  Centro Revisione{" "}
-                  <span className="text-tertiary-container">({reviewItems.length})</span>
-                </h2>
+              <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+                <div className="flex items-center gap-3">
+                  <AlertTriangle className="size-6 text-tertiary-container" />
+                  <h2 className="text-2xl font-semibold">Centro Revisione</h2>
+                </div>
+                <div className="inline-flex rounded-full bg-surface-container-low p-1">
+                  <button
+                    type="button"
+                    onClick={() => setReviewTab("todo")}
+                    className={`px-4 py-1.5 text-sm font-semibold rounded-full transition-colors ${
+                      reviewTab === "todo"
+                        ? "bg-[#003e62] text-white"
+                        : "text-on-surface-variant hover:bg-surface-container"
+                    }`}
+                  >
+                    Da Assegnare ({reviewItems.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setReviewTab("ignored")}
+                    className={`px-4 py-1.5 text-sm font-semibold rounded-full transition-colors ${
+                      reviewTab === "ignored"
+                        ? "bg-[#003e62] text-white"
+                        : "text-on-surface-variant hover:bg-surface-container"
+                    }`}
+                  >
+                    Ignorati ({ignoredItems.length})
+                  </button>
+                </div>
               </div>
               <div className="flex flex-col gap-3">
-                {reviewItems.slice(0, 5).map((r) => {
+                {(reviewTab === "todo" ? reviewItems : ignoredItems).slice(0, 5).map((r) => {
                   const start = new Date(r.scheduled_at);
                   const dateLabel = start.toLocaleDateString("it-IT", {
                     weekday: "long",
@@ -352,18 +393,21 @@ function Overview() {
                   const eventName =
                     r.title?.trim() || et?.name || sessionLabel(r.session_type) || "Evento Google Calendar";
                   const typeLabel = et?.name ?? sessionLabel(r.session_type);
+                  const isIgnored = reviewTab === "ignored";
                   return (
                     <div
                       key={r.id}
                       className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-surface-container-low p-4 rounded-2xl"
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-semibold text-[#ba1a1a] uppercase tracking-wider mb-1">
-                          Cliente non assegnato
+                        <p
+                          className={`text-xs font-semibold uppercase tracking-wider mb-1 ${
+                            isIgnored ? "text-on-surface-variant" : "text-[#ba1a1a]"
+                          }`}
+                        >
+                          {isIgnored ? "Ignorato" : "Cliente non assegnato"}
                         </p>
-                        <p className="font-semibold text-on-background truncate">
-                          {eventName}
-                        </p>
+                        <p className="font-semibold text-on-background truncate">{eventName}</p>
                         <p className="text-sm text-on-surface-variant capitalize">
                           {dateLabel} · {timeLabel}
                         </p>
@@ -372,14 +416,27 @@ function Overview() {
                         </p>
                       </div>
                       <div className="flex gap-2 shrink-0">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          className="rounded-full bg-surface-variant text-on-surface-variant hover:bg-surface-container-high"
-                          onClick={() => ignoreBooking.mutate(r.id)}
-                        >
-                          Ignora
-                        </Button>
+                        {isIgnored ? (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="rounded-full bg-surface-variant text-on-surface-variant hover:bg-surface-container-high"
+                            onClick={() => restoreBooking.mutate(r.id)}
+                            disabled={restoreBooking.isPending}
+                          >
+                            Ripristina
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="rounded-full bg-surface-variant text-on-surface-variant hover:bg-surface-container-high"
+                            onClick={() => ignoreBooking.mutate(r.id)}
+                            disabled={ignoreBooking.isPending}
+                          >
+                            Ignora
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           className="rounded-full bg-[#003e62] text-white hover:bg-[#003e62]/90"
@@ -394,6 +451,13 @@ function Overview() {
                     </div>
                   );
                 })}
+                {(reviewTab === "todo" ? reviewItems : ignoredItems).length === 0 && (
+                  <p className="text-sm text-on-surface-variant italic px-2 py-4 text-center">
+                    {reviewTab === "todo"
+                      ? "Nessun evento da revisionare."
+                      : "Nessun evento ignorato."}
+                  </p>
+                )}
               </div>
             </section>
           )}

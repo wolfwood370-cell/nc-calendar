@@ -53,6 +53,7 @@ import {
   MoreVertical,
   MessageCircle,
   ArchiveRestore,
+  Sparkles,
 } from "lucide-react";
 import {
   Select,
@@ -83,6 +84,8 @@ interface ClientRow {
   status: string;
   path_type: "fixed" | "recurring";
   next_billing_date: string | null;
+  pack_label: string | null;
+  auto_renew: boolean;
 }
 interface InvitationRow {
   id: string;
@@ -158,7 +161,7 @@ function ClientsPage() {
     setLoading(true);
     let cq = supabase
       .from("profiles")
-      .select("id, full_name, email, phone, status, path_type, next_billing_date")
+      .select("id, full_name, email, phone, status, path_type, next_billing_date, pack_label, auto_renew")
       .is("deleted_at", null);
     if (!isAdmin && user) cq = cq.eq("coach_id", user.id);
     const { data: cs } = await cq;
@@ -387,7 +390,10 @@ function ClientsPage() {
     lastName: string;
     email: string;
     password: string;
+    pathType: "fixed" | "recurring";
     totalBlocks: number;
+    packLabel: string | null;
+    autoRenew: boolean;
     rules: Array<{
       eventTypeId: string;
       sessionType: SessionType;
@@ -469,6 +475,21 @@ function ClientsPage() {
         const { error: aErr } = await supabase.from("block_allocations").insert(allocsToInsert);
         if (aErr) throw aErr;
       }
+
+      // Persist path metadata on profile
+      const nextBilling = new Date(today);
+      nextBilling.setDate(today.getDate() + 30);
+      const { error: pErr } = await supabase
+        .from("profiles")
+        .update({
+          path_type: data.pathType,
+          auto_renew: data.autoRenew,
+          pack_label: data.packLabel,
+          next_billing_date:
+            data.pathType === "recurring" ? nextBilling.toISOString().slice(0, 10) : null,
+        })
+        .eq("id", newUserId);
+      if (pErr) throw pErr;
     } catch (e) {
       toast.warning("Cliente creato, ma assegnazione blocchi non riuscita", {
         description: (e as Error).message,
@@ -671,12 +692,19 @@ function ClientsPage() {
                         {c.full_name ?? "Senza nome"}
                       </h3>
                       <p className="text-sm text-[#717880] truncate">
-                        {c.path_type === "recurring"
-                          ? "Abbonamento Mensile"
-                          : d.totalBlocks > 0
-                            ? `Percorso ${d.totalBlocks} ${d.totalBlocks === 1 ? "Blocco" : "Blocchi"}`
-                            : (c.email ?? "—")}
+                        {c.pack_label
+                          ? c.pack_label
+                          : c.path_type === "recurring"
+                            ? "Abbonamento Mensile"
+                            : d.totalBlocks > 0
+                              ? `Percorso ${d.totalBlocks} ${d.totalBlocks === 1 ? "Blocco" : "Blocchi"}`
+                              : (c.email ?? "—")}
                       </p>
+                      {c.pack_label && (
+                        <span className="inline-flex items-center mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#003e62]/10 text-[#003e62]">
+                          {c.pack_label}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <span
@@ -933,7 +961,10 @@ interface CreateClientPayload {
   lastName: string;
   email: string;
   password: string;
+  pathType: "fixed" | "recurring";
   totalBlocks: number;
+  packLabel: string | null;
+  autoRenew: boolean;
   rules: Array<{
     eventTypeId: string;
     sessionType: SessionType;
@@ -948,7 +979,7 @@ const DURATION_PRESETS: Array<{ value: string; label: string; months: number | n
   { value: "3", label: "3 Mesi", months: 3 },
   { value: "6", label: "6 Mesi", months: 6 },
   { value: "12", label: "12 Mesi", months: 12 },
-  { value: "custom", label: "Personalizzato", months: null },
+  { value: "custom", label: "Manuale (numero blocchi)", months: null },
 ];
 
 function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) => Promise<void> }) {
@@ -960,15 +991,37 @@ function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) =
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  const [pathType, setPathType] = useState<"fixed" | "recurring">("fixed");
   const [durationPreset, setDurationPreset] = useState<string>("3");
   const [customMonths, setCustomMonths] = useState<number>(3);
+  const [packLabel, setPackLabel] = useState<string | null>(null);
   const [rules, setRules] = useState<RuleDraft[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
   const totalBlocks =
-    durationPreset === "custom"
-      ? Math.max(1, customMonths)
-      : (DURATION_PRESETS.find((d) => d.value === durationPreset)?.months ?? 1);
+    pathType === "recurring"
+      ? 1
+      : durationPreset === "custom"
+        ? Math.max(1, customMonths)
+        : (DURATION_PRESETS.find((d) => d.value === durationPreset)?.months ?? 1);
+
+  function applyPtPackPreset() {
+    setPathType("fixed");
+    setDurationPreset("custom");
+    setCustomMonths(1);
+    setPackLabel("Pacchetto 3 sessioni");
+    const firstEt = eventTypes.find((e) => e.base_type === "PT Session") ?? eventTypes[0];
+    setRules([
+      {
+        id: crypto.randomUUID(),
+        eventTypeId: firstEt?.id ?? "",
+        quantityPerBlock: 3,
+        startBlock: 1,
+        endBlock: 1,
+      },
+    ]);
+    toast.success("Preset PT Pack applicato (3 sessioni, no rinnovo)");
+  }
 
   function addRule() {
     setRules((prev) => [
@@ -1031,7 +1084,10 @@ function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) =
         lastName: lastName.trim(),
         email,
         password: generateSecurePassword(),
+        pathType,
         totalBlocks,
+        packLabel,
+        autoRenew: pathType === "recurring",
         rules: expandedRules,
       });
     } finally {
@@ -1070,36 +1126,98 @@ function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) =
       {step === 2 && (
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>Durata Percorso</Label>
-            <Select value={durationPreset} onValueChange={setDurationPreset}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {DURATION_PRESETS.map((d) => (
-                  <SelectItem key={d.value} value={d.value}>
-                    {d.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          {durationPreset === "custom" && (
-            <div className="space-y-2">
-              <Label>Numero di Blocchi (mesi)</Label>
-              <Input
-                type="number"
-                min={1}
-                max={36}
-                value={customMonths}
-                onChange={(e) => setCustomMonths(Math.max(1, Number(e.target.value) || 1))}
-              />
+            <Label>Tipo di Percorso</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setPathType("fixed");
+                  setPackLabel(null);
+                }}
+                className={`text-left rounded-xl border-2 p-3 transition-colors ${
+                  pathType === "fixed"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/40"
+                }`}
+              >
+                <div className="font-semibold text-sm">Percorso Fisso (Pacchetto)</div>
+                <div className="text-xs text-muted-foreground">
+                  Durata predefinita o numero blocchi manuale.
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPathType("recurring");
+                  setPackLabel(null);
+                }}
+                className={`text-left rounded-xl border-2 p-3 transition-colors ${
+                  pathType === "recurring"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/40"
+                }`}
+              >
+                <div className="font-semibold text-sm">Abbonamento Mensile</div>
+                <div className="text-xs text-muted-foreground">
+                  Ricorrente: nuovo blocco ogni 30 giorni.
+                </div>
+              </button>
             </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" size="sm" variant="outline" onClick={applyPtPackPreset}>
+              <Sparkles className="size-4" /> PT Pack (3 sessioni)
+            </Button>
+            {packLabel && (
+              <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-semibold">
+                {packLabel}
+              </span>
+            )}
+          </div>
+
+          {pathType === "fixed" && (
+            <>
+              <div className="space-y-2">
+                <Label>Durata Percorso</Label>
+                <Select value={durationPreset} onValueChange={setDurationPreset}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DURATION_PRESETS.map((d) => (
+                      <SelectItem key={d.value} value={d.value}>
+                        {d.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {durationPreset === "custom" && (
+                <div className="space-y-2">
+                  <Label>Numero di Blocchi</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={36}
+                    value={customMonths}
+                    onChange={(e) => setCustomMonths(Math.max(1, Number(e.target.value) || 1))}
+                  />
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Il percorso sarà suddiviso in <strong>{totalBlocks}</strong> blocchi sequenziali
+                (~30 giorni ciascuno). Nessun rinnovo automatico.
+              </p>
+            </>
           )}
-          <p className="text-xs text-muted-foreground">
-            Il percorso sarà suddiviso in <strong>{totalBlocks}</strong> blocchi mensili sequenziali
-            (~30 giorni ciascuno).
-          </p>
+
+          {pathType === "recurring" && (
+            <p className="text-xs text-muted-foreground">
+              Verrà creato <strong>1 blocco mensile</strong> con rinnovo automatico ogni 30 giorni.
+              Le sessioni si resettano ad ogni rinnovo.
+            </p>
+          )}
         </div>
       )}
 
