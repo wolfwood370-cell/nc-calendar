@@ -698,7 +698,7 @@ function ClientsPage() {
                       </h3>
                       <p className="text-sm text-[#717880] truncate">
                         {c.pack_label
-                          ? c.pack_label
+                          ? "PT Pack"
                           : c.path_type === "recurring"
                             ? "Abbonamento Mensile"
                             : d.totalBlocks > 0
