@@ -115,10 +115,11 @@ function toIso(d: Date) {
   return format(d, "yyyy-MM-dd");
 }
 
-function nextMonday(d: Date): Date {
+function currentMonday(d: Date): Date {
   const day = d.getDay();
-  const diff = day === 1 ? 0 : (8 - day) % 7 || 7;
-  return addDays(startOfDay(d), diff);
+  // Snap to the Monday of the same week (never jumps forward).
+  const diff = day === 0 ? 6 : day - 1;
+  return addDays(startOfDay(d), -diff);
 }
 
 function isMonday(d: Date) {
