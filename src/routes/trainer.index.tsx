@@ -127,10 +127,9 @@ function Overview() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("bookings")
-        .select("id, scheduled_at, title, session_type, event_type_id, ignored")
+        .select("id, scheduled_at, title, session_type, event_type_id, ignored, deleted_at")
         .eq("coach_id", coachId!)
         .is("client_id", null)
-        .is("deleted_at", null)
         .gte("scheduled_at", sevenDaysAgo().toISOString())
         .order("scheduled_at", { ascending: false });
       if (error) {
@@ -141,8 +140,8 @@ function Overview() {
     },
   });
   const allReviewItems = reviewQ.data ?? [];
-  const reviewItems = allReviewItems.filter((r) => !r.ignored);
-  const ignoredItems = allReviewItems.filter((r) => r.ignored);
+  const reviewItems = allReviewItems.filter((r) => !r.ignored && !r.deleted_at);
+  const ignoredItems = allReviewItems.filter((r) => r.ignored || r.deleted_at);
   const [reviewTab, setReviewTab] = useState<"todo" | "ignored">("todo");
 
   // Today's appointments
@@ -286,7 +285,7 @@ function Overview() {
     mutationFn: async (id: string) => {
       const { error } = await supabase
         .from("bookings")
-        .update({ ignored: false })
+        .update({ ignored: false, deleted_at: null })
         .eq("id", id);
       if (error) throw error;
     },
