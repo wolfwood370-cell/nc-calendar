@@ -730,9 +730,11 @@ function ClientsPage() {
                     <>
                       <div className="flex justify-between mb-2">
                         <span className="text-xs font-semibold text-[#41474f]">
-                          {c.path_type === "recurring"
-                            ? `Mese Corrente: ${d.completed}/${d.total} sessioni`
-                            : `Blocco ${d.activeBlockSeq} - ${d.completed}/${d.total} ${d.eventTypeLabel} completati`}
+                          {c.pack_label
+                            ? `${d.completed}/${d.total} sessioni completate`
+                            : c.path_type === "recurring"
+                              ? `Mese Corrente: ${d.completed}/${d.total} sessioni`
+                              : `Blocco ${d.activeBlockSeq} di ${d.totalBlocks} - ${d.completed}/${d.total} ${d.eventTypeLabel} completati`}
                         </span>
                       </div>
                       <div className="w-full h-2 bg-[#e1e2e7] rounded-full overflow-hidden">
