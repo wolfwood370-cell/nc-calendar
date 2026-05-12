@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient, useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,10 @@ import {
   MessageCircle,
   HelpCircle,
   Calendar as CalendarIcon,
+  RefreshCw,
+  AlertCircle,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { sessionLabel } from "@/lib/mock-data";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -83,6 +86,9 @@ function CalendarPage() {
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()));
   const [mirroring, setMirroring] = useState(false);
   const lastMirrorMonth = useRef<string>("");
+  const [showAvailability, setShowAvailability] = useState(false);
+  const [onlyPT, setOnlyPT] = useState(false);
+  const [onlyToAssign, setOnlyToAssign] = useState(false);
 
   const bookingsQ = useCoachBookings(user?.id);
   const clientsQ = useCoachClients(user?.id);
@@ -155,6 +161,10 @@ function CalendarPage() {
     const map: BookingRow[][] = Array.from({ length: 7 }, () => []);
     for (const b of bookings) {
       if (b.status === "cancelled") continue;
+      const isUnassigned = !b.client_id;
+      const isExternal = !!b.client_id && b.client_id === b.coach_id;
+      if (onlyToAssign && !isUnassigned) continue;
+      if (onlyPT && (isExternal || b.session_type !== "PT Session")) continue;
       const d = new Date(b.scheduled_at);
       for (let i = 0; i < 7; i++) {
         if (sameDay(d, weekDays[i])) {
@@ -164,7 +174,13 @@ function CalendarPage() {
       }
     }
     return map;
-  }, [bookings, weekDays]);
+  }, [bookings, weekDays, onlyToAssign, onlyPT]);
+
+  const totalVisible = useMemo(
+    () => bookingsByDay.reduce((s, day) => s + day.length, 0),
+    [bookingsByDay],
+  );
+  const filtersActive = onlyPT || onlyToAssign;
 
   // ----- Sync flows (preserved from previous impl) -----
   const didFullSync = useRef(false);
@@ -259,8 +275,9 @@ function CalendarPage() {
     const isUnassigned = !b.client_id; // To Review
     const isExternal = !!b.client_id && b.client_id === b.coach_id; // Sync senza match
     const client = b.client_id && !isExternal ? clientsMap.get(b.client_id) : undefined;
-    const typeLabel = et?.name ?? sessionLabel(b.session_type);
-    const timeLabel = `${d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })} - ${new Date(d.getTime() + duration * 60000).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}`;
+    const typeLabel = et?.name ?? (b.session_type ? sessionLabel(b.session_type) : "Sessione");
+    const safeDuration = duration > 0 ? duration : 60;
+    const timeLabel = `${d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })} - ${new Date(d.getTime() + safeDuration * 60000).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}`;
 
     if (isUnassigned) {
       return (
@@ -306,7 +323,7 @@ function CalendarPage() {
       >
         <div>
           <h4 className="text-[12px] leading-tight font-semibold text-[#001d32] truncate">
-            {client?.full_name ?? "Cliente"} — {typeLabel}
+            {client?.full_name || "Cliente"} — {typeLabel || "Evento senza titolo"}
           </h4>
           <p className="text-[10px] text-[#004b74] mt-0.5">{timeLabel}</p>
         </div>
@@ -360,7 +377,51 @@ function CalendarPage() {
                 </button>
               </div>
             </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <FilterChip active={showAvailability} onClick={() => setShowAvailability((v) => !v)}>
+                Mostra Disponibilità
+              </FilterChip>
+              <FilterChip active={onlyPT} onClick={() => setOnlyPT((v) => !v)}>
+                Solo Sessioni PT
+              </FilterChip>
+              <FilterChip active={onlyToAssign} onClick={() => setOnlyToAssign((v) => !v)}>
+                Eventi da Assegnare
+              </FilterChip>
+              <button
+                onClick={() => {
+                  qc.invalidateQueries({ queryKey: ["bookings"] });
+                  qc.invalidateQueries({ queryKey: ["clients"] });
+                  toast.success("Calendario aggiornato");
+                }}
+                className="size-8 rounded-full hover:bg-[#eceef2] flex items-center justify-center text-[#41474f]"
+                aria-label="Aggiorna"
+                title="Aggiorna calendario"
+              >
+                <RefreshCw className="size-4" />
+              </button>
+            </div>
           </div>
+          {bookingsQ.isError && (
+            <div className="flex items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="size-4" />
+                Errore nel caricamento del calendario.
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => bookingsQ.refetch()}
+                className="rounded-full bg-white"
+              >
+                Riprova
+              </Button>
+            </div>
+          )}
+          {!bookingsQ.isError && filtersActive && totalVisible === 0 && (
+            <div className="rounded-2xl border border-[#e1e2e7] bg-white px-4 py-3 text-sm text-[#717880]">
+              Nessun evento corrisponde ai filtri attivi.
+            </div>
+          )}
         </header>
 
         {/* Grid */}
@@ -445,12 +506,31 @@ function CalendarPage() {
           </h3>
         </div>
         <div className="p-6 overflow-y-auto flex-1 space-y-4">
-          {!focusClient && (
+          {!focusClientId && (
             <div
               className={`bg-white rounded-[24px] p-6 ${SOFT_SHADOW} border border-[#f2f3f8] text-center text-sm text-[#717880]`}
             >
               <CalendarIcon className="size-10 mx-auto mb-3 text-[#c1c7d0]" />
               Seleziona una sessione confermata per vedere il dettaglio cliente.
+            </div>
+          )}
+
+          {focusClientId && !focusClient && clientsQ.isLoading && (
+            <div
+              className={`bg-white rounded-[24px] p-6 ${SOFT_SHADOW} border border-[#f2f3f8] space-y-3`}
+            >
+              <Skeleton className="size-20 rounded-full mx-auto" />
+              <Skeleton className="h-4 w-2/3 mx-auto" />
+              <Skeleton className="h-3 w-1/2 mx-auto" />
+              <Skeleton className="h-9 w-full rounded-2xl" />
+            </div>
+          )}
+
+          {focusClientId && !focusClient && !clientsQ.isLoading && (
+            <div
+              className={`bg-white rounded-[24px] p-6 ${SOFT_SHADOW} border border-[#f2f3f8] text-center text-sm text-[#717880]`}
+            >
+              Cliente non trovato.
             </div>
           )}
 
@@ -471,12 +551,13 @@ function CalendarPage() {
                   {focusClient.full_name ?? "Cliente"}
                 </h4>
                 <p className="text-sm text-[#41474f] mb-4">{focusClient.email ?? ""}</p>
-                <a
-                  href={`/trainer/clients/${focusClient.id}`}
-                  className="w-full bg-[#f2f3f8] text-[#191c1f] text-sm font-semibold py-2 rounded-2xl hover:bg-[#eceef2] transition-colors"
+                <Link
+                  to="/trainer/clients/$id"
+                  params={{ id: focusClient.id }}
+                  className="w-full text-center bg-[#f2f3f8] text-[#191c1f] text-sm font-semibold py-2 rounded-2xl hover:bg-[#eceef2] transition-colors"
                 >
                   Profilo Completo
-                </a>
+                </Link>
               </div>
 
               <div className={`bg-white rounded-[24px] p-4 ${SOFT_SHADOW} border border-[#f2f3f8]`}>
@@ -490,9 +571,12 @@ function CalendarPage() {
                     <MessageCircle className="size-4" /> Messaggio WhatsApp
                   </a>
                 ) : (
-                  <div className="text-xs text-[#717880] text-center py-2">
-                    Numero di telefono non disponibile.
-                  </div>
+                  <button
+                    disabled
+                    className="w-full bg-[#f2f3f8] text-[#717880] border border-[#e1e2e7] text-sm font-semibold py-3 rounded-2xl flex items-center justify-center gap-2 cursor-not-allowed opacity-70"
+                  >
+                    <MessageCircle className="size-4" /> Numero non disponibile
+                  </button>
                 )}
               </div>
 
@@ -571,5 +655,28 @@ function CalendarPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function FilterChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
+        active
+          ? "bg-[#003e62] text-white border-[#003e62]"
+          : "bg-white text-[#41474f] border-[#e1e2e7] hover:bg-[#eceef2]"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
