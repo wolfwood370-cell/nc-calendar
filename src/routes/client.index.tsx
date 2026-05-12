@@ -57,6 +57,8 @@ function ClientHome() {
       string,
       { name: string; color: string; booked: number; assigned: number }
     >();
+    
+    // 1. Inizializza i totali (assigned) dai block.allocations
     for (const a of block.allocations) {
       const et = a.event_type_id
         ? (eventTypesQ.data ?? []).find((e) => e.id === a.event_type_id)
@@ -68,12 +70,22 @@ function ClientHome() {
         booked: 0,
         assigned: 0,
       };
-      cur.booked += a.quantity_booked;
       cur.assigned += a.quantity_assigned;
       map.set(key, cur);
     }
+
+    // 2. Calcola i completati in modo dinamico dai bookings
+    const completedBookings = (bookingsQ.data ?? []).filter((b) => b.status === "completed");
+    for (const b of completedBookings) {
+      const key = b.event_type_id ?? b.session_type;
+      const cur = map.get(key);
+      if (cur) {
+        cur.booked += 1;
+      }
+    }
+
     return [...map.entries()].map(([key, v]) => ({ key, ...v }));
-  }, [block, eventTypesQ.data]);
+  }, [block, eventTypesQ.data, bookingsQ.data]);
 
   const nextBooking = useMemo(() => {
     const now = Date.now();
