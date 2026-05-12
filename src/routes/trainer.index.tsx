@@ -120,14 +120,14 @@ function Overview() {
     return m;
   }, [eventTypes]);
 
-  // Centro Revisione: bookings with client_id NULL within last 7 days
+  // Centro Revisione: bookings with client_id NULL within last 7 days (active + ignored)
   const reviewQ = useQuery({
-    queryKey: ["bookings", "unassigned", coachId],
+    queryKey: ["bookings", "unassigned-all", coachId],
     enabled: !!coachId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("bookings")
-        .select("id, scheduled_at, title, session_type, event_type_id, ignored_by_clients")
+        .select("id, scheduled_at, title, session_type, event_type_id, ignored")
         .eq("coach_id", coachId!)
         .is("client_id", null)
         .is("deleted_at", null)
@@ -140,7 +140,10 @@ function Overview() {
       return data ?? [];
     },
   });
-  const reviewItems = reviewQ.data ?? [];
+  const allReviewItems = reviewQ.data ?? [];
+  const reviewItems = allReviewItems.filter((r) => !r.ignored);
+  const ignoredItems = allReviewItems.filter((r) => r.ignored);
+  const [reviewTab, setReviewTab] = useState<"todo" | "ignored">("todo");
 
   // Today's appointments
   const todayItems = useMemo(() => {
