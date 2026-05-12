@@ -178,7 +178,7 @@ function ClientsPage() {
     if (ids.length > 0) {
       let bq = supabase
         .from("training_blocks")
-        .select("id, client_id, sequence_order, start_date")
+        .select("id, client_id, sequence_order, start_date, end_date")
         .in("client_id", ids)
         .is("deleted_at", null)
         .order("sequence_order", { ascending: true });
