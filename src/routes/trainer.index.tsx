@@ -474,7 +474,7 @@ function Overview() {
               <Skeleton className="h-12 w-full" />
             ) : expiring.length === 0 ? (
               <p className="text-sm text-on-surface-variant py-2">
-                Nessun cliente con crediti in esaurimento.
+                Nessun pacchetto in scadenza imminente.
               </p>
             ) : (
               <ul className="flex flex-col gap-2">
