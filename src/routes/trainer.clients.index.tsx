@@ -253,6 +253,11 @@ function ClientsPage() {
         }
       }
 
+      // 3. Last fallback: highest sequence_order (all consumed / past)
+      if (!activeBlock && cb.length > 0) {
+        activeBlock = cb[cb.length - 1];
+      }
+
       const al = activeBlock ? (allocsByBlock.get(activeBlock.id) ?? []) : [];
       const total = al.reduce((s, x) => s + x.quantity_assigned, 0);
       const completed = al.reduce(
