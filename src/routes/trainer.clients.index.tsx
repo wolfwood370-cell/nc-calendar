@@ -150,6 +150,7 @@ function ClientsPage() {
   const [invitations, setInvitations] = useState<InvitationRow[]>([]);
   const [blocks, setBlocks] = useState<BlockLite[]>([]);
   const [allocs, setAllocs] = useState<AllocLite[]>([]);
+  const [bookings, setBookings] = useState<BookingLite[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
