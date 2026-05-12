@@ -351,6 +351,7 @@ Deno.serve(async (req) => {
             session_type: sessionType,
             event_type_id: eventTypeId,
             notes: `Importato da Google Calendar: ${summary}`,
+            title: summary,
           };
           // Solo scrivi client_id se abbiamo un match certo (non sovrascrivere
           // un client_id già impostato manualmente con null).
@@ -401,6 +402,7 @@ Deno.serve(async (req) => {
           status,
           block_id: blockId,
           notes: `Importato da Google Calendar: ${summary}`,
+          title: summary,
           google_event_id: id,
         });
         if (!insErr) imported++;
@@ -501,8 +503,9 @@ Deno.serve(async (req) => {
           if (match.client) patch.client_id = newClient;
           patch.event_type_id = newEt;
           patch.session_type = newType;
-          patch.notes = `Importato da Google Calendar: ${summary}`;
-          if (b.block_id) {
+           patch.notes = `Importato da Google Calendar: ${summary}`;
+           patch.title = summary;
+           if (b.block_id) {
             await refundCreditFor(
               b.block_id,
               b.event_type_id ?? null,
@@ -588,6 +591,7 @@ Deno.serve(async (req) => {
           status,
           block_id: blockId,
           notes: `Importato da Google Calendar: ${summary}`,
+          title: summary,
           google_event_id: id,
         });
         if (!insErr) imported++;
