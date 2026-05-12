@@ -1,15 +1,13 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { Bell, Plus, History, Clock, Calendar, CalendarPlus } from "lucide-react";
+import { Bell, Plus, Clock, Calendar, Check } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { useClientBlocks, useClientBookings, useCoachEventTypes } from "@/lib/queries";
 import { sessionLabel } from "@/lib/mock-data";
-import { CircularProgress } from "@/components/circular-progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
-import { generateGoogleCalendarLink } from "@/lib/calendar-utils";
+import { Progress } from "@/components/ui/progress";
 
 export const Route = createFileRoute("/client/")({
   component: ClientHome,
@@ -41,39 +39,33 @@ function ClientHome() {
   const bookingsQ = useClientBookings(meId);
   const eventTypesQ = useCoachEventTypes(coachId);
 
-  const block = (blocksQ.data ?? []).find((b) => b.status === "active");
-
-  // Aggrega per event_type (o session_type fallback)
-  const rings = useMemo(() => {
-    if (!block)
-      return [] as Array<{
-        key: string;
-        name: string;
-        color: string;
-        booked: number;
-        assigned: number;
-      }>;
+  // Aggregate ALL allocations across all blocks, grouped by event_type (or session_type fallback)
+  const summary = useMemo(() => {
+    const blocks = blocksQ.data ?? [];
+    const ets = eventTypesQ.data ?? [];
     const map = new Map<
       string,
-      { name: string; color: string; booked: number; assigned: number }
+      { name: string; color: string; used: number; total: number }
     >();
-    for (const a of block.allocations) {
-      const et = a.event_type_id
-        ? (eventTypesQ.data ?? []).find((e) => e.id === a.event_type_id)
-        : null;
-      const key = a.event_type_id ?? a.session_type;
-      const cur = map.get(key) ?? {
-        name: et?.name ?? sessionLabel(a.session_type),
-        color: et?.color ?? "#003e62",
-        booked: 0,
-        assigned: 0,
-      };
-      cur.booked += a.quantity_booked;
-      cur.assigned += a.quantity_assigned;
-      map.set(key, cur);
+    for (const b of blocks) {
+      for (const a of b.allocations) {
+        const et = a.event_type_id ? ets.find((e) => e.id === a.event_type_id) : null;
+        const key = a.event_type_id ?? a.session_type;
+        const cur = map.get(key) ?? {
+          name: et?.name ?? sessionLabel(a.session_type),
+          color: et?.color ?? "#003e62",
+          used: 0,
+          total: 0,
+        };
+        cur.used += a.quantity_booked;
+        cur.total += a.quantity_assigned;
+        map.set(key, cur);
+      }
     }
-    return [...map.entries()].map(([key, v]) => ({ key, ...v }));
-  }, [block, eventTypesQ.data]);
+    return [...map.entries()]
+      .map(([key, v]) => ({ key, ...v }))
+      .sort((a, b) => b.total - a.total);
+  }, [blocksQ.data, eventTypesQ.data]);
 
   const nextBooking = useMemo(() => {
     const now = Date.now();
@@ -86,11 +78,17 @@ function ClientHome() {
     ? (eventTypesQ.data ?? []).find((e) => e.id === nextBooking.event_type_id)
     : null;
 
+  const recentCompleted = useMemo(() => {
+    return (bookingsQ.data ?? [])
+      .filter((b) => b.status === "completed")
+      .sort((a, b) => +new Date(b.scheduled_at) - +new Date(a.scheduled_at))
+      .slice(0, 3);
+  }, [bookingsQ.data]);
+
   const isLoading = blocksQ.isLoading || bookingsQ.isLoading || profileQ.isLoading;
 
   return (
     <div className="max-w-md mx-auto bg-surface min-h-screen">
-      {/* Top App Bar */}
       <header className="bg-surface/80 backdrop-blur-xl sticky top-0 shadow-[0_8px_30px_rgba(0,0,0,0.04)] z-40">
         <div className="flex justify-between items-center w-full px-margin-mobile py-stack-md">
           <div className="flex items-center gap-4">
@@ -110,90 +108,174 @@ function ClientHome() {
       </header>
 
       <main className="px-margin-mobile pt-stack-md flex flex-col gap-stack-lg">
-        {/* Hero: Progressi */}
+        {/* Il Tuo Percorso */}
         <section className="bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-stack-lg border border-outline-variant/30 relative overflow-hidden">
-          <div className="absolute -top-10 -right-10 w-32 h-32 bg-[#003e62]/5 rounded-full blur-3xl pointer-events-none" />
-          <h2 className="text-lg font-semibold text-on-surface mb-6">I Tuoi Progressi</h2>
+          <div className="absolute -top-10 -right-10 w-32 h-32 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+          <h2 className="text-xl font-semibold text-on-surface mb-6">Il Tuo Percorso</h2>
 
           {isLoading ? (
-            <div className="flex justify-around">
-              <Skeleton className="h-24 w-24 rounded-full" />
-              <Skeleton className="h-24 w-24 rounded-full" />
+            <div className="flex flex-col gap-4">
+              <Skeleton className="h-12 w-full rounded-md" />
+              <Skeleton className="h-12 w-full rounded-md" />
             </div>
-          ) : rings.length === 0 ? (
-            <p className="text-sm text-on-surface-variant py-6 text-center">
-              Nessun blocco attivo. Il tuo Coach te ne assegnerà uno a breve.
+          ) : summary.length === 0 ? (
+            <p className="text-sm text-on-surface-variant py-4 text-center">
+              Nessun percorso attivo. Contatta il tuo coach.
             </p>
           ) : (
-            <div className="flex justify-around items-center flex-wrap gap-stack-md">
-              {rings.map((r) => (
-                <CircularProgress
-                  key={r.key}
-                  value={r.assigned ? r.booked / r.assigned : 0}
-                  display={`${r.booked}/${r.assigned}`}
-                  label={r.name}
-                  color={r.color}
-                />
-              ))}
+            <div className="flex flex-col gap-6">
+              {summary.map((row) => {
+                const pct = row.total > 0 ? Math.min(100, (row.used / row.total) * 100) : 0;
+                const remaining = Math.max(0, row.total - row.used);
+                return (
+                  <div key={row.key} className="flex flex-col gap-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-base font-semibold text-on-surface">{row.name}</span>
+                      <span className="text-base font-semibold" style={{ color: row.color }}>
+                        {row.used} / {row.total}
+                      </span>
+                    </div>
+                    <div className="h-3 w-full bg-primary-container/20 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{ width: `${pct}%`, backgroundColor: row.color }}
+                      />
+                    </div>
+                    <div className="text-xs text-on-surface-variant/70">
+                      Fatte: {row.used} • Rimanenti: {remaining}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </section>
 
         {/* Prossimo Appuntamento */}
-        {isLoading ? (
-          <Skeleton className="h-40 w-full rounded-[32px]" />
-        ) : nextBooking ? (
-          <NextAppointmentCard
-            bookingId={nextBooking.id}
-            date={new Date(nextBooking.scheduled_at)}
-            durationMin={nextEventType?.duration ?? 60}
-            label={nextEventType?.name ?? sessionLabel(nextBooking.session_type)}
-            color={nextEventType?.color ?? "#039BE5"}
-            calendarUrl={generateGoogleCalendarLink(
-              nextBooking,
-              nextEventType
-                ? {
-                    name: nextEventType.name,
-                    duration: nextEventType.duration,
-                    location_type: nextEventType.location_type,
-                    location_address: nextEventType.location_address,
-                  }
-                : null,
-              fullName,
-            )}
-          />
-        ) : (
-          <EmptyAppointment onBook={() => navigate({ to: "/client/book" })} />
-        )}
+        <section>
+          <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-2 ml-2">
+            Prossimo Appuntamento
+          </h3>
+          {isLoading ? (
+            <Skeleton className="h-32 w-full rounded-[32px]" />
+          ) : nextBooking ? (
+            <NextAppointmentCard
+              bookingId={nextBooking.id}
+              date={new Date(nextBooking.scheduled_at)}
+              durationMin={nextEventType?.duration ?? 60}
+              label={nextEventType?.name ?? sessionLabel(nextBooking.session_type)}
+              color={nextEventType?.color ?? "#039BE5"}
+            />
+          ) : (
+            <div className="bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-6 border border-outline-variant/30 text-center">
+              <p className="text-base font-semibold text-on-surface mb-1">
+                Nessuna sessione in programma
+              </p>
+              <p className="text-sm text-on-surface-variant mb-4">
+                Prenota la tua prossima sessione.
+              </p>
+              <button
+                onClick={() => navigate({ to: "/client/book" })}
+                className="bg-primary-container text-white font-semibold text-sm py-2.5 px-6 rounded-full active:scale-95 transition"
+              >
+                Prenota ora
+              </button>
+            </div>
+          )}
+        </section>
 
-        {/* Quick Actions */}
-        <section className="flex flex-col gap-stack-md mt-4">
+        {/* Ultime Sessioni */}
+        <section className="bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-6 border border-outline-variant/30 flex flex-col gap-4">
+          <h3 className="text-xl font-semibold text-on-surface mb-2">Ultime Sessioni</h3>
+          {isLoading ? (
+            <Skeleton className="h-24 w-full rounded-md" />
+          ) : recentCompleted.length === 0 ? (
+            <p className="text-sm text-on-surface-variant text-center py-4">
+              Non hai ancora completato nessuna sessione.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-4">
+              {recentCompleted.map((b) => {
+                const et = b.event_type_id
+                  ? (eventTypesQ.data ?? []).find((e) => e.id === b.event_type_id)
+                  : null;
+                const typeName = et?.name ?? sessionLabel(b.session_type);
+                const color = et?.color ?? "#003e62";
+                const title = b.title?.trim() || b.trainer_notes?.trim() || typeName;
+                const d = new Date(b.scheduled_at);
+                const dateStr = d.toLocaleDateString("it-IT", {
+                  day: "numeric",
+                  month: "long",
+                });
+                const timeStr = d.toLocaleTimeString("it-IT", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                });
+                return (
+                  <li key={b.id} className="flex items-start gap-4">
+                    <div className="w-8 h-8 shrink-0 rounded-full bg-green-100 grid place-items-center text-green-600 mt-1">
+                      <Check className="size-[18px]" />
+                    </div>
+                    <div className="flex-1 flex flex-col min-w-0">
+                      <h4 className="text-base font-semibold text-on-surface leading-tight mb-1 truncate">
+                        {title}
+                      </h4>
+                      <div className="flex items-center justify-between mt-1 gap-2">
+                        <span className="text-sm text-on-surface-variant">
+                          {dateStr}, {timeStr}
+                        </span>
+                        <span
+                          className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0"
+                          style={{ backgroundColor: `${color}1a`, color }}
+                        >
+                          {typeName}
+                        </span>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          <div className="pt-4 border-t border-surface-container-high text-center">
+            <Link
+              to="/client/bookings/$bookingId"
+              params={{ bookingId: "history" }}
+              onClick={(e) => {
+                e.preventDefault();
+                navigate({ to: "/client" });
+                setTimeout(
+                  () =>
+                    document
+                      .getElementById("storico-full")
+                      ?.scrollIntoView({ behavior: "smooth" }),
+                  50,
+                );
+              }}
+              className="text-sm font-semibold text-primary hover:underline"
+            >
+              Vedi tutto lo storico
+            </Link>
+          </div>
+        </section>
+
+        {/* Quick Action */}
+        <section className="flex flex-col gap-stack-md mt-2">
           <Link
             to="/client/book"
-            className="w-full bg-primary-container text-white font-semibold text-base py-4 rounded-full shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:opacity-90 transition active:scale-95 flex items-center justify-center gap-2"
+            className="w-full bg-primary-container text-white font-semibold text-base py-4 rounded-full shadow-md hover:opacity-90 transition active:scale-95 flex items-center justify-center gap-2"
           >
             <Plus className="size-5" />
             Prenota Nuova Sessione
           </Link>
-          <a
-            href="#storico"
-            onClick={(e) => {
-              e.preventDefault();
-              document.getElementById("storico")?.scrollIntoView({ behavior: "smooth" });
-            }}
-            className="w-full bg-surface-container-high text-on-surface font-semibold text-base py-4 rounded-full hover:bg-surface-container-highest transition-colors active:scale-95 flex items-center justify-center gap-2"
-          >
-            <History className="size-5" />
-            Vedi Storico
-          </a>
         </section>
 
-        {/* Storico */}
-        <section id="storico" className="pb-8">
+        {/* Storico completo */}
+        <section id="storico-full" className="pb-8">
           <h3 className="text-lg font-semibold text-on-surface mb-stack-md ml-1">
-            Storico Sessioni
+            Storico Completo
           </h3>
-          <HistoryList />
+          <FullHistoryList />
         </section>
       </main>
     </div>
@@ -206,14 +288,12 @@ function NextAppointmentCard({
   durationMin,
   label,
   color,
-  calendarUrl,
 }: {
   bookingId: string;
   date: Date;
   durationMin: number;
   label: string;
   color: string;
-  calendarUrl: string;
 }) {
   const end = new Date(date.getTime() + durationMin * 60_000);
   const startStr = date.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
@@ -229,82 +309,46 @@ function NextAppointmentCard({
   let dayLabel: string;
   if (sameDay(date, today)) dayLabel = "Oggi";
   else if (sameDay(date, tomorrow)) dayLabel = "Domani";
-  else
-    dayLabel = date.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" });
-
-  const isFuture = date.getTime() > Date.now();
+  else dayLabel = date.toLocaleDateString("it-IT", { day: "numeric", month: "long" });
 
   return (
     <Link
       to="/client/bookings/$bookingId"
       params={{ bookingId }}
-      className="block bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-stack-lg border border-outline-variant/30 hover:bg-surface-container-low transition-colors"
+      className="block bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-6 border border-outline-variant/30 hover:bg-surface-container-low transition-colors"
     >
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-semibold text-on-surface">Prossimo Appuntamento</h3>
+      <div className="flex justify-between items-start gap-2">
+        <div className="flex gap-4 items-center min-w-0">
+          <div
+            className="w-16 h-16 shrink-0 rounded-full grid place-items-center"
+            style={{ backgroundColor: `${color}1a`, color }}
+          >
+            <Calendar className="size-8" />
+          </div>
+          <div className="flex flex-col gap-1 min-w-0">
+            <h4 className="text-2xl font-semibold text-on-surface capitalize leading-tight truncate">
+              {dayLabel}
+            </h4>
+            <div className="flex items-center gap-2 text-on-surface-variant">
+              <Clock className="size-[18px]" />
+              <span className="text-base">
+                {startStr} - {endStr}
+              </span>
+            </div>
+          </div>
+        </div>
         <span
-          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold shrink-0"
+          className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold shrink-0"
           style={{ backgroundColor: `${color}1a`, color }}
         >
-          <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
           {label}
         </span>
       </div>
-      <div className="flex flex-col gap-2">
-        <h4 className="text-2xl font-semibold text-on-surface capitalize leading-tight">
-          {dayLabel}
-        </h4>
-        <div className="flex items-center gap-2 text-on-surface-variant">
-          <Clock className="size-[18px]" />
-          <span className="text-base">
-            {startStr} - {endStr}
-          </span>
-        </div>
-      </div>
-      {isFuture && (
-        <div className="mt-6 pt-4 border-t border-surface-container-high flex justify-end">
-          <a
-            href={calendarUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="inline-flex items-center gap-2 text-sm font-semibold text-primary border border-primary px-6 py-2 rounded-full hover:bg-primary/5 active:scale-95 transition-all"
-          >
-            <CalendarPlus className="size-4" />
-            Aggiungi al Calendario
-          </a>
-        </div>
-      )}
     </Link>
   );
 }
 
-function EmptyAppointment({ onBook }: { onBook: () => void }) {
-  return (
-    <div className="bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-stack-lg border border-outline-variant/30">
-      <h3 className="text-lg font-semibold text-on-surface mb-6">Prossimo Appuntamento</h3>
-      <div className="text-center flex flex-col items-center gap-3">
-        <div className="w-12 h-12 rounded-full bg-surface-container-high grid place-items-center text-on-surface-variant">
-          <CalendarPlus className="size-6" />
-        </div>
-        <div>
-          <p className="text-base font-semibold text-on-surface">Nessuna sessione in programma</p>
-          <p className="text-sm text-on-surface-variant">
-            Prenota la tua prossima sessione per iniziare.
-          </p>
-        </div>
-        <Button
-          onClick={onBook}
-          className="rounded-full font-semibold text-base py-4 px-8 h-auto shadow-[0_8px_30px_rgba(0,0,0,0.04)]"
-        >
-          Prenota ora
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function HistoryList() {
+function FullHistoryList() {
   const { user } = useAuth();
   const bookingsQ = useClientBookings(user?.id);
   const past = useMemo(
@@ -352,7 +396,7 @@ function HistoryList() {
           >
             <div className="min-w-0 flex flex-col gap-1">
               <p className="text-lg font-semibold text-on-surface truncate">
-                {sessionLabel(b.session_type)}
+                {b.title?.trim() || sessionLabel(b.session_type)}
               </p>
               <p className="text-base text-on-surface-variant">
                 {d.toLocaleDateString("it-IT", {
