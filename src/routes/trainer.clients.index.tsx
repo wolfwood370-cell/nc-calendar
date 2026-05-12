@@ -972,15 +972,37 @@ function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) =
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  const [pathType, setPathType] = useState<"fixed" | "recurring">("fixed");
   const [durationPreset, setDurationPreset] = useState<string>("3");
   const [customMonths, setCustomMonths] = useState<number>(3);
+  const [packLabel, setPackLabel] = useState<string | null>(null);
   const [rules, setRules] = useState<RuleDraft[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
   const totalBlocks =
-    durationPreset === "custom"
-      ? Math.max(1, customMonths)
-      : (DURATION_PRESETS.find((d) => d.value === durationPreset)?.months ?? 1);
+    pathType === "recurring"
+      ? 1
+      : durationPreset === "custom"
+        ? Math.max(1, customMonths)
+        : (DURATION_PRESETS.find((d) => d.value === durationPreset)?.months ?? 1);
+
+  function applyPtPackPreset() {
+    setPathType("fixed");
+    setDurationPreset("custom");
+    setCustomMonths(1);
+    setPackLabel("Pacchetto 3 sessioni");
+    const firstEt = eventTypes.find((e) => e.base_type === "PT Session") ?? eventTypes[0];
+    setRules([
+      {
+        id: crypto.randomUUID(),
+        eventTypeId: firstEt?.id ?? "",
+        quantityPerBlock: 3,
+        startBlock: 1,
+        endBlock: 1,
+      },
+    ]);
+    toast.success("Preset PT Pack applicato (3 sessioni, no rinnovo)");
+  }
 
   function addRule() {
     setRules((prev) => [
