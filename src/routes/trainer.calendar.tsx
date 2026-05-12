@@ -506,12 +506,31 @@ function CalendarPage() {
           </h3>
         </div>
         <div className="p-6 overflow-y-auto flex-1 space-y-4">
-          {!focusClient && (
+          {!focusClientId && (
             <div
               className={`bg-white rounded-[24px] p-6 ${SOFT_SHADOW} border border-[#f2f3f8] text-center text-sm text-[#717880]`}
             >
               <CalendarIcon className="size-10 mx-auto mb-3 text-[#c1c7d0]" />
               Seleziona una sessione confermata per vedere il dettaglio cliente.
+            </div>
+          )}
+
+          {focusClientId && !focusClient && clientsQ.isLoading && (
+            <div
+              className={`bg-white rounded-[24px] p-6 ${SOFT_SHADOW} border border-[#f2f3f8] space-y-3`}
+            >
+              <Skeleton className="size-20 rounded-full mx-auto" />
+              <Skeleton className="h-4 w-2/3 mx-auto" />
+              <Skeleton className="h-3 w-1/2 mx-auto" />
+              <Skeleton className="h-9 w-full rounded-2xl" />
+            </div>
+          )}
+
+          {focusClientId && !focusClient && !clientsQ.isLoading && (
+            <div
+              className={`bg-white rounded-[24px] p-6 ${SOFT_SHADOW} border border-[#f2f3f8] text-center text-sm text-[#717880]`}
+            >
+              Cliente non trovato.
             </div>
           )}
 
