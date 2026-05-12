@@ -68,6 +68,7 @@ import { sendInvitationEmail } from "@/lib/email";
 import { useCoachEventTypes } from "@/lib/queries";
 import type { SessionType } from "@/lib/mock-data";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useQueryClient } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/trainer/clients/")({
@@ -572,14 +573,52 @@ function ClientsPage() {
 
       {/* Cards */}
       {loading ? (
-        <div className="grid place-items-center py-16 text-[#717880]">
-          <Loader2 className="size-6 animate-spin" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              className="bg-white rounded-[32px] p-6 shadow-[0px_4px_20px_rgba(0,86,133,0.05)] flex flex-col"
+            >
+              <div className="flex justify-between items-start mb-6">
+                <div className="flex items-center gap-4 min-w-0 flex-1">
+                  <Skeleton className="w-12 h-12 rounded-full shrink-0" />
+                  <div className="space-y-2 flex-1">
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-3 w-1/2" />
+                  </div>
+                </div>
+                <Skeleton className="h-6 w-16 rounded-full" />
+              </div>
+              <div className="mb-6 flex-1 space-y-2">
+                <Skeleton className="h-3 w-2/3" />
+                <Skeleton className="h-2 w-full rounded-full" />
+              </div>
+              <div className="pt-4 border-t border-[#e1e2e7] flex items-center gap-2">
+                <Skeleton className="h-10 flex-1 rounded-full" />
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <Skeleton className="h-10 w-10 rounded-full" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : visibleCards.length === 0 ? (
-        <div className="bg-white rounded-[32px] p-12 text-center text-[#717880] shadow-[0px_4px_20px_rgba(0,86,133,0.05)]">
-          {clients.length === 0
-            ? "Nessun cliente ancora. Aggiungi il primo per iniziare."
-            : "Nessun cliente in questa categoria."}
+        <div className="bg-white rounded-[32px] p-12 text-center shadow-[0px_4px_20px_rgba(0,86,133,0.05)]">
+          {clients.length === 0 ? (
+            <div className="space-y-4">
+              <UserPlus className="size-10 mx-auto text-[#c1c7d0]" />
+              <p className="text-[#41474f] font-semibold">
+                Nessun cliente ancora. Aggiungi il primo per iniziare.
+              </p>
+              <Button
+                onClick={() => setCreateOpen(true)}
+                className="rounded-full bg-[#003e62] hover:bg-[#005685] text-white"
+              >
+                <UserPlus className="size-4" /> Aggiungi Cliente
+              </Button>
+            </div>
+          ) : (
+            <p className="text-[#717880]">Nessun cliente in questa categoria.</p>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
