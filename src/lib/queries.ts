@@ -16,6 +16,7 @@ export interface BookingRow {
   notes: string | null;
   trainer_notes: string | null;
   google_event_id: string | null;
+  title: string | null;
 }
 
 export interface AvailabilityExceptionRow {
