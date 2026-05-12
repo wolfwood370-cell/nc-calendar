@@ -673,12 +673,19 @@ function ClientsPage() {
                         {c.full_name ?? "Senza nome"}
                       </h3>
                       <p className="text-sm text-[#717880] truncate">
-                        {c.path_type === "recurring"
-                          ? "Abbonamento Mensile"
-                          : d.totalBlocks > 0
-                            ? `Percorso ${d.totalBlocks} ${d.totalBlocks === 1 ? "Blocco" : "Blocchi"}`
-                            : (c.email ?? "—")}
+                        {c.pack_label
+                          ? c.pack_label
+                          : c.path_type === "recurring"
+                            ? "Abbonamento Mensile"
+                            : d.totalBlocks > 0
+                              ? `Percorso ${d.totalBlocks} ${d.totalBlocks === 1 ? "Blocco" : "Blocchi"}`
+                              : (c.email ?? "—")}
                       </p>
+                      {c.pack_label && (
+                        <span className="inline-flex items-center mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#003e62]/10 text-[#003e62]">
+                          {c.pack_label}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <span
