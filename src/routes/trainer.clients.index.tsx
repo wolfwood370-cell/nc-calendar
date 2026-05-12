@@ -942,7 +942,10 @@ interface CreateClientPayload {
   lastName: string;
   email: string;
   password: string;
+  pathType: "fixed" | "recurring";
   totalBlocks: number;
+  packLabel: string | null;
+  autoRenew: boolean;
   rules: Array<{
     eventTypeId: string;
     sessionType: SessionType;
@@ -957,7 +960,7 @@ const DURATION_PRESETS: Array<{ value: string; label: string; months: number | n
   { value: "3", label: "3 Mesi", months: 3 },
   { value: "6", label: "6 Mesi", months: 6 },
   { value: "12", label: "12 Mesi", months: 12 },
-  { value: "custom", label: "Personalizzato", months: null },
+  { value: "custom", label: "Manuale (numero blocchi)", months: null },
 ];
 
 function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) => Promise<void> }) {
