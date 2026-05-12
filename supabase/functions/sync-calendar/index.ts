@@ -351,6 +351,7 @@ Deno.serve(async (req) => {
             session_type: sessionType,
             event_type_id: eventTypeId,
             notes: `Importato da Google Calendar: ${summary}`,
+            title: summary,
           };
           // Solo scrivi client_id se abbiamo un match certo (non sovrascrivere
           // un client_id già impostato manualmente con null).
