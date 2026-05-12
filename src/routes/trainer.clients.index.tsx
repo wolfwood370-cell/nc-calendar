@@ -115,6 +115,7 @@ interface BookingLite {
   block_id: string | null;
   status: string;
   scheduled_at: string;
+  ignored_by_clients?: string[] | null;
 }
 
 type ClientStatus = "active" | "expiring" | "archived";
@@ -189,33 +190,45 @@ function ClientsPage() {
     if (ids.length > 0) {
       let bq = supabase
         .from("training_blocks")
-        .select("id, client_id, sequence_order, start_date, end_date")
+        .select(`
+          id, client_id, sequence_order, start_date, end_date,
+          block_allocations (
+            block_id, event_type_id, session_type, quantity_assigned, quantity_booked
+          )
+        `)
         .in("client_id", ids)
         .is("deleted_at", null)
         .order("sequence_order", { ascending: true });
       if (!isAdmin && user) bq = bq.eq("coach_id", user.id);
+      
       const { data: bs } = await bq;
-      const blockList = (bs as BlockLite[]) ?? [];
-      setBlocks(blockList);
-
-      const blockIds = blockList.map((b) => b.id);
-      if (blockIds.length > 0) {
-        const { data: as } = await supabase
-          .from("block_allocations")
-          .select("block_id, event_type_id, session_type, quantity_assigned, quantity_booked")
-          .in("block_id", blockIds);
-        setAllocs((as as AllocLite[]) ?? []);
-      } else {
-        setAllocs([]);
+      const blockList = (bs as any[]) ?? [];
+      
+      const parsedBlocks: BlockLite[] = [];
+      const parsedAllocs: AllocLite[] = [];
+      for (const b of blockList) {
+        parsedBlocks.push({
+          id: b.id,
+          client_id: b.client_id,
+          sequence_order: b.sequence_order,
+          start_date: b.start_date,
+          end_date: b.end_date,
+        });
+        if (b.block_allocations) {
+          for (const a of b.block_allocations) {
+             parsedAllocs.push(a);
+          }
+        }
       }
+      setBlocks(parsedBlocks);
+      setAllocs(parsedAllocs);
 
       // Live bookings: source of truth for "completed" counters
       let bookQ = supabase
         .from("bookings")
-        .select("id, client_id, block_id, status, scheduled_at")
+        .select("id, client_id, block_id, status, scheduled_at, ignored_by_clients")
         .in("client_id", ids)
         .is("deleted_at", null)
-        .eq("ignored", false)
         .in("status", ["scheduled", "completed", "late_cancelled"]);
       if (!isAdmin && user) bookQ = bookQ.eq("coach_id", user.id);
       const { data: bks } = await bookQ;
@@ -260,7 +273,7 @@ function ClientsPage() {
       const cb = (blocksByClient.get(c.id) ?? [])
         .slice()
         .sort((a, b) => a.sequence_order - b.sequence_order);
-      const cBookings = bookingsByClient.get(c.id) ?? [];
+      const cBookings = (bookingsByClient.get(c.id) ?? []).filter(bk => !bk.ignored_by_clients?.includes(c.id));
 
       // Resolve a block id for each booking (fallback by date range when missing)
       const bookingBlockId = (bk: BookingLite): string | null => {
@@ -318,6 +331,7 @@ function ClientsPage() {
 
       const al = activeBlock ? (allocsByBlock.get(activeBlock.id) ?? []) : [];
       const total = al.reduce((s, x) => s + x.quantity_assigned, 0);
+      const quantity_booked = al.reduce((s, x) => s + x.quantity_booked, 0);
       const completed = activeBlock ? (completedByBlock.get(activeBlock.id) ?? 0) : 0;
       const scheduled = activeBlock ? (scheduledByBlock.get(activeBlock.id) ?? 0) : 0;
       const remaining = Math.max(0, total - completed - scheduled);
@@ -344,7 +358,7 @@ function ClientsPage() {
             ? "expiring"
             : "active";
       } else if (cb.length === 0) status = "active";
-      else if (remaining <= 1 && total > 0) status = "expiring";
+      else if ((total - quantity_booked) <= 1 && total > 0) status = "expiring";
       else status = "active";
 
       return {
