@@ -115,10 +115,11 @@ function toIso(d: Date) {
   return format(d, "yyyy-MM-dd");
 }
 
-function nextMonday(d: Date): Date {
+function currentMonday(d: Date): Date {
   const day = d.getDay();
-  const diff = day === 1 ? 0 : (8 - day) % 7 || 7;
-  return addDays(startOfDay(d), diff);
+  // Snap to the Monday of the same week (never jumps forward).
+  const diff = day === 0 ? 6 : day - 1;
+  return addDays(startOfDay(d), -diff);
 }
 
 function isMonday(d: Date) {
@@ -535,21 +536,14 @@ function ClientPathPage() {
 
   function handleStartChange(d: Date | undefined) {
     if (!d) return;
-    if (!isMonday(d)) {
-      const m = nextMonday(d);
-      toast.info("Data spostata al lunedì successivo", {
-        description: format(m, "dd MMM yyyy", { locale: it }),
-      });
-      setPathStart(m);
-      regenerateFromStart(m);
-      return;
-    }
-    setPathStart(d);
-    regenerateFromStart(d);
+    // Allow any date (including past): snap to Monday of the same week.
+    const m = isMonday(d) ? d : currentMonday(d);
+    setPathStart(m);
+    regenerateFromStart(m);
   }
 
   function handleWeekDateChange(weekIndex: number, newDate: Date) {
-    const monday = isMonday(newDate) ? newDate : nextMonday(newDate);
+    const monday = isMonday(newDate) ? newDate : currentMonday(newDate);
     const updated = [...rows];
     updated[weekIndex] = {
       ...updated[weekIndex],
