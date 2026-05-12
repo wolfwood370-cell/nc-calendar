@@ -3,26 +3,60 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Calendar, CreditCard, Video, Loader2, Check } from "lucide-react";
+import {
+  Calendar,
+  CreditCard,
+  Video,
+  Loader2,
+  Check,
+  RefreshCw,
+  ShieldCheck,
+  Mail,
+  Clock,
+  LogOut,
+} from "lucide-react";
 
 export const Route = createFileRoute("/trainer/integrations")({
   component: IntegrationsPage,
 });
 
 function IntegrationsPage() {
+  const [isCalendarConnected, setIsCalendarConnected] = useState(true);
   const [isCalendarSyncEnabled, setIsCalendarSyncEnabled] = useState(true);
   const [isStripeLoading, setIsStripeLoading] = useState(false);
+  const [calendarSheetOpen, setCalendarSheetOpen] = useState(false);
 
   const handleToggleCalendarSync = (v: boolean) => {
     setIsCalendarSyncEnabled(v);
     toast.success("Sincronizzazione automatica aggiornata.");
   };
 
+  const handleConnectCalendar = () => {
+    toast.info("Reindirizzamento a Google in corso...");
+  };
+
   const handleConnectStripe = async () => {
     setIsStripeLoading(true);
     toast.info("Reindirizzamento a Stripe Connect in corso...");
-    // TODO: invoke edge function
     setTimeout(() => setIsStripeLoading(false), 1500);
   };
 
@@ -45,28 +79,43 @@ function IntegrationsPage() {
         {/* Google Calendar */}
         <IntegrationCard
           accentColor="#4285F4"
-          connected
+          connected={isCalendarConnected}
           icon={<Calendar className="size-7" style={{ color: "#4285F4" }} />}
           iconBg="#4285F415"
           title="Google Calendar"
           description="Sincronizza automaticamente le sessioni con il tuo calendario Google."
         >
-          <div className="flex items-center justify-between rounded-2xl bg-[#f8f9fe] px-4 py-3">
-            <Label htmlFor="cal-sync" className="text-sm font-medium text-[#003a5c] cursor-pointer">
-              Sincronizzazione automatica
-            </Label>
-            <Switch
-              id="cal-sync"
-              checked={isCalendarSyncEnabled}
-              onCheckedChange={handleToggleCalendarSync}
-            />
-          </div>
-          <Button
-            variant="outline"
-            className="w-full rounded-full border-[#e5edf3] text-[#003a5c] hover:bg-[#f8f9fe]"
-          >
-            Gestisci connessione
-          </Button>
+          {isCalendarConnected ? (
+            <>
+              <div className="flex items-center justify-between rounded-2xl bg-[#f8f9fe] px-4 py-3">
+                <Label
+                  htmlFor="cal-sync"
+                  className="text-sm font-medium text-[#003a5c] cursor-pointer"
+                >
+                  Sincronizzazione automatica
+                </Label>
+                <Switch
+                  id="cal-sync"
+                  checked={isCalendarSyncEnabled}
+                  onCheckedChange={handleToggleCalendarSync}
+                />
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => setCalendarSheetOpen(true)}
+                className="w-full rounded-full border-[#e5edf3] text-[#003a5c] hover:bg-[#f8f9fe]"
+              >
+                Gestisci connessione
+              </Button>
+            </>
+          ) : (
+            <Button
+              onClick={handleConnectCalendar}
+              className="w-full rounded-full bg-[#4285F4] hover:bg-[#3a76db] text-white"
+            >
+              Connetti Google Calendar
+            </Button>
+          )}
         </IntegrationCard>
 
         {/* Stripe */}
@@ -122,7 +171,170 @@ function IntegrationsPage() {
           </Button>
         </IntegrationCard>
       </div>
+
+      <CalendarManageSheet
+        open={calendarSheetOpen}
+        onOpenChange={setCalendarSheetOpen}
+        onDisconnect={() => {
+          setIsCalendarConnected(false);
+          setCalendarSheetOpen(false);
+          toast.success("Account Google Calendar disconnesso.");
+        }}
+      />
     </div>
+  );
+}
+
+interface CalendarManageSheetProps {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onDisconnect: () => void;
+}
+
+function CalendarManageSheet({ open, onOpenChange, onDisconnect }: CalendarManageSheetProps) {
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleSyncNow = () => {
+    setIsSyncing(true);
+    setTimeout(() => {
+      setIsSyncing(false);
+      toast.success("Sincronizzazione completata. 2 nuovi eventi importati.");
+    }, 2000);
+  };
+
+  const logs = [
+    { when: "Oggi, 09:15", text: "Nessun nuovo evento" },
+    { when: "Ieri, 18:30", text: "Importati 3 eventi PT" },
+    { when: "Ieri, 08:00", text: "Sincronizzazione automatica completata" },
+  ];
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="right"
+        className="w-full sm:max-w-md bg-[#f8f9fe] border-l border-[#e5edf3] p-0 overflow-y-auto"
+      >
+        <div className="p-6 space-y-6">
+          <SheetHeader className="space-y-1">
+            <SheetTitle className="font-display text-2xl text-[#003a5c]">
+              Gestisci Google Calendar
+            </SheetTitle>
+            <SheetDescription className="text-[#647d8e]">
+              Controlla la connessione e la sincronizzazione del tuo calendario.
+            </SheetDescription>
+          </SheetHeader>
+
+          {/* Status & Account */}
+          <div className="rounded-[24px] bg-white p-5 shadow-[0px_4px_20px_rgba(0,86,133,0.05)] space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="size-10 rounded-2xl bg-[#4285F415] grid place-items-center">
+                <Calendar className="size-5" style={{ color: "#4285F4" }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <Mail className="size-3.5 text-[#647d8e]" />
+                  <p className="text-sm font-medium text-[#003a5c] truncate">
+                    coach@nccalendar.it
+                  </p>
+                </div>
+                <p className="text-xs text-[#647d8e] mt-0.5 flex items-center gap-1">
+                  <Clock className="size-3" /> Ultima sincronizzazione automatica: 5 min fa
+                </p>
+              </div>
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 px-2.5 py-1 text-xs font-medium">
+                <ShieldCheck className="size-3" /> Verificato
+              </span>
+            </div>
+          </div>
+
+          {/* Manual Sync */}
+          <div className="rounded-[24px] bg-white p-5 shadow-[0px_4px_20px_rgba(0,86,133,0.05)] space-y-4">
+            <div>
+              <h3 className="font-display text-base font-semibold text-[#003a5c]">
+                Sincronizzazione manuale
+              </h3>
+              <p className="text-xs text-[#647d8e] mt-1">
+                Avvia subito un controllo per importare nuovi eventi.
+              </p>
+            </div>
+            <Button
+              onClick={handleSyncNow}
+              disabled={isSyncing}
+              className="w-full rounded-full bg-[#003a5c] hover:bg-[#002a44] text-white h-11"
+            >
+              {isSyncing ? (
+                <>
+                  <Loader2 className="size-4 animate-spin mr-2" /> Sincronizzazione in corso...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="size-4 mr-2" /> Sincronizza ora
+                </>
+              )}
+            </Button>
+          </div>
+
+          {/* Sync Logs */}
+          <div className="rounded-[24px] bg-white p-5 shadow-[0px_4px_20px_rgba(0,86,133,0.05)] space-y-3">
+            <h3 className="font-display text-base font-semibold text-[#003a5c]">
+              Attività recente
+            </h3>
+            <ul className="space-y-2">
+              {logs.map((l, i) => (
+                <li
+                  key={i}
+                  className="flex items-start gap-3 rounded-2xl bg-[#f8f9fe] px-4 py-3"
+                >
+                  <div className="size-2 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-[#003a5c]">{l.text}</p>
+                    <p className="text-xs text-[#647d8e] mt-0.5">{l.when}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Danger Zone */}
+          <div className="rounded-[24px] border border-red-200 bg-red-50/40 p-5 space-y-3">
+            <div>
+              <h3 className="font-display text-base font-semibold text-red-700">Zona pericolosa</h3>
+              <p className="text-xs text-red-600/80 mt-1">
+                La disconnessione interromperà tutte le sincronizzazioni automatiche.
+              </p>
+            </div>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full rounded-full border-red-300 text-red-700 hover:bg-red-100 hover:text-red-800"
+                >
+                  <LogOut className="size-4 mr-2" /> Disconnetti account
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent className="rounded-[24px]">
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Disconnettere Google Calendar?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Sei sicuro di voler disconnettere Google Calendar? La sincronizzazione degli
+                    appuntamenti verrà interrotta.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel className="rounded-full">Annulla</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={onDisconnect}
+                    className="rounded-full bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    Disconnetti
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
 
