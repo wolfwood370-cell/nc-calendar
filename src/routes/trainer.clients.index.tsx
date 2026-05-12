@@ -246,6 +246,12 @@ function ClientsPage() {
       arr.push(b);
       blocksByClient.set(b.client_id, arr);
     }
+    const bookingsByClient = new Map<string, BookingLite[]>();
+    for (const bk of bookings) {
+      const arr = bookingsByClient.get(bk.client_id) ?? [];
+      arr.push(bk);
+      bookingsByClient.set(bk.client_id, arr);
+    }
 
     const today = new Date();
     const todayIso = today.toISOString().slice(0, 10);
@@ -254,38 +260,67 @@ function ClientsPage() {
       const cb = (blocksByClient.get(c.id) ?? [])
         .slice()
         .sort((a, b) => a.sequence_order - b.sequence_order);
+      const cBookings = bookingsByClient.get(c.id) ?? [];
 
-      // 1. Active block by date range (today between start_date and end_date)
+      // Resolve a block id for each booking (fallback by date range when missing)
+      const bookingBlockId = (bk: BookingLite): string | null => {
+        if (bk.block_id) return bk.block_id;
+        const dIso = bk.scheduled_at.slice(0, 10);
+        const match = cb.find((b) => b.start_date <= dIso && dIso <= b.end_date);
+        return match?.id ?? null;
+      };
+
+      // Per-block live counts
+      const completedByBlock = new Map<string, number>();
+      const scheduledByBlock = new Map<string, number>();
+      for (const bk of cBookings) {
+        const bid = bookingBlockId(bk);
+        if (!bid) continue;
+        if (bk.status === "completed" || bk.status === "late_cancelled") {
+          completedByBlock.set(bid, (completedByBlock.get(bid) ?? 0) + 1);
+        } else if (bk.status === "scheduled") {
+          scheduledByBlock.set(bid, (scheduledByBlock.get(bid) ?? 0) + 1);
+        }
+      }
+
+      const blockTotal = (b: BlockLite) =>
+        (allocsByBlock.get(b.id) ?? []).reduce((s, x) => s + x.quantity_assigned, 0);
+      const blockConsumed = (b: BlockLite) =>
+        (completedByBlock.get(b.id) ?? 0) + (scheduledByBlock.get(b.id) ?? 0);
+
+      // 1. Active block: in-date-range AND has activity, otherwise just in-date-range
       let activeBlock: BlockLite | null =
-        cb.find((b) => b.start_date <= todayIso && todayIso <= b.end_date) ?? null;
+        cb.find(
+          (b) =>
+            b.start_date <= todayIso &&
+            todayIso <= b.end_date &&
+            (completedByBlock.has(b.id) || scheduledByBlock.has(b.id)),
+        ) ??
+        cb.find((b) => b.start_date <= todayIso && todayIso <= b.end_date) ??
+        null;
 
-      // 2. Fallback: first block with remaining capacity
+      // 2. Fallback: first block with remaining capacity (live)
       if (!activeBlock) {
         for (const b of cb) {
-          const al = allocsByBlock.get(b.id) ?? [];
-          const remaining = al.reduce(
-            (s, x) => s + Math.max(0, x.quantity_assigned - x.quantity_booked),
-            0,
-          );
-          if (remaining > 0) {
+          const total = blockTotal(b);
+          if (total === 0) continue;
+          if (blockConsumed(b) < total) {
             activeBlock = b;
             break;
           }
         }
       }
 
-      // 3. Last fallback: highest sequence_order (all consumed / past)
+      // 3. Last fallback
       if (!activeBlock && cb.length > 0) {
         activeBlock = cb[cb.length - 1];
       }
 
       const al = activeBlock ? (allocsByBlock.get(activeBlock.id) ?? []) : [];
       const total = al.reduce((s, x) => s + x.quantity_assigned, 0);
-      const completed = al.reduce(
-        (s, x) => s + Math.min(x.quantity_booked, x.quantity_assigned),
-        0,
-      );
-      const remaining = total - completed;
+      const completed = activeBlock ? (completedByBlock.get(activeBlock.id) ?? 0) : 0;
+      const scheduled = activeBlock ? (scheduledByBlock.get(activeBlock.id) ?? 0) : 0;
+      const remaining = Math.max(0, total - completed - scheduled);
 
       const dominant = al.slice().sort((a, b) => b.quantity_assigned - a.quantity_assigned)[0];
       const eventTypeLabel = dominant
@@ -324,7 +359,7 @@ function ClientsPage() {
         daysToBilling,
       };
     });
-  }, [clients, blocks, allocs, eventTypeById]);
+  }, [clients, blocks, allocs, bookings, eventTypeById]);
 
   const counts = useMemo(() => {
     const c = { all: cardData.length, active: 0, expiring: 0, archived: 0 };
