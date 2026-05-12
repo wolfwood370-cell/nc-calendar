@@ -376,7 +376,51 @@ function CalendarPage() {
                 </button>
               </div>
             </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <FilterChip active={showAvailability} onClick={() => setShowAvailability((v) => !v)}>
+                Mostra Disponibilità
+              </FilterChip>
+              <FilterChip active={onlyPT} onClick={() => setOnlyPT((v) => !v)}>
+                Solo Sessioni PT
+              </FilterChip>
+              <FilterChip active={onlyToAssign} onClick={() => setOnlyToAssign((v) => !v)}>
+                Eventi da Assegnare
+              </FilterChip>
+              <button
+                onClick={() => {
+                  qc.invalidateQueries({ queryKey: ["bookings"] });
+                  qc.invalidateQueries({ queryKey: ["clients"] });
+                  toast.success("Calendario aggiornato");
+                }}
+                className="size-8 rounded-full hover:bg-[#eceef2] flex items-center justify-center text-[#41474f]"
+                aria-label="Aggiorna"
+                title="Aggiorna calendario"
+              >
+                <RefreshCw className="size-4" />
+              </button>
+            </div>
           </div>
+          {bookingsQ.isError && (
+            <div className="flex items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="size-4" />
+                Errore nel caricamento del calendario.
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => bookingsQ.refetch()}
+                className="rounded-full bg-white"
+              >
+                Riprova
+              </Button>
+            </div>
+          )}
+          {!bookingsQ.isError && filtersActive && totalVisible === 0 && (
+            <div className="rounded-2xl border border-[#e1e2e7] bg-white px-4 py-3 text-sm text-[#717880]">
+              Nessun evento corrisponde ai filtri attivi.
+            </div>
+          )}
         </header>
 
         {/* Grid */}
