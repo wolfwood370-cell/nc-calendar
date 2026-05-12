@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -129,6 +130,7 @@ function isMonday(d: Date) {
 function ClientPathPage() {
   const { id: clientId } = useParams({ from: "/trainer/clients/$id" });
   const { user } = useAuth();
+  const qc = useQueryClient();
   const eventTypesQ = useCoachEventTypes(user?.id);
   const eventTypes = eventTypesQ.data ?? [];
 
@@ -207,8 +209,8 @@ function ClientPathPage() {
       (bks ?? []).forEach((b) => {
         const bid = b.block_id as string | null;
         if (!bid) return;
-        // Count completed + cancellate in ritardo (addebitate)
-        if (b.status === "completed" || b.status === "late_cancelled") {
+        // Count completed
+        if (b.status === "completed") {
           const key = (b.event_type_id as string | null) ?? (b.session_type as string);
           counts[bid] ||= {};
           counts[bid][key] = (counts[bid][key] ?? 0) + 1;
@@ -520,7 +522,12 @@ function ClientPathPage() {
       }
     }
 
-    toast.success("Sessione aggiornata");
+    toast.success("Sessione aggiornata e contatori sincronizzati");
+    qc.invalidateQueries({ queryKey: ["bookings"] });
+    qc.invalidateQueries({ queryKey: ["blocks"] });
+    qc.invalidateQueries({ queryKey: ["clients"] });
+    qc.invalidateQueries({ queryKey: ["trainer-stats"] });
+    qc.invalidateQueries({ queryKey: ["client-details"] });
     setEditingBooking(null);
     void load();
   }
@@ -655,7 +662,7 @@ function ClientPathPage() {
         const key = a.event_type_id ?? a.session_type;
         const name = et?.name ?? a.session_type;
         const completed = clientBookings.filter((bk) => {
-          if (!(bk.status === "completed" || bk.status === "late_cancelled")) return false;
+          if (bk.status !== "completed") return false;
           if (a.event_type_id) {
             if (bk.event_type_id !== a.event_type_id) return false;
           } else {

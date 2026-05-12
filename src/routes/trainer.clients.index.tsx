@@ -289,9 +289,9 @@ function ClientsPage() {
       for (const bk of cBookings) {
         const bid = bookingBlockId(bk);
         if (!bid) continue;
-        if (bk.status === "completed" || bk.status === "late_cancelled") {
+        if (bk.status === "completed") {
           completedByBlock.set(bid, (completedByBlock.get(bid) ?? 0) + 1);
-        } else if (bk.status === "scheduled") {
+        } else if (bk.status === "scheduled" || bk.status === "late_cancelled") {
           scheduledByBlock.set(bid, (scheduledByBlock.get(bid) ?? 0) + 1);
         }
       }
@@ -331,7 +331,6 @@ function ClientsPage() {
 
       const al = activeBlock ? (allocsByBlock.get(activeBlock.id) ?? []) : [];
       const total = al.reduce((s, x) => s + x.quantity_assigned, 0);
-      const quantity_booked = al.reduce((s, x) => s + x.quantity_booked, 0);
       const completed = activeBlock ? (completedByBlock.get(activeBlock.id) ?? 0) : 0;
       const scheduled = activeBlock ? (scheduledByBlock.get(activeBlock.id) ?? 0) : 0;
       const remaining = Math.max(0, total - completed - scheduled);
@@ -358,7 +357,7 @@ function ClientsPage() {
             ? "expiring"
             : "active";
       } else if (cb.length === 0) status = "active";
-      else if ((total - quantity_booked) <= 1 && total > 0) status = "expiring";
+      else if ((total - completed) <= 1 && total > 0) status = "expiring";
       else status = "active";
 
       return {

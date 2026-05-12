@@ -165,10 +165,11 @@ function Overview() {
     for (const b of blocks) {
       if (b.status !== "active") continue;
       if (new Date(b.end_date).getTime() < now) continue;
-      const rem = b.allocations.reduce(
-        (s, a) => s + Math.max(0, a.quantity_assigned - a.quantity_booked),
-        0,
-      );
+      const blockBookings = bookings.filter(bk => bk.block_id === b.id && bk.status === "completed");
+      const dynamicCompleted = blockBookings.length;
+      const totalAssigned = b.allocations.reduce((s, a) => s + a.quantity_assigned, 0);
+      const rem = Math.max(0, totalAssigned - dynamicCompleted);
+      
       if (rem <= 2) map.set(b.client_id, (map.get(b.client_id) ?? 0) + rem);
     }
     return Array.from(map.entries())
@@ -259,9 +260,12 @@ function Overview() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Check-in registrato");
       qc.invalidateQueries({ queryKey: ["bookings"] });
       qc.invalidateQueries({ queryKey: ["blocks"] });
+      qc.invalidateQueries({ queryKey: ["clients"] });
+      qc.invalidateQueries({ queryKey: ["trainer-stats"] });
+      qc.invalidateQueries({ queryKey: ["client-details"] });
+      toast.success("Sessione completata e contatori aggiornati");
     },
     onError: (e: Error) => toast.error("Errore", { description: e.message }),
   });
