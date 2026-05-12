@@ -323,7 +323,7 @@ function CalendarPage() {
       >
         <div>
           <h4 className="text-[12px] leading-tight font-semibold text-[#001d32] truncate">
-            {client?.full_name ?? "Cliente"} — {typeLabel}
+            {client?.full_name || "Cliente"} — {typeLabel || "Evento senza titolo"}
           </h4>
           <p className="text-[10px] text-[#004b74] mt-0.5">{timeLabel}</p>
         </div>
