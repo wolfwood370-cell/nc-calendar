@@ -390,7 +390,10 @@ function ClientsPage() {
     lastName: string;
     email: string;
     password: string;
+    pathType: "fixed" | "recurring";
     totalBlocks: number;
+    packLabel: string | null;
+    autoRenew: boolean;
     rules: Array<{
       eventTypeId: string;
       sessionType: SessionType;
@@ -472,6 +475,21 @@ function ClientsPage() {
         const { error: aErr } = await supabase.from("block_allocations").insert(allocsToInsert);
         if (aErr) throw aErr;
       }
+
+      // Persist path metadata on profile
+      const nextBilling = new Date(today);
+      nextBilling.setDate(today.getDate() + 30);
+      const { error: pErr } = await supabase
+        .from("profiles")
+        .update({
+          path_type: data.pathType,
+          auto_renew: data.autoRenew,
+          pack_label: data.packLabel,
+          next_billing_date:
+            data.pathType === "recurring" ? nextBilling.toISOString().slice(0, 10) : null,
+        })
+        .eq("id", newUserId);
+      if (pErr) throw pErr;
     } catch (e) {
       toast.warning("Cliente creato, ma assegnazione blocchi non riuscita", {
         description: (e as Error).message,
