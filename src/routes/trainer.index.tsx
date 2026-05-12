@@ -133,7 +133,10 @@ function Overview() {
         .is("deleted_at", null)
         .gte("scheduled_at", sevenDaysAgo().toISOString())
         .order("scheduled_at", { ascending: false });
-      if (error) throw error;
+      if (error) {
+        console.error("[Dashboard] review fetch failed", error);
+        return [];
+      }
       return data ?? [];
     },
   });
@@ -216,7 +219,10 @@ function Overview() {
         .eq("coach_id", coachId!)
         .is("deleted_at", null)
         .gte("created_at", thirtyDaysAgo().toISOString());
-      if (error) throw error;
+      if (error) {
+        console.error("[Dashboard] new clients count failed", error);
+        return 0;
+      }
       return count ?? 0;
     },
   });
@@ -227,14 +233,14 @@ function Overview() {
       e = endOfMonth().getTime();
     const sessionsMonth = bookings.filter((b) => {
       const t = new Date(b.scheduled_at).getTime();
-      return t >= s && t <= e && b.status !== "cancelled";
+      return t >= s && t <= e && b.status === "completed";
     }).length;
     const creditsIssued = blocks
-      .filter((b) => b.status === "active")
       .flatMap((b) => b.allocations)
       .reduce((s, a) => s + a.quantity_assigned, 0);
+    const activeClients = clients.filter((c) => c.status === "active").length;
     return {
-      activeClients: clients.length,
+      activeClients,
       sessionsMonth,
       creditsIssued,
       newClients: newClientsQ.data ?? 0,
@@ -253,6 +259,7 @@ function Overview() {
     onSuccess: () => {
       toast.success("Check-in registrato");
       qc.invalidateQueries({ queryKey: ["bookings"] });
+      qc.invalidateQueries({ queryKey: ["blocks"] });
     },
     onError: (e: Error) => toast.error("Errore", { description: e.message }),
   });
@@ -393,7 +400,7 @@ function Overview() {
               </div>
             ) : todayItems.length === 0 ? (
               <p className="text-sm text-on-surface-variant py-6 text-center">
-                Nessuna sessione programmata per oggi.
+                Nessun appuntamento previsto per oggi. Goditi la giornata!
               </p>
             ) : (
               <div className="flex flex-col">
@@ -467,7 +474,7 @@ function Overview() {
               <Skeleton className="h-12 w-full" />
             ) : expiring.length === 0 ? (
               <p className="text-sm text-on-surface-variant py-2">
-                Nessun cliente con crediti in esaurimento.
+                Nessun pacchetto in scadenza imminente.
               </p>
             ) : (
               <ul className="flex flex-col gap-2">
