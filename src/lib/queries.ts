@@ -55,6 +55,7 @@ export interface ProfileRow {
   email: string | null;
   phone: string | null;
   coach_id: string | null;
+  status: string;
 }
 
 /* ---------- queries ---------- */
