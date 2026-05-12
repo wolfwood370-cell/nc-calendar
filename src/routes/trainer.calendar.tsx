@@ -570,9 +570,12 @@ function CalendarPage() {
                     <MessageCircle className="size-4" /> Messaggio WhatsApp
                   </a>
                 ) : (
-                  <div className="text-xs text-[#717880] text-center py-2">
-                    Numero di telefono non disponibile.
-                  </div>
+                  <button
+                    disabled
+                    className="w-full bg-[#f2f3f8] text-[#717880] border border-[#e1e2e7] text-sm font-semibold py-3 rounded-2xl flex items-center justify-center gap-2 cursor-not-allowed opacity-70"
+                  >
+                    <MessageCircle className="size-4" /> Numero non disponibile
+                  </button>
                 )}
               </div>
 
