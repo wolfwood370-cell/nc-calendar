@@ -259,6 +259,7 @@ function Overview() {
     onSuccess: () => {
       toast.success("Check-in registrato");
       qc.invalidateQueries({ queryKey: ["bookings"] });
+      qc.invalidateQueries({ queryKey: ["blocks"] });
     },
     onError: (e: Error) => toast.error("Errore", { description: e.message }),
   });
