@@ -1,43 +1,50 @@
-## Obiettivo
+# Problema
 
-Permettere ai clienti registrati con email/password di collegare il proprio account Google, nonostante "Allow manual linking" non sia esposto nel pannello Lovable Cloud.
+Nelle card di **Clienti** i contatori restano fermi a "Blocco 1 – 0/X" e molte sessioni non vengono conteggiate, mentre dentro al **profilo del cliente** i numeri sono corretti.
 
-## Come funziona (la soluzione)
+## Causa
 
-Supabase collega **automaticamente** due identità (email + Google) quando:
+Le due viste calcolano in modo diverso:
 
-1. L'email dell'account Google è **identica** a quella dell'account email/password esistente
-2. L'email è **verificata** (Google le fornisce sempre verificate)
+- **Profilo cliente** (`src/routes/trainer.clients.$id.tsx`, riga ~657): conta le sessioni completate **leggendo direttamente la tabella `bookings`** e filtrando per `status in ('completed','late_cancelled')`. È sempre allineato.
+- **Lista clienti** (`src/routes/trainer.clients.index.tsx`, riga ~262): legge il campo **`quantity_booked` della tabella `block_allocations`**. Questo contatore viene incrementato **solo** quando una sessione viene creata/aggiornata tramite il flusso interno del trainer (righe 342, 405, 461, 518). Tutto ciò che entra da altre fonti (Google Calendar sync, prenotazioni cliente, eventi inseriti retroattivamente, eventi non ancora "review-confermati") **non aggiorna** quel contatore → la card sembra ferma.
 
-Quindi non serve `linkIdentity()`: basta che l'utente faccia logout e poi login con Google usando la stessa email. Supabase riconosce l'utente esistente e aggiunge l'identità Google al suo account (stesso `user.id`, stesso profilo, stessi dati).
+In più la selezione del blocco attivo nella lista non guarda dove sono effettivamente cadute le prenotazioni reali, quindi rimane sul Blocco 1 (l'unico con `start_date <= oggi <= end_date` per i clienti appena creati).
 
-## Modifiche al codice
+# Intervento (solo frontend, lista clienti)
 
-### `src/routes/client.settings.tsx` — sezione "Integrazioni"
+File unico: `src/routes/trainer.clients.index.tsx`
 
-**Caso A — Google già collegato** (rilevato da `app_metadata.providers`):
+1. **Caricare anche le bookings** dei clienti visibili (stesso filtro coach/admin):
+   - select: `id, client_id, block_id, event_type_id, session_type, status, scheduled_at`
+   - filtro: `client_id in (...)`, `deleted_at is null`, `ignored = false`, `status in ('scheduled','completed','late_cancelled')` (le stesse incluse in `quantity_booked` storico, così non perdiamo le future già pianificate).
 
-- Mostra card con check verde: "Account Google collegato" (come ora)
+2. **Sostituire il calcolo `completed` / `total`** per ciascun blocco attivo:
+   - `total` resta = somma di `quantity_assigned` delle allocazioni del blocco.
+   - `completed` (Sessione PT completate) = numero di bookings di quel cliente con `block_id = activeBlock.id` e `status in ('completed','late_cancelled')`. Stessa logica del profilo.
+   - In aggiunta: contare separatamente le **prenotate non ancora completate** (`status='scheduled'`) per usarle come "consumate" nel fallback di selezione blocco e nel badge "In Scadenza".
 
-**Caso B — Google non collegato:**
+3. **Fix selezione blocco attivo** (3 livelli, allineati al reale):
+   1. Blocco con `start_date <= oggi <= end_date` **che ha almeno una booking attiva**, oppure se più di uno il primo per `sequence_order`.
+   2. Altrimenti il primo blocco con capacità residua calcolata da `quantity_assigned - (completed + scheduled futuri assegnati a quel blocco)`.
+   3. Altrimenti l'ultimo blocco per `sequence_order`.
 
-- Sostituire il pulsante attuale (che chiama `linkIdentity` e fallisce) con una card informativa che spiega il flusso in 3 step:
-  1. "Esci dal tuo account"
-  2. "Nella schermata di accesso, tocca **Continua con Google**"
-  3. "Usa la stessa email (`<email utente>`) — il tuo account verrà collegato automaticamente"
-- Pulsante: **"Esci e collega Google"** che chiama `signOut()` e reindirizza a `/auth`
-- Tooltip/nota piccola: "I tuoi dati, prenotazioni e blocchi rimarranno invariati."
+4. **Fallback per bookings senza `block_id`** (eventi sincronizzati che non hanno ancora un blocco): assegnarli logicamente al blocco il cui intervallo `[start_date, end_date]` contiene `scheduled_at`. Solo per il calcolo lato lista, niente scritture in DB.
 
-### Nessuna altra modifica richiesta
+5. **Etichette** (testo italiano invariato):
+   - PT Pack: `N/3 sessioni completate`
+   - Fixed: `Blocco X di Y - N/Total Sessione PT completati`
+   - Recurring: `Mese Corrente: N/Total sessioni`
+   - Empty: `Nessun blocco attivo` (già presente).
 
-- `src/routes/auth.tsx` ha già il pulsante "Continua con Google" funzionante
-- Il trigger `handle_new_user` non scatta perché l'utente esiste già — Supabase aggiunge solo l'identità
-- Profilo e ruolo restano intatti
+6. **Badge "In Scadenza"** ricalcolato sulla nuova `remaining = total - completed` (≤ 1 e total > 0).
 
-## Limite da comunicare
+# Cosa NON tocchiamo
 
-Se l'email Google è **diversa** da quella di registrazione, il login Google verrà bloccato dal trigger `handle_new_user` (richiede invito). In quel caso l'unica soluzione è che il cliente usi un indirizzo Google con la stessa email dell'invito, oppure che il coach invii un nuovo invito a quell'indirizzo Google.
+- Nessuna migrazione DB, nessuna modifica a `quantity_booked` (resta come optimistic counter del flusso interno).
+- Nessuna modifica al profilo cliente, alla pagina Panoramica, agli edge function o all'autenticazione.
+- Nessuna modifica al calcolo lato cliente (`/client`).
 
-## File modificati
+# Verifica
 
-- `src/routes/client.settings.tsx` (solo la sezione "Integrazioni" + handler)
+Dopo la patch, sulla card di Valeria/Chiara/ecc. devono comparire le stesse cifre del profilo (es. `Blocco 1 di 6 - 3/5 Sessione PT completati` se nel profilo si vedono 3 sessioni completate sul blocco corrente). Marco Peruzza (PT Pack) e Erica Aldighieri (Abbonamento Mensile) restano con i loro formati dedicati.
