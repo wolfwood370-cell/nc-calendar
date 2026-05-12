@@ -193,11 +193,37 @@ function EventTypesPage() {
             <Skeleton key={i} className="h-56 w-full rounded-[32px]" />
           ))}
         </div>
-      ) : types.length === 0 ? (
-        <div className="rounded-[32px] bg-white p-12 text-center shadow-sm">
-          <p className="text-sm text-muted-foreground">
-            Nessuna tipologia personalizzata. Aggiungine una per iniziare.
+      ) : listQ.isError ? (
+        <div className="rounded-[32px] bg-white p-12 text-center shadow-sm space-y-4">
+          <AlertCircle className="size-10 mx-auto text-destructive" />
+          <p className="text-sm text-foreground font-semibold">
+            Errore nel caricamento delle tipologie.
           </p>
+          <Button variant="outline" onClick={() => listQ.refetch()} className="rounded-full">
+            Riprova
+          </Button>
+        </div>
+      ) : types.length === 0 ? (
+        <div className="rounded-[32px] bg-white p-16 text-center shadow-[0px_4px_20px_rgba(0,86,133,0.05)] space-y-5">
+          <div className="size-16 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto">
+            <Dumbbell className="size-8" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-xl font-bold text-foreground">Nessun servizio configurato</h3>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto">
+              Non hai ancora configurato i tuoi servizi. Inizia creando una nuova tipologia di
+              appuntamento.
+            </p>
+          </div>
+          <Button
+            onClick={() => {
+              setEditing(null);
+              setOpen(true);
+            }}
+            className="rounded-full px-6"
+          >
+            <Plus className="size-4" /> Nuova Tipologia
+          </Button>
         </div>
       ) : (
         <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
