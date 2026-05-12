@@ -337,23 +337,39 @@ function Overview() {
               </div>
               <div className="flex flex-col gap-3">
                 {reviewItems.slice(0, 5).map((r) => {
-                  const date = new Date(r.scheduled_at).toLocaleDateString("it-IT", {
+                  const start = new Date(r.scheduled_at);
+                  const dateLabel = start.toLocaleDateString("it-IT", {
+                    weekday: "long",
                     day: "2-digit",
-                    month: "short",
+                    month: "long",
+                    year: "numeric",
                   });
+                  const timeLabel = start.toLocaleTimeString("it-IT", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
+                  const et = r.event_type_id ? eventTypeById.get(r.event_type_id) : null;
+                  const eventName =
+                    r.title?.trim() || et?.name || sessionLabel(r.session_type) || "Evento Google Calendar";
+                  const typeLabel = et?.name ?? sessionLabel(r.session_type);
                   return (
                     <div
                       key={r.id}
                       className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-surface-container-low p-4 rounded-2xl"
                     >
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <p className="text-xs font-semibold text-[#ba1a1a] uppercase tracking-wider mb-1">
                           Cliente non assegnato
                         </p>
-                        <p className="font-semibold text-on-background">
-                          {r.title || "Evento da Google Calendar"}
+                        <p className="font-semibold text-on-background truncate">
+                          {eventName}
                         </p>
-                        <p className="text-sm text-on-surface-variant">{date}</p>
+                        <p className="text-sm text-on-surface-variant capitalize">
+                          {dateLabel} · {timeLabel}
+                        </p>
+                        <p className="text-xs text-on-surface-variant mt-0.5">
+                          Tipologia: {typeLabel} · Origine: Google Calendar
+                        </p>
                       </div>
                       <div className="flex gap-2 shrink-0">
                         <Button
