@@ -271,12 +271,27 @@ function Overview() {
     mutationFn: async (id: string) => {
       const { error } = await supabase
         .from("bookings")
-        .update({ deleted_at: new Date().toISOString() })
+        .update({ ignored: true })
         .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Evento ignorato");
+      toast.success("Evento spostato negli ignorati");
+      qc.invalidateQueries({ queryKey: ["bookings"] });
+    },
+    onError: (e: Error) => toast.error("Errore", { description: e.message }),
+  });
+
+  const restoreBooking = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("bookings")
+        .update({ ignored: false })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Evento ripristinato");
       qc.invalidateQueries({ queryKey: ["bookings"] });
     },
     onError: (e: Error) => toast.error("Errore", { description: e.message }),
