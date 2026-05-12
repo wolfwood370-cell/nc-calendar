@@ -118,17 +118,21 @@ interface BookingLite {
   ignored_by_clients?: string[] | null;
 }
 
-type ClientStatus = "active" | "expiring" | "archived";
+type ClientStatus = "active" | "expiring" | "archived" | "completed";
+
+interface SessionSummaryRow {
+  type: string;
+  used: number;
+  total: number;
+}
 
 interface ClientCardData {
   client: ClientRow;
   status: ClientStatus;
   totalBlocks: number;
-  activeBlockSeq: number | null;
-  hasActiveBlock: boolean;
-  completed: number;
-  total: number;
-  eventTypeLabel: string;
+  summary: SessionSummaryRow[];
+  totalUsed: number;
+  totalQty: number;
   daysToBilling: number | null;
 }
 
