@@ -30,7 +30,7 @@ const packages: PackageCard[] = [
     icon: Sparkles,
   },
   {
-    id: "pack3",
+    id: "pack",
     title: "PT Pack Booster (3 Sessioni)",
     price: "99 €",
     perSession: "Solo 33 € a sessione",

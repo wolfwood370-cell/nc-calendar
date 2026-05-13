@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
         quantity = 1;
         event_type_title = "PT";
         break;
-      case "pack3":
+      case "pack":
         amount_cents = 9900;
         quantity = 3;
         event_type_title = "PT";
@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
 
     // Fetch active block_allocation end_date
     const { data: block, error: blockError } = await userClient
-      .from("training_blocks")
+      .from("block_allocations")
       .select("end_date")
       .eq("client_id", targetClientId)
       .lte("start_date", new Date().toISOString())
@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
           price_data: {
             currency: "eur",
             product_data: {
-              name: `Booster: ${package_type === "pack3" ? "Pack 3 Sessioni" : package_type === "single" ? "Singola Sessione" : "Triage"}`,
+              name: `Booster: ${package_type === "pack" ? "Pack 3 Sessioni" : package_type === "single" ? "Singola Sessione" : "Triage"}`,
             },
             unit_amount: amount_cents,
           },
