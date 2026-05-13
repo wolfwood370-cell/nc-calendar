@@ -262,6 +262,42 @@ export type Database = {
         }
         Relationships: []
       }
+      extra_credits: {
+        Row: {
+          client_id: string
+          created_at: string
+          event_type_id: string
+          expires_at: string
+          id: string
+          price_paid: number | null
+          quantity: number
+          quantity_booked: number
+          stripe_payment_id: string | null
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          event_type_id: string
+          expires_at: string
+          id?: string
+          price_paid?: number | null
+          quantity: number
+          quantity_booked?: number
+          stripe_payment_id?: string | null
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          event_type_id?: string
+          expires_at?: string
+          id?: string
+          price_paid?: number | null
+          quantity?: number
+          quantity_booked?: number
+          stripe_payment_id?: string | null
+        }
+        Relationships: []
+      }
       integration_settings: {
         Row: {
           calendar_optimization_enabled: boolean

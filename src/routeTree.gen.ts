@@ -22,6 +22,7 @@ import { Route as TrainerIntegrationsRouteImport } from './routes/trainer.integr
 import { Route as TrainerEventTypesRouteImport } from './routes/trainer.event-types'
 import { Route as TrainerCalendarRouteImport } from './routes/trainer.calendar'
 import { Route as TrainerAvailabilityRouteImport } from './routes/trainer.availability'
+import { Route as ClientStoreRouteImport } from './routes/client.store'
 import { Route as ClientSettingsRouteImport } from './routes/client.settings'
 import { Route as ClientBookRouteImport } from './routes/client.book'
 import { Route as TrainerClientsIndexRouteImport } from './routes/trainer.clients.index'
@@ -93,6 +94,11 @@ const TrainerAvailabilityRoute = TrainerAvailabilityRouteImport.update({
   path: '/availability',
   getParentRoute: () => TrainerRoute,
 } as any)
+const ClientStoreRoute = ClientStoreRouteImport.update({
+  id: '/store',
+  path: '/store',
+  getParentRoute: () => ClientRoute,
+} as any)
 const ClientSettingsRoute = ClientSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -129,6 +135,7 @@ export interface FileRoutesByFullPath {
   '/trainer': typeof TrainerRouteWithChildren
   '/client/book': typeof ClientBookRoute
   '/client/settings': typeof ClientSettingsRoute
+  '/client/store': typeof ClientStoreRoute
   '/trainer/availability': typeof TrainerAvailabilityRoute
   '/trainer/calendar': typeof TrainerCalendarRoute
   '/trainer/event-types': typeof TrainerEventTypesRoute
@@ -147,6 +154,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/client/book': typeof ClientBookRoute
   '/client/settings': typeof ClientSettingsRoute
+  '/client/store': typeof ClientStoreRoute
   '/trainer/availability': typeof TrainerAvailabilityRoute
   '/trainer/calendar': typeof TrainerCalendarRoute
   '/trainer/event-types': typeof TrainerEventTypesRoute
@@ -168,6 +176,7 @@ export interface FileRoutesById {
   '/trainer': typeof TrainerRouteWithChildren
   '/client/book': typeof ClientBookRoute
   '/client/settings': typeof ClientSettingsRoute
+  '/client/store': typeof ClientStoreRoute
   '/trainer/availability': typeof TrainerAvailabilityRoute
   '/trainer/calendar': typeof TrainerCalendarRoute
   '/trainer/event-types': typeof TrainerEventTypesRoute
@@ -190,6 +199,7 @@ export interface FileRouteTypes {
     | '/trainer'
     | '/client/book'
     | '/client/settings'
+    | '/client/store'
     | '/trainer/availability'
     | '/trainer/calendar'
     | '/trainer/event-types'
@@ -208,6 +218,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/client/book'
     | '/client/settings'
+    | '/client/store'
     | '/trainer/availability'
     | '/trainer/calendar'
     | '/trainer/event-types'
@@ -228,6 +239,7 @@ export interface FileRouteTypes {
     | '/trainer'
     | '/client/book'
     | '/client/settings'
+    | '/client/store'
     | '/trainer/availability'
     | '/trainer/calendar'
     | '/trainer/event-types'
@@ -342,6 +354,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TrainerAvailabilityRouteImport
       parentRoute: typeof TrainerRoute
     }
+    '/client/store': {
+      id: '/client/store'
+      path: '/store'
+      fullPath: '/client/store'
+      preLoaderRoute: typeof ClientStoreRouteImport
+      parentRoute: typeof ClientRoute
+    }
     '/client/settings': {
       id: '/client/settings'
       path: '/settings'
@@ -383,6 +402,7 @@ declare module '@tanstack/react-router' {
 interface ClientRouteChildren {
   ClientBookRoute: typeof ClientBookRoute
   ClientSettingsRoute: typeof ClientSettingsRoute
+  ClientStoreRoute: typeof ClientStoreRoute
   ClientIndexRoute: typeof ClientIndexRoute
   ClientBookingsBookingIdRoute: typeof ClientBookingsBookingIdRoute
 }
@@ -390,6 +410,7 @@ interface ClientRouteChildren {
 const ClientRouteChildren: ClientRouteChildren = {
   ClientBookRoute: ClientBookRoute,
   ClientSettingsRoute: ClientSettingsRoute,
+  ClientStoreRoute: ClientStoreRoute,
   ClientIndexRoute: ClientIndexRoute,
   ClientBookingsBookingIdRoute: ClientBookingsBookingIdRoute,
 }
