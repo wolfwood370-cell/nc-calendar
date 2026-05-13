@@ -1,7 +1,10 @@
+import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Sparkles, Zap, Stethoscope } from "lucide-react";
+import { ArrowLeft, Sparkles, Zap, Stethoscope, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/auth";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/client/store")({
   component: StorePage,
@@ -47,8 +50,34 @@ const packages: PackageCard[] = [
 ];
 
 function StorePage() {
-  const handlePurchase = () => {
-    toast("Reindirizzamento al checkout sicuro in corso...");
+  const { user } = useAuth();
+  const [loadingPkg, setLoadingPkg] = useState<string | null>(null);
+
+  const handlePurchase = async (pkgId: string) => {
+    if (!user) return;
+    
+    try {
+      setLoadingPkg(pkgId);
+      toast.info("Preparazione del checkout in corso...", { id: "checkout-toast" });
+      
+      const { data, error } = await supabase.functions.invoke('booster-checkout', { 
+        body: { package_type: pkgId, client_id: user.id } 
+      });
+
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+
+      if (data?.checkout_url) {
+        toast.success("Reindirizzamento...", { id: "checkout-toast" });
+        window.location.href = data.checkout_url;
+      } else {
+        throw new Error("Impossibile avviare il checkout");
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Si è verificato un errore.", { id: "checkout-toast" });
+      setLoadingPkg(null);
+    }
   };
 
   return (
@@ -115,11 +144,19 @@ function StorePage() {
                   </p>
 
                   <Button
-                    onClick={handlePurchase}
+                    onClick={() => handlePurchase(pkg.id)}
                     variant={pkg.hero ? "default" : "secondary"}
                     className="mt-4 w-full rounded-full"
+                    disabled={loadingPkg !== null}
                   >
-                    Acquista Ora
+                    {loadingPkg === pkg.id ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Attendere...
+                      </>
+                    ) : (
+                      "Acquista Ora"
+                    )}
                   </Button>
                 </div>
               </div>
