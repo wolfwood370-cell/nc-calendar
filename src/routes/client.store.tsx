@@ -1,7 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Sparkles, Zap, Stethoscope } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { useState } from "react";
+import { ArrowLeft, Sparkles, Zap, Stethoscope, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { createBoosterCheckout } from "@/lib/booster-checkout.functions";
+import type { BoosterPackageId } from "@/lib/booster-packages";
 
 export const Route = createFileRoute("/client/store")({
   component: StorePage,
@@ -47,8 +51,25 @@ const packages: PackageCard[] = [
 ];
 
 function StorePage() {
-  const handlePurchase = () => {
+  const checkout = useServerFn(createBoosterCheckout);
+  const [pendingId, setPendingId] = useState<BoosterPackageId | null>(null);
+
+  const handlePurchase = async (packageId: BoosterPackageId) => {
+    setPendingId(packageId);
     toast("Reindirizzamento al checkout sicuro in corso...");
+    try {
+      const res = await checkout({ data: { packageId } });
+      if (res?.url) {
+        window.location.href = res.url;
+        return;
+      }
+      toast.error("Impossibile avviare il checkout");
+    } catch (err) {
+      console.error(err);
+      toast.error("Errore durante l'avvio del checkout");
+    } finally {
+      setPendingId(null);
+    }
   };
 
   return (
@@ -115,11 +136,16 @@ function StorePage() {
                   </p>
 
                   <Button
-                    onClick={handlePurchase}
+                    onClick={() => handlePurchase(pkg.id as BoosterPackageId)}
+                    disabled={pendingId !== null}
                     variant={pkg.hero ? "default" : "secondary"}
                     className="mt-4 w-full rounded-full"
                   >
-                    Acquista Ora
+                    {pendingId === pkg.id ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      "Acquista Ora"
+                    )}
                   </Button>
                 </div>
               </div>

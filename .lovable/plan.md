@@ -1,50 +1,75 @@
-# Problema
 
-Nelle card di **Clienti** i contatori restano fermi a "Blocco 1 – 0/X" e molte sessioni non vengono conteggiate, mentre dentro al **profilo del cliente** i numeri sono corretti.
+# Piano: Endpoint Stripe Webhook + Checkout Crediti Booster
 
-## Causa
+Creo l'infrastruttura backend minima per il flusso "Crediti Booster" usando l'integrazione Stripe BYOK già configurata (`STRIPE_SECRET_KEY` è già presente nei secrets).
 
-Le due viste calcolano in modo diverso:
+## 1. Endpoint pubblico Webhook Stripe
 
-- **Profilo cliente** (`src/routes/trainer.clients.$id.tsx`, riga ~657): conta le sessioni completate **leggendo direttamente la tabella `bookings`** e filtrando per `status in ('completed','late_cancelled')`. È sempre allineato.
-- **Lista clienti** (`src/routes/trainer.clients.index.tsx`, riga ~262): legge il campo **`quantity_booked` della tabella `block_allocations`**. Questo contatore viene incrementato **solo** quando una sessione viene creata/aggiornata tramite il flusso interno del trainer (righe 342, 405, 461, 518). Tutto ciò che entra da altre fonti (Google Calendar sync, prenotazioni cliente, eventi inseriti retroattivamente, eventi non ancora "review-confermati") **non aggiorna** quel contatore → la card sembra ferma.
+**File:** `src/routes/api/public/stripe-webhook.ts`
 
-In più la selezione del blocco attivo nella lista non guarda dove sono effettivamente cadute le prenotazioni reali, quindi rimane sul Blocco 1 (l'unico con `start_date <= oggi <= end_date` per i clienti appena creati).
+Server route TanStack Start (`createFileRoute`) che:
+- Riceve `POST` da Stripe
+- Verifica la firma con `stripe.webhooks.constructEvent` usando `STRIPE_WEBHOOK_SECRET`
+- Gestisce l'evento `checkout.session.completed`:
+  - Legge `client_id`, `event_type_id`, `quantity`, `package_id` dai `metadata`
+  - Inserisce una riga in `extra_credits` (via `supabaseAdmin`, bypass RLS)
+  - Salva `stripe_payment_id` per idempotenza (controllo duplicati prima di inserire)
+- Risponde `200 ok` o `400` su firma non valida
 
-# Intervento (solo frontend, lista clienti)
+**URL finale da incollare nella dashboard Stripe:**
+```
+https://nc-calendar.lovable.app/api/public/stripe-webhook
+```
+(URL stabile alternativo: `https://project--81e402d5-14ed-48a5-938a-c89e014f695a.lovable.app/api/public/stripe-webhook`)
 
-File unico: `src/routes/trainer.clients.index.tsx`
+## 2. Server function per creare la sessione di checkout
 
-1. **Caricare anche le bookings** dei clienti visibili (stesso filtro coach/admin):
-   - select: `id, client_id, block_id, event_type_id, session_type, status, scheduled_at`
-   - filtro: `client_id in (...)`, `deleted_at is null`, `ignored = false`, `status in ('scheduled','completed','late_cancelled')` (le stesse incluse in `quantity_booked` storico, così non perdiamo le future già pianificate).
+**File:** `src/lib/booster-checkout.functions.ts`
 
-2. **Sostituire il calcolo `completed` / `total`** per ciascun blocco attivo:
-   - `total` resta = somma di `quantity_assigned` delle allocazioni del blocco.
-   - `completed` (Sessione PT completate) = numero di bookings di quel cliente con `block_id = activeBlock.id` e `status in ('completed','late_cancelled')`. Stessa logica del profilo.
-   - In aggiunta: contare separatamente le **prenotate non ancora completate** (`status='scheduled'`) per usarle come "consumate" nel fallback di selezione blocco e nel badge "In Scadenza".
+`createServerFn` protetta con `requireSupabaseAuth` che:
+- Valida input con Zod: `{ packageId: 'single' | 'pack3' | 'triage' }`
+- Mappa il `packageId` a prezzo / quantità / nome (definiti server-side per sicurezza — il client non può manipolare il prezzo)
+- Chiama `stripe.checkout.sessions.create` in modalità `payment` con:
+  - `success_url`: `/client?booster=success`
+  - `cancel_url`: `/client/store?booster=cancel`
+  - `metadata`: `{ client_id, package_id, quantity, event_type_id }`
+- Ritorna `{ url }` per redirect
 
-3. **Fix selezione blocco attivo** (3 livelli, allineati al reale):
-   1. Blocco con `start_date <= oggi <= end_date` **che ha almeno una booking attiva**, oppure se più di uno il primo per `sequence_order`.
-   2. Altrimenti il primo blocco con capacità residua calcolata da `quantity_assigned - (completed + scheduled futuri assegnati a quel blocco)`.
-   3. Altrimenti l'ultimo blocco per `sequence_order`.
+## 3. Aggiornamento UI Store
 
-4. **Fallback per bookings senza `block_id`** (eventi sincronizzati che non hanno ancora un blocco): assegnarli logicamente al blocco il cui intervallo `[start_date, end_date]` contiene `scheduled_at`. Solo per il calcolo lato lista, niente scritture in DB.
+**File:** `src/routes/client.store.tsx`
 
-5. **Etichette** (testo italiano invariato):
-   - PT Pack: `N/3 sessioni completate`
-   - Fixed: `Blocco X di Y - N/Total Sessione PT completati`
-   - Recurring: `Mese Corrente: N/Total sessioni`
-   - Empty: `Nessun blocco attivo` (già presente).
+Sostituisco `handlePurchase` (toast mock) con:
+- Chiamata a `createBoosterCheckout` server fn
+- Redirect a `data.url` (Stripe Checkout)
+- Toast d'errore se fallisce
 
-6. **Badge "In Scadenza"** ricalcolato sulla nuova `remaining = total - completed` (≤ 1 e total > 0).
+## 4. Secret necessario
 
-# Cosa NON tocchiamo
+Devo richiedere `STRIPE_WEBHOOK_SECRET` (lo otterrai dopo aver creato il webhook nella dashboard Stripe — Stripe lo mostra subito sotto "Signing secret"). `STRIPE_SECRET_KEY` è già presente.
 
-- Nessuna migrazione DB, nessuna modifica a `quantity_booked` (resta come optimistic counter del flusso interno).
-- Nessuna modifica al profilo cliente, alla pagina Panoramica, agli edge function o all'autenticazione.
-- Nessuna modifica al calcolo lato cliente (`/client`).
+## Flusso utente
 
-# Verifica
+```text
+Client app → "Acquista Ora"
+  → server fn crea Checkout Session
+  → redirect Stripe Checkout
+  → utente paga
+  → Stripe → POST /api/public/stripe-webhook
+  → verifica firma + INSERT in extra_credits
+  → utente torna su /client?booster=success
+```
 
-Dopo la patch, sulla card di Valeria/Chiara/ecc. devono comparire le stesse cifre del profilo (es. `Blocco 1 di 6 - 3/5 Sessione PT completati` se nel profilo si vedono 3 sessioni completate sul blocco corrente). Marco Peruzza (PT Pack) e Erica Aldighieri (Abbonamento Mensile) restano con i loro formati dedicati.
+## Cosa devi fare tu nella dashboard Stripe
+
+1. **Developers → Webhooks → Add endpoint**
+2. Endpoint URL: `https://nc-calendar.lovable.app/api/public/stripe-webhook`
+3. Eventi da ascoltare: `checkout.session.completed`
+4. Copia il **Signing secret** (`whsec_...`) e incollalo quando ti chiederò `STRIPE_WEBHOOK_SECRET`
+
+## Note tecniche
+
+- L'endpoint sta sotto `/api/public/*` per bypassare auth sul sito pubblicato (richiesto da Stripe)
+- La sicurezza è garantita dalla verifica della firma HMAC — nessun altro può scriverci
+- `stripe_payment_id` UNIQUE lookup → idempotenza se Stripe rimanda lo stesso evento
+- Uso Stripe SDK Node compatibile con il runtime Worker Cloudflare
