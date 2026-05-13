@@ -136,11 +136,16 @@ function StorePage() {
                   </p>
 
                   <Button
-                    onClick={handlePurchase}
+                    onClick={() => handlePurchase(pkg.id as BoosterPackageId)}
+                    disabled={pendingId !== null}
                     variant={pkg.hero ? "default" : "secondary"}
                     className="mt-4 w-full rounded-full"
                   >
-                    Acquista Ora
+                    {pendingId === pkg.id ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      "Acquista Ora"
+                    )}
                   </Button>
                 </div>
               </div>
