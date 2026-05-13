@@ -4,7 +4,7 @@ import { Bell, Plus, Clock, Calendar, Check } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
-import { useClientBlocks, useClientBookings, useCoachEventTypes } from "@/lib/queries";
+import { useClientBlocks, useClientBookings, useCoachEventTypes, useClientExtraCredits } from "@/lib/queries";
 import { sessionLabel } from "@/lib/mock-data";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
@@ -38,11 +38,13 @@ function ClientHome() {
   const blocksQ = useClientBlocks(meId);
   const bookingsQ = useClientBookings(meId);
   const eventTypesQ = useCoachEventTypes(coachId);
+  const extraCreditsQ = useClientExtraCredits(meId);
 
   // Aggregate ALL allocations across all blocks, grouped by event_type (or session_type fallback)
   const summary = useMemo(() => {
     const blocks = blocksQ.data ?? [];
     const ets = eventTypesQ.data ?? [];
+    const extraCredits = extraCreditsQ.data ?? [];
     const map = new Map<
       string,
       { name: string; color: string; used: number; total: number }
@@ -63,6 +65,20 @@ function ClientHome() {
       }
     }
 
+    // 1.5. Aggiungi i totali dagli extra credits attivi
+    for (const ec of extraCredits) {
+      const et = ets.find((e) => e.id === ec.event_type_id);
+      const key = ec.event_type_id;
+      const cur = map.get(key) ?? {
+        name: et?.name ?? "Extra",
+        color: et?.color ?? "#003e62",
+        used: 0,
+        total: 0,
+      };
+      cur.total += ec.quantity;
+      map.set(key, cur);
+    }
+
     // 2. Calcola i completati in modo dinamico dai bookings
     const completedBookings = (bookingsQ.data ?? []).filter((b) => b.status === "completed");
     for (const b of completedBookings) {
@@ -76,7 +92,7 @@ function ClientHome() {
     return [...map.entries()]
       .map(([key, v]) => ({ key, ...v }))
       .sort((a, b) => b.total - a.total);
-  }, [blocksQ.data, eventTypesQ.data, bookingsQ.data]);
+  }, [blocksQ.data, eventTypesQ.data, bookingsQ.data, extraCreditsQ.data]);
 
   const nextBooking = useMemo(() => {
     const now = Date.now();
@@ -96,7 +112,7 @@ function ClientHome() {
       .slice(0, 3);
   }, [bookingsQ.data]);
 
-  const isLoading = blocksQ.isLoading || bookingsQ.isLoading || profileQ.isLoading;
+  const isLoading = blocksQ.isLoading || bookingsQ.isLoading || profileQ.isLoading || extraCreditsQ.isLoading;
 
   return (
     <div className="max-w-md mx-auto bg-surface min-h-screen">

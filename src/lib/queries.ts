@@ -39,6 +39,15 @@ export interface AllocationRow {
   valid_until: string | null;
 }
 
+export interface ExtraCreditRow {
+  id: string;
+  client_id: string;
+  event_type_id: string;
+  quantity: number;
+  quantity_booked: number;
+  expires_at: string;
+}
+
 export interface BlockRow {
   id: string;
   client_id: string;
@@ -154,6 +163,23 @@ export function useClientBlocks(clientId?: string) {
     queryKey: ["blocks", "client", clientId],
     enabled: !!clientId,
     queryFn: () => loadBlocks({ client_id: clientId }),
+  });
+}
+
+export function useClientExtraCredits(clientId?: string) {
+  return useQuery({
+    queryKey: ["extra_credits", "client", clientId],
+    enabled: !!clientId,
+    queryFn: async (): Promise<ExtraCreditRow[]> => {
+      const now = new Date().toISOString();
+      const { data, error } = await supabase
+        .from("extra_credits")
+        .select("id, client_id, event_type_id, quantity, quantity_booked, expires_at")
+        .eq("client_id", clientId!)
+        .gte("expires_at", now);
+      if (error) throw error;
+      return (data ?? []) as ExtraCreditRow[];
+    },
   });
 }
 
