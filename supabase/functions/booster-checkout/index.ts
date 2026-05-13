@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
     const authResult = await requireAuth(req);
     if (authResult instanceof Response) return authResult;
     
-    const { userId, userClient } = authResult;
+    const { userId, admin } = authResult;
     const body = await req.json();
     const package_type = body.package_type;
     const requested_client_id = body.client_id;
@@ -49,27 +49,31 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: "Pacchetto non valido." }, 400);
     }
 
-    // Fetch active training_block end_date
-    const today = new Date().toISOString().slice(0, 10);
-    const { data: block, error: blockError } = await userClient
-      .from("training_blocks")
-      .select("end_date")
-      .eq("client_id", targetClientId)
-      .lte("start_date", today)
-      .gte("end_date", today)
-      .is("deleted_at", null)
-      .order("end_date", { ascending: false })
+    // Fetch active block_allocation valid_until via inner join
+    const { data: allocation, error: allocError } = await admin
+      .from("block_allocations")
+      .select(`
+        valid_until,
+        training_blocks!inner (
+          client_id,
+          deleted_at
+        )
+      `)
+      .eq("training_blocks.client_id", targetClientId)
+      .is("training_blocks.deleted_at", null)
+      .gte("valid_until", new Date().toISOString())
+      .order("valid_until", { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    if (blockError || !block) {
+    if (allocError || !allocation || !allocation.valid_until) {
       return jsonResponse(
         { error: "Nessun percorso attivo trovato. Devi avere un abbonamento in corso per acquistare i Booster." }, 
         400
       );
     }
 
-    let expiresAt = new Date(block.end_date);
+    let expiresAt = new Date(allocation.valid_until);
     const now = new Date();
     const diffTime = expiresAt.getTime() - now.getTime();
     const diffDays = diffTime / (1000 * 60 * 60 * 24);
