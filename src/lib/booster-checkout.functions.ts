@@ -27,7 +27,7 @@ export const createBoosterCheckout = createServerFn({ method: "POST" })
       getRequestHeader("referer")?.replace(/\/[^/]*$/, "") ||
       "https://nc-calendar.lovable.app";
 
-    const stripe = new Stripe(stripeKey, { apiVersion: "2024-11-20.acacia" });
+    const stripe = new Stripe(stripeKey, { apiVersion: "2026-04-22.dahlia" });
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
