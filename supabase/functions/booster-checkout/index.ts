@@ -49,13 +49,14 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: "Pacchetto non valido." }, 400);
     }
 
-    // Fetch active block_allocation end_date
+    // Fetch active training_block end_date
+    const today = new Date().toISOString().slice(0, 10);
     const { data: block, error: blockError } = await userClient
-      .from("block_allocations")
+      .from("training_blocks")
       .select("end_date")
       .eq("client_id", targetClientId)
-      .lte("start_date", new Date().toISOString())
-      .gte("end_date", new Date().toISOString())
+      .lte("start_date", today)
+      .gte("end_date", today)
       .is("deleted_at", null)
       .order("end_date", { ascending: false })
       .limit(1)
