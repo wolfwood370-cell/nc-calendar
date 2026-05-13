@@ -19,7 +19,7 @@ Deno.serve(async (req) => {
     let event;
 
     try {
-      event = stripe.webhooks.constructEvent(body, signature, endpointSecret);
+      event = await stripe.webhooks.constructEventAsync(body, signature, endpointSecret);
     } catch (err: any) {
       console.error(`Webhook signature verification failed: ${err.message}`);
       return new Response(`Webhook Error: ${err.message}`, { status: 400 });
@@ -56,8 +56,7 @@ Deno.serve(async (req) => {
       }
 
       // Lookup event_type_id by name (e.g. "PT" or "Triage")
-      // Since event names might vary slightly, use ilike
-      const { data: eventType } = await adminClient
+      let { data: eventType } = await adminClient
         .from("event_types")
         .select("id")
         .eq("coach_id", profile.coach_id)
@@ -65,9 +64,22 @@ Deno.serve(async (req) => {
         .limit(1)
         .maybeSingle();
 
+      // Fallback: pick the first available event_type for this coach
       if (!eventType) {
-        console.error("Event type not found for title:", event_type_title);
-        return new Response("Event type not found", { status: 400 });
+        console.warn(`Event type "${event_type_title}" not found for coach ${profile.coach_id}, using fallback`);
+        const { data: fallback } = await adminClient
+          .from("event_types")
+          .select("id")
+          .eq("coach_id", profile.coach_id)
+          .order("created_at", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        eventType = fallback;
+      }
+
+      if (!eventType) {
+        console.error("No event_types exist for coach:", profile.coach_id);
+        return new Response("No event types available", { status: 400 });
       }
 
       // Insert extra_credits
