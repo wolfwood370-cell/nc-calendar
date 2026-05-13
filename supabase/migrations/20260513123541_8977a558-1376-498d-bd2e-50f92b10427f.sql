@@ -1,1 +1,0 @@
-CREATE UNIQUE INDEX IF NOT EXISTS extra_credits_stripe_payment_id_unique ON public.extra_credits (stripe_payment_id) WHERE stripe_payment_id IS NOT NULL;

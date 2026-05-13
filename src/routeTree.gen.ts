@@ -28,7 +28,6 @@ import { Route as ClientBookRouteImport } from './routes/client.book'
 import { Route as TrainerClientsIndexRouteImport } from './routes/trainer.clients.index'
 import { Route as TrainerClientsIdRouteImport } from './routes/trainer.clients.$id'
 import { Route as ClientBookingsBookingIdRouteImport } from './routes/client.bookings.$bookingId'
-import { Route as ApiPublicStripeWebhookRouteImport } from './routes/api/public/stripe-webhook'
 
 const TrainerRoute = TrainerRouteImport.update({
   id: '/trainer',
@@ -125,11 +124,6 @@ const ClientBookingsBookingIdRoute = ClientBookingsBookingIdRouteImport.update({
   path: '/bookings/$bookingId',
   getParentRoute: () => ClientRoute,
 } as any)
-const ApiPublicStripeWebhookRoute = ApiPublicStripeWebhookRouteImport.update({
-  id: '/api/public/stripe-webhook',
-  path: '/api/public/stripe-webhook',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -148,7 +142,6 @@ export interface FileRoutesByFullPath {
   '/trainer/integrations': typeof TrainerIntegrationsRoute
   '/client/': typeof ClientIndexRoute
   '/trainer/': typeof TrainerIndexRoute
-  '/api/public/stripe-webhook': typeof ApiPublicStripeWebhookRoute
   '/client/bookings/$bookingId': typeof ClientBookingsBookingIdRoute
   '/trainer/clients/$id': typeof TrainerClientsIdRoute
   '/trainer/clients/': typeof TrainerClientsIndexRoute
@@ -168,7 +161,6 @@ export interface FileRoutesByTo {
   '/trainer/integrations': typeof TrainerIntegrationsRoute
   '/client': typeof ClientIndexRoute
   '/trainer': typeof TrainerIndexRoute
-  '/api/public/stripe-webhook': typeof ApiPublicStripeWebhookRoute
   '/client/bookings/$bookingId': typeof ClientBookingsBookingIdRoute
   '/trainer/clients/$id': typeof TrainerClientsIdRoute
   '/trainer/clients': typeof TrainerClientsIndexRoute
@@ -191,7 +183,6 @@ export interface FileRoutesById {
   '/trainer/integrations': typeof TrainerIntegrationsRoute
   '/client/': typeof ClientIndexRoute
   '/trainer/': typeof TrainerIndexRoute
-  '/api/public/stripe-webhook': typeof ApiPublicStripeWebhookRoute
   '/client/bookings/$bookingId': typeof ClientBookingsBookingIdRoute
   '/trainer/clients/$id': typeof TrainerClientsIdRoute
   '/trainer/clients/': typeof TrainerClientsIndexRoute
@@ -215,7 +206,6 @@ export interface FileRouteTypes {
     | '/trainer/integrations'
     | '/client/'
     | '/trainer/'
-    | '/api/public/stripe-webhook'
     | '/client/bookings/$bookingId'
     | '/trainer/clients/$id'
     | '/trainer/clients/'
@@ -235,7 +225,6 @@ export interface FileRouteTypes {
     | '/trainer/integrations'
     | '/client'
     | '/trainer'
-    | '/api/public/stripe-webhook'
     | '/client/bookings/$bookingId'
     | '/trainer/clients/$id'
     | '/trainer/clients'
@@ -257,7 +246,6 @@ export interface FileRouteTypes {
     | '/trainer/integrations'
     | '/client/'
     | '/trainer/'
-    | '/api/public/stripe-webhook'
     | '/client/bookings/$bookingId'
     | '/trainer/clients/$id'
     | '/trainer/clients/'
@@ -271,7 +259,6 @@ export interface RootRouteChildren {
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   TrainerRoute: typeof TrainerRouteWithChildren
-  ApiPublicStripeWebhookRoute: typeof ApiPublicStripeWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -409,13 +396,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClientBookingsBookingIdRouteImport
       parentRoute: typeof ClientRoute
     }
-    '/api/public/stripe-webhook': {
-      id: '/api/public/stripe-webhook'
-      path: '/api/public/stripe-webhook'
-      fullPath: '/api/public/stripe-webhook'
-      preLoaderRoute: typeof ApiPublicStripeWebhookRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
@@ -469,7 +449,6 @@ const rootRouteChildren: RootRouteChildren = {
   ForgotPasswordRoute: ForgotPasswordRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   TrainerRoute: TrainerRouteWithChildren,
-  ApiPublicStripeWebhookRoute: ApiPublicStripeWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
