@@ -1,9 +1,10 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Home, CalendarDays, User } from "lucide-react";
+import { Home, CalendarDays, Sparkles, User } from "lucide-react";
 
 const tabs = [
   { to: "/client", icon: Home, label: "Home", exact: true },
   { to: "/client/book", icon: CalendarDays, label: "Calendario", exact: false },
+  { to: "/client/store", icon: Sparkles, label: "Booster", exact: false },
   { to: "/client/settings", icon: User, label: "Profilo", exact: false },
 ] as const;
 
