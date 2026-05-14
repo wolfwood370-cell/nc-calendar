@@ -6,12 +6,14 @@ import { sessionLabel, type SessionType } from "@/lib/mock-data";
 import {
   useClientBlocks,
   useClientBookings,
+  useClientExtraCredits,
   useCoachAvailability,
   useCoachAvailabilityExceptions,
   useCoachEventTypes,
   useCoachOptimizationEnabled,
   type AvailabilityRow,
   type AvailabilityExceptionRow,
+  type AllocationRow,
   type EventTypeRow,
 } from "@/lib/queries";
 import { generateMockMeetLink } from "@/components/join-video-call-button";
@@ -229,6 +231,7 @@ function BookFlow() {
   const qc = useQueryClient();
   const blocksQ = useClientBlocks(meId);
   const bookingsQ = useClientBookings(meId);
+  const extraCreditsQ = useClientExtraCredits(meId);
 
   const profileQ = useQuery({
     queryKey: ["profile", meId],
@@ -283,10 +286,10 @@ function BookFlow() {
   // Busy times del coach (tutti i clienti, anonimizzato via SECURITY DEFINER).
   const coachBusyQ = useQuery({
     queryKey: ["coach-busy", coachIdForAvail, block?.start_date, block?.end_date],
-    enabled: !!coachIdForAvail && !!block,
+    enabled: !!coachIdForAvail,
     queryFn: async () => {
-      const from = new Date(block!.start_date);
-      const to = new Date(block!.end_date);
+      const from = block ? new Date(block.start_date) : startOfDay(new Date());
+      const to = block ? new Date(block.end_date) : addDays(startOfDay(new Date()), 60);
       to.setHours(23, 59, 59, 999);
       const { data, error } = await supabase.rpc("get_coach_busy", {
         p_coach_id: coachIdForAvail!,
@@ -315,12 +318,12 @@ function BookFlow() {
   }, [coachBusyQ.data]);
 
   const slots = useMemo(() => {
-    if (!block) return [];
-    const start = new Date(block.start_date);
-    const end = new Date(block.end_date);
+    // Range: from active block dates, or fallback to today + 60d (free clients with extra credits only).
+    const start = block ? new Date(block.start_date) : startOfDay(new Date());
+    const end = block ? new Date(block.end_date) : addDays(startOfDay(new Date()), 60);
     end.setHours(23, 59, 59, 999);
     return generateSlots(
-      28,
+      block ? 28 : 60,
       blockedRanges,
       availQ.data ?? [],
       exceptionsQ.data ?? [],
@@ -343,7 +346,7 @@ function BookFlow() {
   // Chiave del pool di credito: event_type_id se presente, altrimenti session_type (legacy).
   const allocKey = (eventTypeId: string | null, type: SessionType) => eventTypeId ?? `__${type}`;
 
-  // Pools list (one entry per credit pool: event_type_id or legacy session_type).
+  // Pools list (one entry per credit pool: block allocation OR extra credit pack).
   interface Pool {
     key: string;
     label: string;
@@ -352,34 +355,61 @@ function BookFlow() {
     remaining: number;
     color?: string | null;
     validUntil: Date | null;
+    source: "block" | "extra";
   }
   const pools = useMemo<Pool[]>(() => {
-    if (!block) return [];
     const poolsMap = new Map<string, Pool>();
-    for (const a of block.allocations) {
-      const k = allocKey(a.event_type_id, a.session_type);
-      const remaining = a.quantity_assigned - a.quantity_booked;
-      const allocExp = a.valid_until ? new Date(`${a.valid_until}T23:59:59`) : null;
+    // 1) Block allocations (fixed paths)
+    if (block) {
+      for (const a of block.allocations) {
+        const k = `block:${allocKey(a.event_type_id, a.session_type)}`;
+        const remaining = a.quantity_assigned - a.quantity_booked;
+        const allocExp = a.valid_until ? new Date(`${a.valid_until}T23:59:59`) : null;
+        if (poolsMap.has(k)) {
+          const cur = poolsMap.get(k)!;
+          cur.remaining += remaining;
+          if (allocExp && (!cur.validUntil || allocExp > cur.validUntil)) cur.validUntil = allocExp;
+        } else {
+          const et = a.event_type_id ? customTypes.find((e) => e.id === a.event_type_id) : null;
+          poolsMap.set(k, {
+            key: k,
+            label: et?.name ?? sessionLabel(a.session_type),
+            type: a.session_type as SessionType,
+            eventTypeId: a.event_type_id ?? null,
+            remaining,
+            color: et?.color ?? null,
+            validUntil: allocExp,
+            source: "block",
+          });
+        }
+      }
+    }
+    // 2) Extra credits (booster packs / free-client initial credits)
+    for (const ec of extraCreditsQ.data ?? []) {
+      const remaining = ec.quantity - ec.quantity_booked;
+      if (remaining <= 0) return Array.from(poolsMap.values()).filter((p) => p.remaining > 0);
+      const et = customTypes.find((e) => e.id === ec.event_type_id);
+      const k = `extra:${ec.event_type_id}`;
+      const exp = new Date(ec.expires_at);
       if (poolsMap.has(k)) {
         const cur = poolsMap.get(k)!;
         cur.remaining += remaining;
-        // pool expiry = max of allocations' expiry (latest day still bookable)
-        if (allocExp && (!cur.validUntil || allocExp > cur.validUntil)) cur.validUntil = allocExp;
+        if (!cur.validUntil || exp > cur.validUntil) cur.validUntil = exp;
       } else {
-        const et = a.event_type_id ? customTypes.find((e) => e.id === a.event_type_id) : null;
         poolsMap.set(k, {
           key: k,
-          label: et?.name ?? sessionLabel(a.session_type),
-          type: a.session_type as SessionType,
-          eventTypeId: a.event_type_id ?? null,
+          label: et?.name ?? "Sessione Extra",
+          type: (et?.base_type ?? "PT Session") as SessionType,
+          eventTypeId: ec.event_type_id,
           remaining,
           color: et?.color ?? null,
-          validUntil: allocExp,
+          validUntil: exp,
+          source: "extra",
         });
       }
     }
     return Array.from(poolsMap.values()).filter((p) => p.remaining > 0);
-  }, [block, customTypes]);
+  }, [block, customTypes, extraCreditsQ.data]);
 
   // Auto-select first available pool
   useEffect(() => {
@@ -400,7 +430,7 @@ function BookFlow() {
     return slots.filter((s) => format(s.date, "yyyy-MM-dd") === key);
   }, [slots, selectedDate]);
 
-  if (blocksQ.isLoading || bookingsQ.isLoading || availQ.isLoading) {
+  if (blocksQ.isLoading || bookingsQ.isLoading || availQ.isLoading || extraCreditsQ.isLoading) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-12 w-1/2" />
@@ -408,8 +438,27 @@ function BookFlow() {
       </div>
     );
   }
-  if (!block) {
-    return <p className="text-sm text-muted-foreground">Nessun blocco attivo.</p>;
+  // No active block AND no extra credits → empty state with link to Store.
+  if (!block && pools.length === 0) {
+    return (
+      <div className="bg-surface min-h-screen px-margin-mobile py-8 max-w-3xl mx-auto">
+        <div className="rounded-[32px] bg-white/60 backdrop-blur-xl border border-white/40 shadow-[0_8px_30px_rgba(0,86,133,0.06)] p-8 text-center space-y-4">
+          <h2 className="font-display text-2xl font-semibold text-on-surface">
+            Nessun credito disponibile
+          </h2>
+          <p className="text-sm text-on-surface-variant">
+            Non hai un percorso attivo né sessioni extra. Acquista un Booster per continuare a
+            prenotare.
+          </p>
+          <button
+            onClick={() => navigate({ to: "/client/store" })}
+            className="bg-primary-container text-on-primary rounded-full px-6 py-3 text-sm font-semibold active:scale-95 transition-transform"
+          >
+            Vai allo Store
+          </button>
+        </div>
+      </div>
+    );
   }
 
   // Cerca un'allocation con credito disponibile, prima per event_type_id+settimana, poi qualunque.
@@ -418,12 +467,13 @@ function BookFlow() {
     eventTypeId: string | null,
     isoDate: string,
   ): { id: string; remaining: number } | null => {
+    if (!block) return null;
     const slotDate = new Date(isoDate);
     const weeksFromStart = Math.floor(
       (slotDate.getTime() - new Date(block.start_date).getTime()) / (1000 * 60 * 60 * 24 * 7),
     );
     const wn = Math.min(4, Math.max(1, weeksFromStart + 1));
-    const matchPool = (a: (typeof block.allocations)[number]) =>
+    const matchPool = (a: AllocationRow) =>
       eventTypeId
         ? a.event_type_id === eventTypeId
         : a.event_type_id === null && a.session_type === type;
@@ -436,6 +486,20 @@ function BookFlow() {
       (a) => matchPool(a) && a.quantity_assigned - a.quantity_booked > 0,
     );
     return any ? { id: any.id, remaining: any.quantity_assigned - any.quantity_booked } : null;
+  };
+
+  // Cerca un extra_credit con quantità residua per il dato event_type, ordinato per scadenza.
+  const findExtraCredit = (
+    eventTypeId: string | null,
+  ): { id: string; quantity: number; quantity_booked: number } | null => {
+    if (!eventTypeId) return null;
+    const candidates = (extraCreditsQ.data ?? [])
+      .filter((c) => c.event_type_id === eventTypeId && c.quantity - c.quantity_booked > 0)
+      .sort((a, b) => new Date(a.expires_at).getTime() - new Date(b.expires_at).getTime());
+    const first = candidates[0];
+    return first
+      ? { id: first.id, quantity: first.quantity, quantity_booked: first.quantity_booked }
+      : null;
   };
 
   const profile = profileQ.data;
@@ -476,13 +540,48 @@ function BookFlow() {
           ? customTypes.find((e) => e.id === pick.eventTypeId)
           : null;
         const displayLabel = eventType?.name ?? sessionLabel(type);
-        const alloc = findAllocationForWeek(type, eventType?.id ?? null, iso);
-        if (!alloc) {
-          toast.error(`Credito esaurito per ${displayLabel}.`);
+
+        // Resolve credit source: 1) block allocation, 2) extra credit fallback.
+        let allocId: string | null = null;
+        let allocRemaining = 0;
+        let extraId: string | null = null;
+        let extraQtyBooked = 0;
+        if (pool.source === "block") {
+          const a = findAllocationForWeek(type, eventType?.id ?? null, iso);
+          if (a) {
+            allocId = a.id;
+            allocRemaining = a.remaining;
+          } else {
+            // block exhausted → try extra credit fallback
+            const ec = findExtraCredit(eventType?.id ?? null);
+            if (ec) {
+              extraId = ec.id;
+              extraQtyBooked = ec.quantity_booked;
+            }
+          }
+        } else {
+          const ec = findExtraCredit(eventType?.id ?? null);
+          if (ec) {
+            extraId = ec.id;
+            extraQtyBooked = ec.quantity_booked;
+          }
+        }
+
+        if (!allocId && !extraId) {
+          toast.error(`Credito esaurito per ${displayLabel}.`, {
+            description: "Acquista un Booster per continuare a prenotare.",
+            action: {
+              label: "Vai allo Store",
+              onClick: () => navigate({ to: "/client/store" }),
+            },
+          });
           continue;
         }
-        const used = localUsed[alloc.id] ?? 0;
-        if (used >= alloc.remaining) {
+
+        const trackerKey = allocId ?? `extra:${extraId}`;
+        const limit = allocId ? allocRemaining : 1;
+        const used = localUsed[trackerKey] ?? 0;
+        if (allocId && used >= limit) {
           toast.error(`Credito esaurito per ${displayLabel} questa settimana.`);
           continue;
         }
@@ -516,11 +615,11 @@ function BookFlow() {
           continue;
         }
 
-        // INSERT booking
+        // INSERT booking — block_id solo se la sessione viene scalata da un'allocation di blocco.
         const { error: bErr } = await supabase.from("bookings").insert({
           client_id: meId!,
           coach_id: coachId,
-          block_id: block.id,
+          block_id: allocId ? (block?.id ?? null) : null,
           session_type: type,
           event_type_id: eventType?.id ?? null,
           scheduled_at: iso,
@@ -532,19 +631,26 @@ function BookFlow() {
           continue;
         }
 
-        // increment quantity_booked sull'allocation
-        const { data: cur } = await supabase
-          .from("block_allocations")
-          .select("quantity_booked")
-          .eq("id", alloc.id)
-          .maybeSingle();
-        if (cur) {
-          await supabase
+        // Decrementa il credito sulla fonte corretta.
+        if (allocId) {
+          const { data: cur } = await supabase
             .from("block_allocations")
-            .update({ quantity_booked: cur.quantity_booked + 1 })
-            .eq("id", alloc.id);
+            .select("quantity_booked")
+            .eq("id", allocId)
+            .maybeSingle();
+          if (cur) {
+            await supabase
+              .from("block_allocations")
+              .update({ quantity_booked: cur.quantity_booked + 1 })
+              .eq("id", allocId);
+          }
+        } else if (extraId) {
+          await supabase
+            .from("extra_credits")
+            .update({ quantity_booked: extraQtyBooked + 1 })
+            .eq("id", extraId);
         }
-        localUsed[alloc.id] = used + 1;
+        localUsed[trackerKey] = used + 1;
         bookedCount += 1;
         lastCalendarUrl = generateGoogleCalendarLink(
           { scheduled_at: iso },
@@ -622,6 +728,7 @@ function BookFlow() {
         );
         qc.invalidateQueries({ queryKey: ["bookings"] });
         qc.invalidateQueries({ queryKey: ["blocks"] });
+        qc.invalidateQueries({ queryKey: ["extra_credits"] });
         navigate({ to: "/client" });
       }
     } finally {
