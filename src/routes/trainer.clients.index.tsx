@@ -1378,6 +1378,13 @@ function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) =
               Le sessioni si resettano ad ogni rinnovo.
             </p>
           )}
+
+          {pathType === "free" && (
+            <p className="text-xs text-muted-foreground">
+              Nessun blocco verrà generato. Potrai assegnare sessioni singole o pacchetti
+              successivamente, oppure impostare alcune sessioni omaggio nel prossimo step.
+            </p>
+          )}
         </div>
       )}
 
