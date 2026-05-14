@@ -650,6 +650,7 @@ function BookFlow() {
             .from("extra_credits")
             .update({ quantity_booked: extraQtyBooked + 1 })
             .eq("id", extraId);
+          extraCreditCount += 1;
         }
         localUsed[trackerKey] = used + 1;
         bookedCount += 1;
