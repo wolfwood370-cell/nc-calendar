@@ -58,6 +58,53 @@ function StorePage() {
 
   const { data: extraCredits = [] } = useClientExtraCredits(user?.id);
 
+  // Fetch profile path_type + pack_label to determine add-on eligibility
+  const { data: profile } = useQuery({
+    queryKey: ["client_profile_path", user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("path_type, pack_label, status")
+        .eq("id", user!.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Check active training block exists
+  const { data: hasActiveBlock = false } = useQuery({
+    queryKey: ["client_active_block", user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("training_blocks")
+        .select("id")
+        .eq("client_id", user!.id)
+        .is("deleted_at", null)
+        .eq("status", "active")
+        .limit(1);
+      if (error) throw error;
+      return (data?.length ?? 0) > 0;
+    },
+  });
+
+  // Allowed: Percorso Fisso (Pacchetto) [path_type=fixed, no pack_label] OR Abbonamento Mensile [recurring]
+  // Disabled: Cliente Libero (free / no block) OR PT Pack (fixed with pack_label)
+  const canPurchaseAddons =
+    !!profile &&
+    hasActiveBlock &&
+    profile.status === "active" &&
+    ((profile.path_type === "fixed" && !profile.pack_label) ||
+      profile.path_type === "recurring");
+
+  const restrictedToast = () =>
+    toast.error("Accesso limitato", {
+      description:
+        "Gli Add-on sono riservati esclusivamente ai clienti con un Percorso Fisso o un Abbonamento Mensile attivo.",
+    });
+
   // Map event_type_id -> name for owned credits display
   const eventTypeIds = useMemo(
     () => Array.from(new Set(extraCredits.map((c) => c.event_type_id))),
