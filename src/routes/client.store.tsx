@@ -137,6 +137,10 @@ function StorePage() {
 
   const handlePurchase = async (pkgId: string) => {
     if (!user) return;
+    if (!canPurchaseAddons) {
+      restrictedToast();
+      return;
+    }
     try {
       setLoadingPkg(pkgId);
       toast.info("Preparazione del checkout in corso...", { id: "checkout-toast" });
