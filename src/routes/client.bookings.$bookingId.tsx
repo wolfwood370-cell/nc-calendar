@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, CalendarDays, MapPin, Timer, Video, User, CalendarPlus } from "lucide-react";
+import { ArrowLeft, CalendarDays, MapPin, Timer, Video, User, CalendarPlus, Info } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { sessionLabel, type BookingStatus, type SessionType } from "@/lib/mock-data";
