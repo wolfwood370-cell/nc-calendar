@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { BoosterCard } from "@/components/booster-card";
-import { useClientExtraCredits } from "@/lib/queries";
+import { useClientExtraCredits, useClientBlocks } from "@/lib/queries";
 
 export const Route = createFileRoute("/client/store")({
   component: StorePage,
