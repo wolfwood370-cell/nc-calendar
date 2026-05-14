@@ -109,6 +109,13 @@ interface AllocLite {
   quantity_assigned: number;
   quantity_booked: number;
 }
+interface ExtraCreditLite {
+  client_id: string;
+  event_type_id: string;
+  quantity: number;
+  quantity_booked: number;
+  expires_at: string;
+}
 interface BookingLite {
   id: string;
   client_id: string;
