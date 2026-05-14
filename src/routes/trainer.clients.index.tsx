@@ -1172,44 +1172,65 @@ function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) =
   }
 
   async function handleFinalSubmit() {
-    if (rules.length === 0) {
-      toast.error("Aggiungi almeno una regola di assegnazione.");
-      return;
-    }
-    for (const r of rules) {
-      if (!r.eventTypeId) {
-        toast.error("Seleziona un Event Type per ogni regola.");
+    if (pathType === "free") {
+      if (freeInitialSessions > 0 && !freeEventTypeId) {
+        toast.error("Seleziona un Event Type per le sessioni omaggio.");
         return;
       }
-      if (r.quantityPerBlock < 1) {
-        toast.error("La quantità per blocco deve essere ≥ 1.");
+    } else {
+      if (rules.length === 0) {
+        toast.error("Aggiungi almeno una regola di assegnazione.");
         return;
       }
-      if (r.startBlock < 1 || r.endBlock < r.startBlock || r.endBlock > totalBlocks) {
-        toast.error(`Intervalli blocco non validi (1–${totalBlocks}).`);
-        return;
+      for (const r of rules) {
+        if (!r.eventTypeId) {
+          toast.error("Seleziona un Event Type per ogni regola.");
+          return;
+        }
+        if (r.quantityPerBlock < 1) {
+          toast.error("La quantità per blocco deve essere ≥ 1.");
+          return;
+        }
+        if (r.startBlock < 1 || r.endBlock < r.startBlock || r.endBlock > totalBlocks) {
+          toast.error(`Intervalli blocco non validi (1–${totalBlocks}).`);
+          return;
+        }
       }
     }
     setSubmitting(true);
     try {
-      const expandedRules = rules.map((r) => {
-        const et = eventTypes.find((e) => e.id === r.eventTypeId)!;
-        return {
-          eventTypeId: r.eventTypeId,
-          sessionType: et.base_type as SessionType,
-          quantityPerBlock: r.quantityPerBlock,
-          startBlock: r.startBlock,
-          endBlock: r.endBlock,
-        };
-      });
+      let expandedRules: CreateClientPayload["rules"];
+      if (pathType === "free") {
+        const et = eventTypes.find((e) => e.id === freeEventTypeId);
+        expandedRules = freeInitialSessions > 0 && et
+          ? [{
+              eventTypeId: et.id,
+              sessionType: et.base_type as SessionType,
+              quantityPerBlock: freeInitialSessions,
+              startBlock: 1,
+              endBlock: 1,
+            }]
+          : [];
+      } else {
+        expandedRules = rules.map((r) => {
+          const et = eventTypes.find((e) => e.id === r.eventTypeId)!;
+          return {
+            eventTypeId: r.eventTypeId,
+            sessionType: et.base_type as SessionType,
+            quantityPerBlock: r.quantityPerBlock,
+            startBlock: r.startBlock,
+            endBlock: r.endBlock,
+          };
+        });
+      }
       await onSubmit({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         email,
         password: generateSecurePassword(),
         pathType,
-        totalBlocks,
-        packLabel,
+        totalBlocks: pathType === "free" ? 0 : totalBlocks,
+        packLabel: pathType === "free" ? "Cliente Libero" : packLabel,
         autoRenew: pathType === "recurring",
         rules: expandedRules,
       });
