@@ -6,6 +6,7 @@ import { sessionLabel, type SessionType } from "@/lib/mock-data";
 import {
   useClientBlocks,
   useClientBookings,
+  useClientExtraCredits,
   useCoachAvailability,
   useCoachAvailabilityExceptions,
   useCoachEventTypes,
