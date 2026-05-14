@@ -82,7 +82,7 @@ function BookingDetailPage() {
         booking.event_type_id
           ? supabase
               .from("event_types")
-              .select("name, duration, color, location_type, location_address")
+              .select("name, description, duration, color, location_type, location_address")
               .eq("id", booking.event_type_id)
               .maybeSingle()
           : Promise.resolve({ data: null, error: null }),
