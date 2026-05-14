@@ -439,7 +439,7 @@ function ClientsPage() {
     lastName: string;
     email: string;
     password: string;
-    pathType: "fixed" | "recurring";
+    pathType: "fixed" | "recurring" | "free";
     totalBlocks: number;
     packLabel: string | null;
     autoRenew: boolean;
@@ -450,6 +450,8 @@ function ClientsPage() {
       startBlock: number;
       endBlock: number;
     }>;
+    freeSessions?: number;
+    freeEventTypeId?: string;
   }) {
     if (!user) return;
     const { data: res, error } = await supabase.functions.invoke("admin-create-user", {
