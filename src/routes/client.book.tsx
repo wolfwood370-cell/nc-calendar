@@ -387,7 +387,7 @@ function BookFlow() {
     // 2) Extra credits (booster packs / free-client initial credits)
     for (const ec of extraCreditsQ.data ?? []) {
       const remaining = ec.quantity - ec.quantity_booked;
-      if (remaining <= 0) return Array.from(poolsMap.values()).filter((p) => p.remaining > 0);
+      if (remaining <= 0) continue;
       const et = customTypes.find((e) => e.id === ec.event_type_id);
       const k = `extra:${ec.event_type_id}`;
       const exp = new Date(ec.expires_at);

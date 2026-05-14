@@ -435,6 +435,23 @@ function ClientPathPage() {
           .update({ quantity_booked: Math.max(0, alloc.quantity_booked - 1) })
           .eq("id", alloc.id);
       }
+    } else if (b.event_type_id) {
+      // Refund extra_credits per cliente indipendente / booster
+      const { data: ecRows } = await supabase
+        .from("extra_credits")
+        .select("id, quantity_booked")
+        .eq("client_id", clientId)
+        .eq("event_type_id", b.event_type_id)
+        .gt("quantity_booked", 0)
+        .order("expires_at", { ascending: true })
+        .limit(1);
+      const ec = (ecRows ?? [])[0];
+      if (ec) {
+        await supabase
+          .from("extra_credits")
+          .update({ quantity_booked: Math.max(0, ec.quantity_booked - 1) })
+          .eq("id", ec.id);
+      }
     }
     // Anti-ghosting: aggiungi clientId a ignored_by_clients
     const { data: row } = await supabase
@@ -490,6 +507,23 @@ function ClientPathPage() {
           .from("block_allocations")
           .update({ quantity_booked: Math.max(0, alloc.quantity_booked - 1) })
           .eq("id", alloc.id);
+      }
+    } else if (b.event_type_id) {
+      // Refund extra_credits per cliente indipendente / booster
+      const { data: ecRows } = await supabase
+        .from("extra_credits")
+        .select("id, quantity_booked")
+        .eq("client_id", clientId)
+        .eq("event_type_id", b.event_type_id)
+        .gt("quantity_booked", 0)
+        .order("expires_at", { ascending: true })
+        .limit(1);
+      const ec = (ecRows ?? [])[0];
+      if (ec) {
+        await supabase
+          .from("extra_credits")
+          .update({ quantity_booked: Math.max(0, ec.quantity_booked - 1) })
+          .eq("id", ec.id);
       }
     }
     const { error } = await supabase
@@ -547,6 +581,23 @@ function ClientPathPage() {
           .from("block_allocations")
           .update({ quantity_booked: Math.max(0, alloc.quantity_booked - 1) })
           .eq("id", alloc.id);
+      }
+    } else if (input.status === "cancelled" && wasActive && !input.block_id && input.prevEventTypeId) {
+      // Refund extra_credits per cliente indipendente / booster
+      const { data: ecRows } = await supabase
+        .from("extra_credits")
+        .select("id, quantity_booked")
+        .eq("client_id", clientId)
+        .eq("event_type_id", input.prevEventTypeId)
+        .gt("quantity_booked", 0)
+        .order("expires_at", { ascending: true })
+        .limit(1);
+      const ec = (ecRows ?? [])[0];
+      if (ec) {
+        await supabase
+          .from("extra_credits")
+          .update({ quantity_booked: Math.max(0, ec.quantity_booked - 1) })
+          .eq("id", ec.id);
       }
     }
 
