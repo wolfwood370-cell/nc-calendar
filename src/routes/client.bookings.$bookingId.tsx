@@ -37,6 +37,7 @@ interface BookingDetail {
   event_type_id: string | null;
   event_type: {
     name: string;
+    description: string | null;
     duration: number;
     color: string;
     location_type: "physical" | "online";
