@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMemo } from "react";
-import { Bell, Plus, Clock, Calendar, Check } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Bell, Plus, Clock, Calendar, Check, ChevronDown } from "lucide-react";
+import type { BookingRow, EventTypeRow } from "@/lib/queries";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
