@@ -187,26 +187,26 @@ function Overview() {
   const distribution = useMemo(() => {
     const s = startOfMonth().getTime(),
       e = endOfMonth().getTime();
-    const counts = new Map<string, number>();
+    const counts = new Map<string, { count: number; color: string }>();
     let total = 0;
     for (const b of bookings) {
       const t = new Date(b.scheduled_at).getTime();
       if (t < s || t > e) continue;
       if (b.status === "cancelled") continue;
-      const key = b.event_type_id ?? `__${b.session_type}`;
-      counts.set(key, (counts.get(key) ?? 0) + 1);
+      const et = b.event_type_id ? eventTypeById.get(b.event_type_id) : null;
+      const label = et?.name ?? sessionLabel(b.session_type);
+      const color = et?.color ?? "#003e62";
+      const prev = counts.get(label);
+      counts.set(label, { count: (prev?.count ?? 0) + 1, color: prev?.color ?? color });
       total++;
     }
     const arr = Array.from(counts.entries())
-      .map(([key, count]) => {
-        const et = key.startsWith("__") ? null : eventTypeById.get(key);
-        return {
-          key,
-          label: et?.name ?? sessionLabel(key.replace("__", "") as never),
-          color: et?.color ?? "#003e62",
-          pct: total ? Math.round((count / total) * 100) : 0,
-        };
-      })
+      .map(([label, { count, color }]) => ({
+        key: label,
+        label,
+        color,
+        pct: total ? Math.round((count / total) * 100) : 0,
+      }))
       .sort((a, b) => b.pct - a.pct)
       .slice(0, 5);
     return { items: arr, total };

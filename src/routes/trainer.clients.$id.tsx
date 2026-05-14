@@ -972,20 +972,27 @@ function ClientPathPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
                     {blockRows.map(({ row, idx }) => {
                       const date = row.monday_date ? parseISO(row.monday_date) : null;
-                      const isPast = date ? isBefore(date, today) : false;
+                      const weekEnd = date ? addDays(date, 7) : null;
+                      const isPast = weekEnd ? isBefore(weekEnd, today) : false;
+                      const isCurrent =
+                        date && weekEnd ? !isBefore(today, date) && isBefore(today, weekEnd) : false;
                       const weekBookings = bookingsByRowIdx[idx] ?? [];
                       return (
                         <div
                           key={row.week_number}
-                          className={cn("space-y-3", isPast && "opacity-60")}
+                          className={cn("space-y-3", isPast && "opacity-70")}
                         >
                           {/* Pill date header */}
                           <Popover>
                             <PopoverTrigger asChild>
                               <button
                                 className={cn(
-                                  "w-full bg-[#eceef2] hover:bg-[#dfe2e8] transition-colors rounded-full px-4 py-2 flex items-center justify-between border",
-                                  row.shifted ? "border-primary" : "border-transparent",
+                                  "w-full bg-[#eceef2] hover:bg-[#dfe2e8] transition-colors rounded-full px-4 py-2 flex items-center justify-between border-2",
+                                  isCurrent
+                                    ? "border-primary ring-2 ring-primary/30 shadow-[0_0_16px_rgba(0,86,133,0.25)]"
+                                    : row.shifted
+                                      ? "border-primary"
+                                      : "border-transparent",
                                 )}
                                 title={row.shifted ? "Settimana spostata" : "Modifica data"}
                               >
@@ -1040,16 +1047,16 @@ function ClientPathPage() {
                                     <div
                                       key={bk.id}
                                       onClick={() => setEditingBooking(bk)}
-                                      className="cursor-pointer bg-surface-dim rounded-2xl p-3 flex items-start gap-3 shadow-sm hover:scale-[1.02] transition-transform"
+                                      className="cursor-pointer bg-surface-container-high rounded-2xl p-3 flex items-start gap-3 shadow-sm hover:scale-[1.02] transition-transform border border-border"
                                     >
-                                      <div className="bg-black/5 text-outline p-2 rounded-full flex-shrink-0">
+                                      <div className="bg-muted text-muted-foreground p-2 rounded-full flex-shrink-0">
                                         <Ban className="size-4" />
                                       </div>
                                       <div className="flex-1 min-w-0">
-                                        <p className="text-xs text-outline mb-1 line-through">
+                                        <p className="text-xs text-foreground/70 mb-1 line-through">
                                           {timeRange}
                                         </p>
-                                        <p className="text-sm text-outline font-medium line-through truncate">
+                                        <p className="text-sm text-foreground font-medium line-through truncate">
                                           {label}
                                         </p>
                                       </div>
