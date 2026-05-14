@@ -173,21 +173,48 @@ function StorePage() {
           <h2 className="font-manrope font-semibold text-sm uppercase tracking-wide text-on-surface-variant">
             Acquista nuovi Booster
           </h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {PACKAGES.map((pkg) => (
-              <BoosterCard
-                key={pkg.id}
-                title={pkg.title}
-                description={pkg.description}
-                price={pkg.price}
-                perSession={pkg.perSession}
-                icon={pkg.icon}
-                hero={pkg.hero}
-                loading={loadingPkg === pkg.id}
-                disabled={loadingPkg !== null}
-                onAction={() => handlePurchase(pkg.id)}
-              />
-            ))}
+
+          {!checkingPath && !hasActivePath && (
+            <div
+              role="status"
+              className="rounded-2xl bg-white/50 backdrop-blur-md border border-white/40 px-4 py-3 text-sm text-on-surface-variant shadow-[0_4px_20px_rgba(0,0,0,0.04)]"
+            >
+              Gli add-on sono riservati agli atleti con un percorso attivo.
+              Contatta il tuo coach per attivare il tuo piano.
+            </div>
+          )}
+
+          <div
+            className={[
+              "grid gap-4 sm:grid-cols-2 lg:grid-cols-3 transition",
+              !checkingPath && !hasActivePath ? "opacity-60" : "",
+            ].join(" ")}
+          >
+            {PACKAGES.map((pkg) => {
+              const blocked = !checkingPath && !hasActivePath;
+              return (
+                <div
+                  key={pkg.id}
+                  title={
+                    blocked
+                      ? "Disponibile solo con un percorso attivo"
+                      : undefined
+                  }
+                >
+                  <BoosterCard
+                    title={pkg.title}
+                    description={pkg.description}
+                    price={pkg.price}
+                    perSession={pkg.perSession}
+                    icon={pkg.icon}
+                    hero={pkg.hero}
+                    loading={loadingPkg === pkg.id}
+                    disabled={loadingPkg !== null || blocked || checkingPath}
+                    onAction={() => handlePurchase(pkg.id)}
+                  />
+                </div>
+              );
+            })}
           </div>
         </div>
 
