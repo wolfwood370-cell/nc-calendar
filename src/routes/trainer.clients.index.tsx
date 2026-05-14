@@ -323,6 +323,16 @@ function ClientsPage() {
         aggMap.set(k, cur);
       }
 
+      // Extra credits (booster purchases / free-client initial sessions)
+      for (const ec of cExtras) {
+        const k = keyOf(ec.event_type_id, "");
+        const name = eventTypeById.get(ec.event_type_id) ?? "Sessione extra";
+        const cur = aggMap.get(k) ?? { type: name, used: 0, total: 0 };
+        cur.total += ec.quantity;
+        cur.used += ec.quantity_booked;
+        aggMap.set(k, cur);
+      }
+
       // Live used from bookings
       for (const bk of cBookings) {
         if (
