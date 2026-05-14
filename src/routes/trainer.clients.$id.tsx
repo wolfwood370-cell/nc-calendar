@@ -972,20 +972,27 @@ function ClientPathPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
                     {blockRows.map(({ row, idx }) => {
                       const date = row.monday_date ? parseISO(row.monday_date) : null;
-                      const isPast = date ? isBefore(date, today) : false;
+                      const weekEnd = date ? addDays(date, 7) : null;
+                      const isPast = weekEnd ? isBefore(weekEnd, today) : false;
+                      const isCurrent =
+                        date && weekEnd ? !isBefore(today, date) && isBefore(today, weekEnd) : false;
                       const weekBookings = bookingsByRowIdx[idx] ?? [];
                       return (
                         <div
                           key={row.week_number}
-                          className={cn("space-y-3", isPast && "opacity-60")}
+                          className={cn("space-y-3", isPast && "opacity-70")}
                         >
                           {/* Pill date header */}
                           <Popover>
                             <PopoverTrigger asChild>
                               <button
                                 className={cn(
-                                  "w-full bg-[#eceef2] hover:bg-[#dfe2e8] transition-colors rounded-full px-4 py-2 flex items-center justify-between border",
-                                  row.shifted ? "border-primary" : "border-transparent",
+                                  "w-full bg-[#eceef2] hover:bg-[#dfe2e8] transition-colors rounded-full px-4 py-2 flex items-center justify-between border-2",
+                                  isCurrent
+                                    ? "border-primary ring-2 ring-primary/30 shadow-[0_0_16px_rgba(0,86,133,0.25)]"
+                                    : row.shifted
+                                      ? "border-primary"
+                                      : "border-transparent",
                                 )}
                                 title={row.shifted ? "Settimana spostata" : "Modifica data"}
                               >
