@@ -44,7 +44,8 @@ export const Route = createFileRoute("/trainer/")({
   component: Overview,
 });
 
-const SOFT_SHADOW = "shadow-[0px_4px_20px_rgba(0,86,133,0.05)]";
+const SOFT_SHADOW = "shadow-[0_8px_30px_rgba(0,0,0,0.04)]";
+const GLASS = "bg-white/60 backdrop-blur-xl border border-white/40";
 
 function startOfToday() {
   const d = new Date();
