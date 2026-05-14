@@ -102,14 +102,14 @@ function StorePage() {
           return (
             <div
               key={pkg.id}
-              className={`relative rounded-[32px] p-6 shadow-[0_8px_30px_rgba(0,0,0,0.04)] border ${
+              className={`relative rounded-[32px] p-6 backdrop-blur-xl border ${
                 pkg.hero
-                  ? "bg-primary/5 border-primary/20"
-                  : "bg-surface border-border"
+                  ? "bg-tertiary-container/20 border-tertiary/30 shadow-[0_0_20px_rgba(255,181,118,0.15)]"
+                  : "bg-surface-container-lowest/60 border-white/40 shadow-[0_8px_30px_rgba(0,0,0,0.04)]"
               }`}
             >
               {pkg.hero && (
-                <span className="absolute -top-2 right-6 bg-primary text-primary-foreground text-[10px] font-semibold uppercase tracking-wide px-3 py-1 rounded-full shadow-sm">
+                <span className="absolute -top-2 right-6 bg-tertiary/10 text-tertiary text-[10px] font-semibold uppercase tracking-wide px-3 py-1 rounded-full shadow-sm">
                   Miglior Valore
                 </span>
               )}
@@ -118,7 +118,7 @@ function StorePage() {
                 <div
                   className={`size-12 shrink-0 rounded-2xl flex items-center justify-center ${
                     pkg.hero
-                      ? "bg-primary text-primary-foreground"
+                      ? "bg-tertiary/10 text-tertiary"
                       : "bg-muted text-foreground"
                   }`}
                 >
@@ -126,7 +126,7 @@ function StorePage() {
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-base leading-snug">
+                  <h3 className={`font-semibold text-base leading-snug ${pkg.hero ? "text-tertiary" : ""}`}>
                     {pkg.title}
                   </h3>
                   <div className="mt-1 flex items-baseline gap-2">
@@ -143,10 +143,10 @@ function StorePage() {
                     {pkg.description}
                   </p>
 
-                  <Button
+                  <button
+                    type="button"
                     onClick={() => handlePurchase(pkg.id)}
-                    variant={pkg.hero ? "default" : "secondary"}
-                    className="mt-4 w-full rounded-full"
+                    className="mt-4 w-full inline-flex items-center justify-center gap-2 rounded-full px-6 py-2.5 text-sm font-semibold bg-tertiary-container text-on-tertiary-container hover:bg-tertiary hover:text-white transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
                     disabled={loadingPkg !== null}
                   >
                     {loadingPkg === pkg.id ? (
@@ -157,7 +157,7 @@ function StorePage() {
                     ) : (
                       "Acquista Ora"
                     )}
-                  </Button>
+                  </button>
                 </div>
               </div>
             </div>
