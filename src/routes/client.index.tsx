@@ -193,6 +193,7 @@ function ClientHome() {
               durationMin={nextEventType?.duration ?? 60}
               label={nextEventType?.name ?? sessionLabel(nextBooking.session_type)}
               color={nextEventType?.color ?? "#039BE5"}
+              isBooster={isBoosterBooking(nextBooking)}
             />
           ) : (
             <div className="bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-6 border border-outline-variant/30 text-center">
