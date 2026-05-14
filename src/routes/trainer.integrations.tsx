@@ -296,8 +296,26 @@ function IntegrationsPage() {
       <CalendarManageSheet
         open={calendarSheetOpen}
         onOpenChange={setCalendarSheetOpen}
-        onDisconnect={() => {
+        coachId={user?.id ?? null}
+        onDisconnect={async () => {
+          if (user) {
+            const { error } = await supabase
+              .from("integration_settings")
+              .update({
+                gcal_enabled: false,
+                gcal_access_token: null,
+                gcal_refresh_token: null,
+                gcal_token_expires_at: null,
+              })
+              .eq("coach_id", user.id);
+            if (error) {
+              console.error("Failed to clear integration tokens", error);
+              toast.error("Disconnessione non riuscita. Riprova.");
+              return;
+            }
+          }
           setIsCalendarConnected(false);
+          setConnectedEmail(null);
           setCalendarSheetOpen(false);
           toast.success("Account Google Calendar disconnesso.");
         }}
@@ -309,18 +327,51 @@ function IntegrationsPage() {
 interface CalendarManageSheetProps {
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  coachId: string | null;
   onDisconnect: () => void;
 }
 
-function CalendarManageSheet({ open, onOpenChange, onDisconnect }: CalendarManageSheetProps) {
+function CalendarManageSheet({ open, onOpenChange, coachId, onDisconnect }: CalendarManageSheetProps) {
   const [isSyncing, setIsSyncing] = useState(false);
 
-  const handleSyncNow = () => {
+  const handleSyncNow = async () => {
+    if (!coachId) return;
     setIsSyncing(true);
-    setTimeout(() => {
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-calendar", {
+        body: { action: "mirror_check", coach_id: coachId },
+      });
+      if (error) throw error;
+      const result = data as {
+        ok?: boolean;
+        imported?: number;
+        cancelled?: number;
+        moved?: number;
+        remapped?: number;
+        error?: string;
+      } | null;
+      if (result?.error) {
+        toast.error("Sincronizzazione non riuscita", { description: result.error });
+      } else {
+        const parts: string[] = [];
+        if (result?.imported) parts.push(`${result.imported} importati`);
+        if (result?.cancelled) parts.push(`${result.cancelled} cancellati`);
+        if (result?.moved) parts.push(`${result.moved} spostati`);
+        if (result?.remapped) parts.push(`${result.remapped} riassegnati`);
+        toast.success(
+          parts.length > 0
+            ? `Sincronizzazione completata: ${parts.join(", ")}.`
+            : "Sincronizzazione completata. Nessun nuovo evento.",
+        );
+      }
+    } catch (err) {
+      console.error("sync-calendar mirror_check failed", err);
+      toast.error("Sincronizzazione non riuscita", {
+        description: err instanceof Error ? err.message : "Errore sconosciuto",
+      });
+    } finally {
       setIsSyncing(false);
-      toast.success("Sincronizzazione completata. 2 nuovi eventi importati.");
-    }, 2000);
+    }
   };
 
   const logs = [
