@@ -1,10 +1,10 @@
-// Edge function: sincronizzazione bidirezionale con Google Calendar (Service Account).
-// Azioni supportate: create | cancel | import_history | mirror_check
-// Smart parsing: identifica cliente da full_name/email e tipo evento da nome.
+// Edge function: sincronizzazione bidirezionale con Google Calendar (OAuth 2.0).
+// Azioni supportate: create | cancel | update | import_history | mirror_check
+// Auth: usa access_token / refresh_token utente salvati in integration_settings.
 
-import { google } from "npm:googleapis@140";
 import { corsHeaders } from "../_shared/cors.ts";
 import { requireAuth } from "../_shared/auth.ts";
+import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 
 interface SyncPayload {
   action: "create" | "cancel" | "update" | "import_history" | "mirror_check";
@@ -19,12 +19,95 @@ interface SyncPayload {
   late?: boolean;
   range_start_iso?: string;
   range_end_iso?: string;
-  service_account_json?: string;
   calendar_id?: string;
 }
 
 type ClientLite = { id: string; full_name: string | null; email: string | null };
 type EventTypeLite = { id: string; name: string; base_type: string };
+
+const GOOGLE_CALENDAR_API = "https://www.googleapis.com/calendar/v3";
+const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
+
+interface GoogleTokens {
+  access_token: string;
+  refresh_token: string | null;
+  expires_at: string | null;
+}
+
+/** Refresh dell'access token se scaduto. Aggiorna la riga DB. */
+async function ensureFreshAccessToken(
+  supabase: SupabaseClient,
+  coachId: string,
+  tokens: GoogleTokens,
+): Promise<string | null> {
+  const now = Date.now();
+  const expMs = tokens.expires_at ? new Date(tokens.expires_at).getTime() : 0;
+  // Margine 60s di sicurezza
+  if (tokens.access_token && expMs - now > 60_000) return tokens.access_token;
+
+  if (!tokens.refresh_token) {
+    console.error("sync-calendar: token scaduto e nessun refresh_token disponibile");
+    return null;
+  }
+  const clientId = Deno.env.get("GOOGLE_CLIENT_ID");
+  const clientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET");
+  if (!clientId || !clientSecret) {
+    console.error("sync-calendar: GOOGLE_CLIENT_ID/SECRET non configurati");
+    return tokens.access_token || null;
+  }
+
+  const res = await fetch(GOOGLE_TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: tokens.refresh_token,
+      grant_type: "refresh_token",
+    }),
+  });
+  if (!res.ok) {
+    console.error("sync-calendar: refresh token failed", res.status, await res.text());
+    return null;
+  }
+  const data = (await res.json()) as { access_token: string; expires_in: number };
+  const newExpiresAt = new Date(Date.now() + (data.expires_in - 60) * 1000).toISOString();
+  await supabase
+    .from("integration_settings")
+    .update({ gcal_access_token: data.access_token, gcal_token_expires_at: newExpiresAt })
+    .eq("coach_id", coachId);
+  return data.access_token;
+}
+
+/** Wrapper fetch verso Google Calendar API con auto-refresh on 401. */
+async function gcalFetch(
+  supabase: SupabaseClient,
+  coachId: string,
+  tokensRef: { current: GoogleTokens },
+  path: string,
+  init: RequestInit = {},
+): Promise<Response> {
+  const doFetch = async (token: string) => {
+    const headers = new Headers(init.headers);
+    headers.set("Authorization", `Bearer ${token}`);
+    if (init.body && !headers.has("Content-Type")) {
+      headers.set("Content-Type", "application/json");
+    }
+    return fetch(`${GOOGLE_CALENDAR_API}${path}`, { ...init, headers });
+  };
+
+  let token = await ensureFreshAccessToken(supabase, coachId, tokensRef.current);
+  if (!token) throw new Error("No valid Google access token");
+  let res = await doFetch(token);
+  if (res.status === 401 && tokensRef.current.refresh_token) {
+    // Forza refresh ignorando expiry
+    tokensRef.current = { ...tokensRef.current, expires_at: new Date(0).toISOString() };
+    token = await ensureFreshAccessToken(supabase, coachId, tokensRef.current);
+    if (!token) return res;
+    res = await doFetch(token);
+  }
+  return res;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -41,53 +124,119 @@ Deno.serve(async (req) => {
   }
   if (!body.coach_id || !body.action) return json({ error: "Missing required fields" }, 400);
 
-  // Caller must be the coach itself or an admin
   if (body.coach_id !== auth.userId && auth.role !== "admin") {
     return json({ error: "Permesso negato" }, 403);
   }
 
   const supabase = auth.admin;
 
-  let serviceAccountRaw = body.service_account_json ?? null;
-  let calendarId = body.calendar_id ?? null;
-  let enabled = true;
+  // Carica tokens OAuth + calendar_id
+  const { data: settings, error: settingsErr } = await supabase
+    .from("integration_settings")
+    .select(
+      "gcal_enabled, gcal_calendar_id, gcal_access_token, gcal_refresh_token, gcal_token_expires_at",
+    )
+    .eq("coach_id", body.coach_id)
+    .maybeSingle();
 
-  if (!serviceAccountRaw || !calendarId) {
-    try {
-      const { data, error } = await supabase
-        .from("integration_settings")
-        .select("gcal_service_account_json, gcal_calendar_id, gcal_enabled")
-        .eq("coach_id", body.coach_id)
-        .maybeSingle();
-      if (error) throw error;
-      if (!data) return json({ skipped: true, reason: "no_settings" }, 200);
-      serviceAccountRaw = data.gcal_service_account_json;
-      calendarId = data.gcal_calendar_id;
-      enabled = !!data.gcal_enabled;
-    } catch (e) {
-      console.error("sync-calendar: settings lookup failed", e);
-      return json({ skipped: true, reason: "settings_error", error: String(e) }, 200);
-    }
+  if (settingsErr) {
+    console.error("sync-calendar: settings lookup failed", settingsErr);
+    return json({ skipped: true, reason: "settings_error" }, 200);
   }
-
-  if (!enabled || !serviceAccountRaw || !calendarId) {
+  if (!settings) return json({ skipped: true, reason: "no_settings" }, 200);
+  if (!settings.gcal_enabled || !settings.gcal_access_token) {
     return json({ skipped: true, reason: "not_configured" }, 200);
   }
 
-  let calendar;
-  try {
-    const credentials =
-      typeof serviceAccountRaw === "string" ? JSON.parse(serviceAccountRaw) : serviceAccountRaw;
-    const auth = new google.auth.JWT({
-      email: credentials.client_email,
-      key: credentials.private_key,
-      scopes: ["https://www.googleapis.com/auth/calendar"],
-    });
-    calendar = google.calendar({ version: "v3", auth });
-  } catch (e) {
-    console.error("sync-calendar: auth init failed", e);
-    return json({ ok: false, error: String(e) }, 200);
-  }
+  const calendarId = body.calendar_id ?? settings.gcal_calendar_id ?? "primary";
+  const tokensRef = {
+    current: {
+      access_token: settings.gcal_access_token as string,
+      refresh_token: (settings.gcal_refresh_token ?? null) as string | null,
+      expires_at: (settings.gcal_token_expires_at ?? null) as string | null,
+    },
+  };
+
+  // Helper Calendar API tipizzati
+  const calendar = {
+    events: {
+      insert: async (params: { calendarId: string; requestBody: Record<string, unknown> }) => {
+        const res = await gcalFetch(
+          supabase,
+          body.coach_id,
+          tokensRef,
+          `/calendars/${encodeURIComponent(params.calendarId)}/events`,
+          { method: "POST", body: JSON.stringify(params.requestBody) },
+        );
+        const data = (await res.json().catch(() => ({}))) as { id?: string };
+        if (!res.ok) throw new Error(`gcal insert ${res.status}: ${JSON.stringify(data)}`);
+        return { data };
+      },
+      patch: async (params: {
+        calendarId: string;
+        eventId: string;
+        requestBody: Record<string, unknown>;
+      }) => {
+        const res = await gcalFetch(
+          supabase,
+          body.coach_id,
+          tokensRef,
+          `/calendars/${encodeURIComponent(params.calendarId)}/events/${encodeURIComponent(params.eventId)}`,
+          { method: "PATCH", body: JSON.stringify(params.requestBody) },
+        );
+        if (!res.ok) {
+          const t = await res.text();
+          throw new Error(`gcal patch ${res.status}: ${t}`);
+        }
+        return { data: await res.json().catch(() => ({})) };
+      },
+      delete: async (params: { calendarId: string; eventId: string }) => {
+        const res = await gcalFetch(
+          supabase,
+          body.coach_id,
+          tokensRef,
+          `/calendars/${encodeURIComponent(params.calendarId)}/events/${encodeURIComponent(params.eventId)}`,
+          { method: "DELETE" },
+        );
+        if (!res.ok && res.status !== 410 && res.status !== 404) {
+          const t = await res.text();
+          throw new Error(`gcal delete ${res.status}: ${t}`);
+        }
+        return { data: {} };
+      },
+      list: async (params: {
+        calendarId: string;
+        timeMin?: string;
+        timeMax?: string;
+        singleEvents?: boolean;
+        orderBy?: string;
+        maxResults?: number;
+        pageToken?: string;
+      }) => {
+        const qs = new URLSearchParams();
+        if (params.timeMin) qs.set("timeMin", params.timeMin);
+        if (params.timeMax) qs.set("timeMax", params.timeMax);
+        if (params.singleEvents) qs.set("singleEvents", "true");
+        if (params.orderBy) qs.set("orderBy", params.orderBy);
+        if (params.maxResults) qs.set("maxResults", String(params.maxResults));
+        if (params.pageToken) qs.set("pageToken", params.pageToken);
+        const res = await gcalFetch(
+          supabase,
+          body.coach_id,
+          tokensRef,
+          `/calendars/${encodeURIComponent(params.calendarId)}/events?${qs.toString()}`,
+        );
+        if (!res.ok) {
+          const t = await res.text();
+          throw new Error(`gcal list ${res.status}: ${t}`);
+        }
+        return {
+          data: (await res.json()) as { items?: unknown[]; nextPageToken?: string },
+        };
+      },
+    },
+  };
+
 
   // Helper: carica clienti + event types + email coach (per matching)
   async function loadCoachContext() {
