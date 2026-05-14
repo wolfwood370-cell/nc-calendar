@@ -55,7 +55,12 @@ export function TrainerSidebar() {
                 const active = item.exact ? path === item.url : path.startsWith(item.url);
                 return (
                   <SidebarMenuItem key={item.url}>
-                    <SidebarMenuButton asChild isActive={active} tooltip={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={active}
+                      tooltip={item.title}
+                      className="rounded-full data-[active=true]:bg-primary/10 data-[active=true]:text-primary hover:bg-white/60"
+                    >
                       <Link to={item.url}>
                         <item.icon className="size-4" />
                         <span>{item.title}</span>
