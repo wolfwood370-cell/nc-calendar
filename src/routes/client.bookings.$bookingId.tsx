@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, CalendarDays, MapPin, Timer, Video, User, CalendarPlus } from "lucide-react";
+import { ArrowLeft, CalendarDays, MapPin, Timer, Video, User, CalendarPlus, Info } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { sessionLabel, type BookingStatus, type SessionType } from "@/lib/mock-data";
@@ -37,6 +37,7 @@ interface BookingDetail {
   event_type_id: string | null;
   event_type: {
     name: string;
+    description: string | null;
     duration: number;
     color: string;
     location_type: "physical" | "online";
@@ -81,7 +82,7 @@ function BookingDetailPage() {
         booking.event_type_id
           ? supabase
               .from("event_types")
-              .select("name, duration, color, location_type, location_address")
+              .select("name, description, duration, color, location_type, location_address")
               .eq("id", booking.event_type_id)
               .maybeSingle()
           : Promise.resolve({ data: null, error: null }),
@@ -271,6 +272,23 @@ function BookingDetailView({ booking }: { booking: BookingDetail }) {
           Durata: <span className="font-semibold">{duration} min</span>
         </p>
       </section>
+
+      {/* Session description */}
+      {booking.event_type?.description && (
+        <section className="rounded-2xl bg-white/40 backdrop-blur-xl border border-white/30 shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-stack-lg">
+          <div className="flex items-center gap-3 mb-stack-sm">
+            <div className="w-9 h-9 rounded-full bg-primary/10 text-primary grid place-items-center">
+              <Info className="size-4" />
+            </div>
+            <h2 className="text-sm font-semibold text-on-surface">
+              Cosa aspettarti da questa sessione
+            </h2>
+          </div>
+          <p className="text-sm text-on-surface-variant leading-relaxed whitespace-pre-wrap">
+            {booking.event_type.description}
+          </p>
+        </section>
+      )}
 
       {/* Coach notes */}
       <section className="bg-surface-container-lowest rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.04)] overflow-hidden relative border-l-4 border-primary">
