@@ -42,18 +42,68 @@ export const Route = createFileRoute("/trainer/integrations")({
 });
 
 function IntegrationsPage() {
-  const [isCalendarConnected, setIsCalendarConnected] = useState(true);
+  const { user } = useAuth();
+  const [isCalendarConnected, setIsCalendarConnected] = useState(false);
   const [isCalendarSyncEnabled, setIsCalendarSyncEnabled] = useState(true);
+  const [isCalendarLoading, setIsCalendarLoading] = useState(false);
+  const [connectedEmail, setConnectedEmail] = useState<string | null>(null);
   const [isStripeLoading, setIsStripeLoading] = useState(false);
   const [calendarSheetOpen, setCalendarSheetOpen] = useState(false);
+
+  // Check connection state from Supabase session + integration_settings
+  useEffect(() => {
+    let cancelled = false;
+    async function check() {
+      if (!user) return;
+      // 1) Check Google identity on the current user
+      const googleIdentity = user.identities?.find((i) => i.provider === "google");
+      const emailFromIdentity =
+        (googleIdentity?.identity_data as { email?: string } | undefined)?.email ?? null;
+
+      // 2) Check integration_settings.gcal_enabled
+      const { data: settings } = await supabase
+        .from("integration_settings")
+        .select("gcal_enabled, gcal_calendar_id")
+        .eq("coach_id", user.id)
+        .maybeSingle();
+
+      if (cancelled) return;
+      const connected = !!googleIdentity || !!settings?.gcal_enabled;
+      setIsCalendarConnected(connected);
+      setConnectedEmail(emailFromIdentity ?? settings?.gcal_calendar_id ?? user.email ?? null);
+    }
+    check();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   const handleToggleCalendarSync = (v: boolean) => {
     setIsCalendarSyncEnabled(v);
     toast.success("Sincronizzazione automatica aggiornata.");
   };
 
-  const handleConnectCalendar = () => {
-    toast.info("Reindirizzamento a Google in corso...");
+  const handleConnectCalendar = async () => {
+    setIsCalendarLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/trainer/integrations`,
+          scopes: "https://www.googleapis.com/auth/calendar",
+          queryParams: {
+            access_type: "offline",
+            prompt: "consent",
+          },
+        },
+      });
+      if (error) throw error;
+      toast.info("Reindirizzamento a Google in corso...");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Errore di connessione";
+      toast.error(msg);
+      setIsCalendarLoading(false);
+    }
   };
 
   const handleConnectStripe = async () => {
