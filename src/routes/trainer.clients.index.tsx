@@ -1271,20 +1271,20 @@ function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) =
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>Tipo di Percorso</Label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={() => {
                   setPathType("fixed");
                   setPackLabel(null);
                 }}
-                className={`text-left rounded-xl border-2 p-3 transition-colors ${pathType === "fixed"
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-primary/40"
+                className={`text-left rounded-3xl border-2 p-4 transition-colors ${pathType === "fixed"
+                    ? "border-primary bg-primary-container/40"
+                    : "border-outline-variant hover:border-primary/40"
                   }`}
               >
                 <div className="font-semibold text-sm">Percorso Fisso (Pacchetto)</div>
-                <div className="text-xs text-muted-foreground">
+                <div className="text-xs text-muted-foreground mt-1">
                   Durata predefinita o numero blocchi manuale.
                 </div>
               </button>
@@ -1294,14 +1294,30 @@ function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) =
                   setPathType("recurring");
                   setPackLabel(null);
                 }}
-                className={`text-left rounded-xl border-2 p-3 transition-colors ${pathType === "recurring"
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-primary/40"
+                className={`text-left rounded-3xl border-2 p-4 transition-colors ${pathType === "recurring"
+                    ? "border-primary bg-primary-container/40"
+                    : "border-outline-variant hover:border-primary/40"
                   }`}
               >
                 <div className="font-semibold text-sm">Abbonamento Mensile</div>
-                <div className="text-xs text-muted-foreground">
+                <div className="text-xs text-muted-foreground mt-1">
                   Ricorrente: nuovo blocco ogni 30 giorni.
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPathType("free");
+                  setPackLabel(null);
+                }}
+                className={`text-left rounded-3xl border-2 p-4 transition-colors ${pathType === "free"
+                    ? "border-primary bg-primary-container/40"
+                    : "border-outline-variant hover:border-primary/40"
+                  }`}
+              >
+                <div className="font-semibold text-sm">Cliente Libero (Senza Percorso)</div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  Nessun blocco automatico. Gestione manuale tramite sessioni singole o pacchetti.
                 </div>
               </button>
             </div>
