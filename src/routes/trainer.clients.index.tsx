@@ -1323,16 +1323,18 @@ function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) =
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <Button type="button" size="sm" variant="outline" onClick={applyPtPackPreset}>
-              <Sparkles className="size-4" /> PT Pack (3 sessioni)
-            </Button>
-            {packLabel && (
-              <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-semibold">
-                {packLabel}
-              </span>
-            )}
-          </div>
+          {pathType !== "free" && (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" size="sm" variant="outline" onClick={applyPtPackPreset}>
+                <Sparkles className="size-4" /> PT Pack (3 sessioni)
+              </Button>
+              {packLabel && (
+                <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-semibold">
+                  {packLabel}
+                </span>
+              )}
+            </div>
+          )}
 
           {pathType === "fixed" && (
             <>
