@@ -329,6 +329,7 @@ function ClientPathPage() {
     // Try to attach to first active block with available allocation for that event_type
     let blockId: string | null = null;
     let attached = false;
+    let usedExtraCredit = false;
     if (o.event_type_id) {
       const sortedBlocks = [...blocks].sort((a, b) => a.sequence_order - b.sequence_order);
       for (const b of sortedBlocks) {
@@ -349,7 +350,7 @@ function ClientPathPage() {
         }
       }
     }
-    // Fallback: scala da extra_credits del cliente per quell'event_type.
+    // Fallback: scala da extra_credits del cliente per quell'event_type (Cliente Libero o blocco esaurito).
     if (!attached && o.event_type_id) {
       const nowIso = new Date().toISOString();
       const { data: ecRows } = await supabase
@@ -365,6 +366,7 @@ function ClientPathPage() {
           .from("extra_credits")
           .update({ quantity_booked: ec.quantity_booked + 1 })
           .eq("id", ec.id);
+        usedExtraCredit = true;
       }
     }
     const { error } = await supabase
@@ -375,7 +377,13 @@ function ClientPathPage() {
       toast.error("Conferma non riuscita", { description: error.message });
       return;
     }
-    toast.success("Sessione associata al cliente");
+    toast.success(
+      usedExtraCredit
+        ? "Sessione salvata (Scalata da crediti omaggio/extra)"
+        : attached
+          ? "Sessione associata al cliente"
+          : "Sessione associata (nessun credito scalato)",
+    );
     void load();
   }
 

@@ -529,6 +529,7 @@ function BookFlow() {
       // tracker locale per non sforare quando si prenotano più slot dello stesso tipo
       const localUsed: Record<string, number> = {}; // alloc_id -> count
       let bookedCount = 0;
+      let extraCreditCount = 0;
       let lastCalendarUrl: string | null = null;
 
       const entries: [string, { type: SessionType; eventTypeId: string | null }][] = [
@@ -649,6 +650,7 @@ function BookFlow() {
             .from("extra_credits")
             .update({ quantity_booked: extraQtyBooked + 1 })
             .eq("id", extraId);
+          extraCreditCount += 1;
         }
         localUsed[trackerKey] = used + 1;
         bookedCount += 1;
@@ -715,9 +717,12 @@ function BookFlow() {
         toast.success(
           `${bookedCount} ${bookedCount === 1 ? "sessione prenotata" : "sessioni prenotate"}`,
           {
-            description: emailNotificationsEnabled
-              ? "Email di conferma inviata. I link videochiamata sono generati automaticamente per le sessioni online."
-              : "I link videochiamata sono generati automaticamente per le sessioni online.",
+            description:
+              extraCreditCount > 0
+                ? `${extraCreditCount === bookedCount ? "Scalata" : `${extraCreditCount}`} da crediti omaggio/extra. ${emailNotificationsEnabled ? "Email di conferma inviata." : ""}`.trim()
+                : emailNotificationsEnabled
+                  ? "Email di conferma inviata. I link videochiamata sono generati automaticamente per le sessioni online."
+                  : "I link videochiamata sono generati automaticamente per le sessioni online.",
             action: lastCalendarUrl
               ? {
                   label: "Aggiungi al Calendario",
