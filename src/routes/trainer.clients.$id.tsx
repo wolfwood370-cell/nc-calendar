@@ -1047,16 +1047,16 @@ function ClientPathPage() {
                                     <div
                                       key={bk.id}
                                       onClick={() => setEditingBooking(bk)}
-                                      className="cursor-pointer bg-surface-dim rounded-2xl p-3 flex items-start gap-3 shadow-sm hover:scale-[1.02] transition-transform"
+                                      className="cursor-pointer bg-surface-container-high rounded-2xl p-3 flex items-start gap-3 shadow-sm hover:scale-[1.02] transition-transform border border-border"
                                     >
-                                      <div className="bg-black/5 text-outline p-2 rounded-full flex-shrink-0">
+                                      <div className="bg-muted text-muted-foreground p-2 rounded-full flex-shrink-0">
                                         <Ban className="size-4" />
                                       </div>
                                       <div className="flex-1 min-w-0">
-                                        <p className="text-xs text-outline mb-1 line-through">
+                                        <p className="text-xs text-foreground/70 mb-1 line-through">
                                           {timeRange}
                                         </p>
-                                        <p className="text-sm text-outline font-medium line-through truncate">
+                                        <p className="text-sm text-foreground font-medium line-through truncate">
                                           {label}
                                         </p>
                                       </div>
