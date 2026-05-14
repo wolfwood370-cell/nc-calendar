@@ -93,6 +93,13 @@ function StorePage() {
 
   const handlePurchase = async (pkgId: string) => {
     if (!user) return;
+    if (!hasActivePath) {
+      toast.error("Accesso limitato", {
+        description:
+          "Non puoi acquistare add-on senza un percorso attivo. Contatta il tuo coach per attivare il tuo piano.",
+      });
+      return;
+    }
     try {
       setLoadingPkg(pkgId);
       toast.info("Preparazione del checkout in corso...", { id: "checkout-toast" });
