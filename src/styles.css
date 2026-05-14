@@ -9,6 +9,7 @@
 @theme inline {
   --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Sora", ui-sans-serif, system-ui, sans-serif;
+  --font-manrope: "Manrope", ui-sans-serif, system-ui, sans-serif;
 
   /* Aura Health palette (Google Stitch) — used by client dashboard */
   --color-aura-primary: #003e62;

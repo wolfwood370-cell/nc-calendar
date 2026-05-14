@@ -256,7 +256,7 @@ function ServiceCard({
   const tintBg = `color-mix(in oklab, ${t.color} 15%, white)`;
   return (
     <div
-      className="bg-white rounded-[32px] shadow-[0px_4px_20px_rgba(0,86,133,0.05)] hover:shadow-[0px_8px_30px_rgba(0,86,133,0.08)] hover:-translate-y-1 transition-all duration-300 border-l-[8px] flex flex-col p-6"
+      className="bg-white/60 backdrop-blur-xl border border-white/40 rounded-[24px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:shadow-[0_12px_40px_rgba(0,0,0,0.06)] hover:-translate-y-1 transition-all duration-300 border-l-[8px] flex flex-col p-6"
       style={{ borderLeftColor: t.color }}
     >
       <div className="flex items-start gap-4 mb-4">

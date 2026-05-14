@@ -33,7 +33,10 @@ export function TrainerSidebar() {
   const navigate = useNavigate();
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar
+      collapsible="icon"
+      className="[&_[data-sidebar=sidebar]]:bg-white/40 [&_[data-sidebar=sidebar]]:backdrop-blur-2xl [&_[data-sidebar=sidebar]]:border-r [&_[data-sidebar=sidebar]]:border-white/20"
+    >
       <SidebarHeader>
         <div className="flex items-center gap-2 px-2 py-2">
           <img src={logoUrl} alt="NC Calendar" className="size-8 rounded-md object-cover" />
@@ -52,7 +55,12 @@ export function TrainerSidebar() {
                 const active = item.exact ? path === item.url : path.startsWith(item.url);
                 return (
                   <SidebarMenuItem key={item.url}>
-                    <SidebarMenuButton asChild isActive={active} tooltip={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={active}
+                      tooltip={item.title}
+                      className="rounded-full data-[active=true]:bg-primary/10 data-[active=true]:text-primary hover:bg-white/60"
+                    >
                       <Link to={item.url}>
                         <item.icon className="size-4" />
                         <span>{item.title}</span>

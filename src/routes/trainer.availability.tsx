@@ -299,7 +299,7 @@ function AvailabilityPage() {
               {loading ? (
                 <div className="space-y-3">
                   {Array.from({ length: 7 }).map((_, i) => (
-                    <Skeleton key={i} className="h-16 w-full rounded-2xl" />
+                    <Skeleton key={i} className="h-16 w-full rounded-[24px]" />
                   ))}
                 </div>
               ) : (
@@ -581,7 +581,7 @@ function ExceptionsCard({ coachId }: { coachId?: string }) {
       </Button>
 
       <div className="mt-5 space-y-2">
-        {exQ.isLoading && <Skeleton className="h-14 w-full rounded-2xl" />}
+        {exQ.isLoading && <Skeleton className="h-14 w-full rounded-[24px]" />}
         {!exQ.isLoading && exceptions.length === 0 && (
           <p className="text-sm text-muted-foreground">Nessuna eccezione configurata.</p>
         )}
@@ -591,7 +591,7 @@ function ExceptionsCard({ coachId }: { coachId?: string }) {
           return (
             <div
               key={ex.id}
-              className="flex items-center justify-between rounded-2xl bg-slate-50 p-3"
+              className="flex items-center justify-between rounded-[24px] bg-slate-50 p-3"
             >
               <div className="flex items-center gap-3 min-w-0">
                 <CalendarOff className="size-4 text-muted-foreground shrink-0" />
