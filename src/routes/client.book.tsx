@@ -529,6 +529,7 @@ function BookFlow() {
       // tracker locale per non sforare quando si prenotano più slot dello stesso tipo
       const localUsed: Record<string, number> = {}; // alloc_id -> count
       let bookedCount = 0;
+      let extraCreditCount = 0;
       let lastCalendarUrl: string | null = null;
 
       const entries: [string, { type: SessionType; eventTypeId: string | null }][] = [
