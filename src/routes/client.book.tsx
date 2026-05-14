@@ -286,10 +286,10 @@ function BookFlow() {
   // Busy times del coach (tutti i clienti, anonimizzato via SECURITY DEFINER).
   const coachBusyQ = useQuery({
     queryKey: ["coach-busy", coachIdForAvail, block?.start_date, block?.end_date],
-    enabled: !!coachIdForAvail && !!block,
+    enabled: !!coachIdForAvail,
     queryFn: async () => {
-      const from = new Date(block!.start_date);
-      const to = new Date(block!.end_date);
+      const from = block ? new Date(block.start_date) : startOfDay(new Date());
+      const to = block ? new Date(block.end_date) : addDays(startOfDay(new Date()), 60);
       to.setHours(23, 59, 59, 999);
       const { data, error } = await supabase.rpc("get_coach_busy", {
         p_coach_id: coachIdForAvail!,
