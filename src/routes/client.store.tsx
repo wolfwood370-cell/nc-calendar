@@ -44,10 +44,10 @@ const PACKAGES: PackageDef[] = [
   },
   {
     id: "triage",
-    title: "Extra Triage / Check Tecnico",
+    title: "Test Funzionali + Check Tecnico",
     price: "75 €",
     description:
-      "60 minuti di valutazione posturale e riprogrammazione tecnica. Ideale per infortuni o cambi obiettivo.",
+      "60 minuti di valutazione posturale e riprogrammazione tecnica. L'intervento ideale per gestire infortuni, superare stalli o ricalibrare i tuoi obiettivi.",
     icon: Stethoscope,
   },
 ];
