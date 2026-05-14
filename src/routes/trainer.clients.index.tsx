@@ -439,7 +439,7 @@ function ClientsPage() {
     lastName: string;
     email: string;
     password: string;
-    pathType: "fixed" | "recurring";
+    pathType: "fixed" | "recurring" | "free";
     totalBlocks: number;
     packLabel: string | null;
     autoRenew: boolean;
@@ -450,6 +450,8 @@ function ClientsPage() {
       startBlock: number;
       endBlock: number;
     }>;
+    freeSessions?: number;
+    freeEventTypeId?: string;
   }) {
     if (!user) return;
     const { data: res, error } = await supabase.functions.invoke("admin-create-user", {
@@ -468,79 +470,107 @@ function ClientsPage() {
     }
 
     try {
-      const today = new Date();
-      const blocksToInsert = Array.from({ length: data.totalBlocks }, (_, i) => {
-        const start = new Date(today);
-        start.setDate(today.getDate() + i * 30);
-        const end = new Date(today);
-        end.setDate(today.getDate() + (i + 1) * 30 - 1);
-        return {
-          client_id: newUserId,
-          coach_id: user.id,
-          start_date: start.toISOString().slice(0, 10),
-          end_date: end.toISOString().slice(0, 10),
-          status: "active" as const,
-          sequence_order: i + 1,
-        };
-      });
-      const { data: blocksRes, error: bErr } = await supabase
-        .from("training_blocks")
-        .insert(blocksToInsert)
-        .select("id, sequence_order, end_date");
-      if (bErr) throw bErr;
-      const blockBySeq = new Map<number, { id: string; end_date: string }>();
-      (blocksRes ?? []).forEach((b) =>
-        blockBySeq.set(b.sequence_order as number, {
-          id: b.id as string,
-          end_date: b.end_date as string,
-        }),
-      );
-
-      const allocsToInsert: Array<{
-        block_id: string;
-        week_number: number;
-        session_type: SessionType;
-        event_type_id: string;
-        quantity_assigned: number;
-        quantity_booked: number;
-        valid_until: string;
-      }> = [];
-      for (const rule of data.rules) {
-        for (let m = rule.startBlock; m <= rule.endBlock; m++) {
-          const b = blockBySeq.get(m);
-          if (!b) continue;
-          allocsToInsert.push({
-            block_id: b.id,
-            week_number: 1,
-            session_type: rule.sessionType,
-            event_type_id: rule.eventTypeId,
-            quantity_assigned: rule.quantityPerBlock,
+      if (data.pathType === "free") {
+        // Cliente Libero: nessun blocco/allocazione, solo extra_credits di omaggio
+        const qty = Math.max(0, data.freeSessions ?? 0);
+        const eventTypeId = data.freeEventTypeId ?? "";
+        if (qty > 0 && eventTypeId) {
+          const expires = new Date();
+          expires.setFullYear(expires.getFullYear() + 1);
+          const { error: ecErr } = await supabase.from("extra_credits").insert({
+            client_id: newUserId,
+            event_type_id: eventTypeId,
+            quantity: qty,
             quantity_booked: 0,
-            valid_until: b.end_date,
+            expires_at: expires.toISOString(),
           });
+          if (ecErr) throw ecErr;
         }
-      }
-      if (allocsToInsert.length > 0) {
-        const { error: aErr } = await supabase.from("block_allocations").insert(allocsToInsert);
-        if (aErr) throw aErr;
-      }
+        const { error: pErr } = await supabase
+          .from("profiles")
+          .update({
+            path_type: "free",
+            auto_renew: false,
+            pack_label: data.packLabel,
+            next_billing_date: null,
+          })
+          .eq("id", newUserId);
+        if (pErr) throw pErr;
+      } else {
+        const today = new Date();
+        const blocksToInsert = Array.from({ length: data.totalBlocks }, (_, i) => {
+          const start = new Date(today);
+          start.setDate(today.getDate() + i * 30);
+          const end = new Date(today);
+          end.setDate(today.getDate() + (i + 1) * 30 - 1);
+          return {
+            client_id: newUserId,
+            coach_id: user.id,
+            start_date: start.toISOString().slice(0, 10),
+            end_date: end.toISOString().slice(0, 10),
+            status: "active" as const,
+            sequence_order: i + 1,
+          };
+        });
+        const { data: blocksRes, error: bErr } = await supabase
+          .from("training_blocks")
+          .insert(blocksToInsert)
+          .select("id, sequence_order, end_date");
+        if (bErr) throw bErr;
+        const blockBySeq = new Map<number, { id: string; end_date: string }>();
+        (blocksRes ?? []).forEach((b) =>
+          blockBySeq.set(b.sequence_order as number, {
+            id: b.id as string,
+            end_date: b.end_date as string,
+          }),
+        );
 
-      // Persist path metadata on profile
-      const nextBilling = new Date(today);
-      nextBilling.setDate(today.getDate() + 30);
-      const { error: pErr } = await supabase
-        .from("profiles")
-        .update({
-          path_type: data.pathType,
-          auto_renew: data.autoRenew,
-          pack_label: data.packLabel,
-          next_billing_date:
-            data.pathType === "recurring" ? nextBilling.toISOString().slice(0, 10) : null,
-        })
-        .eq("id", newUserId);
-      if (pErr) throw pErr;
+        const allocsToInsert: Array<{
+          block_id: string;
+          week_number: number;
+          session_type: SessionType;
+          event_type_id: string;
+          quantity_assigned: number;
+          quantity_booked: number;
+          valid_until: string;
+        }> = [];
+        for (const rule of data.rules) {
+          for (let m = rule.startBlock; m <= rule.endBlock; m++) {
+            const b = blockBySeq.get(m);
+            if (!b) continue;
+            allocsToInsert.push({
+              block_id: b.id,
+              week_number: 1,
+              session_type: rule.sessionType,
+              event_type_id: rule.eventTypeId,
+              quantity_assigned: rule.quantityPerBlock,
+              quantity_booked: 0,
+              valid_until: b.end_date,
+            });
+          }
+        }
+        if (allocsToInsert.length > 0) {
+          const { error: aErr } = await supabase.from("block_allocations").insert(allocsToInsert);
+          if (aErr) throw aErr;
+        }
+
+        // Persist path metadata on profile
+        const nextBilling = new Date(today);
+        nextBilling.setDate(today.getDate() + 30);
+        const { error: pErr } = await supabase
+          .from("profiles")
+          .update({
+            path_type: data.pathType,
+            auto_renew: data.autoRenew,
+            pack_label: data.packLabel,
+            next_billing_date:
+              data.pathType === "recurring" ? nextBilling.toISOString().slice(0, 10) : null,
+          })
+          .eq("id", newUserId);
+        if (pErr) throw pErr;
+      }
     } catch (e) {
-      toast.warning("Cliente creato, ma assegnazione blocchi non riuscita", {
+      toast.warning("Cliente creato, ma assegnazione iniziale non riuscita", {
         description: (e as Error).message,
       });
     }
@@ -548,6 +578,7 @@ function ClientsPage() {
     qc.invalidateQueries({ queryKey: ["clients"] });
     qc.invalidateQueries({ queryKey: ["block-allocations"] });
     qc.invalidateQueries({ queryKey: ["blocks"] });
+    qc.invalidateQueries({ queryKey: ["extra_credits"] });
     setCreateOpen(false);
     setCredentials({
       firstName: data.firstName,
@@ -1028,7 +1059,7 @@ interface CreateClientPayload {
   lastName: string;
   email: string;
   password: string;
-  pathType: "fixed" | "recurring";
+  pathType: "fixed" | "recurring" | "free";
   totalBlocks: number;
   packLabel: string | null;
   autoRenew: boolean;
@@ -1039,6 +1070,8 @@ interface CreateClientPayload {
     startBlock: number;
     endBlock: number;
   }>;
+  freeSessions?: number;
+  freeEventTypeId?: string;
 }
 
 const DURATION_PRESETS: Array<{ value: string; label: string; months: number | null }> = [
@@ -1058,11 +1091,13 @@ function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) =
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
-  const [pathType, setPathType] = useState<"fixed" | "recurring">("fixed");
+  const [pathType, setPathType] = useState<"fixed" | "recurring" | "free">("fixed");
   const [durationPreset, setDurationPreset] = useState<string>("3");
   const [customMonths, setCustomMonths] = useState<number>(3);
   const [packLabel, setPackLabel] = useState<string | null>(null);
   const [rules, setRules] = useState<RuleDraft[]>([]);
+  const [freeSessions, setFreeSessions] = useState<number>(1);
+  const [freeEventTypeId, setFreeEventTypeId] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
 
   const totalBlocks =
@@ -1116,46 +1151,62 @@ function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) =
   }
 
   async function handleFinalSubmit() {
-    if (rules.length === 0) {
-      toast.error("Aggiungi almeno una regola di assegnazione.");
-      return;
-    }
-    for (const r of rules) {
-      if (!r.eventTypeId) {
-        toast.error("Seleziona un Event Type per ogni regola.");
+    if (pathType === "free") {
+      if (!freeEventTypeId) {
+        toast.error("Seleziona un Event Type per le sessioni omaggio.");
         return;
       }
-      if (r.quantityPerBlock < 1) {
-        toast.error("La quantità per blocco deve essere ≥ 1.");
+      if (freeSessions < 0) {
+        toast.error("Il numero di sessioni omaggio non può essere negativo.");
         return;
       }
-      if (r.startBlock < 1 || r.endBlock < r.startBlock || r.endBlock > totalBlocks) {
-        toast.error(`Intervalli blocco non validi (1–${totalBlocks}).`);
+    } else {
+      if (rules.length === 0) {
+        toast.error("Aggiungi almeno una regola di assegnazione.");
         return;
+      }
+      for (const r of rules) {
+        if (!r.eventTypeId) {
+          toast.error("Seleziona un Event Type per ogni regola.");
+          return;
+        }
+        if (r.quantityPerBlock < 1) {
+          toast.error("La quantità per blocco deve essere ≥ 1.");
+          return;
+        }
+        if (r.startBlock < 1 || r.endBlock < r.startBlock || r.endBlock > totalBlocks) {
+          toast.error(`Intervalli blocco non validi (1–${totalBlocks}).`);
+          return;
+        }
       }
     }
     setSubmitting(true);
     try {
-      const expandedRules = rules.map((r) => {
-        const et = eventTypes.find((e) => e.id === r.eventTypeId)!;
-        return {
-          eventTypeId: r.eventTypeId,
-          sessionType: et.base_type as SessionType,
-          quantityPerBlock: r.quantityPerBlock,
-          startBlock: r.startBlock,
-          endBlock: r.endBlock,
-        };
-      });
+      const expandedRules =
+        pathType === "free"
+          ? []
+          : rules.map((r) => {
+              const et = eventTypes.find((e) => e.id === r.eventTypeId)!;
+              return {
+                eventTypeId: r.eventTypeId,
+                sessionType: et.base_type as SessionType,
+                quantityPerBlock: r.quantityPerBlock,
+                startBlock: r.startBlock,
+                endBlock: r.endBlock,
+              };
+            });
       await onSubmit({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         email,
         password: generateSecurePassword(),
         pathType,
-        totalBlocks,
-        packLabel,
+        totalBlocks: pathType === "free" ? 0 : totalBlocks,
+        packLabel: pathType === "free" ? "Cliente Libero" : packLabel,
         autoRenew: pathType === "recurring",
         rules: expandedRules,
+        freeSessions: pathType === "free" ? freeSessions : undefined,
+        freeEventTypeId: pathType === "free" ? freeEventTypeId : undefined,
       });
     } finally {
       setSubmitting(false);
@@ -1194,16 +1245,16 @@ function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) =
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>Tipo di Percorso</Label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={() => {
                   setPathType("fixed");
                   setPackLabel(null);
                 }}
-                className={`text-left rounded-xl border-2 p-3 transition-colors ${pathType === "fixed"
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-primary/40"
+                className={`text-left rounded-[24px] border-2 p-3 backdrop-blur-xl transition-colors ${pathType === "fixed"
+                    ? "border-primary bg-primary/10 shadow-[0_8px_30px_rgba(0,62,98,0.08)]"
+                    : "border-white/40 bg-white/40 hover:border-primary/40"
                   }`}
               >
                 <div className="font-semibold text-sm">Percorso Fisso (Pacchetto)</div>
@@ -1217,14 +1268,35 @@ function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) =
                   setPathType("recurring");
                   setPackLabel(null);
                 }}
-                className={`text-left rounded-xl border-2 p-3 transition-colors ${pathType === "recurring"
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-primary/40"
+                className={`text-left rounded-[24px] border-2 p-3 backdrop-blur-xl transition-colors ${pathType === "recurring"
+                    ? "border-primary bg-primary/10 shadow-[0_8px_30px_rgba(0,62,98,0.08)]"
+                    : "border-white/40 bg-white/40 hover:border-primary/40"
                   }`}
               >
                 <div className="font-semibold text-sm">Abbonamento Mensile</div>
                 <div className="text-xs text-muted-foreground">
                   Ricorrente: nuovo blocco ogni 30 giorni.
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPathType("free");
+                  setPackLabel(null);
+                  if (!freeEventTypeId) {
+                    const pt =
+                      eventTypes.find((e) => e.base_type === "PT Session") ?? eventTypes[0];
+                    if (pt) setFreeEventTypeId(pt.id);
+                  }
+                }}
+                className={`text-left rounded-[24px] border-2 p-3 backdrop-blur-xl transition-colors ${pathType === "free"
+                    ? "border-primary bg-primary/10 shadow-[0_8px_30px_rgba(0,62,98,0.08)]"
+                    : "border-white/40 bg-white/40 hover:border-primary/40"
+                  }`}
+              >
+                <div className="font-semibold text-sm">Cliente Libero (Senza Percorso)</div>
+                <div className="text-xs text-muted-foreground">
+                  Nessun blocco. Solo sessioni omaggio iniziali.
                 </div>
               </button>
             </div>
@@ -1283,10 +1355,55 @@ function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) =
               Le sessioni si resettano ad ogni rinnovo.
             </p>
           )}
+
+          {pathType === "free" && (
+            <p className="text-xs text-muted-foreground">
+              Nessun blocco verrà creato. Potrai assegnare sessioni omaggio iniziali nel prossimo
+              step e in qualsiasi momento dalla scheda cliente.
+            </p>
+          )}
         </div>
       )}
 
-      {step === 3 && (
+      {step === 3 && pathType === "free" && (
+        <div className="space-y-4">
+          <div className="rounded-[24px] bg-white/40 backdrop-blur-xl border border-white/40 shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-5 space-y-4">
+            <div>
+              <h3 className="font-semibold text-sm text-on-surface">Sessioni Omaggio iniziali</h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                Verranno accreditate al cliente come crediti extra (validità 1 anno).
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Tipo di sessione</Label>
+              <Select value={freeEventTypeId} onValueChange={setFreeEventTypeId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleziona event type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {eventTypes.map((et) => (
+                    <SelectItem key={et.id} value={et.id}>
+                      {et.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Numero di sessioni omaggio</Label>
+              <Input
+                type="number"
+                min={0}
+                max={50}
+                value={freeSessions}
+                onChange={(e) => setFreeSessions(Math.max(0, Number(e.target.value) || 0))}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {step === 3 && pathType !== "free" && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
