@@ -1091,11 +1091,13 @@ function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) =
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
-  const [pathType, setPathType] = useState<"fixed" | "recurring">("fixed");
+  const [pathType, setPathType] = useState<"fixed" | "recurring" | "free">("fixed");
   const [durationPreset, setDurationPreset] = useState<string>("3");
   const [customMonths, setCustomMonths] = useState<number>(3);
   const [packLabel, setPackLabel] = useState<string | null>(null);
   const [rules, setRules] = useState<RuleDraft[]>([]);
+  const [freeSessions, setFreeSessions] = useState<number>(1);
+  const [freeEventTypeId, setFreeEventTypeId] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
 
   const totalBlocks =
