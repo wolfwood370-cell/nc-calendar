@@ -317,12 +317,12 @@ function BookFlow() {
   }, [coachBusyQ.data]);
 
   const slots = useMemo(() => {
-    if (!block) return [];
-    const start = new Date(block.start_date);
-    const end = new Date(block.end_date);
+    // Range: from active block dates, or fallback to today + 60d (free clients with extra credits only).
+    const start = block ? new Date(block.start_date) : startOfDay(new Date());
+    const end = block ? new Date(block.end_date) : addDays(startOfDay(new Date()), 60);
     end.setHours(23, 59, 59, 999);
     return generateSlots(
-      28,
+      block ? 28 : 60,
       blockedRanges,
       availQ.data ?? [],
       exceptionsQ.data ?? [],
