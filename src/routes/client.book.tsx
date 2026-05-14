@@ -466,12 +466,13 @@ function BookFlow() {
     eventTypeId: string | null,
     isoDate: string,
   ): { id: string; remaining: number } | null => {
+    if (!block) return null;
     const slotDate = new Date(isoDate);
     const weeksFromStart = Math.floor(
       (slotDate.getTime() - new Date(block.start_date).getTime()) / (1000 * 60 * 60 * 24 * 7),
     );
     const wn = Math.min(4, Math.max(1, weeksFromStart + 1));
-    const matchPool = (a: (typeof block.allocations)[number]) =>
+    const matchPool = (a: AllocationRow) =>
       eventTypeId
         ? a.event_type_id === eventTypeId
         : a.event_type_id === null && a.session_type === type;
@@ -484,6 +485,20 @@ function BookFlow() {
       (a) => matchPool(a) && a.quantity_assigned - a.quantity_booked > 0,
     );
     return any ? { id: any.id, remaining: any.quantity_assigned - any.quantity_booked } : null;
+  };
+
+  // Cerca un extra_credit con quantità residua per il dato event_type, ordinato per scadenza.
+  const findExtraCredit = (
+    eventTypeId: string | null,
+  ): { id: string; quantity: number; quantity_booked: number } | null => {
+    if (!eventTypeId) return null;
+    const candidates = (extraCreditsQ.data ?? [])
+      .filter((c) => c.event_type_id === eventTypeId && c.quantity - c.quantity_booked > 0)
+      .sort((a, b) => new Date(a.expires_at).getTime() - new Date(b.expires_at).getTime());
+    const first = candidates[0];
+    return first
+      ? { id: first.id, quantity: first.quantity, quantity_booked: first.quantity_booked }
+      : null;
   };
 
   const profile = profileQ.data;
