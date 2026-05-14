@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -40,18 +42,68 @@ export const Route = createFileRoute("/trainer/integrations")({
 });
 
 function IntegrationsPage() {
-  const [isCalendarConnected, setIsCalendarConnected] = useState(true);
+  const { user } = useAuth();
+  const [isCalendarConnected, setIsCalendarConnected] = useState(false);
   const [isCalendarSyncEnabled, setIsCalendarSyncEnabled] = useState(true);
+  const [isCalendarLoading, setIsCalendarLoading] = useState(false);
+  const [connectedEmail, setConnectedEmail] = useState<string | null>(null);
   const [isStripeLoading, setIsStripeLoading] = useState(false);
   const [calendarSheetOpen, setCalendarSheetOpen] = useState(false);
+
+  // Check connection state from Supabase session + integration_settings
+  useEffect(() => {
+    let cancelled = false;
+    async function check() {
+      if (!user) return;
+      // 1) Check Google identity on the current user
+      const googleIdentity = user.identities?.find((i) => i.provider === "google");
+      const emailFromIdentity =
+        (googleIdentity?.identity_data as { email?: string } | undefined)?.email ?? null;
+
+      // 2) Check integration_settings.gcal_enabled
+      const { data: settings } = await supabase
+        .from("integration_settings")
+        .select("gcal_enabled, gcal_calendar_id")
+        .eq("coach_id", user.id)
+        .maybeSingle();
+
+      if (cancelled) return;
+      const connected = !!googleIdentity || !!settings?.gcal_enabled;
+      setIsCalendarConnected(connected);
+      setConnectedEmail(emailFromIdentity ?? settings?.gcal_calendar_id ?? user.email ?? null);
+    }
+    check();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   const handleToggleCalendarSync = (v: boolean) => {
     setIsCalendarSyncEnabled(v);
     toast.success("Sincronizzazione automatica aggiornata.");
   };
 
-  const handleConnectCalendar = () => {
-    toast.info("Reindirizzamento a Google in corso...");
+  const handleConnectCalendar = async () => {
+    setIsCalendarLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/trainer/integrations`,
+          scopes: "https://www.googleapis.com/auth/calendar",
+          queryParams: {
+            access_type: "offline",
+            prompt: "consent",
+          },
+        },
+      });
+      if (error) throw error;
+      toast.info("Reindirizzamento a Google in corso...");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Errore di connessione";
+      toast.error(msg);
+      setIsCalendarLoading(false);
+    }
   };
 
   const handleConnectStripe = async () => {
@@ -87,9 +139,11 @@ function IntegrationsPage() {
         >
           {isCalendarConnected ? (
             <>
-              <p className="text-xs text-[#647d8e] flex items-center gap-1.5">
-                <Clock className="size-3" /> Ultima sincronizzazione: 5 min fa
-              </p>
+              {connectedEmail && (
+                <p className="text-xs text-[#647d8e] flex items-center gap-1.5">
+                  <Mail className="size-3" /> {connectedEmail}
+                </p>
+              )}
               <div className="flex items-center justify-between rounded-2xl bg-[#f8f9fe] px-4 py-3">
                 <Label
                   htmlFor="cal-sync"
@@ -112,12 +166,20 @@ function IntegrationsPage() {
               </Button>
             </>
           ) : (
-            <Button
-              onClick={handleConnectCalendar}
-              className="w-full rounded-full bg-[#4285F4] hover:bg-[#3a76db] text-white"
-            >
-              Connetti Google Calendar
-            </Button>
+            <>
+              <Button
+                onClick={handleConnectCalendar}
+                disabled={isCalendarLoading}
+                className="w-full rounded-full bg-[#4285F4] hover:bg-[#3a76db] text-white"
+              >
+                {isCalendarLoading && <Loader2 className="size-4 animate-spin mr-2" />}
+                Connetti Google Calendar
+              </Button>
+              <p className="text-[11px] leading-relaxed text-[#647d8e] px-1">
+                Nota: Per la sincronizzazione corretta, utilizza esclusivamente l'account{" "}
+                <span className="font-medium text-[#003a5c]">nctrainingsystems@gmail.com</span>.
+              </p>
+            </>
           )}
         </IntegrationCard>
 
