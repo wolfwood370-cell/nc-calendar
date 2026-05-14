@@ -33,7 +33,10 @@ export function TrainerSidebar() {
   const navigate = useNavigate();
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar
+      collapsible="icon"
+      className="[&_[data-sidebar=sidebar]]:bg-white/40 [&_[data-sidebar=sidebar]]:backdrop-blur-2xl [&_[data-sidebar=sidebar]]:border-r [&_[data-sidebar=sidebar]]:border-white/20"
+    >
       <SidebarHeader>
         <div className="flex items-center gap-2 px-2 py-2">
           <img src={logoUrl} alt="NC Calendar" className="size-8 rounded-md object-cover" />
