@@ -292,13 +292,14 @@ function ClientsPage() {
       const arr = bookingsByClient.get(bk.client_id) ?? [];
       arr.push(bk);
       bookingsByClient.set(bk.client_id, arr);
+    }
     const extrasByClient = new Map<string, ExtraCreditLite[]>();
     for (const ec of extraCredits) {
       const arr = extrasByClient.get(ec.client_id) ?? [];
       arr.push(ec);
       extrasByClient.set(ec.client_id, arr);
     }
-  
+
     const today = new Date();
 
     return clients.map((c) => {
