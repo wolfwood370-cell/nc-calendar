@@ -273,6 +273,23 @@ function BookingDetailView({ booking }: { booking: BookingDetail }) {
         </p>
       </section>
 
+      {/* Session description */}
+      {booking.event_type?.description && (
+        <section className="rounded-2xl bg-white/40 backdrop-blur-xl border border-white/30 shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-stack-lg">
+          <div className="flex items-center gap-3 mb-stack-sm">
+            <div className="w-9 h-9 rounded-full bg-primary/10 text-primary grid place-items-center">
+              <Info className="size-4" />
+            </div>
+            <h2 className="text-sm font-semibold text-on-surface">
+              Cosa aspettarti da questa sessione
+            </h2>
+          </div>
+          <p className="text-sm text-on-surface-variant leading-relaxed whitespace-pre-wrap">
+            {booking.event_type.description}
+          </p>
+        </section>
+      )}
+
       {/* Coach notes */}
       <section className="bg-surface-container-lowest rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.04)] overflow-hidden relative border-l-4 border-primary">
         <div className="p-stack-lg">
