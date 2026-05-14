@@ -381,7 +381,7 @@ function ClientsPage() {
         daysToBilling,
       };
     });
-  }, [clients, blocks, allocs, bookings, eventTypeById]);
+  }, [clients, blocks, allocs, bookings, extraCredits, eventTypeById]);
 
   const counts = useMemo(() => {
     const c = { all: cardData.length, active: 0, expiring: 0, archived: 0, completed: 0 };
