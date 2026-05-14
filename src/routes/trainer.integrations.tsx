@@ -62,7 +62,15 @@ function IntegrationsPage() {
       if (!user) return;
       // Access tokens Google scadono in ~3600s
       const expiresAt = new Date(Date.now() + 55 * 60 * 1000).toISOString();
-      const payload: Record<string, unknown> = {
+      const payload: {
+        coach_id: string;
+        gcal_enabled: boolean;
+        gcal_access_token: string;
+        gcal_token_expires_at: string;
+        gcal_account_email: string | null;
+        gcal_calendar_id: string;
+        gcal_refresh_token?: string;
+      } = {
         coach_id: user.id,
         gcal_enabled: true,
         gcal_access_token: providerToken,
