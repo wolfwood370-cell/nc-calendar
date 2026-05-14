@@ -82,7 +82,10 @@ Deno.serve(async (req) => {
       expiresAt.setDate(expiresAt.getDate() + 30);
     }
 
-    const origin = req.headers.get("origin") || "https://your-domain.com";
+    const origin =
+      req.headers.get("origin") ||
+      req.headers.get("referer")?.replace(/\/$/, "") ||
+      "https://nc-calendar.lovable.app";
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
