@@ -371,17 +371,22 @@ function TimelineCard({
   });
   const timeStr = d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
   const status = statusMeta(booking.status);
+  const booster = isBoosterBooking(booking);
 
   return (
     <Link
       to="/client/bookings/$bookingId"
       params={{ bookingId: booking.id }}
-      className={`block bg-surface-container-lowest/60 backdrop-blur-xl rounded-[24px] border border-white/40 shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:bg-white/80 transition-colors ${compact ? "p-4" : "p-5"}`}
+      className={`block backdrop-blur-xl rounded-[24px] border transition-colors ${compact ? "p-4" : "p-5"} ${
+        booster
+          ? "bg-tertiary-container/20 border-tertiary/30 shadow-[0_0_20px_rgba(255,181,118,0.15)] hover:bg-tertiary-container/30"
+          : "bg-surface-container-lowest/60 border-white/40 shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:bg-white/80"
+      }`}
     >
       <div className="flex items-start justify-between gap-3 min-w-0">
         <div className="min-w-0 flex flex-col gap-1">
           <p
-            className={`font-semibold text-on-surface truncate leading-tight ${compact ? "text-sm" : "text-base"}`}
+            className={`font-semibold truncate leading-tight ${compact ? "text-sm" : "text-base"} ${booster ? "text-tertiary" : "text-on-surface"}`}
           >
             {title}
           </p>
@@ -390,11 +395,16 @@ function TimelineCard({
           </p>
         </div>
         <div className="flex flex-col items-end gap-1.5 shrink-0">
+          {booster && (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-tertiary/10 text-tertiary uppercase tracking-wide">
+              Booster
+            </span>
+          )}
           <span
             className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold"
-            style={{ backgroundColor: `${color}1a`, color }}
+            style={booster ? undefined : { backgroundColor: `${color}1a`, color }}
           >
-            {typeName}
+            <span className={booster ? "text-tertiary" : undefined}>{typeName}</span>
           </span>
           <span
             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${status.cls}`}
