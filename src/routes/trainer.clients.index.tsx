@@ -247,10 +247,19 @@ function ClientsPage() {
       if (!isAdmin && user) bookQ = bookQ.eq("coach_id", user.id);
       const { data: bks } = await bookQ;
       setBookings((bks as unknown as BookingLite[]) ?? []);
+
+      // Extra credits (booster / free-client initial sessions)
+      const { data: ecs } = await supabase
+        .from("extra_credits")
+        .select("client_id, event_type_id, quantity, quantity_booked, expires_at")
+        .in("client_id", ids)
+        .gte("expires_at", new Date().toISOString());
+      setExtraCredits((ecs as ExtraCreditLite[]) ?? []);
     } else {
       setBlocks([]);
       setAllocs([]);
       setBookings([]);
+      setExtraCredits([]);
     }
     setLoading(false);
   }
