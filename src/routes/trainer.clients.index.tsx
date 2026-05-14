@@ -601,6 +601,7 @@ function ClientsPage() {
     qc.invalidateQueries({ queryKey: ["clients"] });
     qc.invalidateQueries({ queryKey: ["block-allocations"] });
     qc.invalidateQueries({ queryKey: ["blocks"] });
+    qc.invalidateQueries({ queryKey: ["extra_credits"] });
     setCreateOpen(false);
     setCredentials({
       firstName: data.firstName,
