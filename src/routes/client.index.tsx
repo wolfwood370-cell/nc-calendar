@@ -193,7 +193,6 @@ function ClientHome() {
               durationMin={nextEventType?.duration ?? 60}
               label={nextEventType?.name ?? sessionLabel(nextBooking.session_type)}
               color={nextEventType?.color ?? "#039BE5"}
-              isBooster={isBoosterBooking(nextBooking)}
             />
           ) : (
             <div className="bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-6 border border-outline-variant/30 text-center">
@@ -241,25 +240,18 @@ function ClientHome() {
   );
 }
 
-function isBoosterBooking(b: BookingRow): boolean {
-  // Bookings tied to extra credits (Boosters) have no training block.
-  return b.block_id === null;
-}
-
 function NextAppointmentCard({
   bookingId,
   date,
   durationMin,
   label,
   color,
-  isBooster = false,
 }: {
   bookingId: string;
   date: Date;
   durationMin: number;
   label: string;
   color: string;
-  isBooster?: boolean;
 }) {
   const end = new Date(date.getTime() + durationMin * 60_000);
   const startStr = date.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
@@ -281,21 +273,13 @@ function NextAppointmentCard({
     <Link
       to="/client/bookings/$bookingId"
       params={{ bookingId }}
-      className={
-        isBooster
-          ? "block bg-tertiary-container/20 backdrop-blur-xl rounded-[32px] shadow-[0_0_20px_rgba(255,181,118,0.15)] p-6 border border-tertiary/30 hover:bg-tertiary-container/30 transition-colors"
-          : "block bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-6 border border-outline-variant/30 hover:bg-surface-container-low transition-colors"
-      }
+      className="block bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-6 border border-outline-variant/30 hover:bg-surface-container-low transition-colors"
     >
       <div className="flex justify-between items-start gap-2">
         <div className="flex gap-4 items-center min-w-0">
           <div
-            className={
-              isBooster
-                ? "w-16 h-16 shrink-0 rounded-full grid place-items-center bg-tertiary/10 text-tertiary"
-                : "w-16 h-16 shrink-0 rounded-full grid place-items-center"
-            }
-            style={isBooster ? undefined : { backgroundColor: `${color}1a`, color }}
+            className="w-16 h-16 shrink-0 rounded-full grid place-items-center"
+            style={{ backgroundColor: `${color}1a`, color }}
           >
             <Calendar className="size-8" />
           </div>
@@ -311,23 +295,12 @@ function NextAppointmentCard({
             </div>
           </div>
         </div>
-        <div className="flex flex-col items-end gap-1.5 shrink-0">
-          {isBooster && (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-tertiary/10 text-tertiary uppercase tracking-wide">
-              Booster
-            </span>
-          )}
-          <span
-            className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold"
-            style={
-              isBooster
-                ? undefined
-                : { backgroundColor: `${color}1a`, color }
-            }
-          >
-            <span className={isBooster ? "text-tertiary" : undefined}>{label}</span>
-          </span>
-        </div>
+        <span
+          className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold shrink-0"
+          style={{ backgroundColor: `${color}1a`, color }}
+        >
+          {label}
+        </span>
       </div>
     </Link>
   );
@@ -371,22 +344,17 @@ function TimelineCard({
   });
   const timeStr = d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
   const status = statusMeta(booking.status);
-  const booster = isBoosterBooking(booking);
 
   return (
     <Link
       to="/client/bookings/$bookingId"
       params={{ bookingId: booking.id }}
-      className={`block backdrop-blur-xl rounded-[24px] border transition-colors ${compact ? "p-4" : "p-5"} ${
-        booster
-          ? "bg-tertiary-container/20 border-tertiary/30 shadow-[0_0_20px_rgba(255,181,118,0.15)] hover:bg-tertiary-container/30"
-          : "bg-surface-container-lowest/60 border-white/40 shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:bg-white/80"
-      }`}
+      className={`block bg-surface-container-lowest/60 backdrop-blur-xl rounded-[24px] border border-white/40 shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:bg-white/80 transition-colors ${compact ? "p-4" : "p-5"}`}
     >
       <div className="flex items-start justify-between gap-3 min-w-0">
         <div className="min-w-0 flex flex-col gap-1">
           <p
-            className={`font-semibold truncate leading-tight ${compact ? "text-sm" : "text-base"} ${booster ? "text-tertiary" : "text-on-surface"}`}
+            className={`font-semibold text-on-surface truncate leading-tight ${compact ? "text-sm" : "text-base"}`}
           >
             {title}
           </p>
@@ -395,16 +363,11 @@ function TimelineCard({
           </p>
         </div>
         <div className="flex flex-col items-end gap-1.5 shrink-0">
-          {booster && (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-tertiary/10 text-tertiary uppercase tracking-wide">
-              Booster
-            </span>
-          )}
           <span
             className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold"
-            style={booster ? undefined : { backgroundColor: `${color}1a`, color }}
+            style={{ backgroundColor: `${color}1a`, color }}
           >
-            <span className={booster ? "text-tertiary" : undefined}>{typeName}</span>
+            {typeName}
           </span>
           <span
             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${status.cls}`}
