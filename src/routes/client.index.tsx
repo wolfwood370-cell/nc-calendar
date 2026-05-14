@@ -281,13 +281,21 @@ function NextAppointmentCard({
     <Link
       to="/client/bookings/$bookingId"
       params={{ bookingId }}
-      className="block bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-6 border border-outline-variant/30 hover:bg-surface-container-low transition-colors"
+      className={
+        isBooster
+          ? "block bg-tertiary-container/20 backdrop-blur-xl rounded-[32px] shadow-[0_0_20px_rgba(255,181,118,0.15)] p-6 border border-tertiary/30 hover:bg-tertiary-container/30 transition-colors"
+          : "block bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-6 border border-outline-variant/30 hover:bg-surface-container-low transition-colors"
+      }
     >
       <div className="flex justify-between items-start gap-2">
         <div className="flex gap-4 items-center min-w-0">
           <div
-            className="w-16 h-16 shrink-0 rounded-full grid place-items-center"
-            style={{ backgroundColor: `${color}1a`, color }}
+            className={
+              isBooster
+                ? "w-16 h-16 shrink-0 rounded-full grid place-items-center bg-tertiary/10 text-tertiary"
+                : "w-16 h-16 shrink-0 rounded-full grid place-items-center"
+            }
+            style={isBooster ? undefined : { backgroundColor: `${color}1a`, color }}
           >
             <Calendar className="size-8" />
           </div>
@@ -303,12 +311,23 @@ function NextAppointmentCard({
             </div>
           </div>
         </div>
-        <span
-          className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold shrink-0"
-          style={{ backgroundColor: `${color}1a`, color }}
-        >
-          {label}
-        </span>
+        <div className="flex flex-col items-end gap-1.5 shrink-0">
+          {isBooster && (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-tertiary/10 text-tertiary uppercase tracking-wide">
+              Booster
+            </span>
+          )}
+          <span
+            className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold"
+            style={
+              isBooster
+                ? undefined
+                : { backgroundColor: `${color}1a`, color }
+            }
+          >
+            <span className={isBooster ? "text-tertiary" : undefined}>{label}</span>
+          </span>
+        </div>
       </div>
     </Link>
   );
