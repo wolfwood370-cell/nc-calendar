@@ -710,7 +710,7 @@ function QuickStat({
 }) {
   return (
     <div
-      className={`bg-surface-container-lowest p-6 rounded-[32px] ${SOFT_SHADOW} flex flex-col items-center justify-center text-center`}
+      className={`${GLASS} p-6 rounded-[32px] ${SOFT_SHADOW} flex flex-col items-center justify-center text-center`}
     >
       <Icon className="size-7 text-[#003e62] mb-2" />
       <p className="text-xs uppercase tracking-wider text-on-surface-variant mb-1 font-semibold">
