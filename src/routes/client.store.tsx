@@ -109,7 +109,7 @@ function StorePage() {
               }`}
             >
               {pkg.hero && (
-                <span className="absolute -top-2 right-6 bg-primary text-primary-foreground text-[10px] font-semibold uppercase tracking-wide px-3 py-1 rounded-full shadow-sm">
+                <span className="absolute -top-2 right-6 bg-tertiary/10 text-tertiary text-[10px] font-semibold uppercase tracking-wide px-3 py-1 rounded-full shadow-sm">
                   Miglior Valore
                 </span>
               )}
