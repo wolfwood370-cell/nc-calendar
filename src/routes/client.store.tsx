@@ -214,7 +214,23 @@ function StorePage() {
           <h2 className="font-manrope font-semibold text-sm uppercase tracking-wide text-on-surface-variant">
             Acquista nuovi Booster
           </h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {!canPurchaseAddons && (
+            <div className="rounded-2xl border border-amber-300/60 bg-amber-50/80 px-4 py-3 text-sm text-amber-900">
+              Gli Add-on sono riservati esclusivamente ai clienti con un{" "}
+              <strong>Percorso Fisso</strong> o un{" "}
+              <strong>Abbonamento Mensile</strong> attivo.
+            </div>
+          )}
+          <div
+            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+            onClickCapture={(e) => {
+              if (!canPurchaseAddons) {
+                e.stopPropagation();
+                e.preventDefault();
+                restrictedToast();
+              }
+            }}
+          >
             {PACKAGES.map((pkg) => (
               <BoosterCard
                 key={pkg.id}
@@ -225,12 +241,20 @@ function StorePage() {
                 icon={pkg.icon}
                 hero={pkg.hero}
                 loading={loadingPkg === pkg.id}
-                disabled={loadingPkg !== null}
+                disabled={loadingPkg !== null || !canPurchaseAddons}
                 onAction={() => handlePurchase(pkg.id)}
               />
             ))}
           </div>
         </div>
+
+        <p className="text-xs text-on-surface-variant text-center">
+          I crediti Booster scadono al termine del tuo blocco attuale.
+        </p>
+      </section>
+    </div>
+  );
+}
 
         <p className="text-xs text-on-surface-variant text-center">
           I crediti Booster scadono al termine del tuo blocco attuale.
