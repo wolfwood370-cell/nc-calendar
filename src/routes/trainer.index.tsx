@@ -348,12 +348,12 @@ function Overview() {
           {/* Centro Revisione */}
           {(reviewItems.length > 0 || ignoredItems.length > 0) && (
             <section
-              className={`bg-surface-container-lowest rounded-[32px] p-6 ${SOFT_SHADOW} border border-[#ffb77b]/40`}
+              className={`${GLASS} rounded-[32px] p-6 ${SOFT_SHADOW} border border-[#ffb77b]/40`}
             >
               <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
                 <div className="flex items-center gap-3">
                   <AlertTriangle className="size-6 text-tertiary-container" />
-                  <h2 className="text-2xl font-semibold">Centro Revisione</h2>
+                  <h2 className="text-2xl font-manrope font-semibold">Centro Revisione</h2>
                 </div>
                 <div className="inline-flex rounded-full bg-surface-container-low p-1">
                   <button
@@ -472,9 +472,9 @@ function Overview() {
           )}
 
           {/* Oggi */}
-          <section className={`bg-surface-container-lowest rounded-[32px] p-6 ${SOFT_SHADOW}`}>
+          <section className={`${GLASS} rounded-[32px] p-6 ${SOFT_SHADOW}`}>
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-2xl font-semibold">Oggi</h2>
+              <h2 className="text-2xl font-manrope font-semibold">Oggi</h2>
               <Link
                 to="/trainer/calendar"
                 className="text-sm font-semibold text-[#003e62] hover:underline"
@@ -554,10 +554,10 @@ function Overview() {
         {/* RIGHT */}
         <div className="lg:col-span-5 flex flex-col gap-6">
           {/* Crediti in Scadenza */}
-          <section className={`bg-surface-container-lowest rounded-[32px] p-6 ${SOFT_SHADOW}`}>
+          <section className={`${GLASS} rounded-[32px] p-6 ${SOFT_SHADOW}`}>
             <div className="flex items-center gap-2 mb-5">
               <Hourglass className="size-5 text-[#003e62]" />
-              <h2 className="text-2xl font-semibold">Crediti in Scadenza</h2>
+              <h2 className="text-2xl font-manrope font-semibold">Crediti in Scadenza</h2>
             </div>
             {loading ? (
               <Skeleton className="h-12 w-full" />
@@ -617,8 +617,8 @@ function Overview() {
           </section>
 
           {/* Distribuzione Servizi */}
-          <section className={`bg-surface-container-lowest rounded-[32px] p-6 ${SOFT_SHADOW}`}>
-            <h2 className="text-2xl font-semibold mb-5">Distribuzione Servizi</h2>
+          <section className={`${GLASS} rounded-[32px] p-6 ${SOFT_SHADOW}`}>
+            <h2 className="text-2xl font-manrope font-semibold mb-5">Distribuzione Servizi</h2>
             {loading ? (
               <Skeleton className="h-20 w-full" />
             ) : distribution.items.length === 0 ? (
