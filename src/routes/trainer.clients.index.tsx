@@ -1564,7 +1564,7 @@ function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) =
           <Button
             type="button"
             onClick={handleFinalSubmit}
-            disabled={submitting || eventTypes.length === 0}
+            disabled={submitting || (pathType !== "free" && eventTypes.length === 0)}
           >
             {submitting ? <Loader2 className="size-4 animate-spin" /> : null}
             Crea cliente
