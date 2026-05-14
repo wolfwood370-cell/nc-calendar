@@ -306,6 +306,7 @@ function ClientsPage() {
       const cb = blocksByClient.get(c.id) ?? [];
       const cAllocs = allocsByClient.get(c.id) ?? [];
       const cBookings = bookingsByClient.get(c.id) ?? [];
+      const cExtras = extrasByClient.get(c.id) ?? [];
 
       // Aggregate by event type (fallback session_type)
       type Agg = { type: string; used: number; total: number };
