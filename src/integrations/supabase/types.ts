@@ -303,9 +303,13 @@ export type Database = {
           calendar_optimization_enabled: boolean
           coach_id: string
           created_at: string
+          gcal_access_token: string | null
+          gcal_account_email: string | null
           gcal_calendar_id: string | null
           gcal_enabled: boolean
+          gcal_refresh_token: string | null
           gcal_service_account_json: string | null
+          gcal_token_expires_at: string | null
           gcal_webhook_url: string | null
           id: string
           updated_at: string
@@ -317,9 +321,13 @@ export type Database = {
           calendar_optimization_enabled?: boolean
           coach_id: string
           created_at?: string
+          gcal_access_token?: string | null
+          gcal_account_email?: string | null
           gcal_calendar_id?: string | null
           gcal_enabled?: boolean
+          gcal_refresh_token?: string | null
           gcal_service_account_json?: string | null
+          gcal_token_expires_at?: string | null
           gcal_webhook_url?: string | null
           id?: string
           updated_at?: string
@@ -331,9 +339,13 @@ export type Database = {
           calendar_optimization_enabled?: boolean
           coach_id?: string
           created_at?: string
+          gcal_access_token?: string | null
+          gcal_account_email?: string | null
           gcal_calendar_id?: string | null
           gcal_enabled?: boolean
+          gcal_refresh_token?: string | null
           gcal_service_account_json?: string | null
+          gcal_token_expires_at?: string | null
           gcal_webhook_url?: string | null
           id?: string
           updated_at?: string

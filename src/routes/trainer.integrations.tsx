@@ -50,27 +50,83 @@ function IntegrationsPage() {
   const [isStripeLoading, setIsStripeLoading] = useState(false);
   const [calendarSheetOpen, setCalendarSheetOpen] = useState(false);
 
-  // Check connection state from Supabase session + integration_settings
+  // Check connection + capture provider tokens after OAuth redirect
   useEffect(() => {
     let cancelled = false;
+
+    async function persistProviderTokens(
+      providerToken: string,
+      providerRefreshToken: string | null,
+      email: string | null,
+    ) {
+      if (!user) return;
+      // Access tokens Google scadono in ~3600s
+      const expiresAt = new Date(Date.now() + 55 * 60 * 1000).toISOString();
+      const payload: {
+        coach_id: string;
+        gcal_enabled: boolean;
+        gcal_access_token: string;
+        gcal_token_expires_at: string;
+        gcal_account_email: string | null;
+        gcal_calendar_id: string;
+        gcal_refresh_token?: string;
+      } = {
+        coach_id: user.id,
+        gcal_enabled: true,
+        gcal_access_token: providerToken,
+        gcal_token_expires_at: expiresAt,
+        gcal_account_email: email,
+        gcal_calendar_id: email ?? "primary",
+      };
+      // Salva il refresh token solo se presente (Google lo rilascia solo
+      // al primo consent o con prompt=consent)
+      if (providerRefreshToken) payload.gcal_refresh_token = providerRefreshToken;
+
+      const { error } = await supabase
+        .from("integration_settings")
+        .upsert(payload, { onConflict: "coach_id" });
+      if (error) {
+        console.error("integration_settings upsert failed", error);
+        toast.error("Connessione riuscita ma salvataggio token fallito.");
+        return;
+      }
+      toast.success("Google Calendar collegato con successo.");
+    }
+
     async function check() {
       if (!user) return;
-      // 1) Check Google identity on the current user
+      // 1) Estrai eventuale provider_token dalla sessione corrente
+      const { data: sessionData } = await supabase.auth.getSession();
+      const session = sessionData.session;
+      const providerToken = session?.provider_token ?? null;
+      const providerRefreshToken = session?.provider_refresh_token ?? null;
+
       const googleIdentity = user.identities?.find((i) => i.provider === "google");
       const emailFromIdentity =
         (googleIdentity?.identity_data as { email?: string } | undefined)?.email ?? null;
 
-      // 2) Check integration_settings.gcal_enabled
+      // 2) Stato corrente in DB
       const { data: settings } = await supabase
         .from("integration_settings")
-        .select("gcal_enabled, gcal_calendar_id")
+        .select("gcal_enabled, gcal_account_email, gcal_refresh_token")
         .eq("coach_id", user.id)
         .maybeSingle();
 
+      // 3) Se abbiamo un provider_token fresco dall'OAuth flow, persistilo
+      if (providerToken && googleIdentity) {
+        await persistProviderTokens(providerToken, providerRefreshToken, emailFromIdentity);
+        if (cancelled) return;
+        setIsCalendarConnected(true);
+        setConnectedEmail(emailFromIdentity);
+        return;
+      }
+
       if (cancelled) return;
-      const connected = !!googleIdentity || !!settings?.gcal_enabled;
+      const connected = !!settings?.gcal_enabled;
       setIsCalendarConnected(connected);
-      setConnectedEmail(emailFromIdentity ?? settings?.gcal_calendar_id ?? user.email ?? null);
+      setConnectedEmail(
+        settings?.gcal_account_email ?? emailFromIdentity ?? user.email ?? null,
+      );
     }
     check();
     return () => {
@@ -175,9 +231,9 @@ function IntegrationsPage() {
                 {isCalendarLoading && <Loader2 className="size-4 animate-spin mr-2" />}
                 Connetti Google Calendar
               </Button>
-              <p className="text-[11px] leading-relaxed text-[#647d8e] px-1">
-                Nota: Per la sincronizzazione corretta, utilizza esclusivamente l'account{" "}
-                <span className="font-medium text-[#003a5c]">nctrainingsystems@gmail.com</span>.
+              <p className="text-[11px] leading-relaxed tracking-wide text-[#647d8e] px-1 font-medium">
+                Nota: per la sincronizzazione corretta, utilizza esclusivamente l'account{" "}
+                <span className="font-semibold text-[#003a5c]">nctrainingsystems@gmail.com</span>.
               </p>
             </>
           )}
