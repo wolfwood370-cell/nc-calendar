@@ -58,6 +58,53 @@ function StorePage() {
 
   const { data: extraCredits = [] } = useClientExtraCredits(user?.id);
 
+  // Fetch profile path_type + pack_label to determine add-on eligibility
+  const { data: profile } = useQuery({
+    queryKey: ["client_profile_path", user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("path_type, pack_label, status")
+        .eq("id", user!.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Check active training block exists
+  const { data: hasActiveBlock = false } = useQuery({
+    queryKey: ["client_active_block", user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("training_blocks")
+        .select("id")
+        .eq("client_id", user!.id)
+        .is("deleted_at", null)
+        .eq("status", "active")
+        .limit(1);
+      if (error) throw error;
+      return (data?.length ?? 0) > 0;
+    },
+  });
+
+  // Allowed: Percorso Fisso (Pacchetto) [path_type=fixed, no pack_label] OR Abbonamento Mensile [recurring]
+  // Disabled: Cliente Libero (free / no block) OR PT Pack (fixed with pack_label)
+  const canPurchaseAddons =
+    !!profile &&
+    hasActiveBlock &&
+    profile.status === "active" &&
+    ((profile.path_type === "fixed" && !profile.pack_label) ||
+      profile.path_type === "recurring");
+
+  const restrictedToast = () =>
+    toast.error("Accesso limitato", {
+      description:
+        "Gli Add-on sono riservati esclusivamente ai clienti con un Percorso Fisso o un Abbonamento Mensile attivo.",
+    });
+
   // Map event_type_id -> name for owned credits display
   const eventTypeIds = useMemo(
     () => Array.from(new Set(extraCredits.map((c) => c.event_type_id))),
@@ -90,6 +137,10 @@ function StorePage() {
 
   const handlePurchase = async (pkgId: string) => {
     if (!user) return;
+    if (!canPurchaseAddons) {
+      restrictedToast();
+      return;
+    }
     try {
       setLoadingPkg(pkgId);
       toast.info("Preparazione del checkout in corso...", { id: "checkout-toast" });
@@ -163,7 +214,23 @@ function StorePage() {
           <h2 className="font-manrope font-semibold text-sm uppercase tracking-wide text-on-surface-variant">
             Acquista nuovi Booster
           </h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {!canPurchaseAddons && (
+            <div className="rounded-2xl border border-amber-300/60 bg-amber-50/80 px-4 py-3 text-sm text-amber-900">
+              Gli Add-on sono riservati esclusivamente ai clienti con un{" "}
+              <strong>Percorso Fisso</strong> o un{" "}
+              <strong>Abbonamento Mensile</strong> attivo.
+            </div>
+          )}
+          <div
+            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+            onClickCapture={(e) => {
+              if (!canPurchaseAddons) {
+                e.stopPropagation();
+                e.preventDefault();
+                restrictedToast();
+              }
+            }}
+          >
             {PACKAGES.map((pkg) => (
               <BoosterCard
                 key={pkg.id}
@@ -174,7 +241,7 @@ function StorePage() {
                 icon={pkg.icon}
                 hero={pkg.hero}
                 loading={loadingPkg === pkg.id}
-                disabled={loadingPkg !== null}
+                disabled={loadingPkg !== null || !canPurchaseAddons}
                 onAction={() => handlePurchase(pkg.id)}
               />
             ))}
