@@ -1355,10 +1355,55 @@ function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) =
               Le sessioni si resettano ad ogni rinnovo.
             </p>
           )}
+
+          {pathType === "free" && (
+            <p className="text-xs text-muted-foreground">
+              Nessun blocco verrà creato. Potrai assegnare sessioni omaggio iniziali nel prossimo
+              step e in qualsiasi momento dalla scheda cliente.
+            </p>
+          )}
         </div>
       )}
 
-      {step === 3 && (
+      {step === 3 && pathType === "free" && (
+        <div className="space-y-4">
+          <div className="rounded-[24px] bg-white/40 backdrop-blur-xl border border-white/40 shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-5 space-y-4">
+            <div>
+              <h3 className="font-semibold text-sm text-on-surface">Sessioni Omaggio iniziali</h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                Verranno accreditate al cliente come crediti extra (validità 1 anno).
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Tipo di sessione</Label>
+              <Select value={freeEventTypeId} onValueChange={setFreeEventTypeId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleziona event type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {eventTypes.map((et) => (
+                    <SelectItem key={et.id} value={et.id}>
+                      {et.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Numero di sessioni omaggio</Label>
+              <Input
+                type="number"
+                min={0}
+                max={50}
+                value={freeSessions}
+                onChange={(e) => setFreeSessions(Math.max(0, Number(e.target.value) || 0))}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {step === 3 && pathType !== "free" && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
