@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
         return new Response("No event types available", { status: 400 });
       }
 
-      // Insert extra_credits
+      // Insert extra_credits (idempotent via UNIQUE on stripe_payment_id)
       const { error: insertError } = await adminClient.from("extra_credits").insert({
         client_id,
         event_type_id: eventType.id,
@@ -94,6 +94,14 @@ Deno.serve(async (req) => {
       });
 
       if (insertError) {
+        // Postgres unique_violation = 23505 → duplicate Stripe event, already processed.
+        if ((insertError as any).code === "23505") {
+          console.log("Payment already processed", { stripe_payment_id: session.id });
+          return new Response(JSON.stringify({ received: true, duplicate: true }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          });
+        }
         console.error("Failed to insert extra_credits:", insertError);
         return new Response("Failed to insert extra credits", { status: 500 });
       }
