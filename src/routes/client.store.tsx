@@ -255,11 +255,3 @@ function StorePage() {
     </div>
   );
 }
-
-        <p className="text-xs text-on-surface-variant text-center">
-          I crediti Booster scadono al termine del tuo blocco attuale.
-        </p>
-      </section>
-    </div>
-  );
-}
