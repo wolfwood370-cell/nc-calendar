@@ -231,9 +231,9 @@ function IntegrationsPage() {
                 {isCalendarLoading && <Loader2 className="size-4 animate-spin mr-2" />}
                 Connetti Google Calendar
               </Button>
-              <p className="text-[11px] leading-relaxed text-[#647d8e] px-1">
-                Nota: Per la sincronizzazione corretta, utilizza esclusivamente l'account{" "}
-                <span className="font-medium text-[#003a5c]">nctrainingsystems@gmail.com</span>.
+              <p className="text-[11px] leading-relaxed tracking-wide text-[#647d8e] px-1 font-medium">
+                Nota: per la sincronizzazione corretta, utilizza esclusivamente l'account{" "}
+                <span className="font-semibold text-[#003a5c]">nctrainingsystems@gmail.com</span>.
               </p>
             </>
           )}
