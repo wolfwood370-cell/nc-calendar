@@ -470,79 +470,107 @@ function ClientsPage() {
     }
 
     try {
-      const today = new Date();
-      const blocksToInsert = Array.from({ length: data.totalBlocks }, (_, i) => {
-        const start = new Date(today);
-        start.setDate(today.getDate() + i * 30);
-        const end = new Date(today);
-        end.setDate(today.getDate() + (i + 1) * 30 - 1);
-        return {
-          client_id: newUserId,
-          coach_id: user.id,
-          start_date: start.toISOString().slice(0, 10),
-          end_date: end.toISOString().slice(0, 10),
-          status: "active" as const,
-          sequence_order: i + 1,
-        };
-      });
-      const { data: blocksRes, error: bErr } = await supabase
-        .from("training_blocks")
-        .insert(blocksToInsert)
-        .select("id, sequence_order, end_date");
-      if (bErr) throw bErr;
-      const blockBySeq = new Map<number, { id: string; end_date: string }>();
-      (blocksRes ?? []).forEach((b) =>
-        blockBySeq.set(b.sequence_order as number, {
-          id: b.id as string,
-          end_date: b.end_date as string,
-        }),
-      );
-
-      const allocsToInsert: Array<{
-        block_id: string;
-        week_number: number;
-        session_type: SessionType;
-        event_type_id: string;
-        quantity_assigned: number;
-        quantity_booked: number;
-        valid_until: string;
-      }> = [];
-      for (const rule of data.rules) {
-        for (let m = rule.startBlock; m <= rule.endBlock; m++) {
-          const b = blockBySeq.get(m);
-          if (!b) continue;
-          allocsToInsert.push({
-            block_id: b.id,
-            week_number: 1,
-            session_type: rule.sessionType,
-            event_type_id: rule.eventTypeId,
-            quantity_assigned: rule.quantityPerBlock,
+      if (data.pathType === "free") {
+        // Cliente Libero: nessun blocco/allocazione, solo extra_credits di omaggio
+        const qty = Math.max(0, data.freeSessions ?? 0);
+        const eventTypeId = data.freeEventTypeId ?? "";
+        if (qty > 0 && eventTypeId) {
+          const expires = new Date();
+          expires.setFullYear(expires.getFullYear() + 1);
+          const { error: ecErr } = await supabase.from("extra_credits").insert({
+            client_id: newUserId,
+            event_type_id: eventTypeId,
+            quantity: qty,
             quantity_booked: 0,
-            valid_until: b.end_date,
+            expires_at: expires.toISOString(),
           });
+          if (ecErr) throw ecErr;
         }
-      }
-      if (allocsToInsert.length > 0) {
-        const { error: aErr } = await supabase.from("block_allocations").insert(allocsToInsert);
-        if (aErr) throw aErr;
-      }
+        const { error: pErr } = await supabase
+          .from("profiles")
+          .update({
+            path_type: "free",
+            auto_renew: false,
+            pack_label: data.packLabel,
+            next_billing_date: null,
+          })
+          .eq("id", newUserId);
+        if (pErr) throw pErr;
+      } else {
+        const today = new Date();
+        const blocksToInsert = Array.from({ length: data.totalBlocks }, (_, i) => {
+          const start = new Date(today);
+          start.setDate(today.getDate() + i * 30);
+          const end = new Date(today);
+          end.setDate(today.getDate() + (i + 1) * 30 - 1);
+          return {
+            client_id: newUserId,
+            coach_id: user.id,
+            start_date: start.toISOString().slice(0, 10),
+            end_date: end.toISOString().slice(0, 10),
+            status: "active" as const,
+            sequence_order: i + 1,
+          };
+        });
+        const { data: blocksRes, error: bErr } = await supabase
+          .from("training_blocks")
+          .insert(blocksToInsert)
+          .select("id, sequence_order, end_date");
+        if (bErr) throw bErr;
+        const blockBySeq = new Map<number, { id: string; end_date: string }>();
+        (blocksRes ?? []).forEach((b) =>
+          blockBySeq.set(b.sequence_order as number, {
+            id: b.id as string,
+            end_date: b.end_date as string,
+          }),
+        );
 
-      // Persist path metadata on profile
-      const nextBilling = new Date(today);
-      nextBilling.setDate(today.getDate() + 30);
-      const { error: pErr } = await supabase
-        .from("profiles")
-        .update({
-          path_type: data.pathType,
-          auto_renew: data.autoRenew,
-          pack_label: data.packLabel,
-          next_billing_date:
-            data.pathType === "recurring" ? nextBilling.toISOString().slice(0, 10) : null,
-        })
-        .eq("id", newUserId);
-      if (pErr) throw pErr;
+        const allocsToInsert: Array<{
+          block_id: string;
+          week_number: number;
+          session_type: SessionType;
+          event_type_id: string;
+          quantity_assigned: number;
+          quantity_booked: number;
+          valid_until: string;
+        }> = [];
+        for (const rule of data.rules) {
+          for (let m = rule.startBlock; m <= rule.endBlock; m++) {
+            const b = blockBySeq.get(m);
+            if (!b) continue;
+            allocsToInsert.push({
+              block_id: b.id,
+              week_number: 1,
+              session_type: rule.sessionType,
+              event_type_id: rule.eventTypeId,
+              quantity_assigned: rule.quantityPerBlock,
+              quantity_booked: 0,
+              valid_until: b.end_date,
+            });
+          }
+        }
+        if (allocsToInsert.length > 0) {
+          const { error: aErr } = await supabase.from("block_allocations").insert(allocsToInsert);
+          if (aErr) throw aErr;
+        }
+
+        // Persist path metadata on profile
+        const nextBilling = new Date(today);
+        nextBilling.setDate(today.getDate() + 30);
+        const { error: pErr } = await supabase
+          .from("profiles")
+          .update({
+            path_type: data.pathType,
+            auto_renew: data.autoRenew,
+            pack_label: data.packLabel,
+            next_billing_date:
+              data.pathType === "recurring" ? nextBilling.toISOString().slice(0, 10) : null,
+          })
+          .eq("id", newUserId);
+        if (pErr) throw pErr;
+      }
     } catch (e) {
-      toast.warning("Cliente creato, ma assegnazione blocchi non riuscita", {
+      toast.warning("Cliente creato, ma assegnazione iniziale non riuscita", {
         description: (e as Error).message,
       });
     }
@@ -550,6 +578,7 @@ function ClientsPage() {
     qc.invalidateQueries({ queryKey: ["clients"] });
     qc.invalidateQueries({ queryKey: ["block-allocations"] });
     qc.invalidateQueries({ queryKey: ["blocks"] });
+    qc.invalidateQueries({ queryKey: ["extra_credits"] });
     setCreateOpen(false);
     setCredentials({
       firstName: data.firstName,
