@@ -241,18 +241,25 @@ function ClientHome() {
   );
 }
 
+function isBoosterBooking(b: BookingRow): boolean {
+  // Bookings tied to extra credits (Boosters) have no training block.
+  return b.block_id === null;
+}
+
 function NextAppointmentCard({
   bookingId,
   date,
   durationMin,
   label,
   color,
+  isBooster = false,
 }: {
   bookingId: string;
   date: Date;
   durationMin: number;
   label: string;
   color: string;
+  isBooster?: boolean;
 }) {
   const end = new Date(date.getTime() + durationMin * 60_000);
   const startStr = date.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
