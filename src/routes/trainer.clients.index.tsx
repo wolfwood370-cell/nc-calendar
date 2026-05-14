@@ -473,7 +473,7 @@ function ClientsPage() {
     lastName: string;
     email: string;
     password: string;
-    pathType: "fixed" | "recurring";
+    pathType: "fixed" | "recurring" | "free";
     totalBlocks: number;
     packLabel: string | null;
     autoRenew: boolean;
