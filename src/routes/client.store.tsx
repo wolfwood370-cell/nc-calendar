@@ -57,6 +57,9 @@ function StorePage() {
   const [loadingPkg, setLoadingPkg] = useState<string | null>(null);
 
   const { data: extraCredits = [] } = useClientExtraCredits(user?.id);
+  const { data: blocks, isLoading: blocksLoading } = useClientBlocks(user?.id);
+  const hasActivePath = !!blocks && blocks.length > 0;
+  const checkingPath = blocksLoading || blocks === undefined;
 
   // Map event_type_id -> name for owned credits display
   const eventTypeIds = useMemo(
