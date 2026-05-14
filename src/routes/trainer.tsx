@@ -34,9 +34,9 @@ function TrainerLayout() {
       <div className="min-h-screen flex w-full">
         <TrainerSidebar />
         <SidebarInset>
-          <header className="h-14 flex items-center gap-3 border-b px-4 sticky top-0 bg-background/80 backdrop-blur z-10">
+          <header className="h-14 flex items-center gap-3 border-b border-white/20 px-4 sticky top-0 bg-white/40 backdrop-blur-2xl z-10">
             <SidebarTrigger />
-            <div className="h-5 w-px bg-border" />
+            <div className="h-5 w-px bg-border/40" />
             <p className="text-sm text-muted-foreground">Studio Trainer</p>
           </header>
           <main className="p-6">
