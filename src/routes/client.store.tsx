@@ -1,16 +1,19 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Sparkles, Zap, Stethoscope, Loader2 } from "lucide-react";
+import { ArrowLeft, Sparkles, Zap, Stethoscope } from "lucide-react";
 import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
+import { BoosterCard } from "@/components/booster-card";
+import { useClientExtraCredits } from "@/lib/queries";
 
 export const Route = createFileRoute("/client/store")({
   component: StorePage,
 });
 
-interface PackageCard {
+interface PackageDef {
   id: string;
   title: string;
   price: string;
@@ -20,7 +23,7 @@ interface PackageCard {
   hero?: boolean;
 }
 
-const packages: PackageCard[] = [
+const PACKAGES: PackageDef[] = [
   {
     id: "single",
     title: "Credito Singolo PT",
@@ -53,15 +56,46 @@ function StorePage() {
   const { user } = useAuth();
   const [loadingPkg, setLoadingPkg] = useState<string | null>(null);
 
+  const { data: extraCredits = [] } = useClientExtraCredits(user?.id);
+
+  // Map event_type_id -> name for owned credits display
+  const eventTypeIds = useMemo(
+    () => Array.from(new Set(extraCredits.map((c) => c.event_type_id))),
+    [extraCredits],
+  );
+
+  const { data: eventTypes = [] } = useQuery({
+    queryKey: ["event_types_by_id", eventTypeIds],
+    enabled: eventTypeIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_types")
+        .select("id, name")
+        .in("id", eventTypeIds);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const ownedCredits = useMemo(() => {
+    const nameById = new Map(eventTypes.map((e) => [e.id, e.name]));
+    return extraCredits
+      .map((c) => ({
+        ...c,
+        remaining: Math.max(0, c.quantity - c.quantity_booked),
+        eventName: nameById.get(c.event_type_id) ?? "Sessione",
+      }))
+      .filter((c) => c.remaining > 0);
+  }, [extraCredits, eventTypes]);
+
   const handlePurchase = async (pkgId: string) => {
     if (!user) return;
-    
     try {
       setLoadingPkg(pkgId);
       toast.info("Preparazione del checkout in corso...", { id: "checkout-toast" });
-      
-      const { data, error } = await supabase.functions.invoke('booster-checkout', { 
-        body: { package_type: pkgId, client_id: user.id } 
+
+      const { data, error } = await supabase.functions.invoke("booster-checkout", {
+        body: { package_type: pkgId, client_id: user.id },
       });
 
       if (error) throw new Error(error.message);
@@ -73,9 +107,10 @@ function StorePage() {
       } else {
         throw new Error("Impossibile avviare il checkout");
       }
-    } catch (err: any) {
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Si è verificato un errore.";
       console.error(err);
-      toast.error(err.message || "Si è verificato un errore.", { id: "checkout-toast" });
+      toast.error(message, { id: "checkout-toast" });
       setLoadingPkg(null);
     }
   };
@@ -84,90 +119,71 @@ function StorePage() {
     <div className="px-4 py-6 md:px-0 space-y-6">
       <div className="flex items-center gap-3">
         <Button asChild variant="ghost" size="icon" className="rounded-full">
-          <Link to="/client">
+          <Link to="/client" aria-label="Torna alla dashboard">
             <ArrowLeft className="size-5" />
           </Link>
         </Button>
-        <h1 className="text-2xl font-display font-semibold">Crediti Booster</h1>
+        <h1 className="text-2xl md:text-3xl font-manrope font-extrabold tracking-tight text-on-surface">
+          Booster Hub
+        </h1>
       </div>
 
-      <p className="text-on-surface-variant text-sm leading-relaxed">
-        Aggiungi sessioni extra per perfezionare la tua tecnica o gestire
-        imprevisti. Disponibili solo con un abbonamento attivo.
-      </p>
+      {/* Glass Hub container */}
+      <section
+        aria-label="Booster Hub"
+        className="rounded-[40px] bg-white/40 backdrop-blur-md border border-white/30 shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-5 md:p-8 space-y-6"
+      >
+        <p className="text-sm text-on-surface-variant leading-relaxed">
+          Aggiungi sessioni extra per perfezionare la tua tecnica o gestire
+          imprevisti. Disponibili solo con un abbonamento attivo.
+        </p>
 
-      <div className="space-y-4">
-        {packages.map((pkg) => {
-          const Icon = pkg.icon;
-          return (
-            <div
-              key={pkg.id}
-              className={`relative rounded-[32px] p-6 shadow-[0_8px_30px_rgba(0,0,0,0.04)] border ${
-                pkg.hero
-                  ? "bg-primary/5 border-primary/20"
-                  : "bg-surface border-border"
-              }`}
-            >
-              {pkg.hero && (
-                <span className="absolute -top-2 right-6 bg-primary text-primary-foreground text-[10px] font-semibold uppercase tracking-wide px-3 py-1 rounded-full shadow-sm">
-                  Miglior Valore
-                </span>
-              )}
-
-              <div className="flex items-start gap-4">
-                <div
-                  className={`size-12 shrink-0 rounded-2xl flex items-center justify-center ${
-                    pkg.hero
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-foreground"
-                  }`}
-                >
-                  <Icon className="size-6" />
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-base leading-snug">
-                    {pkg.title}
-                  </h3>
-                  <div className="mt-1 flex items-baseline gap-2">
-                    <span className="text-2xl font-display font-bold">
-                      {pkg.price}
-                    </span>
-                    {pkg.perSession && (
-                      <span className="text-xs text-on-surface-variant">
-                        {pkg.perSession}
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-2 text-sm text-on-surface-variant leading-relaxed">
-                    {pkg.description}
-                  </p>
-
-                  <Button
-                    onClick={() => handlePurchase(pkg.id)}
-                    variant={pkg.hero ? "default" : "secondary"}
-                    className="mt-4 w-full rounded-full"
-                    disabled={loadingPkg !== null}
-                  >
-                    {loadingPkg === pkg.id ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Attendere...
-                      </>
-                    ) : (
-                      "Acquista Ora"
-                    )}
-                  </Button>
-                </div>
-              </div>
+        {ownedCredits.length > 0 && (
+          <div className="space-y-3">
+            <h2 className="font-manrope font-semibold text-sm uppercase tracking-wide text-on-surface-variant">
+              I tuoi Booster attivi
+            </h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {ownedCredits.map((c) => (
+                <BoosterCard
+                  key={c.id}
+                  isOwned
+                  icon={Sparkles}
+                  title={`${c.remaining}× ${c.eventName}`}
+                  description="Crediti pronti da prenotare nella tua prossima sessione."
+                  expiresAt={c.expires_at}
+                />
+              ))}
             </div>
-          );
-        })}
-      </div>
+          </div>
+        )}
 
-      <p className="text-xs text-on-surface-variant text-center px-4">
-        I crediti Booster scadono al termine del tuo blocco attuale.
-      </p>
+        <div className="space-y-3">
+          <h2 className="font-manrope font-semibold text-sm uppercase tracking-wide text-on-surface-variant">
+            Acquista nuovi Booster
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {PACKAGES.map((pkg) => (
+              <BoosterCard
+                key={pkg.id}
+                title={pkg.title}
+                description={pkg.description}
+                price={pkg.price}
+                perSession={pkg.perSession}
+                icon={pkg.icon}
+                hero={pkg.hero}
+                loading={loadingPkg === pkg.id}
+                disabled={loadingPkg !== null}
+                onAction={() => handlePurchase(pkg.id)}
+              />
+            ))}
+          </div>
+        </div>
+
+        <p className="text-xs text-on-surface-variant text-center">
+          I crediti Booster scadono al termine del tuo blocco attuale.
+        </p>
+      </section>
     </div>
   );
 }
