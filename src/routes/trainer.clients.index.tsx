@@ -180,7 +180,9 @@ function ClientsPage() {
       .is("deleted_at", null);
     if (!isAdmin && user) cq = cq.eq("coach_id", user.id);
     const { data: cs } = await cq;
-    const clientList = (cs as ClientRow[]) ?? [];
+    const clientList = ((cs as ClientRow[]) ?? []).slice().sort((a, b) =>
+      (a.full_name ?? "").localeCompare(b.full_name ?? "", "it", { sensitivity: "base" }),
+    );
     setClients(clientList);
 
     let iq = supabase
