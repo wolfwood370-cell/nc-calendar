@@ -26,7 +26,7 @@ interface PackageDef {
 const PACKAGES: PackageDef[] = [
   {
     id: "single",
-    title: "Credito Singolo PT",
+    title: "Sessione PT Aggiuntiva",
     price: "40 €",
     description:
       "1 Sessione extra per correggere l'esecuzione o recuperare un allenamento.",
@@ -34,7 +34,7 @@ const PACKAGES: PackageDef[] = [
   },
   {
     id: "pack",
-    title: "PT Pack Booster (3 Sessioni)",
+    title: "Pacchetto Sessioni PT Aggiuntive",
     price: "99 €",
     perSession: "Solo 33 € a sessione",
     description:
@@ -124,18 +124,19 @@ function StorePage() {
           </Link>
         </Button>
         <h1 className="text-2xl md:text-3xl font-manrope font-extrabold tracking-tight text-on-surface">
-          Booster Hub
+          NC Add-on
         </h1>
       </div>
 
       {/* Glass Hub container */}
       <section
-        aria-label="Booster Hub"
+        aria-label="NC Add-on"
         className="rounded-[40px] bg-white/40 backdrop-blur-md border border-white/30 shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-5 md:p-8 space-y-6"
       >
         <p className="text-sm text-on-surface-variant leading-relaxed">
-          Aggiungi sessioni extra per perfezionare la tua tecnica o gestire
-          imprevisti. Disponibili solo con un abbonamento attivo.
+          Risorse premium e sessioni one-to-one riservate esclusivamente agli
+          atleti con un percorso attivo. Il tuo accesso diretto per elevare
+          ulteriormente i tuoi standard.
         </p>
 
         {ownedCredits.length > 0 && (
