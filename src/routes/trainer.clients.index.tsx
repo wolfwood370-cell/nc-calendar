@@ -1388,7 +1388,56 @@ function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) =
         </div>
       )}
 
-      {step === 3 && (
+      {step === 3 && pathType === "free" && (
+        <div className="space-y-4">
+          <div className="rounded-3xl border border-outline-variant bg-primary-container/20 p-4 space-y-1">
+            <p className="text-sm font-semibold text-primary">Cliente Libero</p>
+            <p className="text-xs text-muted-foreground">
+              Nessun blocco verrà creato. Puoi opzionalmente assegnare alcune sessioni iniziali in
+              omaggio: verranno aggiunte come crediti extra utilizzabili entro 12 mesi.
+            </p>
+          </div>
+
+          {eventTypes.length === 0 && (
+            <p className="text-xs text-destructive">Crea prima almeno un Event Type.</p>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Event Type</Label>
+              <Select value={freeEventTypeId} onValueChange={setFreeEventTypeId}>
+                <SelectTrigger className="rounded-2xl">
+                  <SelectValue placeholder="Seleziona (opzionale)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {eventTypes.map((et) => (
+                    <SelectItem key={et.id} value={et.id}>
+                      {et.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Sessioni Iniziali (Omaggio)</Label>
+              <Input
+                type="number"
+                min={0}
+                value={freeInitialSessions}
+                onChange={(e) =>
+                  setFreeInitialSessions(Math.max(0, Number(e.target.value) || 0))
+                }
+                className="rounded-2xl"
+              />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Lascia a 0 per creare il cliente senza alcuna sessione assegnata.
+          </p>
+        </div>
+      )}
+
+      {step === 3 && pathType !== "free" && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
