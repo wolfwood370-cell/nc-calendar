@@ -139,9 +139,11 @@ function IntegrationsPage() {
         >
           {isCalendarConnected ? (
             <>
-              <p className="text-xs text-[#647d8e] flex items-center gap-1.5">
-                <Clock className="size-3" /> Ultima sincronizzazione: 5 min fa
-              </p>
+              {connectedEmail && (
+                <p className="text-xs text-[#647d8e] flex items-center gap-1.5">
+                  <Mail className="size-3" /> {connectedEmail}
+                </p>
+              )}
               <div className="flex items-center justify-between rounded-2xl bg-[#f8f9fe] px-4 py-3">
                 <Label
                   htmlFor="cal-sync"
@@ -164,12 +166,20 @@ function IntegrationsPage() {
               </Button>
             </>
           ) : (
-            <Button
-              onClick={handleConnectCalendar}
-              className="w-full rounded-full bg-[#4285F4] hover:bg-[#3a76db] text-white"
-            >
-              Connetti Google Calendar
-            </Button>
+            <>
+              <Button
+                onClick={handleConnectCalendar}
+                disabled={isCalendarLoading}
+                className="w-full rounded-full bg-[#4285F4] hover:bg-[#3a76db] text-white"
+              >
+                {isCalendarLoading && <Loader2 className="size-4 animate-spin mr-2" />}
+                Connetti Google Calendar
+              </Button>
+              <p className="text-[11px] leading-relaxed text-[#647d8e] px-1">
+                Nota: Per la sincronizzazione corretta, utilizza esclusivamente l'account{" "}
+                <span className="font-medium text-[#003a5c]">nctrainingsystems@gmail.com</span>.
+              </p>
+            </>
           )}
         </IntegrationCard>
 
