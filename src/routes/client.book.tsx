@@ -13,6 +13,7 @@ import {
   useCoachOptimizationEnabled,
   type AvailabilityRow,
   type AvailabilityExceptionRow,
+  type AllocationRow,
   type EventTypeRow,
 } from "@/lib/queries";
 import { generateMockMeetLink } from "@/components/join-video-call-button";
