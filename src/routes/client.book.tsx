@@ -540,13 +540,48 @@ function BookFlow() {
           ? customTypes.find((e) => e.id === pick.eventTypeId)
           : null;
         const displayLabel = eventType?.name ?? sessionLabel(type);
-        const alloc = findAllocationForWeek(type, eventType?.id ?? null, iso);
-        if (!alloc) {
-          toast.error(`Credito esaurito per ${displayLabel}.`);
+
+        // Resolve credit source: 1) block allocation, 2) extra credit fallback.
+        let allocId: string | null = null;
+        let allocRemaining = 0;
+        let extraId: string | null = null;
+        let extraQtyBooked = 0;
+        if (pool.source === "block") {
+          const a = findAllocationForWeek(type, eventType?.id ?? null, iso);
+          if (a) {
+            allocId = a.id;
+            allocRemaining = a.remaining;
+          } else {
+            // block exhausted → try extra credit fallback
+            const ec = findExtraCredit(eventType?.id ?? null);
+            if (ec) {
+              extraId = ec.id;
+              extraQtyBooked = ec.quantity_booked;
+            }
+          }
+        } else {
+          const ec = findExtraCredit(eventType?.id ?? null);
+          if (ec) {
+            extraId = ec.id;
+            extraQtyBooked = ec.quantity_booked;
+          }
+        }
+
+        if (!allocId && !extraId) {
+          toast.error(`Credito esaurito per ${displayLabel}.`, {
+            description: "Acquista un Booster per continuare a prenotare.",
+            action: {
+              label: "Vai allo Store",
+              onClick: () => navigate({ to: "/client/store" }),
+            },
+          });
           continue;
         }
-        const used = localUsed[alloc.id] ?? 0;
-        if (used >= alloc.remaining) {
+
+        const trackerKey = allocId ?? `extra:${extraId}`;
+        const limit = allocId ? allocRemaining : 1;
+        const used = localUsed[trackerKey] ?? 0;
+        if (allocId && used >= limit) {
           toast.error(`Credito esaurito per ${displayLabel} questa settimana.`);
           continue;
         }
@@ -580,11 +615,11 @@ function BookFlow() {
           continue;
         }
 
-        // INSERT booking
+        // INSERT booking — block_id solo se la sessione viene scalata da un'allocation di blocco.
         const { error: bErr } = await supabase.from("bookings").insert({
           client_id: meId!,
           coach_id: coachId,
-          block_id: block.id,
+          block_id: allocId ? (block?.id ?? null) : null,
           session_type: type,
           event_type_id: eventType?.id ?? null,
           scheduled_at: iso,
@@ -596,19 +631,26 @@ function BookFlow() {
           continue;
         }
 
-        // increment quantity_booked sull'allocation
-        const { data: cur } = await supabase
-          .from("block_allocations")
-          .select("quantity_booked")
-          .eq("id", alloc.id)
-          .maybeSingle();
-        if (cur) {
-          await supabase
+        // Decrementa il credito sulla fonte corretta.
+        if (allocId) {
+          const { data: cur } = await supabase
             .from("block_allocations")
-            .update({ quantity_booked: cur.quantity_booked + 1 })
-            .eq("id", alloc.id);
+            .select("quantity_booked")
+            .eq("id", allocId)
+            .maybeSingle();
+          if (cur) {
+            await supabase
+              .from("block_allocations")
+              .update({ quantity_booked: cur.quantity_booked + 1 })
+              .eq("id", allocId);
+          }
+        } else if (extraId) {
+          await supabase
+            .from("extra_credits")
+            .update({ quantity_booked: extraQtyBooked + 1 })
+            .eq("id", extraId);
         }
-        localUsed[alloc.id] = used + 1;
+        localUsed[trackerKey] = used + 1;
         bookedCount += 1;
         lastCalendarUrl = generateGoogleCalendarLink(
           { scheduled_at: iso },
