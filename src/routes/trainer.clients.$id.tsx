@@ -328,6 +328,7 @@ function ClientPathPage() {
   async function confirmOrphan(o: OrphanBooking) {
     // Try to attach to first active block with available allocation for that event_type
     let blockId: string | null = null;
+    let attached = false;
     if (o.event_type_id) {
       const sortedBlocks = [...blocks].sort((a, b) => a.sequence_order - b.sequence_order);
       for (const b of sortedBlocks) {
@@ -339,12 +340,31 @@ function ClientPathPage() {
         );
         if (candidate) {
           blockId = b.id;
+          attached = true;
           await supabase
             .from("block_allocations")
             .update({ quantity_booked: candidate.quantity_booked + 1 })
             .eq("id", candidate.id);
           break;
         }
+      }
+    }
+    // Fallback: scala da extra_credits del cliente per quell'event_type.
+    if (!attached && o.event_type_id) {
+      const nowIso = new Date().toISOString();
+      const { data: ecRows } = await supabase
+        .from("extra_credits")
+        .select("id, quantity, quantity_booked, expires_at")
+        .eq("client_id", clientId)
+        .eq("event_type_id", o.event_type_id)
+        .gte("expires_at", nowIso)
+        .order("expires_at", { ascending: true });
+      const ec = (ecRows ?? []).find((r) => r.quantity - r.quantity_booked > 0);
+      if (ec) {
+        await supabase
+          .from("extra_credits")
+          .update({ quantity_booked: ec.quantity_booked + 1 })
+          .eq("id", ec.id);
       }
     }
     const { error } = await supabase
