@@ -264,11 +264,11 @@ export function useCancelBooking() {
     mutationFn: async (input: { id: string; late: boolean; allocationId?: string | null }) => {
       const status: BookingStatus = input.late ? "late_cancelled" : "cancelled";
 
-      // Recupera info per Google Calendar sync prima di marcare deleted_at
+      // Recupera info per Google Calendar sync + block_id per decidere il refund path
       const { data: bk } = await supabase
         .from("bookings")
         .select(
-          "id, coach_id, client_id, google_event_id, scheduled_at, session_type, event_type_id",
+          "id, coach_id, client_id, block_id, google_event_id, scheduled_at, session_type, event_type_id",
         )
         .eq("id", input.id)
         .maybeSingle();
@@ -280,17 +280,37 @@ export function useCancelBooking() {
       if (error) throw error;
 
       // se la cancellazione è in tempo, restituisci il credito
-      if (!input.late && input.allocationId) {
-        const { data: alloc } = await supabase
-          .from("block_allocations")
-          .select("quantity_booked")
-          .eq("id", input.allocationId)
-          .maybeSingle();
-        if (alloc) {
-          await supabase
+      if (!input.late) {
+        if (input.allocationId) {
+          // Refund via block_allocations (client con blocco attivo)
+          const { data: alloc } = await supabase
             .from("block_allocations")
-            .update({ quantity_booked: Math.max(0, alloc.quantity_booked - 1) })
-            .eq("id", input.allocationId);
+            .select("quantity_booked")
+            .eq("id", input.allocationId)
+            .maybeSingle();
+          if (alloc) {
+            await supabase
+              .from("block_allocations")
+              .update({ quantity_booked: Math.max(0, alloc.quantity_booked - 1) })
+              .eq("id", input.allocationId);
+          }
+        } else if (!bk?.block_id && bk?.client_id && bk?.event_type_id) {
+          // Refund via extra_credits (cliente indipendente / booster)
+          const { data: ecRows } = await supabase
+            .from("extra_credits")
+            .select("id, quantity_booked")
+            .eq("client_id", bk.client_id)
+            .eq("event_type_id", bk.event_type_id)
+            .gt("quantity_booked", 0)
+            .order("expires_at", { ascending: true })
+            .limit(1);
+          const ec = (ecRows ?? [])[0];
+          if (ec) {
+            await supabase
+              .from("extra_credits")
+              .update({ quantity_booked: Math.max(0, ec.quantity_booked - 1) })
+              .eq("id", ec.id);
+          }
         }
       }
 
@@ -334,6 +354,7 @@ export function useCancelBooking() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["bookings"] });
       qc.invalidateQueries({ queryKey: ["blocks"] });
+      qc.invalidateQueries({ queryKey: ["extra_credits"] });
     },
   });
 }
@@ -364,6 +385,7 @@ export function useCoachCancelBooking() {
       if (error) throw error;
 
       if (booking.block_id) {
+        // Refund via block_allocations
         const { data: allocs } = await supabase
           .from("block_allocations")
           .select("id, event_type_id, session_type, quantity_booked")
@@ -387,12 +409,30 @@ export function useCoachCancelBooking() {
             .update({ quantity_booked: Math.max(0, match.quantity_booked - 1) })
             .eq("id", match.id);
         }
+      } else if (booking.client_id && booking.event_type_id) {
+        // Refund via extra_credits (cliente indipendente / booster)
+        const { data: ecRows } = await supabase
+          .from("extra_credits")
+          .select("id, quantity_booked")
+          .eq("client_id", booking.client_id)
+          .eq("event_type_id", booking.event_type_id)
+          .gt("quantity_booked", 0)
+          .order("expires_at", { ascending: true })
+          .limit(1);
+        const ec = (ecRows ?? [])[0];
+        if (ec) {
+          await supabase
+            .from("extra_credits")
+            .update({ quantity_booked: Math.max(0, ec.quantity_booked - 1) })
+            .eq("id", ec.id);
+        }
       }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["bookings"] });
       qc.invalidateQueries({ queryKey: ["blocks"] });
       qc.invalidateQueries({ queryKey: ["block-allocations"] });
+      qc.invalidateQueries({ queryKey: ["extra_credits"] });
     },
   });
 }

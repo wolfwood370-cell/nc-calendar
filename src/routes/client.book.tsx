@@ -633,6 +633,9 @@ function BookFlow() {
         }
 
         // Decrementa il credito sulla fonte corretta.
+        // NOTA: extra_credits viene auto-incrementato dal trigger DB
+        // (trg_booking_validate_extra_credits) al momento dell'INSERT,
+        // quindi NON serve farlo qui. Block_allocations resta manuale.
         if (allocId) {
           const { data: cur } = await supabase
             .from("block_allocations")
@@ -646,10 +649,7 @@ function BookFlow() {
               .eq("id", allocId);
           }
         } else if (extraId) {
-          await supabase
-            .from("extra_credits")
-            .update({ quantity_booked: extraQtyBooked + 1 })
-            .eq("id", extraId);
+          // Auto-deducted by DB trigger — track count for toast message only.
           extraCreditCount += 1;
         }
         localUsed[trackerKey] = used + 1;
