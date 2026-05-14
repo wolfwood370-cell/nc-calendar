@@ -717,9 +717,12 @@ function BookFlow() {
         toast.success(
           `${bookedCount} ${bookedCount === 1 ? "sessione prenotata" : "sessioni prenotate"}`,
           {
-            description: emailNotificationsEnabled
-              ? "Email di conferma inviata. I link videochiamata sono generati automaticamente per le sessioni online."
-              : "I link videochiamata sono generati automaticamente per le sessioni online.",
+            description:
+              extraCreditCount > 0
+                ? `${extraCreditCount === bookedCount ? "Scalata" : `${extraCreditCount}`} da crediti omaggio/extra. ${emailNotificationsEnabled ? "Email di conferma inviata." : ""}`.trim()
+                : emailNotificationsEnabled
+                  ? "Email di conferma inviata. I link videochiamata sono generati automaticamente per le sessioni online."
+                  : "I link videochiamata sono generati automaticamente per le sessioni online.",
             action: lastCalendarUrl
               ? {
                   label: "Aggiungi al Calendario",
