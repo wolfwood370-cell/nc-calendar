@@ -82,7 +82,7 @@ interface ClientRow {
   email: string | null;
   phone: string | null;
   status: string;
-  path_type: "fixed" | "recurring";
+  path_type: "fixed" | "recurring" | "free";
   next_billing_date: string | null;
   pack_label: string | null;
   auto_renew: boolean;
