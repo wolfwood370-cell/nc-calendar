@@ -728,6 +728,7 @@ function BookFlow() {
         );
         qc.invalidateQueries({ queryKey: ["bookings"] });
         qc.invalidateQueries({ queryKey: ["blocks"] });
+        qc.invalidateQueries({ queryKey: ["extra_credits"] });
         navigate({ to: "/client" });
       }
     } finally {
