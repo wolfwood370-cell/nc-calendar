@@ -230,6 +230,7 @@ function BookFlow() {
   const qc = useQueryClient();
   const blocksQ = useClientBlocks(meId);
   const bookingsQ = useClientBookings(meId);
+  const extraCreditsQ = useClientExtraCredits(meId);
 
   const profileQ = useQuery({
     queryKey: ["profile", meId],
