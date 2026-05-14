@@ -211,79 +211,17 @@ function ClientHome() {
           )}
         </section>
 
-        {/* Ultime Sessioni */}
-        <section className="bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-6 border border-outline-variant/30 flex flex-col gap-4">
-          <h3 className="text-xl font-semibold text-on-surface mb-2">Ultime Sessioni</h3>
+        {/* Fitness Journey Timeline */}
+        <section className="flex flex-col gap-stack-md">
+          <h3 className="text-xl font-semibold text-on-surface ml-1">Il Tuo Percorso Recente</h3>
           {isLoading ? (
-            <Skeleton className="h-24 w-full rounded-md" />
-          ) : recentCompleted.length === 0 ? (
-            <p className="text-sm text-on-surface-variant text-center py-4">
-              Non hai ancora completato nessuna sessione.
-            </p>
+            <Skeleton className="h-40 w-full rounded-[24px]" />
           ) : (
-            <ul className="flex flex-col gap-4">
-              {recentCompleted.map((b) => {
-                const et = b.event_type_id
-                  ? (eventTypesQ.data ?? []).find((e) => e.id === b.event_type_id)
-                  : null;
-                const typeName = et?.name ?? sessionLabel(b.session_type);
-                const color = et?.color ?? "#003e62";
-                const title = b.title?.trim() || b.trainer_notes?.trim() || typeName;
-                const d = new Date(b.scheduled_at);
-                const dateStr = d.toLocaleDateString("it-IT", {
-                  day: "numeric",
-                  month: "long",
-                });
-                const timeStr = d.toLocaleTimeString("it-IT", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                });
-                return (
-                  <li key={b.id} className="flex items-start gap-4">
-                    <div className="w-8 h-8 shrink-0 rounded-full bg-green-100 grid place-items-center text-green-600 mt-1">
-                      <Check className="size-[18px]" />
-                    </div>
-                    <div className="flex-1 flex flex-col min-w-0">
-                      <h4 className="text-base font-semibold text-on-surface leading-tight mb-1 truncate">
-                        {title}
-                      </h4>
-                      <div className="flex items-center justify-between mt-1 gap-2">
-                        <span className="text-sm text-on-surface-variant">
-                          {dateStr}, {timeStr}
-                        </span>
-                        <span
-                          className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0"
-                          style={{ backgroundColor: `${color}1a`, color }}
-                        >
-                          {typeName}
-                        </span>
-                      </div>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+            <SessionTimeline
+              bookings={bookingsQ.data ?? []}
+              eventTypes={eventTypesQ.data ?? []}
+            />
           )}
-          <div className="pt-4 border-t border-surface-container-high text-center">
-            <Link
-              to="/client/bookings/$bookingId"
-              params={{ bookingId: "history" }}
-              onClick={(e) => {
-                e.preventDefault();
-                navigate({ to: "/client" });
-                setTimeout(
-                  () =>
-                    document
-                      .getElementById("storico-full")
-                      ?.scrollIntoView({ behavior: "smooth" }),
-                  50,
-                );
-              }}
-              className="text-sm font-semibold text-primary hover:underline"
-            >
-              Vedi tutto lo storico
-            </Link>
-          </div>
         </section>
 
         {/* Quick Action */}
@@ -295,14 +233,6 @@ function ClientHome() {
             <Plus className="size-5" />
             Prenota Nuova Sessione
           </Link>
-        </section>
-
-        {/* Storico completo */}
-        <section id="storico-full" className="pb-8">
-          <h3 className="text-lg font-semibold text-on-surface mb-stack-md ml-1">
-            Storico Completo
-          </h3>
-          <FullHistoryList />
         </section>
       </main>
     </div>
