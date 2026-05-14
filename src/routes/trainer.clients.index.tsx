@@ -1028,7 +1028,7 @@ interface CreateClientPayload {
   lastName: string;
   email: string;
   password: string;
-  pathType: "fixed" | "recurring";
+  pathType: "fixed" | "recurring" | "free";
   totalBlocks: number;
   packLabel: string | null;
   autoRenew: boolean;
@@ -1039,6 +1039,8 @@ interface CreateClientPayload {
     startBlock: number;
     endBlock: number;
   }>;
+  freeSessions?: number;
+  freeEventTypeId?: string;
 }
 
 const DURATION_PRESETS: Array<{ value: string; label: string; months: number | null }> = [
