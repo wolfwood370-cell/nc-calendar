@@ -39,7 +39,9 @@ export function TrainerSidebar() {
     >
       <SidebarHeader>
         <div className="flex items-center gap-2 px-2 py-2">
-          <img src={logoUrl} alt="NC Calendar" className="size-8 rounded-md object-cover" />
+          <div className="size-8 rounded-md overflow-hidden bg-white flex-shrink-0">
+            <img src={logoUrl} alt="NC Calendar" className="w-full h-full object-cover object-center scale-[1.2]" />
+          </div>
           <div className="group-data-[collapsible=icon]:hidden">
             <p className="font-display text-sm font-semibold leading-none">NC Calendar</p>
             <p className="text-xs text-muted-foreground mt-1">Studio</p>
