@@ -120,7 +120,7 @@ function AuthPage() {
           <img
             src={nccLogo}
             alt="NCC"
-            className="w-20 h-20 rounded-3xl object-cover shadow-lg transition-transform hover:scale-105 duration-300"
+            className="w-20 h-20 rounded-3xl object-cover object-center shadow-lg bg-white border border-white/10 transition-transform hover:scale-105 duration-300"
           />
           <div className="space-y-2">
             <h1 className="text-aura-primary text-[28px] leading-9 font-bold tracking-tight">
