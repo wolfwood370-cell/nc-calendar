@@ -195,15 +195,15 @@ function ClientSettings() {
   return (
     <div className="max-w-md mx-auto bg-surface min-h-screen">
       {/* Top App Bar */}
-      <header className="bg-surface/80 backdrop-blur-xl sticky top-0 shadow-[0_8px_30px_rgba(0,0,0,0.04)] z-40">
+      <header className="bg-surface/80 backdrop-blur-xl sticky top-0 shadow-soft-card z-40">
         <div className="flex items-center w-full px-margin-mobile py-stack-md">
-          <h1 className="text-2xl font-bold text-[#003e62]">Profilo</h1>
+          <h1 className="text-2xl font-bold text-aura-primary">Profilo</h1>
         </div>
       </header>
 
       <main className="px-margin-mobile pt-stack-md flex flex-col gap-stack-lg">
         {/* Profile Card */}
-        <section className="bg-surface-container-lowest rounded-[1.5rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-stack-lg border border-outline-variant/30 flex items-center gap-4">
+        <section className="bg-surface-container-lowest rounded-[1.5rem] shadow-soft-card p-stack-lg border border-outline-variant/30 flex items-center gap-4">
           {loading ? (
             <>
               <Skeleton className="size-16 rounded-full" />
@@ -235,7 +235,7 @@ function ClientSettings() {
           <h3 className="text-sm font-semibold text-on-surface-variant uppercase tracking-wider mb-stack-sm ml-2">
             Notifiche
           </h3>
-          <div className="bg-surface-container-lowest rounded-[1.5rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-outline-variant/30 overflow-hidden">
+          <div className="bg-surface-container-lowest rounded-[1.5rem] shadow-soft-card border border-outline-variant/30 overflow-hidden">
             <Row
               icon={<Bell className="size-5" />}
               title="Notifiche Push"
@@ -281,7 +281,7 @@ function ClientSettings() {
           <h3 className="text-sm font-semibold text-on-surface-variant uppercase tracking-wider mb-stack-sm ml-2">
             Integrazioni
           </h3>
-          <div className="bg-surface-container-lowest rounded-[1.5rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-outline-variant/30 overflow-hidden">
+          <div className="bg-surface-container-lowest rounded-[1.5rem] shadow-soft-card border border-outline-variant/30 overflow-hidden">
             {googleLinked ? (
               <div className="w-full flex items-center gap-4 px-5 py-4">
                 <span className="size-10 rounded-full bg-primary-container/10 text-primary-container grid place-items-center">
@@ -335,7 +335,7 @@ function ClientSettings() {
           <h3 className="text-sm font-semibold text-on-surface-variant uppercase tracking-wider mb-stack-sm ml-2">
             Sicurezza
           </h3>
-          <div className="bg-surface-container-lowest rounded-[1.5rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-outline-variant/30 overflow-hidden">
+          <div className="bg-surface-container-lowest rounded-[1.5rem] shadow-soft-card border border-outline-variant/30 overflow-hidden">
             <form onSubmit={handleUpdatePassword} className="px-5 py-4 flex flex-col gap-4">
               <div className="flex items-center gap-4">
                 <span className="size-10 rounded-full bg-primary-container/10 text-primary-container grid place-items-center">
@@ -381,7 +381,7 @@ function ClientSettings() {
               <button
                 type="submit"
                 disabled={updatingPassword}
-                className="w-full bg-[#003e62] text-white font-semibold text-sm py-3 rounded-full hover:opacity-90 transition active:scale-95 flex items-center justify-center gap-2 disabled:opacity-60"
+                className="w-full bg-aura-primary text-white font-semibold text-sm py-3 rounded-full hover:opacity-90 transition active:scale-95 flex items-center justify-center gap-2 disabled:opacity-60"
               >
                 {updatingPassword ? (
                   <Loader2 className="size-4 animate-spin" />

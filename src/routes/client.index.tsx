@@ -123,12 +123,12 @@ function ClientHome() {
             <div className="w-10 h-10 rounded-full bg-primary-container text-on-primary-container grid place-items-center border-2 border-surface-container-lowest shadow-sm font-semibold">
               {firstName.charAt(0).toUpperCase()}
             </div>
-            <h1 className="text-2xl font-bold text-[#003e62]">Ciao {firstName}</h1>
+            <h1 className="text-2xl font-bold text-aura-primary">Ciao {firstName}</h1>
           </div>
           <button
             type="button"
             aria-label="Notifiche"
-            className="text-[#003e62] hover:bg-surface-container-high transition-colors active:scale-95 duration-200 p-2 rounded-full"
+            className="text-aura-primary hover:bg-surface-container-high transition-colors active:scale-95 duration-200 p-2 rounded-full"
           >
             <Bell className="size-6" />
           </button>

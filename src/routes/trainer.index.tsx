@@ -9,6 +9,7 @@ import {
   useCoachBlocks,
   useCoachEventTypes,
 } from "@/lib/queries";
+import { queryKeys } from "@/lib/query-keys";
 import { sessionLabel } from "@/lib/mock-data";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -44,7 +45,6 @@ export const Route = createFileRoute("/trainer/")({
   component: Overview,
 });
 
-const SOFT_SHADOW = "shadow-[0_8px_30px_rgba(0,0,0,0.04)]";
 const GLASS = "bg-white/60 backdrop-blur-xl border border-white/40";
 
 function startOfToday() {
@@ -261,11 +261,9 @@ function Overview() {
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["bookings"] });
-      qc.invalidateQueries({ queryKey: ["blocks"] });
-      qc.invalidateQueries({ queryKey: ["clients"] });
-      qc.invalidateQueries({ queryKey: ["trainer-stats"] });
-      qc.invalidateQueries({ queryKey: ["client-details"] });
+      qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(user?.id) });
+      qc.invalidateQueries({ queryKey: queryKeys.blocks.coach(user?.id) });
+      qc.invalidateQueries({ queryKey: queryKeys.clients.coach(user?.id) });
       toast.success("Sessione completata e contatori aggiornati");
     },
     onError: (e: Error) => toast.error("Errore", { description: e.message }),
@@ -281,7 +279,8 @@ function Overview() {
     },
     onSuccess: () => {
       toast.success("Evento spostato negli ignorati");
-      qc.invalidateQueries({ queryKey: ["bookings"] });
+      qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(user?.id) });
+      qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(user?.id) });
     },
     onError: (e: Error) => toast.error("Errore", { description: e.message }),
   });
@@ -296,7 +295,8 @@ function Overview() {
     },
     onSuccess: () => {
       toast.success("Evento ripristinato");
-      qc.invalidateQueries({ queryKey: ["bookings"] });
+      qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(user?.id) });
+      qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(user?.id) });
     },
     onError: (e: Error) => toast.error("Errore", { description: e.message }),
   });
@@ -311,11 +311,13 @@ function Overview() {
         .eq("id", input.bookingId);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, vars) => {
       toast.success("Sessione assegnata");
       setAssignTarget(null);
       setAssignClientId("");
-      qc.invalidateQueries({ queryKey: ["bookings"] });
+      qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(user?.id) });
+      qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(user?.id) });
+      qc.invalidateQueries({ queryKey: queryKeys.bookings.client(vars.clientId) });
     },
     onError: (e: Error) => toast.error("Errore", { description: e.message }),
   });
@@ -348,7 +350,7 @@ function Overview() {
           {/* Centro Revisione */}
           {(reviewItems.length > 0 || ignoredItems.length > 0) && (
             <section
-              className={`${GLASS} rounded-[32px] p-6 ${SOFT_SHADOW} border border-[#ffb77b]/40`}
+              className={`${GLASS} rounded-[32px] p-6 shadow-soft-card border border-warning-border/40`}
             >
               <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
                 <div className="flex items-center gap-3">
@@ -361,7 +363,7 @@ function Overview() {
                     onClick={() => setReviewTab("todo")}
                     className={`px-4 py-1.5 text-sm font-semibold rounded-full transition-colors ${
                       reviewTab === "todo"
-                        ? "bg-[#003e62] text-white"
+                        ? "bg-aura-primary text-white"
                         : "text-on-surface-variant hover:bg-surface-container"
                     }`}
                   >
@@ -372,7 +374,7 @@ function Overview() {
                     onClick={() => setReviewTab("ignored")}
                     className={`px-4 py-1.5 text-sm font-semibold rounded-full transition-colors ${
                       reviewTab === "ignored"
-                        ? "bg-[#003e62] text-white"
+                        ? "bg-aura-primary text-white"
                         : "text-on-surface-variant hover:bg-surface-container"
                     }`}
                   >
@@ -411,7 +413,7 @@ function Overview() {
                       <div className="min-w-0 flex-1">
                         <p
                           className={`text-xs font-semibold uppercase tracking-wider mb-1 ${
-                            isIgnored ? "text-on-surface-variant" : "text-[#ba1a1a]"
+                            isIgnored ? "text-on-surface-variant" : "text-error"
                           }`}
                         >
                           {isIgnored ? "Ignorato" : "Cliente non assegnato"}
@@ -448,7 +450,7 @@ function Overview() {
                         )}
                         <Button
                           size="sm"
-                          className="rounded-full bg-[#003e62] text-white hover:bg-[#003e62]/90"
+                          className="rounded-full bg-aura-primary text-white hover:bg-aura-primary/90"
                           onClick={() => {
                             setAssignTarget({ id: r.id, title: r.title || "Sessione" });
                             setAssignClientId("");
@@ -472,12 +474,12 @@ function Overview() {
           )}
 
           {/* Oggi */}
-          <section className={`${GLASS} rounded-[32px] p-6 ${SOFT_SHADOW}`}>
+          <section className={`${GLASS} rounded-[32px] p-6 shadow-soft-card`}>
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-2xl font-manrope font-semibold">Oggi</h2>
               <Link
                 to="/trainer/calendar"
-                className="text-sm font-semibold text-[#003e62] hover:underline"
+                className="text-sm font-semibold text-aura-primary hover:underline"
               >
                 Vedi tutto
               </Link>
@@ -519,7 +521,7 @@ function Overview() {
                               : `${dur}m`}
                           </p>
                         </div>
-                        <div className="w-1 h-12 bg-[#003e62] rounded-full shrink-0" />
+                        <div className="w-1 h-12 bg-aura-primary rounded-full shrink-0" />
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center shrink-0">
                             <span className="font-bold text-on-secondary-container text-sm">
@@ -554,9 +556,9 @@ function Overview() {
         {/* RIGHT */}
         <div className="lg:col-span-5 flex flex-col gap-6">
           {/* Crediti in Scadenza */}
-          <section className={`${GLASS} rounded-[32px] p-6 ${SOFT_SHADOW}`}>
+          <section className={`${GLASS} rounded-[32px] p-6 shadow-soft-card`}>
             <div className="flex items-center gap-2 mb-5">
-              <Hourglass className="size-5 text-[#003e62]" />
+              <Hourglass className="size-5 text-aura-primary" />
               <h2 className="text-2xl font-manrope font-semibold">Crediti in Scadenza</h2>
             </div>
             {loading ? (
@@ -576,12 +578,12 @@ function Overview() {
                       ? "bg-tertiary-container/10"
                       : "bg-surface-container-low";
                   const badgeBg = isZero
-                    ? "bg-error-container text-[#93000a]"
+                    ? "bg-error-container text-on-error-container"
                     : isOne
-                      ? "bg-[#ffdcc2] text-tertiary-container"
+                      ? "bg-warning-container text-tertiary-container"
                       : "bg-surface-variant text-on-surface-variant";
                   const avatarBg = isZero
-                    ? "bg-[#ba1a1a] text-white"
+                    ? "bg-error text-white"
                     : isOne
                       ? "bg-tertiary text-white"
                       : "bg-surface-variant text-on-surface-variant";
@@ -617,7 +619,7 @@ function Overview() {
           </section>
 
           {/* Distribuzione Servizi */}
-          <section className={`${GLASS} rounded-[32px] p-6 ${SOFT_SHADOW}`}>
+          <section className={`${GLASS} rounded-[32px] p-6 shadow-soft-card`}>
             <h2 className="text-2xl font-manrope font-semibold mb-5">Distribuzione Servizi</h2>
             {loading ? (
               <Skeleton className="h-20 w-full" />
@@ -710,9 +712,9 @@ function QuickStat({
 }) {
   return (
     <div
-      className={`${GLASS} p-6 rounded-[32px] ${SOFT_SHADOW} flex flex-col items-center justify-center text-center`}
+      className={`${GLASS} p-6 rounded-[32px] shadow-soft-card flex flex-col items-center justify-center text-center`}
     >
-      <Icon className="size-7 text-[#003e62] mb-2" />
+      <Icon className="size-7 text-aura-primary mb-2" />
       <p className="text-xs uppercase tracking-wider text-on-surface-variant mb-1 font-semibold">
         {label}
       </p>

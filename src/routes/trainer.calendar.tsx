@@ -37,6 +37,7 @@ import {
   useCoachEventTypes,
   type BookingRow,
 } from "@/lib/queries";
+import { invalidateBookingScope, queryKeys } from "@/lib/query-keys";
 import { useAuth } from "@/lib/auth";
 import { syncCalendarAwait } from "@/lib/sync-calendar";
 import { toast } from "sonner";
@@ -45,7 +46,6 @@ export const Route = createFileRoute("/trainer/calendar")({
   component: CalendarPage,
 });
 
-const SOFT_SHADOW = "shadow-[0px_4px_20px_rgba(0,86,133,0.05)]";
 const HOUR_HEIGHT = 64; // px
 const START_HOUR = 7;
 const END_HOUR = 22;
@@ -78,6 +78,63 @@ function fmtRange(start: Date, end: Date): string {
     return `${start.getDate()} - ${end.getDate()} ${start.toLocaleDateString("it-IT", { month: "long" })}`;
   }
   return `${start.toLocaleDateString("it-IT", opts)} - ${end.toLocaleDateString("it-IT", opts)}`;
+}
+
+interface EventPlacement {
+  col: number;
+  cols: number;
+}
+
+// Lane assignment for overlapping events (Google Calendar style):
+// 1. Sort events by start time.
+// 2. Walk events; flush a "cluster" whenever the next event starts after the
+//    cluster's running end. Within a cluster, every event shares a lane count.
+// 3. Greedily place each event in the lowest column whose previous event ended
+//    on or before this event's start.
+// The result lets renderEvent compute left/width via CSS calc so overlapping
+// events sit side-by-side instead of stacking invisibly (audit finding H7).
+function layoutDay(
+  events: BookingRow[],
+  durationMin: (b: BookingRow) => number,
+): Map<string, EventPlacement> {
+  const result = new Map<string, EventPlacement>();
+  const withTimes = events
+    .map((b) => {
+      const start = new Date(b.scheduled_at).getTime();
+      return { b, start, end: start + durationMin(b) * 60_000 };
+    })
+    .sort((a, b) => a.start - b.start || a.end - b.end);
+
+  let cluster: typeof withTimes = [];
+  let clusterEnd = -Infinity;
+
+  const flush = () => {
+    if (cluster.length === 0) return;
+    const laneEnds: number[] = [];
+    const placements: Array<{ id: string; col: number }> = [];
+    for (const ev of cluster) {
+      let col = laneEnds.findIndex((e) => e <= ev.start);
+      if (col === -1) {
+        col = laneEnds.length;
+        laneEnds.push(ev.end);
+      } else {
+        laneEnds[col] = ev.end;
+      }
+      placements.push({ id: ev.b.id, col });
+    }
+    const cols = laneEnds.length;
+    for (const p of placements) result.set(p.id, { col: p.col, cols });
+    cluster = [];
+    clusterEnd = -Infinity;
+  };
+
+  for (const ev of withTimes) {
+    if (ev.start >= clusterEnd) flush();
+    cluster.push(ev);
+    clusterEnd = Math.max(clusterEnd, ev.end);
+  }
+  flush();
+  return result;
 }
 
 function CalendarPage() {
@@ -141,11 +198,14 @@ function CalendarPage() {
         .eq("id", input.bookingId);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, vars) => {
       toast.success("Sessione assegnata");
       setAssignTarget(null);
       setAssignClientId("");
-      qc.invalidateQueries({ queryKey: ["bookings"] });
+      invalidateBookingScope(qc, {
+        coachId: user?.id ?? null,
+        clientId: vars.clientId,
+      });
     },
     onError: (e: Error) => toast.error("Errore", { description: e.message }),
   });
@@ -175,6 +235,12 @@ function CalendarPage() {
     }
     return map;
   }, [bookings, weekDays, onlyToAssign, onlyPT]);
+
+  const layoutByDay = useMemo(() => {
+    const durationOf = (b: BookingRow): number =>
+      (b.event_type_id ? eventTypesMap.get(b.event_type_id)?.duration : undefined) ?? 60;
+    return bookingsByDay.map((day) => layoutDay(day, durationOf));
+  }, [bookingsByDay, eventTypesMap]);
 
   const totalVisible = useMemo(
     () => bookingsByDay.reduce((s, day) => s + day.length, 0),
@@ -209,8 +275,8 @@ function CalendarPage() {
           toast.success("Sincronizzazione completata", {
             description: `${r.imported ?? 0} nuovi · ${r.updated ?? 0} aggiornati · ${r.creditsBooked ?? 0} crediti scalati`,
           });
-          qc.invalidateQueries({ queryKey: ["bookings"] });
-          qc.invalidateQueries({ queryKey: ["block-allocations"] });
+          qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(user.id) });
+          qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(user.id) });
         }
       })
       .catch((e) => console.error("full sync failed", e))
@@ -254,7 +320,8 @@ function CalendarPage() {
             (r.imported ?? 0) > 0)
         ) {
           toast.info("Calendario aggiornato");
-          qc.invalidateQueries({ queryKey: ["bookings"] });
+          qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(user.id) });
+          qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(user.id) });
         }
       })
       .catch((e) => console.error("mirror_check failed", e))
@@ -262,7 +329,7 @@ function CalendarPage() {
   }, [user, weekStart, qc]);
 
   // ----- Render helpers -----
-  const renderEvent = (b: BookingRow) => {
+  const renderEvent = (b: BookingRow, placement: EventPlacement | undefined) => {
     const d = new Date(b.scheduled_at);
     const hour = d.getHours() + d.getMinutes() / 60;
     if (hour < START_HOUR || hour >= END_HOUR) return null;
@@ -271,6 +338,19 @@ function CalendarPage() {
     const duration = et?.duration ?? 60;
     const top = (hour - START_HOUR) * HOUR_HEIGHT;
     const height = Math.max(28, (duration / 60) * HOUR_HEIGHT - 4);
+
+    // Overlap-lane positioning: events that share a time range get split into
+    // side-by-side columns instead of stacking on top of each other.
+    const cols = placement?.cols ?? 1;
+    const col = placement?.col ?? 0;
+    const widthPct = 100 / cols;
+    const leftPct = col * widthPct;
+    const laneStyle = {
+      top,
+      height,
+      left: `calc(${leftPct}% + 4px)`,
+      width: `calc(${widthPct}% - 8px)`,
+    } as const;
 
     const isUnassigned = !b.client_id; // To Review
     const isExternal = !!b.client_id && b.client_id === b.coach_id; // Sync senza match
@@ -287,8 +367,8 @@ function CalendarPage() {
             setAssignTarget(b);
             setAssignClientId("");
           }}
-          style={{ top, height }}
-          className="absolute left-1 right-1 z-10 border-2 border-dashed border-[#ffb77b] bg-[#ffdcc2]/40 rounded-2xl p-2 flex flex-col items-center justify-center gap-1 text-[#5b2f00] hover:bg-[#ffdcc2]/70 hover:scale-[1.02] transition-all cursor-pointer"
+          style={laneStyle}
+          className="absolute z-10 border-2 border-dashed border-warning-border bg-warning-container/40 rounded-2xl p-2 flex flex-col items-center justify-center gap-1 text-tertiary hover:bg-warning-container/70 hover:scale-[1.02] transition-all cursor-pointer"
         >
           <div className="flex items-center gap-1.5 text-xs font-semibold">
             <HelpCircle className="size-3.5 animate-pulse" /> Assegna
@@ -304,11 +384,11 @@ function CalendarPage() {
       return (
         <div
           key={b.id}
-          style={{ top, height }}
-          className="absolute left-1 right-1 z-10 bg-[#f2f3f8] border border-[#c1c7d0]/40 rounded-2xl p-2 cursor-default hover:bg-[#eceef2] transition-colors"
+          style={laneStyle}
+          className="absolute z-10 bg-surface-container-low border border-outline-variant/40 rounded-2xl p-2 cursor-default hover:bg-surface-container transition-colors"
         >
-          <h4 className="text-[12px] leading-tight font-medium text-[#41474f] truncate">{title}</h4>
-          <p className="text-[10px] text-[#717880] mt-0.5">{timeLabel}</p>
+          <h4 className="text-[12px] leading-tight font-medium text-on-surface-variant truncate">{title}</h4>
+          <p className="text-[10px] text-outline mt-0.5">{timeLabel}</p>
         </div>
       );
     }
@@ -318,14 +398,14 @@ function CalendarPage() {
       <button
         key={b.id}
         onClick={() => setFocusClientId(b.client_id)}
-        style={{ top, height }}
-        className="absolute left-1 right-1 z-10 bg-[#cde5ff] border-l-4 border-[#003e62] rounded-2xl p-2 flex flex-col justify-between text-left shadow-sm hover:shadow-md hover:scale-[1.02] transition-all cursor-pointer"
+        style={laneStyle}
+        className="absolute z-10 bg-primary-fixed border-l-4 border-aura-primary rounded-2xl p-2 flex flex-col justify-between text-left shadow-sm hover:shadow-md hover:scale-[1.02] hover:z-20 transition-all cursor-pointer"
       >
         <div>
-          <h4 className="text-[12px] leading-tight font-semibold text-[#001d32] truncate">
+          <h4 className="text-[12px] leading-tight font-semibold text-on-primary-fixed truncate">
             {client?.full_name || "Cliente"} — {typeLabel || "Evento senza titolo"}
           </h4>
-          <p className="text-[10px] text-[#004b74] mt-0.5">{timeLabel}</p>
+          <p className="text-[10px] text-on-primary-fixed-variant mt-0.5">{timeLabel}</p>
         </div>
       </button>
     );
@@ -334,15 +414,15 @@ function CalendarPage() {
   const today = new Date();
 
   return (
-    <div className="-m-6 flex flex-col xl:flex-row min-h-[calc(100vh-3.5rem)] bg-[#f8f9fe]">
+    <div className="-m-6 flex flex-col xl:flex-row min-h-[calc(100vh-3.5rem)] bg-surface">
       {/* MAIN */}
       <section className="flex-1 flex flex-col min-w-0 p-6">
         {/* Header */}
         <header className="flex flex-col gap-4 mb-4">
           <div className="flex items-center justify-between flex-wrap gap-3">
-            <h1 className="font-display text-2xl font-bold text-[#003e62]">Calendario Master</h1>
+            <h1 className="font-display text-2xl font-bold text-aura-primary">Calendario Master</h1>
             {mirroring && (
-              <div className="flex items-center gap-2 text-xs text-[#717880] rounded-full border border-[#c1c7d0] px-3 py-1.5 bg-white">
+              <div className="flex items-center gap-2 text-xs text-outline rounded-full border border-outline-variant px-3 py-1.5 bg-white">
                 <Loader2 className="size-3.5 animate-spin" /> Sincronizzazione…
               </div>
             )}
@@ -353,14 +433,14 @@ function CalendarPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => setWeekStart(startOfWeek(new Date()))}
-                className="rounded-full bg-white border-[#e1e2e7]"
+                className="rounded-full bg-white border-surface-variant"
               >
                 Oggi
               </Button>
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => setWeekStart(addDays(weekStart, -7))}
-                  className="size-8 rounded-full hover:bg-[#eceef2] flex items-center justify-center text-[#41474f]"
+                  className="size-8 rounded-full hover:bg-surface-container flex items-center justify-center text-on-surface-variant"
                   aria-label="Settimana precedente"
                 >
                   <ChevronLeft className="size-4" />
@@ -370,7 +450,7 @@ function CalendarPage() {
                 </span>
                 <button
                   onClick={() => setWeekStart(addDays(weekStart, 7))}
-                  className="size-8 rounded-full hover:bg-[#eceef2] flex items-center justify-center text-[#41474f]"
+                  className="size-8 rounded-full hover:bg-surface-container flex items-center justify-center text-on-surface-variant"
                   aria-label="Settimana successiva"
                 >
                   <ChevronRight className="size-4" />
@@ -389,11 +469,12 @@ function CalendarPage() {
               </FilterChip>
               <button
                 onClick={() => {
-                  qc.invalidateQueries({ queryKey: ["bookings"] });
-                  qc.invalidateQueries({ queryKey: ["clients"] });
+                  qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(user?.id) });
+                  qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(user?.id) });
+                  qc.invalidateQueries({ queryKey: queryKeys.clients.coach(user?.id) });
                   toast.success("Calendario aggiornato");
                 }}
-                className="size-8 rounded-full hover:bg-[#eceef2] flex items-center justify-center text-[#41474f]"
+                className="size-8 rounded-full hover:bg-surface-container flex items-center justify-center text-on-surface-variant"
                 aria-label="Aggiorna"
                 title="Aggiorna calendario"
               >
@@ -418,7 +499,7 @@ function CalendarPage() {
             </div>
           )}
           {!bookingsQ.isError && filtersActive && totalVisible === 0 && (
-            <div className="rounded-2xl border border-[#e1e2e7] bg-white px-4 py-3 text-sm text-[#717880]">
+            <div className="rounded-2xl border border-surface-variant bg-white px-4 py-3 text-sm text-outline">
               Nessun evento corrisponde ai filtri attivi.
             </div>
           )}
@@ -426,26 +507,26 @@ function CalendarPage() {
 
         {/* Grid */}
         <div
-          className={`flex-1 bg-white rounded-[32px] ${SOFT_SHADOW} border border-[#eceef2] overflow-hidden flex flex-col`}
+          className={`flex-1 bg-white rounded-[32px] shadow-soft-blue border border-surface-container overflow-hidden flex flex-col`}
         >
           {/* Days header */}
-          <div className="flex border-b border-[#eceef2] bg-[#f8f9fe] sticky top-0 z-20">
-            <div className="w-16 shrink-0 border-r border-[#eceef2]" />
+          <div className="flex border-b border-surface-container bg-surface sticky top-0 z-20">
+            <div className="w-16 shrink-0 border-r border-surface-container" />
             <div className="flex-1 grid grid-cols-7">
               {weekDays.map((d, i) => {
                 const isToday = sameDay(d, today);
                 return (
                   <div
                     key={i}
-                    className={`p-3 text-center border-r border-[#eceef2] last:border-r-0 ${isToday ? "bg-[#cde5ff]/30" : ""}`}
+                    className={`p-3 text-center border-r border-surface-container last:border-r-0 ${isToday ? "bg-primary-fixed/30" : ""}`}
                   >
                     <div
-                      className={`text-[11px] uppercase tracking-wider ${isToday ? "text-[#003e62] font-bold" : "text-[#717880]"}`}
+                      className={`text-[11px] uppercase tracking-wider ${isToday ? "text-aura-primary font-bold" : "text-outline"}`}
                     >
                       {DAY_LABELS[i]}
                     </div>
                     <div
-                      className={`text-xl mt-1 ${isToday ? "text-[#003e62] font-bold" : "font-semibold"}`}
+                      className={`text-xl mt-1 ${isToday ? "text-aura-primary font-bold" : "font-semibold"}`}
                     >
                       {d.getDate()}
                     </div>
@@ -459,12 +540,12 @@ function CalendarPage() {
           <div className="flex-1 overflow-y-auto">
             <div className="flex relative" style={{ minHeight: HOURS.length * HOUR_HEIGHT }}>
               {/* Hours */}
-              <div className="w-16 shrink-0 border-r border-[#eceef2] bg-[#f8f9fe]">
+              <div className="w-16 shrink-0 border-r border-surface-container bg-surface">
                 {HOURS.map((h) => (
                   <div
                     key={h}
                     style={{ height: HOUR_HEIGHT }}
-                    className="border-b border-[#eceef2] flex items-start justify-center pt-1 text-[11px] text-[#717880]"
+                    className="border-b border-surface-container flex items-start justify-center pt-1 text-[11px] text-outline"
                   >
                     {String(h).padStart(2, "0")}:00
                   </div>
@@ -477,7 +558,7 @@ function CalendarPage() {
                   return (
                     <div
                       key={i}
-                      className={`relative border-r border-[#eceef2]/60 last:border-r-0 ${isToday ? "bg-[#cde5ff]/10" : ""}`}
+                      className={`relative border-r border-surface-container/60 last:border-r-0 ${isToday ? "bg-primary-fixed/10" : ""}`}
                       style={{ height: HOURS.length * HOUR_HEIGHT }}
                     >
                       {/* hour grid lines */}
@@ -485,10 +566,10 @@ function CalendarPage() {
                         <div
                           key={h}
                           style={{ top: (h - START_HOUR) * HOUR_HEIGHT }}
-                          className="absolute left-0 right-0 border-b border-[#eceef2]"
+                          className="absolute left-0 right-0 border-b border-surface-container"
                         />
                       ))}
-                      {bookingsByDay[i].map((b) => renderEvent(b))}
+                      {bookingsByDay[i].map((b) => renderEvent(b, layoutByDay[i].get(b.id)))}
                     </div>
                   );
                 })}
@@ -499,25 +580,25 @@ function CalendarPage() {
       </section>
 
       {/* CONTEXT PANEL */}
-      <aside className="hidden xl:flex flex-col w-80 border-l border-[#e1e2e7] bg-[#f8f9fe] sticky top-0 h-screen">
-        <div className="p-6 border-b border-[#e1e2e7] bg-white/50 backdrop-blur-md">
-          <h3 className="text-lg font-bold text-[#003e62] flex items-center gap-2">
+      <aside className="hidden xl:flex flex-col w-80 border-l border-surface-variant bg-surface sticky top-0 h-screen">
+        <div className="p-6 border-b border-surface-variant bg-white/50 backdrop-blur-md">
+          <h3 className="text-lg font-bold text-aura-primary flex items-center gap-2">
             <UserSearch className="size-5" /> Focus Cliente
           </h3>
         </div>
         <div className="p-6 overflow-y-auto flex-1 space-y-4">
           {!focusClientId && (
             <div
-              className={`bg-white rounded-[24px] p-6 ${SOFT_SHADOW} border border-[#f2f3f8] text-center text-sm text-[#717880]`}
+              className={`bg-white rounded-[24px] p-6 shadow-soft-blue border border-surface-container-low text-center text-sm text-outline`}
             >
-              <CalendarIcon className="size-10 mx-auto mb-3 text-[#c1c7d0]" />
+              <CalendarIcon className="size-10 mx-auto mb-3 text-outline-variant" />
               Seleziona una sessione confermata per vedere il dettaglio cliente.
             </div>
           )}
 
           {focusClientId && !focusClient && clientsQ.isLoading && (
             <div
-              className={`bg-white rounded-[24px] p-6 ${SOFT_SHADOW} border border-[#f2f3f8] space-y-3`}
+              className={`bg-white rounded-[24px] p-6 shadow-soft-blue border border-surface-container-low space-y-3`}
             >
               <Skeleton className="size-20 rounded-full mx-auto" />
               <Skeleton className="h-4 w-2/3 mx-auto" />
@@ -528,7 +609,7 @@ function CalendarPage() {
 
           {focusClientId && !focusClient && !clientsQ.isLoading && (
             <div
-              className={`bg-white rounded-[24px] p-6 ${SOFT_SHADOW} border border-[#f2f3f8] text-center text-sm text-[#717880]`}
+              className={`bg-white rounded-[24px] p-6 shadow-soft-blue border border-surface-container-low text-center text-sm text-outline`}
             >
               Cliente non trovato.
             </div>
@@ -537,9 +618,9 @@ function CalendarPage() {
           {focusClient && (
             <>
               <div
-                className={`bg-white rounded-[24px] p-6 ${SOFT_SHADOW} border border-[#f2f3f8] flex flex-col items-center text-center`}
+                className={`bg-white rounded-[24px] p-6 shadow-soft-blue border border-surface-container-low flex flex-col items-center text-center`}
               >
-                <div className="size-20 rounded-full bg-[#cde5ff] text-[#003e62] flex items-center justify-center text-2xl font-bold border-4 border-[#f8f9fe] mb-3 shadow-sm">
+                <div className="size-20 rounded-full bg-primary-fixed text-aura-primary flex items-center justify-center text-2xl font-bold border-4 border-surface mb-3 shadow-sm">
                   {(focusClient.full_name ?? "?")
                     .split(" ")
                     .filter(Boolean)
@@ -547,46 +628,46 @@ function CalendarPage() {
                     .map((s) => s[0]?.toUpperCase())
                     .join("")}
                 </div>
-                <h4 className="text-lg font-bold text-[#191c1f]">
+                <h4 className="text-lg font-bold text-on-surface">
                   {focusClient.full_name ?? "Cliente"}
                 </h4>
-                <p className="text-sm text-[#41474f] mb-4">{focusClient.email ?? ""}</p>
+                <p className="text-sm text-on-surface-variant mb-4">{focusClient.email ?? ""}</p>
                 <Link
                   to="/trainer/clients/$id"
                   params={{ id: focusClient.id }}
-                  className="w-full text-center bg-[#f2f3f8] text-[#191c1f] text-sm font-semibold py-2 rounded-2xl hover:bg-[#eceef2] transition-colors"
+                  className="w-full text-center bg-surface-container-low text-on-surface text-sm font-semibold py-2 rounded-2xl hover:bg-surface-container transition-colors"
                 >
                   Profilo Completo
                 </Link>
               </div>
 
-              <div className={`bg-white rounded-[24px] p-4 ${SOFT_SHADOW} border border-[#f2f3f8]`}>
+              <div className={`bg-white rounded-[24px] p-4 shadow-soft-blue border border-surface-container-low`}>
                 {focusClient.phone ? (
                   <a
                     href={`https://wa.me/${focusClient.phone.replace(/\D/g, "")}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="w-full bg-[#25D366]/10 text-[#075E54] border border-[#25D366]/30 text-sm font-semibold py-3 rounded-2xl flex items-center justify-center gap-2 hover:bg-[#25D366]/20 transition-colors"
+                    className="w-full bg-brand-whatsapp/10 text-on-brand-whatsapp border border-brand-whatsapp/30 text-sm font-semibold py-3 rounded-2xl flex items-center justify-center gap-2 hover:bg-brand-whatsapp/20 transition-colors"
                   >
                     <MessageCircle className="size-4" /> Messaggio WhatsApp
                   </a>
                 ) : (
                   <button
                     disabled
-                    className="w-full bg-[#f2f3f8] text-[#717880] border border-[#e1e2e7] text-sm font-semibold py-3 rounded-2xl flex items-center justify-center gap-2 cursor-not-allowed opacity-70"
+                    className="w-full bg-surface-container-low text-outline border border-surface-variant text-sm font-semibold py-3 rounded-2xl flex items-center justify-center gap-2 cursor-not-allowed opacity-70"
                   >
                     <MessageCircle className="size-4" /> Numero non disponibile
                   </button>
                 )}
               </div>
 
-              <div className={`bg-white rounded-[24px] p-5 ${SOFT_SHADOW} border border-[#f2f3f8]`}>
+              <div className={`bg-white rounded-[24px] p-5 shadow-soft-blue border border-surface-container-low`}>
                 <div className="flex items-center justify-between mb-3">
-                  <h5 className="text-[11px] uppercase tracking-wider font-bold text-[#191c1f]">
+                  <h5 className="text-[11px] uppercase tracking-wider font-bold text-on-surface">
                     Note Ultima Sessione
                   </h5>
                   {lastNoteQ.data?.scheduled_at && (
-                    <span className="text-[11px] text-[#717880]">
+                    <span className="text-[11px] text-outline">
                       {new Date(lastNoteQ.data.scheduled_at).toLocaleDateString("it-IT", {
                         day: "2-digit",
                         month: "long",
@@ -594,15 +675,15 @@ function CalendarPage() {
                     </span>
                   )}
                 </div>
-                <div className="bg-[#f8f9fe] p-4 rounded-2xl">
+                <div className="bg-surface p-4 rounded-2xl">
                   {lastNoteQ.isLoading ? (
-                    <p className="text-sm text-[#717880]">Caricamento…</p>
+                    <p className="text-sm text-outline">Caricamento…</p>
                   ) : lastNoteQ.data?.trainer_notes ? (
-                    <p className="text-sm text-[#41474f] italic leading-relaxed">
+                    <p className="text-sm text-on-surface-variant italic leading-relaxed">
                       "{lastNoteQ.data.trainer_notes}"
                     </p>
                   ) : (
-                    <p className="text-sm text-[#717880] italic">Nessuna nota disponibile.</p>
+                    <p className="text-sm text-outline italic">Nessuna nota disponibile.</p>
                   )}
                 </div>
               </div>
@@ -672,8 +753,8 @@ function FilterChip({
       onClick={onClick}
       className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
         active
-          ? "bg-[#003e62] text-white border-[#003e62]"
-          : "bg-white text-[#41474f] border-[#e1e2e7] hover:bg-[#eceef2]"
+          ? "bg-aura-primary text-white border-aura-primary"
+          : "bg-white text-on-surface-variant border-surface-variant hover:bg-surface-container"
       }`}
     >
       {children}

@@ -46,18 +46,40 @@ interface BookingDetail {
   coach: { full_name: string | null } | null;
 }
 
+// Background/foreground reference design tokens defined in src/styles.css so
+// the status badge color palette is centralized and themable.
 function statusStyle(s: BookingStatus): { bg: string; fg: string; label: string } {
   switch (s) {
     case "completed":
-      return { bg: "#E6F4EA", fg: "#0B8043", label: "Completata" };
+      return {
+        bg: "var(--color-status-success-bg)",
+        fg: "var(--color-on-status-success)",
+        label: "Completata",
+      };
     case "scheduled":
-      return { bg: "#E3F2FD", fg: "#1565C0", label: "Programmata" };
+      return {
+        bg: "var(--color-status-info-bg)",
+        fg: "var(--color-on-status-info)",
+        label: "Programmata",
+      };
     case "cancelled":
-      return { bg: "#FCE8E6", fg: "#C5221F", label: "Cancellata" };
+      return {
+        bg: "var(--color-status-error-bg)",
+        fg: "var(--color-on-status-error)",
+        label: "Cancellata",
+      };
     case "late_cancelled":
-      return { bg: "#FCE8E6", fg: "#C5221F", label: "Cancellazione tardiva" };
+      return {
+        bg: "var(--color-status-error-bg)",
+        fg: "var(--color-on-status-error)",
+        label: "Cancellazione tardiva",
+      };
     case "no_show":
-      return { bg: "#FCE8E6", fg: "#C5221F", label: "No Show" };
+      return {
+        bg: "var(--color-status-error-bg)",
+        fg: "var(--color-on-status-error)",
+        label: "No Show",
+      };
   }
 }
 

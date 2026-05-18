@@ -56,6 +56,7 @@ type EditableStatus = "scheduled" | "completed" | "cancelled" | "late_cancelled"
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useCoachEventTypes } from "@/lib/queries";
+import { queryKeys } from "@/lib/query-keys";
 import type { SessionType } from "@/lib/mock-data";
 import { toast } from "sonner";
 import { format, addDays, startOfDay, isBefore, parseISO } from "date-fns";
@@ -602,11 +603,11 @@ function ClientPathPage() {
     }
 
     toast.success("Sessione aggiornata e contatori sincronizzati");
-    qc.invalidateQueries({ queryKey: ["bookings"] });
-    qc.invalidateQueries({ queryKey: ["blocks"] });
-    qc.invalidateQueries({ queryKey: ["clients"] });
-    qc.invalidateQueries({ queryKey: ["trainer-stats"] });
-    qc.invalidateQueries({ queryKey: ["client-details"] });
+    qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(user?.id) });
+    qc.invalidateQueries({ queryKey: queryKeys.bookings.client(clientId) });
+    qc.invalidateQueries({ queryKey: queryKeys.blocks.client(clientId) });
+    qc.invalidateQueries({ queryKey: queryKeys.extraCredits.client(clientId) });
+    qc.invalidateQueries({ queryKey: queryKeys.clients.coach(user?.id) });
     setEditingBooking(null);
     void load();
   }
@@ -987,7 +988,7 @@ function ClientPathPage() {
                             <PopoverTrigger asChild>
                               <button
                                 className={cn(
-                                  "w-full bg-[#eceef2] hover:bg-[#dfe2e8] transition-colors rounded-full px-4 py-2 flex items-center justify-between border-2",
+                                  "w-full bg-surface-container hover:bg-surface-container-high transition-colors rounded-full px-4 py-2 flex items-center justify-between border-2",
                                   isCurrent
                                     ? "border-primary ring-2 ring-primary/30 shadow-[0_0_16px_rgba(0,86,133,0.25)]"
                                     : row.shifted
@@ -996,10 +997,10 @@ function ClientPathPage() {
                                 )}
                                 title={row.shifted ? "Settimana spostata" : "Modifica data"}
                               >
-                                <span className="text-sm font-bold text-[#191c1f] px-2">
+                                <span className="text-sm font-bold text-on-surface px-2">
                                   {date ? format(date, "EEEE d MMM", { locale: it }) : "—"}
                                 </span>
-                                <CalendarDays className="size-4 text-[#191c1f]" />
+                                <CalendarDays className="size-4 text-on-surface" />
                               </button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="start">

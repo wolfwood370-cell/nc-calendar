@@ -253,7 +253,7 @@ function AvailabilityPage() {
   const loading = availQ.isLoading || settingsQ.isLoading;
 
   return (
-    <div className="min-h-screen bg-[#f8f9fe] -m-4 sm:-m-6 p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-surface -m-4 sm:-m-6 p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
           <div>
@@ -318,7 +318,7 @@ function AvailabilityPage() {
                             aria-label={`Attiva ${d.label}`}
                           />
                           <span
-                            className={`font-medium ${ds.active ? "text-slate-900" : "text-slate-400"}`}
+                            className={`font-medium ${ds.active ? "text-on-surface" : "text-outline-variant"}`}
                           >
                             {d.label}
                           </span>
@@ -326,7 +326,7 @@ function AvailabilityPage() {
 
                         <div className="flex-1 min-w-0">
                           {!ds.active ? (
-                            <p className="text-sm text-slate-400 italic pt-2">Non disponibile</p>
+                            <p className="text-sm text-outline-variant italic pt-2">Non disponibile</p>
                           ) : (
                             <div className="space-y-2">
                               {ds.blocks.map((b, idx) => (
@@ -335,7 +335,7 @@ function AvailabilityPage() {
                                     value={b.start}
                                     onValueChange={(v) => updateBlock(d.dow, idx, "start", v)}
                                   >
-                                    <SelectTrigger className="h-10 w-[110px] rounded-full bg-slate-50 border-slate-200">
+                                    <SelectTrigger className="h-10 w-[110px] rounded-full bg-surface border-surface-variant">
                                       <SelectValue placeholder="--:--" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -346,12 +346,12 @@ function AvailabilityPage() {
                                       ))}
                                     </SelectContent>
                                   </Select>
-                                  <span className="text-slate-400">—</span>
+                                  <span className="text-outline-variant">—</span>
                                   <Select
                                     value={b.end}
                                     onValueChange={(v) => updateBlock(d.dow, idx, "end", v)}
                                   >
-                                    <SelectTrigger className="h-10 w-[110px] rounded-full bg-slate-50 border-slate-200">
+                                    <SelectTrigger className="h-10 w-[110px] rounded-full bg-surface border-surface-variant">
                                       <SelectValue placeholder="--:--" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -365,7 +365,7 @@ function AvailabilityPage() {
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-9 w-9 rounded-full text-slate-400 hover:text-red-500"
+                                    className="h-9 w-9 rounded-full text-outline-variant hover:text-error"
                                     onClick={() => removeBlock(d.dow, idx)}
                                     aria-label="Rimuovi fascia"
                                   >
@@ -382,7 +382,7 @@ function AvailabilityPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-9 w-9 rounded-full text-slate-500 hover:bg-slate-100"
+                              className="h-9 w-9 rounded-full text-outline hover:bg-surface-container-low"
                               onClick={() => addBlock(d.dow)}
                               aria-label="Aggiungi fascia"
                             >
@@ -393,7 +393,7 @@ function AvailabilityPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-9 w-9 rounded-full text-slate-500 hover:bg-slate-100"
+                              className="h-9 w-9 rounded-full text-outline hover:bg-surface-container-low"
                               onClick={() => copyToAll(d.dow)}
                               aria-label="Copia su tutti i giorni"
                               title="Copia su tutti i giorni attivi"
@@ -426,7 +426,7 @@ function AvailabilityPage() {
                     min={0}
                     value={bufferMin}
                     onChange={(e) => setBufferMin(Math.max(0, Number(e.target.value) || 0))}
-                    className="mt-2 h-11 rounded-full bg-slate-50 border-slate-200 px-5"
+                    className="mt-2 h-11 rounded-full bg-surface border-surface-variant px-5"
                   />
                 </div>
                 <div>
@@ -436,7 +436,7 @@ function AvailabilityPage() {
                     min={0}
                     value={minNotice}
                     onChange={(e) => setMinNotice(Math.max(0, Number(e.target.value) || 0))}
-                    className="mt-2 h-11 rounded-full bg-slate-50 border-slate-200 px-5"
+                    className="mt-2 h-11 rounded-full bg-surface border-surface-variant px-5"
                   />
                 </div>
                 <div>
@@ -446,7 +446,7 @@ function AvailabilityPage() {
                     min={1}
                     value={horizon}
                     onChange={(e) => setHorizon(Math.max(1, Number(e.target.value) || 1))}
-                    className="mt-2 h-11 rounded-full bg-slate-50 border-slate-200 px-5"
+                    className="mt-2 h-11 rounded-full bg-surface border-surface-variant px-5"
                   />
                 </div>
               </div>
@@ -522,10 +522,10 @@ function ExceptionsCard({ coachId }: { coachId?: string }) {
         onValueChange={(v) => setMode(v as "full" | "range")}
         className="grid grid-cols-2 gap-2 mb-3"
       >
-        <Label className="flex items-center gap-2 rounded-full border bg-slate-50 px-3 py-2 cursor-pointer text-sm">
+        <Label className="flex items-center gap-2 rounded-full border bg-surface px-3 py-2 cursor-pointer text-sm">
           <RadioGroupItem value="full" /> Tutto il giorno
         </Label>
-        <Label className="flex items-center gap-2 rounded-full border bg-slate-50 px-3 py-2 cursor-pointer text-sm">
+        <Label className="flex items-center gap-2 rounded-full border bg-surface px-3 py-2 cursor-pointer text-sm">
           <RadioGroupItem value="range" /> Fascia oraria
         </Label>
       </RadioGroup>
@@ -533,7 +533,7 @@ function ExceptionsCard({ coachId }: { coachId?: string }) {
       {mode === "range" && (
         <div className="flex items-center gap-2 mb-3">
           <Select value={start} onValueChange={setStart}>
-            <SelectTrigger className="h-10 rounded-full bg-slate-50 border-slate-200">
+            <SelectTrigger className="h-10 rounded-full bg-surface border-surface-variant">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -544,9 +544,9 @@ function ExceptionsCard({ coachId }: { coachId?: string }) {
               ))}
             </SelectContent>
           </Select>
-          <span className="text-slate-400">—</span>
+          <span className="text-outline-variant">—</span>
           <Select value={end} onValueChange={setEnd}>
-            <SelectTrigger className="h-10 rounded-full bg-slate-50 border-slate-200">
+            <SelectTrigger className="h-10 rounded-full bg-surface border-surface-variant">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -564,7 +564,7 @@ function ExceptionsCard({ coachId }: { coachId?: string }) {
         placeholder="Motivo (es. Ferie)"
         value={reason}
         onChange={(e) => setReason(e.target.value)}
-        className="mb-3 h-10 rounded-full bg-slate-50 border-slate-200 px-4"
+        className="mb-3 h-10 rounded-full bg-surface border-surface-variant px-4"
       />
 
       <Button
@@ -591,7 +591,7 @@ function ExceptionsCard({ coachId }: { coachId?: string }) {
           return (
             <div
               key={ex.id}
-              className="flex items-center justify-between rounded-[24px] bg-slate-50 p-3"
+              className="flex items-center justify-between rounded-[24px] bg-surface p-3"
             >
               <div className="flex items-center gap-3 min-w-0">
                 <CalendarOff className="size-4 text-muted-foreground shrink-0" />

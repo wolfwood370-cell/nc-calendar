@@ -41,6 +41,7 @@ import {
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { queryKeys } from "@/lib/query-keys";
 import type { SessionType } from "@/lib/mock-data";
 import { toast } from "sonner";
 import { GCAL_COLORS, GCAL_DEFAULT, nameForColor } from "@/lib/event-colors";
@@ -131,7 +132,7 @@ function EventTypesPage() {
     },
     onSuccess: () => {
       toast.success(editing ? "Tipologia aggiornata" : "Tipologia creata");
-      qc.invalidateQueries({ queryKey: ["event_types"] });
+      qc.invalidateQueries({ queryKey: queryKeys.eventTypes.coach(coachId) });
       setOpen(false);
       setEditing(null);
     },
@@ -145,7 +146,7 @@ function EventTypesPage() {
     },
     onSuccess: () => {
       toast.success("Tipologia eliminata");
-      qc.invalidateQueries({ queryKey: ["event_types"] });
+      qc.invalidateQueries({ queryKey: queryKeys.eventTypes.coach(coachId) });
     },
     onError: (e: unknown) => toast.error("Errore", { description: (e as Error).message }),
   });
@@ -153,7 +154,7 @@ function EventTypesPage() {
   const types = listQ.data ?? [];
 
   return (
-    <div className="min-h-screen bg-[#f8f9fe] -m-4 md:-m-6 p-6 md:p-10 space-y-8">
+    <div className="min-h-screen bg-surface -m-4 md:-m-6 p-6 md:p-10 space-y-8">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
           <h1 className="font-display text-4xl font-bold tracking-tight text-primary">

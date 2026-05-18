@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { SessionType, BookingStatus } from "@/lib/mock-data";
+import { invalidateBookingScope, queryKeys } from "@/lib/query-keys";
 
 export interface BookingRow {
   id: string;
@@ -350,11 +351,11 @@ export function useCancelBooking() {
           console.error("sync-calendar cancel failed", err);
         }
       }
+
+      return { coachId: bk?.coach_id ?? null, clientId: bk?.client_id ?? null };
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["bookings"] });
-      qc.invalidateQueries({ queryKey: ["blocks"] });
-      qc.invalidateQueries({ queryKey: ["extra_credits"] });
+    onSuccess: (scope) => {
+      invalidateBookingScope(qc, scope);
     },
   });
 }
@@ -428,11 +429,11 @@ export function useCoachCancelBooking() {
         }
       }
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["bookings"] });
-      qc.invalidateQueries({ queryKey: ["blocks"] });
-      qc.invalidateQueries({ queryKey: ["block-allocations"] });
-      qc.invalidateQueries({ queryKey: ["extra_credits"] });
+    onSuccess: (_data, booking) => {
+      invalidateBookingScope(qc, {
+        coachId: booking.coach_id,
+        clientId: booking.client_id,
+      });
     },
   });
 }

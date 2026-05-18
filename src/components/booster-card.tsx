@@ -107,7 +107,7 @@ export function BoosterCard({
               onClick={onAction}
               disabled={disabled || loading}
               aria-label={`${actionLabel} — ${title}`}
-              className="mt-4 w-full rounded-full bg-[#0f172a] text-white hover:bg-[#0f172a]/90 border border-white/10 shadow-[0_4px_20px_rgba(15,23,42,0.25)]"
+              className="mt-4 w-full rounded-full bg-cta-dark text-white hover:bg-cta-dark/90 border border-white/10 shadow-[0_4px_20px_rgba(15,23,42,0.25)]"
             >
               {loading ? "Attendere..." : actionLabel}
             </Button>

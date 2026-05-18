@@ -175,10 +175,10 @@ function IntegrationsPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="font-display text-3xl font-semibold tracking-tight text-[#003a5c]">
+        <h1 className="font-display text-3xl font-semibold tracking-tight text-aura-primary">
           Integrazioni
         </h1>
-        <p className="text-sm text-[#647d8e] mt-1">
+        <p className="text-sm text-outline mt-1">
           Collega i tuoi strumenti preferiti per automatizzare il flusso di lavoro.
         </p>
       </div>
@@ -196,14 +196,14 @@ function IntegrationsPage() {
           {isCalendarConnected ? (
             <>
               {connectedEmail && (
-                <p className="text-xs text-[#647d8e] flex items-center gap-1.5">
+                <p className="text-xs text-outline flex items-center gap-1.5">
                   <Mail className="size-3" /> {connectedEmail}
                 </p>
               )}
-              <div className="flex items-center justify-between rounded-2xl bg-[#f8f9fe] px-4 py-3">
+              <div className="flex items-center justify-between rounded-2xl bg-surface px-4 py-3">
                 <Label
                   htmlFor="cal-sync"
-                  className="text-sm font-medium text-[#003a5c] cursor-pointer"
+                  className="text-sm font-medium text-aura-primary cursor-pointer"
                 >
                   Sincronizzazione automatica
                 </Label>
@@ -216,7 +216,7 @@ function IntegrationsPage() {
               <Button
                 variant="outline"
                 onClick={() => setCalendarSheetOpen(true)}
-                className="w-full rounded-full border-[#e5edf3] text-[#003a5c] hover:bg-[#f8f9fe]"
+                className="w-full rounded-full border-surface-variant text-aura-primary hover:bg-surface"
               >
                 Gestisci connessione
               </Button>
@@ -231,9 +231,9 @@ function IntegrationsPage() {
                 {isCalendarLoading && <Loader2 className="size-4 animate-spin mr-2" />}
                 Connetti Google Calendar
               </Button>
-              <p className="text-[11px] leading-relaxed tracking-wide text-[#647d8e] px-1 font-medium">
+              <p className="text-[11px] leading-relaxed tracking-wide text-outline px-1 font-medium">
                 Nota: per la sincronizzazione corretta, utilizza esclusivamente l'account{" "}
-                <span className="font-semibold text-[#003a5c]">nctrainingsystems@gmail.com</span>.
+                <span className="font-semibold text-aura-primary">nctrainingsystems@gmail.com</span>.
               </p>
             </>
           )}
@@ -248,7 +248,7 @@ function IntegrationsPage() {
           title="Stripe"
           description="Accetta pagamenti dai clienti e gestisci abbonamenti per i tuoi pacchetti."
         >
-          <ul className="space-y-2 text-sm text-[#647d8e]">
+          <ul className="space-y-2 text-sm text-outline">
             <li className="flex items-center gap-2">
               <Check className="size-4 text-[#635BFF]" /> Pagamenti carte e wallet
             </li>
@@ -275,7 +275,7 @@ function IntegrationsPage() {
           title="Google Meet"
           description="Genera automaticamente link Google Meet per le tue sessioni online."
         >
-          <ul className="space-y-2 text-sm text-[#647d8e]">
+          <ul className="space-y-2 text-sm text-outline">
             <li className="flex items-center gap-2">
               <Check className="size-4 text-[#00897B]" /> Link generati in automatico
             </li>
@@ -286,7 +286,7 @@ function IntegrationsPage() {
           <Button
             onClick={handleConnectMeet}
             variant="outline"
-            className="w-full rounded-full border-[#e5edf3] text-[#003a5c] hover:bg-[#f8f9fe]"
+            className="w-full rounded-full border-surface-variant text-aura-primary hover:bg-surface"
           >
             Connetti Google Meet
           </Button>
@@ -384,14 +384,14 @@ function CalendarManageSheet({ open, onOpenChange, coachId, onDisconnect }: Cale
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="w-full sm:max-w-md bg-[#f8f9fe] border-l border-[#e5edf3] p-0 overflow-y-auto"
+        className="w-full sm:max-w-md bg-surface border-l border-surface-variant p-0 overflow-y-auto"
       >
         <div className="p-6 space-y-6">
           <SheetHeader className="space-y-1">
-            <SheetTitle className="font-display text-2xl text-[#003a5c]">
+            <SheetTitle className="font-display text-2xl text-aura-primary">
               Gestisci Google Calendar
             </SheetTitle>
-            <SheetDescription className="text-[#647d8e]">
+            <SheetDescription className="text-outline">
               Controlla la connessione e la sincronizzazione del tuo calendario.
             </SheetDescription>
           </SheetHeader>
@@ -404,12 +404,12 @@ function CalendarManageSheet({ open, onOpenChange, coachId, onDisconnect }: Cale
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <Mail className="size-3.5 text-[#647d8e]" />
-                  <p className="text-sm font-medium text-[#003a5c] truncate">
+                  <Mail className="size-3.5 text-outline" />
+                  <p className="text-sm font-medium text-aura-primary truncate">
                     coach@nccalendar.it
                   </p>
                 </div>
-                <p className="text-xs text-[#647d8e] mt-0.5 flex items-center gap-1">
+                <p className="text-xs text-outline mt-0.5 flex items-center gap-1">
                   <Clock className="size-3" /> Ultima sincronizzazione automatica: 5 min fa
                 </p>
               </div>
@@ -422,17 +422,17 @@ function CalendarManageSheet({ open, onOpenChange, coachId, onDisconnect }: Cale
           {/* Manual Sync */}
           <div className="rounded-[24px] bg-white p-5 shadow-[0px_4px_20px_rgba(0,86,133,0.05)] space-y-4">
             <div>
-              <h3 className="font-display text-base font-semibold text-[#003a5c]">
+              <h3 className="font-display text-base font-semibold text-aura-primary">
                 Sincronizzazione manuale
               </h3>
-              <p className="text-xs text-[#647d8e] mt-1">
+              <p className="text-xs text-outline mt-1">
                 Avvia subito un controllo per importare nuovi eventi.
               </p>
             </div>
             <Button
               onClick={handleSyncNow}
               disabled={isSyncing}
-              className="w-full rounded-full bg-[#003a5c] hover:bg-[#002a44] text-white h-11"
+              className="w-full rounded-full bg-aura-primary hover:bg-on-primary-fixed text-white h-11"
             >
               {isSyncing ? (
                 <>
@@ -448,19 +448,19 @@ function CalendarManageSheet({ open, onOpenChange, coachId, onDisconnect }: Cale
 
           {/* Sync Logs */}
           <div className="rounded-[24px] bg-white p-5 shadow-[0px_4px_20px_rgba(0,86,133,0.05)] space-y-3">
-            <h3 className="font-display text-base font-semibold text-[#003a5c]">
+            <h3 className="font-display text-base font-semibold text-aura-primary">
               Attività recente
             </h3>
             <ul className="space-y-2">
               {logs.map((l, i) => (
                 <li
                   key={i}
-                  className="flex items-start gap-3 rounded-2xl bg-[#f8f9fe] px-4 py-3"
+                  className="flex items-start gap-3 rounded-2xl bg-surface px-4 py-3"
                 >
                   <div className="size-2 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-[#003a5c]">{l.text}</p>
-                    <p className="text-xs text-[#647d8e] mt-0.5">{l.when}</p>
+                    <p className="text-sm text-aura-primary">{l.text}</p>
+                    <p className="text-xs text-outline mt-0.5">{l.when}</p>
                   </div>
                 </li>
               ))}
@@ -548,8 +548,8 @@ function IntegrationCard({
         </div>
         <StatusPill status={resolvedStatus} />
       </div>
-      <h3 className="font-display text-lg font-semibold text-[#003a5c] mb-1">{title}</h3>
-      <p className="text-sm text-[#647d8e] mb-5 min-h-[40px]">{description}</p>
+      <h3 className="font-display text-lg font-semibold text-aura-primary mb-1">{title}</h3>
+      <p className="text-sm text-outline mb-5 min-h-[40px]">{description}</p>
       {resolvedStatus === "error" ? (
         <div className="rounded-2xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
           Errore di connessione. Riprova a collegare l'account.
@@ -579,8 +579,8 @@ function StatusPill({ status }: { status: "connected" | "disconnected" | "error"
     );
   }
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-[#f1f4f7] text-[#647d8e] px-3 py-1 text-xs font-medium">
-      <span className="size-1.5 rounded-full bg-[#9aabb8]" />
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-container-low text-outline px-3 py-1 text-xs font-medium">
+      <span className="size-1.5 rounded-full bg-outline-variant" />
       Non connesso
     </span>
   );

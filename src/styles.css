@@ -43,6 +43,46 @@
   --color-error-container: #ffdad6;
   --color-on-error-container: #93000a;
 
+  /* Additional tokens for in-app surfaces — added to remove hardcoded hex
+     usages flagged by the audit (H6). Each value documents what triggered it. */
+
+  /* Calendar / dashboard "to-assign" warmth (unassigned events, warning glass) */
+  --color-warning-container: #ffdcc2;
+  --color-warning-border: #ffb77b;
+
+  /* Lighter variant of on-primary-fixed used in calendar event time labels */
+  --color-on-primary-fixed-variant: #004b74;
+
+  /* Material 3-style hard error (delete buttons, destructive badges) */
+  --color-error: #ba1a1a;
+
+  /* High-contrast dark CTA — booster-card primary action */
+  --color-cta-dark: #0f172a;
+
+  /* Booking status badges (client.bookings.$bookingId.tsx). Distinct from
+     the M3 *-container pair because they target the Google Calendar visual
+     language used in the client-facing detail page. */
+  --color-status-success-bg: #e6f4ea;
+  --color-on-status-success: #0b8043;
+  --color-status-info-bg: #e3f2fd;
+  --color-on-status-info: #1565c0;
+  --color-status-error-bg: #fce8e6;
+  --color-on-status-error: #c5221f;
+
+  /* Third-party brand colors that appear inside the app UI (not in
+     integrations.tsx, which uses raw brand hex on purpose) */
+  --color-brand-whatsapp: #25d366;
+  --color-on-brand-whatsapp: #075e54;
+
+  /* Placeholder avatar (initial-only) on trainer.clients list */
+  --color-avatar-placeholder: #d6e5ec;
+  --color-on-avatar-placeholder: #3b494f;
+
+  /* Soft elevation shadows that were previously inlined as
+     shadow-[0px_4px_20px_rgba(...)] string literals. */
+  --shadow-soft-blue: 0px 4px 20px rgba(0, 86, 133, 0.05);
+  --shadow-soft-card: 0 8px 30px rgba(0, 0, 0, 0.04);
+
   /* Aura spacing aliases */
   --spacing-margin-mobile: 20px;
   --spacing-margin-desktop: 40px;

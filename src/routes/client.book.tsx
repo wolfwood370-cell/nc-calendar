@@ -25,6 +25,7 @@ import { syncCalendar } from "@/lib/sync-calendar";
 import { generateGoogleCalendarLink } from "@/lib/calendar-utils";
 import { useAuth } from "@/lib/auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { invalidateBookingScope } from "@/lib/query-keys";
 import {
   format,
   startOfMonth,
@@ -511,6 +512,12 @@ function BookFlow() {
   const emailNotificationsEnabled = profile?.email_notifications ?? true;
 
   const confirm = async () => {
+    if (!meId) {
+      toast.error("Sessione non valida", {
+        description: "Effettua di nuovo l'accesso e riprova.",
+      });
+      return;
+    }
     if (!coachId) {
       toast.error("Coach non assegnato. Contatta il tuo coach.");
       return;
@@ -589,36 +596,15 @@ function BookFlow() {
         const isOnline = eventType?.location_type === "online";
         const meetingLink = isOnline ? generateMockMeetLink() : null;
 
-        // Hard conflict check (server-side ricontrollo: nessuna sovrapposizione)
-        const newDuration = eventType?.duration ?? 60;
-        const newBuffer = eventType?.buffer_minutes ?? 0;
-        const slotStartMs = new Date(iso).getTime();
-        const slotEndMs = slotStartMs + (newDuration + newBuffer) * 60_000;
-        const winStartIso = new Date(slotStartMs - 4 * 60 * 60_000).toISOString();
-        const winEndIso = new Date(slotEndMs + 4 * 60 * 60_000).toISOString();
-        const { data: nearby } = await supabase
-          .from("bookings")
-          .select("scheduled_at, event_type_id, status")
-          .eq("coach_id", coachId)
-          .in("status", ["scheduled", "completed"])
-          .gte("scheduled_at", winStartIso)
-          .lte("scheduled_at", winEndIso);
-        const conflict = (nearby ?? []).some((b) => {
-          const et = b.event_type_id ? customTypes.find((e) => e.id === b.event_type_id) : null;
-          const dur = et?.duration ?? 60;
-          const buf = et?.buffer_minutes ?? 0;
-          const bStart = new Date(b.scheduled_at).getTime();
-          const bEnd = bStart + (dur + buf) * 60_000;
-          return slotStartMs < bEnd && slotEndMs > bStart;
-        });
-        if (conflict) {
-          toast.error("Questo orario è stato appena occupato. Scegli un altro slot.");
-          continue;
-        }
-
-        // INSERT booking — block_id solo se la sessione viene scalata da un'allocation di blocco.
+        // INSERT booking. Overlap and credit consumption are enforced
+        // server-side:
+        //   - bookings_no_overlap_per_coach (exclusion constraint, SQLSTATE 23P01)
+        //   - trg_booking_validate_block_allocation (P0001 on exhausted block)
+        //   - trg_booking_validate_extra_credits   (P0001 on exhausted credit)
+        // The previous client-side SELECT-then-INSERT conflict check has been
+        // removed because it has a wide race window between SELECT and INSERT.
         const { error: bErr } = await supabase.from("bookings").insert({
-          client_id: meId!,
+          client_id: meId,
           coach_id: coachId,
           block_id: allocId ? (block?.id ?? null) : null,
           session_type: type,
@@ -628,28 +614,22 @@ function BookFlow() {
           meeting_link: meetingLink,
         });
         if (bErr) {
-          toast.error("Errore prenotazione", { description: bErr.message });
+          if (bErr.code === "23P01") {
+            toast.error("Slot già occupato", {
+              description:
+                "Un altro utente ha appena prenotato questo orario. Ricarica la pagina e scegli un altro slot.",
+            });
+          } else if (bErr.code === "P0001") {
+            toast.error("Prenotazione non possibile", { description: bErr.message });
+          } else {
+            toast.error("Errore prenotazione", { description: bErr.message });
+          }
           continue;
         }
 
-        // Decrementa il credito sulla fonte corretta.
-        // NOTA: extra_credits viene auto-incrementato dal trigger DB
-        // (trg_booking_validate_extra_credits) al momento dell'INSERT,
-        // quindi NON serve farlo qui. Block_allocations resta manuale.
-        if (allocId) {
-          const { data: cur } = await supabase
-            .from("block_allocations")
-            .select("quantity_booked")
-            .eq("id", allocId)
-            .maybeSingle();
-          if (cur) {
-            await supabase
-              .from("block_allocations")
-              .update({ quantity_booked: cur.quantity_booked + 1 })
-              .eq("id", allocId);
-          }
-        } else if (extraId) {
-          // Auto-deducted by DB trigger — track count for toast message only.
+        // Credit deduction is handled atomically by the DB triggers above.
+        // Track extra-credit count locally only for the success toast copy.
+        if (extraId) {
           extraCreditCount += 1;
         }
         localUsed[trackerKey] = used + 1;
@@ -702,7 +682,7 @@ function BookFlow() {
             .catch((e) => console.error("booking-notifications failed", e)),
         ]);
         sendPush({
-          profileId: meId!,
+          profileId: meId,
           title: "Prenotazione confermata",
           body: `${displayLabel} — ${new Date(iso).toLocaleString("it-IT", { dateStyle: "medium", timeStyle: "short" })}`,
           url: "/client",
@@ -731,9 +711,7 @@ function BookFlow() {
               : undefined,
           },
         );
-        qc.invalidateQueries({ queryKey: ["bookings"] });
-        qc.invalidateQueries({ queryKey: ["blocks"] });
-        qc.invalidateQueries({ queryKey: ["extra_credits"] });
+        invalidateBookingScope(qc, { coachId, clientId: meId });
         navigate({ to: "/client" });
       }
     } finally {
@@ -914,10 +892,7 @@ function BookFlow() {
                 if (recommended) {
                   return (
                     <div key={s.iso} className="relative flex flex-col items-center">
-                      <span
-                        className="absolute -top-3 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase z-10 shadow-sm border border-surface-container-lowest"
-                        style={{ backgroundColor: "#3b6284", color: "#ffffff" }}
-                      >
+                      <span className="absolute -top-3 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase z-10 shadow-sm border border-surface-container-lowest bg-aura-secondary text-on-aura-secondary">
                         Consigliato
                       </span>
                       {button}

@@ -67,6 +67,7 @@ import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { sendInvitationEmail } from "@/lib/email";
 import { useCoachEventTypes } from "@/lib/queries";
+import { queryKeys } from "@/lib/query-keys";
 import { sessionLabel, type SessionType } from "@/lib/mock-data";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -424,9 +425,9 @@ function ClientsPage() {
       return;
     }
     toast.success(`${name} eliminato definitivamente.`);
-    qc.invalidateQueries({ queryKey: ["clients"] });
-    qc.invalidateQueries({ queryKey: ["bookings"] });
-    qc.invalidateQueries({ queryKey: ["blocks"] });
+    qc.invalidateQueries({ queryKey: queryKeys.clients.coach(user?.id) });
+    qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(user?.id) });
+    qc.invalidateQueries({ queryKey: queryKeys.blocks.coach(user?.id) });
     load();
   }
 
@@ -577,10 +578,10 @@ function ClientsPage() {
       });
     }
 
-    qc.invalidateQueries({ queryKey: ["clients"] });
-    qc.invalidateQueries({ queryKey: ["block-allocations"] });
-    qc.invalidateQueries({ queryKey: ["blocks"] });
-    qc.invalidateQueries({ queryKey: ["extra_credits"] });
+    qc.invalidateQueries({ queryKey: queryKeys.clients.coach(user?.id) });
+    qc.invalidateQueries({ queryKey: queryKeys.blocks.coach(user?.id) });
+    // The new client's own client-scoped caches don't exist yet (they haven't
+    // logged in), so we don't need to invalidate them here.
     setCreateOpen(false);
     setCredentials({
       firstName: data.firstName,
@@ -598,19 +599,19 @@ function ClientsPage() {
   ];
 
   return (
-    <div className="-m-6 p-6 md:p-10 bg-[#f8f9fe] min-h-[calc(100vh-3.5rem)]">
+    <div className="-m-6 p-6 md:p-10 bg-surface min-h-[calc(100vh-3.5rem)]">
       {/* Header */}
       <div className="flex flex-wrap items-end justify-between gap-3 mb-8">
         <div>
-          <h1 className="font-display text-3xl md:text-4xl font-bold text-[#003e62] tracking-tight">
+          <h1 className="font-display text-3xl md:text-4xl font-bold text-aura-primary tracking-tight">
             I tuoi Clienti
           </h1>
-          <p className="text-sm text-[#41474f] mt-1">Invita nuovi clienti e gestisci il roster.</p>
+          <p className="text-sm text-on-surface-variant mt-1">Invita nuovi clienti e gestisci il roster.</p>
         </div>
         <div className="flex items-center gap-2">
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
             <DialogTrigger asChild>
-              <Button className="rounded-full px-6 py-3 h-auto bg-[#003e62] hover:bg-[#005685] text-white shadow-[0px_4px_20px_rgba(0,86,133,0.05)]">
+              <Button className="rounded-full px-6 py-3 h-auto bg-aura-primary hover:bg-primary-container text-white shadow-soft-blue">
                 <UserPlus className="size-4" /> Aggiungi Cliente
               </Button>
             </DialogTrigger>
@@ -631,12 +632,12 @@ function ClientsPage() {
 
       {/* Search */}
       <div className="mb-6 relative w-full md:w-96">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-[#717880]" />
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-outline" />
         <Input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Cerca per nome o email…"
-          className="pl-12 pr-4 py-3 h-auto bg-[#F1F3F9] border-none rounded-full focus-visible:ring-2 focus-visible:ring-[#003e62] focus-visible:bg-white"
+          className="pl-12 pr-4 py-3 h-auto bg-surface-container-low border-none rounded-full focus-visible:ring-2 focus-visible:ring-aura-primary focus-visible:bg-white"
         />
       </div>
 
@@ -649,8 +650,8 @@ function ClientsPage() {
               key={t.key}
               onClick={() => setActiveTab(t.key)}
               className={`px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-colors ${isActive
-                  ? "bg-[#cde5ff] text-[#004b74]"
-                  : "bg-[#eceef2] text-[#41474f] hover:bg-[#e1e2e7]"
+                  ? "bg-primary-fixed text-on-primary-fixed-variant"
+                  : "bg-surface-container text-on-surface-variant hover:bg-surface-variant"
                 }`}
             >
               {t.label} ({t.count})
@@ -722,7 +723,7 @@ function ClientsPage() {
                 <Skeleton className="h-3 w-2/3" />
                 <Skeleton className="h-2 w-full rounded-full" />
               </div>
-              <div className="pt-4 border-t border-[#e1e2e7] flex items-center gap-2">
+              <div className="pt-4 border-t border-surface-variant flex items-center gap-2">
                 <Skeleton className="h-10 flex-1 rounded-full" />
                 <Skeleton className="h-10 w-10 rounded-full" />
                 <Skeleton className="h-10 w-10 rounded-full" />
@@ -734,19 +735,19 @@ function ClientsPage() {
         <div className="bg-white rounded-[32px] p-12 text-center shadow-[0px_4px_20px_rgba(0,86,133,0.05)]">
           {clients.length === 0 ? (
             <div className="space-y-4">
-              <UserPlus className="size-10 mx-auto text-[#c1c7d0]" />
-              <p className="text-[#41474f] font-semibold">
+              <UserPlus className="size-10 mx-auto text-outline-variant" />
+              <p className="text-on-surface-variant font-semibold">
                 Nessun cliente ancora. Aggiungi il primo per iniziare.
               </p>
               <Button
                 onClick={() => setCreateOpen(true)}
-                className="rounded-full bg-[#003e62] hover:bg-[#005685] text-white"
+                className="rounded-full bg-aura-primary hover:bg-primary-container text-white"
               >
                 <UserPlus className="size-4" /> Aggiungi Cliente
               </Button>
             </div>
           ) : (
-            <p className="text-[#717880]">Nessun cliente in questa categoria.</p>
+            <p className="text-outline">Nessun cliente in questa categoria.</p>
           )}
         </div>
       ) : (
@@ -759,9 +760,9 @@ function ClientsPage() {
             const phoneDigits = (c.phone ?? "").replace(/\D/g, "");
 
             const badgeClass = isArchived
-              ? "bg-[#eceef2] text-[#41474f]"
+              ? "bg-surface-container text-on-surface-variant"
               : isCompleted
-                ? "bg-[#eceef2] text-[#41474f]"
+                ? "bg-surface-container text-on-surface-variant"
                 : isExpiring
                   ? "bg-orange-50 text-orange-600"
                   : "bg-emerald-50 text-emerald-600";
@@ -780,14 +781,14 @@ function ClientsPage() {
               >
                 <div className="flex justify-between items-start mb-6">
                   <div className="flex items-center gap-4 min-w-0">
-                    <div className="w-12 h-12 shrink-0 rounded-full bg-[#d6e5ec] text-[#3b494f] flex items-center justify-center text-base font-bold">
+                    <div className="w-12 h-12 shrink-0 rounded-full bg-avatar-placeholder text-on-avatar-placeholder flex items-center justify-center text-base font-bold">
                       {initials(c.full_name, c.email)}
                     </div>
                     <div className="min-w-0">
-                      <h3 className="text-lg leading-6 font-bold text-[#191c1f] truncate">
+                      <h3 className="text-lg leading-6 font-bold text-on-surface truncate">
                         {c.full_name ?? "Senza nome"}
                       </h3>
-                      <p className="text-sm text-[#717880] truncate">
+                      <p className="text-sm text-outline truncate">
                         {c.pack_label
                           ? "PT Pack"
                           : c.path_type === "recurring"
@@ -797,7 +798,7 @@ function ClientsPage() {
                               : (c.email ?? "—")}
                       </p>
                       {c.pack_label && (
-                        <span className="inline-flex items-center mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#003e62]/10 text-[#003e62]">
+                        <span className="inline-flex items-center mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-aura-primary/10 text-aura-primary">
                           {c.pack_label}
                         </span>
                       )}
@@ -813,7 +814,7 @@ function ClientsPage() {
                 <div className="mb-6 flex-1">
                   {d.summary.length > 0 ? (
                     <div className="space-y-3">
-                      <p className="text-[11px] uppercase tracking-wide font-semibold text-[#717880]">
+                      <p className="text-[11px] uppercase tracking-wide font-semibold text-outline">
                         Riepilogo Sessioni
                       </p>
                       {d.summary.map((row) => {
@@ -823,16 +824,16 @@ function ClientsPage() {
                         return (
                           <div key={row.type}>
                             <div className="flex items-baseline justify-between gap-2">
-                              <span className="text-xs font-medium text-[#41474f] truncate">
+                              <span className="text-xs font-medium text-on-surface-variant truncate">
                                 {row.type}
                               </span>
-                              <span className="text-sm font-bold text-[#003e62] tabular-nums shrink-0">
+                              <span className="text-sm font-bold text-aura-primary tabular-nums shrink-0">
                                 {row.used} / {row.total}
                               </span>
                             </div>
-                            <div className="mt-1 w-full h-1 bg-[#e1e2e7] rounded-full overflow-hidden">
+                            <div className="mt-1 w-full h-1 bg-surface-variant rounded-full overflow-hidden">
                               <div
-                                className="h-full bg-[#003e62] rounded-full transition-all"
+                                className="h-full bg-aura-primary rounded-full transition-all"
                                 style={{ width: `${pct}%` }}
                               />
                             </div>
@@ -840,7 +841,7 @@ function ClientsPage() {
                         );
                       })}
                       {c.path_type === "recurring" && d.daysToBilling !== null && (
-                        <p className="text-[11px] text-[#717880] pt-1">
+                        <p className="text-[11px] text-outline pt-1">
                           {d.daysToBilling >= 0
                             ? `Rinnovo tra ${d.daysToBilling} ${d.daysToBilling === 1 ? "giorno" : "giorni"}`
                             : "Rinnovo scaduto"}
@@ -848,14 +849,14 @@ function ClientsPage() {
                       )}
                     </div>
                   ) : (
-                    <p className="text-xs text-[#717880] italic">Nessun pacchetto assegnato.</p>
+                    <p className="text-xs text-outline italic">Nessun pacchetto assegnato.</p>
                   )}
                 </div>
 
-                <div className="pt-4 border-t border-[#e1e2e7] flex items-center gap-2">
+                <div className="pt-4 border-t border-surface-variant flex items-center gap-2">
                   <Button
                     asChild
-                    className="flex-1 rounded-full bg-[#003e62]/10 text-[#003e62] hover:bg-[#003e62]/20 shadow-none"
+                    className="flex-1 rounded-full bg-aura-primary/10 text-aura-primary hover:bg-aura-primary/20 shadow-none"
                   >
                     <Link to="/trainer/clients/$id" params={{ id: c.id }}>
                       {isExpiring ? "Rinnova" : "Pianifica"}
@@ -868,7 +869,7 @@ function ClientsPage() {
                       target="_blank"
                       rel="noreferrer"
                       title="Apri WhatsApp"
-                      className="w-10 h-10 flex items-center justify-center rounded-full border border-[#c1c7d0] text-[#41474f] hover:bg-[#eceef2] transition-colors"
+                      className="w-10 h-10 flex items-center justify-center rounded-full border border-outline-variant text-on-surface-variant hover:bg-surface-container transition-colors"
                     >
                       <MessageCircle className="size-4" />
                     </a>
@@ -876,7 +877,7 @@ function ClientsPage() {
                     <button
                       disabled
                       title="Telefono non disponibile"
-                      className="w-10 h-10 flex items-center justify-center rounded-full border border-[#e1e2e7] text-[#c1c7d0] cursor-not-allowed"
+                      className="w-10 h-10 flex items-center justify-center rounded-full border border-surface-variant text-outline-variant cursor-not-allowed"
                     >
                       <MessageCircle className="size-4" />
                     </button>
@@ -920,7 +921,7 @@ function ClientCardMenu({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
-            className="w-10 h-10 flex items-center justify-center rounded-full text-[#41474f] hover:bg-[#eceef2] transition-colors"
+            className="w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container transition-colors"
             aria-label="Altre azioni"
           >
             <MoreVertical className="size-4" />

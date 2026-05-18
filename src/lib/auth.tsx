@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 export type Role = "admin" | "coach" | "client";
@@ -18,6 +19,7 @@ interface AuthCtx {
 const Ctx = createContext<AuthCtx | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<Role | null>(null);
@@ -58,6 +60,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
     setUser(null);
     setRole(null);
+    // Purge all cached user-scoped data so a subsequent login on the same
+    // device cannot momentarily display the previous user's queries.
+    queryClient.clear();
+    queryClient.removeQueries();
   };
 
   return <Ctx.Provider value={{ session, user, role, loading, signOut }}>{children}</Ctx.Provider>;
