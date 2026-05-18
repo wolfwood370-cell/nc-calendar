@@ -1,9 +1,16 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query";
+import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 
-export type Role = "admin" | "coach" | "client";
+// M10: validate the role coming from the DB through a Zod enum instead of
+// blindly casting `as Role`. Stray DB values (case mismatch, typo, future
+// enum addition not yet known to the client) now fall back to "client"
+// instead of being accepted silently and breaking downstream
+// role === "coach" / "admin" guards.
+const roleSchema = z.enum(["admin", "coach", "client"]);
+export type Role = z.infer<typeof roleSchema>;
 export const ADMIN_EMAIL = "nctrainingsystems@gmail.com";
 // Backwards-compat export (used by some routes)
 export const TRAINER_EMAIL = ADMIN_EMAIL;
@@ -52,7 +59,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .select("role")
       .eq("user_id", userId)
       .maybeSingle();
-    setRole((data?.role as Role) ?? "client");
+    const parsed = roleSchema.safeParse(data?.role);
+    if (!parsed.success && data?.role != null) {
+      // Log the malformed value so it shows up in error capture instead of
+      // silently downgrading the user.
+      console.warn("auth: unrecognized role from DB, falling back to 'client'", data.role);
+    }
+    setRole(parsed.success ? parsed.data : "client");
   }
 
   const signOut = async () => {
