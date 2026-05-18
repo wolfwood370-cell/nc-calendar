@@ -34,25 +34,35 @@ interface GoogleTokens {
   expires_at: string | null;
 }
 
-/** Refresh dell'access token se scaduto. Aggiorna la riga DB. */
+/**
+ * Refresh the Google access_token when it's within the 60s safety margin.
+ * Mutates `tokensRef.current` on success so callers downstream see the new
+ * token without re-querying the DB. On a 400/401 from Google (the refresh
+ * token has been revoked / expired), the integration is auto-disabled so
+ * the coach is prompted to reconnect on their next visit to Settings,
+ * instead of accumulating an indefinite series of silent failures.
+ */
 async function ensureFreshAccessToken(
   supabase: SupabaseClient,
   coachId: string,
-  tokens: GoogleTokens,
+  tokensRef: { current: GoogleTokens },
 ): Promise<string | null> {
+  const tokens = tokensRef.current;
   const now = Date.now();
   const expMs = tokens.expires_at ? new Date(tokens.expires_at).getTime() : 0;
-  // Margine 60s di sicurezza
+  // 60s safety margin
   if (tokens.access_token && expMs - now > 60_000) return tokens.access_token;
 
   if (!tokens.refresh_token) {
-    console.error("sync-calendar: token scaduto e nessun refresh_token disponibile");
+    console.error("sync-calendar: access token expired and no refresh_token available", {
+      coachId,
+    });
     return null;
   }
   const clientId = Deno.env.get("GOOGLE_CLIENT_ID");
   const clientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET");
   if (!clientId || !clientSecret) {
-    console.error("sync-calendar: GOOGLE_CLIENT_ID/SECRET non configurati");
+    console.error("sync-calendar: GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET secrets not configured");
     return tokens.access_token || null;
   }
 
@@ -67,15 +77,57 @@ async function ensureFreshAccessToken(
     }),
   });
   if (!res.ok) {
-    console.error("sync-calendar: refresh token failed", res.status, await res.text());
+    const errText = await res.text();
+    console.error("sync-calendar: refresh token request failed", {
+      coachId,
+      status: res.status,
+      body: errText,
+    });
+    // 400 "invalid_grant" means the refresh token was revoked or the
+    // user removed app access from their Google account; 401 means the
+    // OAuth client credentials are bad. In either case, retrying with the
+    // same data is pointless — disable the integration so future syncs
+    // short-circuit at the "not_configured" gate above and the UI in
+    // trainer.integrations.tsx can prompt for a reconnect.
+    if (res.status === 400 || res.status === 401) {
+      await supabase
+        .from("integration_settings")
+        .update({ gcal_enabled: false })
+        .eq("coach_id", coachId);
+      tokensRef.current = { access_token: "", refresh_token: null, expires_at: null };
+    }
     return null;
   }
-  const data = (await res.json()) as { access_token: string; expires_in: number };
+  const data = (await res.json()) as {
+    access_token: string;
+    expires_in: number;
+    refresh_token?: string;
+  };
   const newExpiresAt = new Date(Date.now() + (data.expires_in - 60) * 1000).toISOString();
-  await supabase
+  const newRefreshToken = data.refresh_token ?? tokens.refresh_token;
+
+  const { error: updateErr } = await supabase
     .from("integration_settings")
-    .update({ gcal_access_token: data.access_token, gcal_token_expires_at: newExpiresAt })
+    .update({
+      gcal_access_token: data.access_token,
+      gcal_token_expires_at: newExpiresAt,
+      // Google occasionally rotates refresh_tokens; persist when present.
+      ...(data.refresh_token ? { gcal_refresh_token: data.refresh_token } : {}),
+    })
     .eq("coach_id", coachId);
+  if (updateErr) {
+    console.error("sync-calendar: integration_settings update after refresh failed", updateErr);
+  }
+
+  // Keep the in-memory ref in lockstep with the DB so subsequent gcalFetch
+  // calls inside the same invocation reuse the new token instead of
+  // hammering the refresh endpoint once per page (e.g. import_history with
+  // pagination would otherwise refresh on every iteration).
+  tokensRef.current = {
+    access_token: data.access_token,
+    refresh_token: newRefreshToken,
+    expires_at: newExpiresAt,
+  };
   return data.access_token;
 }
 
@@ -96,15 +148,26 @@ async function gcalFetch(
     return fetch(`${GOOGLE_CALENDAR_API}${path}`, { ...init, headers });
   };
 
-  let token = await ensureFreshAccessToken(supabase, coachId, tokensRef.current);
+  let token = await ensureFreshAccessToken(supabase, coachId, tokensRef);
   if (!token) throw new Error("No valid Google access token");
   let res = await doFetch(token);
   if (res.status === 401 && tokensRef.current.refresh_token) {
-    // Forza refresh ignorando expiry
+    // Force a refresh by zeroing the expiry on the ref. ensureFreshAccessToken
+    // updates the ref in-place on success.
     tokensRef.current = { ...tokensRef.current, expires_at: new Date(0).toISOString() };
-    token = await ensureFreshAccessToken(supabase, coachId, tokensRef.current);
+    token = await ensureFreshAccessToken(supabase, coachId, tokensRef);
     if (!token) return res;
     res = await doFetch(token);
+  } else if (res.status === 403) {
+    // 403 from Google typically means insufficient scope or the user revoked
+    // access without invalidating the refresh_token. Log so this shows up
+    // distinctly from 401 (token-expired) cases. Use res.clone() so the
+    // caller's `await res.json()` / `res.text()` still works downstream.
+    const errText = await res
+      .clone()
+      .text()
+      .catch(() => "");
+    console.error("sync-calendar: Google API returned 403", { path, body: errText });
   }
   return res;
 }
@@ -124,11 +187,44 @@ Deno.serve(async (req) => {
   }
   if (!body.coach_id || !body.action) return json({ error: "Missing required fields" }, 400);
 
-  if (body.coach_id !== auth.userId && auth.role !== "admin") {
-    return json({ error: "Permesso negato" }, 403);
-  }
-
   const supabase = auth.admin;
+
+  // Authorization
+  // ---------------------------------------------------------------------
+  // Previously this branch was `body.coach_id !== auth.userId && auth.role
+  // !== "admin"`, but `requireAuth(req)` was called without `requiredRoles`
+  // so `auth.role` was ALWAYS null — meaning admins could not bypass, AND
+  // clients invoking sync-calendar for their own coach (the booking flow in
+  // client.book.tsx and useCancelBooking in queries.ts both do this from
+  // the client session) got rejected with 403 on every booking. That was
+  // the production failure: bookings saved, but the mirror to Google
+  // Calendar never happened.
+  //
+  // The new check uses the service-role client (which bypasses RLS) to
+  // verify one of three legitimate caller relationships:
+  //   1. The coach is invoking for their own integration.
+  //   2. The caller is an admin.
+  //   3. The caller is a client assigned to body.coach_id (profile.coach_id
+  //      matches), so this is their coach's calendar being updated for a
+  //      booking they own.
+  if (body.coach_id !== auth.userId) {
+    const [{ data: roleRow }, { data: profileRow }] = await Promise.all([
+      supabase.from("user_roles").select("role").eq("user_id", auth.userId).maybeSingle(),
+      supabase.from("profiles").select("coach_id").eq("id", auth.userId).maybeSingle(),
+    ]);
+    const callerRole = (roleRow as { role?: string } | null)?.role ?? null;
+    const callerCoachId = (profileRow as { coach_id?: string | null } | null)?.coach_id ?? null;
+
+    if (callerRole !== "admin" && callerCoachId !== body.coach_id) {
+      console.warn("sync-calendar: forbidden", {
+        caller: auth.userId,
+        target_coach: body.coach_id,
+        caller_role: callerRole,
+        caller_coach: callerCoachId,
+      });
+      return json({ error: "Permesso negato" }, 403);
+    }
+  }
 
   // Carica tokens OAuth + calendar_id
   const { data: settings, error: settingsErr } = await supabase
