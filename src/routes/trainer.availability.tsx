@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -112,9 +112,13 @@ function AvailabilityPage() {
   const [minNotice, setMinNotice] = useState(24);
   const [horizon, setHorizon] = useState(60);
 
-  // Hydrate week state when data arrives
+  // M2: hydrate local form state from the query ONCE, on first arrival of
+  // the data. Subsequent background refetches (window focus, mutations
+  // elsewhere) would otherwise overwrite the user's unsaved edits — the
+  // didHydrate refs gate the effect so editing in progress is preserved.
+  const didHydrateWeek = useRef(false);
   useEffect(() => {
-    if (!availQ.data) return;
+    if (!availQ.data || didHydrateWeek.current) return;
     const w = emptyWeek();
     for (const r of availQ.data) {
       const d = w[r.day_of_week];
@@ -123,13 +127,16 @@ function AvailabilityPage() {
       d.blocks.push({ start: fmt(r.start_time), end: fmt(r.end_time) });
     }
     setWeek(w);
+    didHydrateWeek.current = true;
   }, [availQ.data]);
 
+  const didHydrateSettings = useRef(false);
   useEffect(() => {
-    if (!settingsQ.data) return;
+    if (!settingsQ.data || didHydrateSettings.current) return;
     setBufferMin(settingsQ.data.buffer_minutes);
     setMinNotice(settingsQ.data.min_notice_hours);
     setHorizon(settingsQ.data.booking_horizon_days);
+    didHydrateSettings.current = true;
   }, [settingsQ.data]);
 
   const toggleDay = (dow: number, active: boolean) => {
