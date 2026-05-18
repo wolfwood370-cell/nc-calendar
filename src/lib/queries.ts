@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { SessionType, BookingStatus } from "@/lib/mock-data";
 import { invalidateBookingScope, queryKeys } from "@/lib/query-keys";
@@ -72,10 +72,18 @@ export interface ProfileRow {
 
 /* ---------- queries ---------- */
 
+// M3: staleTime tuning. The default of 0 caused refetches on every window
+// focus for read-heavy, slowly-changing data (event types, weekly
+// availability, settings). Configuration tables get a 5-minute stale time;
+// bookings/blocks/credits stay reactive (staleTime: 0) so a mutation
+// elsewhere is immediately reflected in derived views.
+const STALE_CONFIG = 5 * 60 * 1000;
+
 export function useCoachClients(coachId?: string) {
   return useQuery({
     queryKey: ["clients", coachId],
     enabled: !!coachId,
+    staleTime: STALE_CONFIG,
     queryFn: async (): Promise<ProfileRow[]> => {
       const { data, error } = await supabase
         .from("profiles")
@@ -210,6 +218,7 @@ export function useCoachEventTypes(coachId?: string | null) {
   return useQuery({
     queryKey: ["event_types", coachId],
     enabled: !!coachId,
+    staleTime: STALE_CONFIG,
     queryFn: async (): Promise<EventTypeRow[]> => {
       const { data, error } = await supabase
         .from("event_types")
@@ -228,6 +237,7 @@ export function useCoachAvailability(coachId?: string | null) {
   return useQuery({
     queryKey: ["trainer_availability", coachId],
     enabled: !!coachId,
+    staleTime: STALE_CONFIG,
     queryFn: async (): Promise<AvailabilityRow[]> => {
       const { data, error } = await supabase
         .from("trainer_availability")
@@ -245,6 +255,7 @@ export function useCoachOptimizationEnabled(coachId?: string | null) {
   return useQuery({
     queryKey: ["integration_settings", "optimization", coachId],
     enabled: !!coachId,
+    staleTime: STALE_CONFIG,
     queryFn: async (): Promise<boolean> => {
       const { data } = await supabase
         .from("integration_settings")
@@ -259,6 +270,32 @@ export function useCoachOptimizationEnabled(coachId?: string | null) {
 }
 
 /* ---------- mutations ---------- */
+
+// M1: optimistic remove of a booking row from any cached bookings list,
+// with rollback on failure. Shared by client and coach cancel flows.
+function optimisticBookingRemove(qc: QueryClient, bookingId: string) {
+  return async () => {
+    await qc.cancelQueries({ predicate: (q) => q.queryKey[0] === "bookings" });
+    const snapshots = qc.getQueriesData<BookingRow[]>({
+      predicate: (q) => q.queryKey[0] === "bookings",
+    });
+    qc.setQueriesData<BookingRow[]>(
+      { predicate: (q) => q.queryKey[0] === "bookings" },
+      (old) => (old ?? []).filter((b) => b.id !== bookingId),
+    );
+    return { snapshots };
+  };
+}
+
+function rollbackSnapshots(
+  qc: QueryClient,
+  snapshots?: Array<[unknown, BookingRow[] | undefined]>,
+) {
+  if (!snapshots) return;
+  for (const [key, data] of snapshots) {
+    qc.setQueryData(key as readonly unknown[], data);
+  }
+}
 
 export function useCancelBooking() {
   const qc = useQueryClient();
@@ -356,6 +393,8 @@ export function useCancelBooking() {
 
       return { coachId: bk?.coach_id ?? null, clientId: bk?.client_id ?? null };
     },
+    onMutate: (input) => optimisticBookingRemove(qc, input.id)(),
+    onError: (_e, _vars, ctx) => rollbackSnapshots(qc, ctx?.snapshots),
     onSuccess: (scope) => {
       invalidateBookingScope(qc, scope);
     },
@@ -432,6 +471,8 @@ export function useCoachCancelBooking() {
         }
       }
     },
+    onMutate: (booking) => optimisticBookingRemove(qc, booking.id)(),
+    onError: (_e, _vars, ctx) => rollbackSnapshots(qc, ctx?.snapshots),
     onSuccess: (_data, booking) => {
       invalidateBookingScope(qc, {
         coachId: booking.coach_id,
@@ -459,6 +500,7 @@ export function useCoachAvailabilityExceptions(coachId?: string | null) {
   return useQuery({
     queryKey: ["availability_exceptions", coachId],
     enabled: !!coachId,
+    staleTime: STALE_CONFIG,
     queryFn: async (): Promise<AvailabilityExceptionRow[]> => {
       const { data, error } = await supabase
         .from("availability_exceptions")

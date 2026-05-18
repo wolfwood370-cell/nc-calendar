@@ -198,7 +198,7 @@ function AdminPage() {
                             value={p.coach_id ?? "none"}
                             onValueChange={(v) => assignCoach(p.id, v === "none" ? null : v)}
                           >
-                            <SelectTrigger className="h-8 w-[180px]">
+                            <SelectTrigger className="h-8 w-44">
                               <SelectValue placeholder="Nessuno" />
                             </SelectTrigger>
                             <SelectContent>

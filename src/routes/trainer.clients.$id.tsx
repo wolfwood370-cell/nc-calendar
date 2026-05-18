@@ -61,7 +61,7 @@ import type { SessionType } from "@/lib/mock-data";
 import { toast } from "sonner";
 import { format, addDays, startOfDay, isBefore, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
-import { cn } from "@/lib/utils";
+import { cn, errorMessage } from "@/lib/utils";
 
 const WEEKS_PER_BLOCK = 4;
 
@@ -632,16 +632,20 @@ function ClientPathPage() {
   function handleWeekDateChange(weekIndex: number, newDate: Date) {
     const monday = isMonday(newDate) ? newDate : currentMonday(newDate);
     const updated = [...rows];
+    const target = updated[weekIndex];
+    if (!target) return;
     updated[weekIndex] = {
-      ...updated[weekIndex],
+      ...target,
       monday_date: toIso(monday),
       shifted: true,
     };
     for (let i = weekIndex + 1; i < updated.length; i++) {
+      const next = updated[i];
+      if (!next) continue;
       updated[i] = {
-        ...updated[i],
+        ...next,
         monday_date: toIso(addDays(monday, (i - weekIndex) * 7)),
-        shifted: updated[i].shifted,
+        shifted: next.shifted,
       };
     }
     setRows(updated);
@@ -688,7 +692,7 @@ function ClientPathPage() {
       setOriginalRows(rows.map((r) => ({ ...r })));
       toast.success("Calendario salvato");
     } catch (e) {
-      toast.error("Salvataggio non riuscito", { description: (e as Error).message });
+      toast.error("Salvataggio non riuscito", { description: errorMessage(e) });
     } finally {
       setSaving(false);
     }
@@ -726,8 +730,8 @@ function ClientPathPage() {
       const blockRows = rowsByBlock.get(blockNumber) ?? [];
       const dateRange: { start: Date | null; end: Date | null } = { start: null, end: null };
       if (blockRows.length > 0) {
-        const firstMon = blockRows[0].row.monday_date;
-        const lastMon = blockRows[blockRows.length - 1].row.monday_date;
+        const firstMon = blockRows[0]?.row.monday_date;
+        const lastMon = blockRows[blockRows.length - 1]?.row.monday_date;
         if (firstMon) dateRange.start = parseISO(firstMon);
         if (lastMon) dateRange.end = addDays(parseISO(lastMon), 7);
       }
@@ -769,7 +773,7 @@ function ClientPathPage() {
       const at = new Date(b.scheduled_at);
       for (let i = 0; i < rows.length; i++) {
         const r = rows[i];
-        if (!r.monday_date) continue;
+        if (!r?.monday_date) continue;
         const start = parseISO(r.monday_date);
         const end = addDays(start, 7);
         if (at >= start && at < end) {
@@ -868,7 +872,7 @@ function ClientPathPage() {
               <Button
                 variant="outline"
                 className={cn(
-                  "w-[260px] justify-start text-left font-normal",
+                  "w-64 justify-start text-left font-normal",
                   !pathStart && "text-muted-foreground",
                 )}
               >
@@ -1224,7 +1228,7 @@ function BlockCreditsDialog({
       setOpen(false);
       onSaved();
     } catch (e) {
-      toast.error("Salvataggio non riuscito", { description: (e as Error).message });
+      toast.error("Salvataggio non riuscito", { description: errorMessage(e) });
     } finally {
       setSaving(false);
     }

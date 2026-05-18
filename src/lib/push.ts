@@ -57,13 +57,14 @@ export async function subscribeToPush(profileId: string): Promise<PushSubscripti
   }
 
   const json = sub.toJSON() as unknown as Record<string, unknown>;
-  const { error } = await supabase
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .from("push_subscriptions" as any)
-    .upsert(
-      { profile_id: profileId, subscription: json as never },
-      { onConflict: "profile_id,endpoint" },
-    );
+  // push_subscriptions exists in the generated Supabase types; the
+  // historical `as any` cast was a stale workaround. The `subscription`
+  // column is typed as Json in supabase/types.ts so we still need a Json
+  // cast here because PushSubscriptionJSON is a structural superset.
+  const { error } = await supabase.from("push_subscriptions").upsert(
+    { profile_id: profileId, subscription: json as never },
+    { onConflict: "profile_id,endpoint" },
+  );
   if (error) throw error;
 
   return sub;

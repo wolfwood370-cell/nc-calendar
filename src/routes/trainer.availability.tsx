@@ -73,6 +73,14 @@ function emptyWeek(): Record<number, DayState> {
   return w;
 }
 
+// L4: emptyWeek() guarantees all seven dows are populated, but the strict
+// `noUncheckedIndexedAccess` flag still narrows `Record<number, _>[k]` to
+// `DayState | undefined`. This helper centralizes the safe fallback so call
+// sites can read a DayState directly without scattering null checks.
+function dayOf(w: Record<number, DayState>, dow: number): DayState {
+  return w[dow] ?? { active: false, blocks: [] };
+}
+
 function AvailabilityPage() {
   const { user } = useAuth();
   const meId = user?.id;
@@ -140,47 +148,56 @@ function AvailabilityPage() {
   }, [settingsQ.data]);
 
   const toggleDay = (dow: number, active: boolean) => {
-    setWeek((prev) => ({
-      ...prev,
-      [dow]: {
-        active,
-        blocks:
-          active && prev[dow].blocks.length === 0
-            ? [{ start: "09:00", end: "13:00" }]
-            : prev[dow].blocks,
-      },
-    }));
+    setWeek((prev) => {
+      const cur = dayOf(prev, dow);
+      return {
+        ...prev,
+        [dow]: {
+          active,
+          blocks:
+            active && cur.blocks.length === 0
+              ? [{ start: "09:00", end: "13:00" }]
+              : cur.blocks,
+        },
+      };
+    });
   };
 
   const updateBlock = (dow: number, idx: number, field: "start" | "end", value: string) => {
     setWeek((prev) => {
-      const blocks = prev[dow].blocks.map((b, i) => (i === idx ? { ...b, [field]: value } : b));
-      return { ...prev, [dow]: { ...prev[dow], blocks } };
+      const cur = dayOf(prev, dow);
+      const blocks = cur.blocks.map((b, i) => (i === idx ? { ...b, [field]: value } : b));
+      return { ...prev, [dow]: { ...cur, blocks } };
     });
   };
 
   const addBlock = (dow: number) => {
-    setWeek((prev) => ({
-      ...prev,
-      [dow]: { ...prev[dow], blocks: [...prev[dow].blocks, { start: "14:00", end: "18:00" }] },
-    }));
+    setWeek((prev) => {
+      const cur = dayOf(prev, dow);
+      return {
+        ...prev,
+        [dow]: { ...cur, blocks: [...cur.blocks, { start: "14:00", end: "18:00" }] },
+      };
+    });
   };
 
   const removeBlock = (dow: number, idx: number) => {
     setWeek((prev) => {
-      const blocks = prev[dow].blocks.filter((_, i) => i !== idx);
-      return { ...prev, [dow]: { ...prev[dow], blocks } };
+      const cur = dayOf(prev, dow);
+      const blocks = cur.blocks.filter((_, i) => i !== idx);
+      return { ...prev, [dow]: { ...cur, blocks } };
     });
   };
 
   const copyToAll = (sourceDow: number) => {
     setWeek((prev) => {
-      const src = prev[sourceDow].blocks.map((b) => ({ ...b }));
+      const src = dayOf(prev, sourceDow).blocks.map((b) => ({ ...b }));
       const next = { ...prev };
       for (const d of DAYS) {
         if (d.dow === sourceDow) continue;
-        if (next[d.dow].active) {
-          next[d.dow] = { ...next[d.dow], blocks: src.map((b) => ({ ...b })) };
+        const cur = dayOf(next, d.dow);
+        if (cur.active) {
+          next[d.dow] = { ...cur, blocks: src.map((b) => ({ ...b })) };
         }
       }
       return next;
@@ -188,11 +205,17 @@ function AvailabilityPage() {
     toast.success("Orari copiati sui giorni attivi");
   };
 
+  // M5: per-day validation errors surfaced inline beside the offending row
+  // instead of as a single toast. The user can immediately see which day
+  // needs attention rather than parsing prose.
+  const [dayErrors, setDayErrors] = useState<Record<number, string>>({});
+
   const saveMut = useMutation({
     mutationFn: async () => {
       if (!meId) throw new Error("Non autenticato");
 
-      // Validate
+      // Validate — collect every offending day's first error before bailing.
+      const newErrors: Record<number, string> = {};
       const rows: {
         coach_id: string;
         day_of_week: number;
@@ -200,25 +223,36 @@ function AvailabilityPage() {
         end_time: string;
       }[] = [];
       for (const d of DAYS) {
-        const ds = week[d.dow];
+        const ds = dayOf(week, d.dow);
         if (!ds.active) continue;
         const dayBlocks: { start: string; end: string }[] = [];
+        let invalid = false;
         for (const b of ds.blocks) {
           if (!b.start || !b.end) {
-            throw new Error(`${d.label}: completa entrambi gli orari di ogni fascia`);
+            newErrors[d.dow] = "Completa entrambi gli orari di ogni fascia.";
+            invalid = true;
+            break;
           }
           if (b.end <= b.start) {
-            throw new Error(`${d.label}: l'ora di fine deve essere successiva a quella di inizio`);
+            newErrors[d.dow] = "L'ora di fine deve essere successiva a quella di inizio.";
+            invalid = true;
+            break;
           }
           dayBlocks.push({ start: b.start, end: b.end });
         }
+        if (invalid) continue;
         // Overlap detection
         const sorted = [...dayBlocks].sort((a, b) => a.start.localeCompare(b.start));
         for (let i = 1; i < sorted.length; i++) {
-          if (sorted[i].start < sorted[i - 1].end) {
-            throw new Error(`${d.label}: le fasce orarie non possono sovrapporsi`);
+          const cur = sorted[i];
+          const prev = sorted[i - 1];
+          if (cur && prev && cur.start < prev.end) {
+            newErrors[d.dow] = "Le fasce orarie non possono sovrapporsi.";
+            invalid = true;
+            break;
           }
         }
+        if (invalid) continue;
         for (const b of dayBlocks) {
           rows.push({
             coach_id: meId,
@@ -228,6 +262,12 @@ function AvailabilityPage() {
           });
         }
       }
+
+      if (Object.keys(newErrors).length > 0) {
+        setDayErrors(newErrors);
+        throw new Error("Verifica gli orari evidenziati.");
+      }
+      setDayErrors({});
 
       // Replace all availability rows for this coach
       const del = await supabase.from("trainer_availability").delete().eq("coach_id", meId);
@@ -312,7 +352,7 @@ function AvailabilityPage() {
               ) : (
                 <div className="divide-y divide-slate-100">
                   {DAYS.map((d, dayIdx) => {
-                    const ds = week[d.dow];
+                    const ds = dayOf(week, d.dow);
                     return (
                       <div
                         key={d.dow}
@@ -342,7 +382,11 @@ function AvailabilityPage() {
                                     value={b.start}
                                     onValueChange={(v) => updateBlock(d.dow, idx, "start", v)}
                                   >
-                                    <SelectTrigger className="h-10 w-[110px] rounded-full bg-surface border-surface-variant">
+                                    <SelectTrigger
+                                      aria-label={`${d.label}: orario di inizio`}
+                                      aria-required="true"
+                                      className="h-10 w-28 rounded-full bg-surface border-surface-variant"
+                                    >
                                       <SelectValue placeholder="--:--" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -358,7 +402,11 @@ function AvailabilityPage() {
                                     value={b.end}
                                     onValueChange={(v) => updateBlock(d.dow, idx, "end", v)}
                                   >
-                                    <SelectTrigger className="h-10 w-[110px] rounded-full bg-surface border-surface-variant">
+                                    <SelectTrigger
+                                      aria-label={`${d.label}: orario di fine`}
+                                      aria-required="true"
+                                      className="h-10 w-28 rounded-full bg-surface border-surface-variant"
+                                    >
                                       <SelectValue placeholder="--:--" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -381,6 +429,14 @@ function AvailabilityPage() {
                                 </div>
                               ))}
                             </div>
+                          )}
+                          {dayErrors[d.dow] && (
+                            <p
+                              role="alert"
+                              className="text-xs text-error pt-1 font-medium"
+                            >
+                              {dayErrors[d.dow]}
+                            </p>
                           )}
                         </div>
 

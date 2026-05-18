@@ -37,7 +37,9 @@ interface ProfileRow {
 function getInitials(name?: string | null, email?: string | null): string {
   const src = (name || email || "?").trim();
   const parts = src.split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  const a = parts[0]?.[0] ?? "";
+  const b = parts[1]?.[0] ?? "";
+  if (a && b) return (a + b).toUpperCase();
   return src.slice(0, 2).toUpperCase();
 }
 

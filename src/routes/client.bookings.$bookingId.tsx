@@ -19,6 +19,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useCancelBooking } from "@/lib/queries";
+import { errorMessage } from "@/lib/utils";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/client/bookings/$bookingId")({
@@ -209,7 +210,7 @@ function BookingDetailView({ booking }: { booking: BookingDetail }) {
           toast.success("Sessione annullata", { description: "Il credito è stato rimborsato." });
           navigate({ to: "/client" });
         },
-        onError: (e: unknown) => toast.error("Errore", { description: (e as Error).message }),
+        onError: (e: unknown) => toast.error("Errore", { description: errorMessage(e) }),
       },
     );
   }
@@ -224,7 +225,7 @@ function BookingDetailView({ booking }: { booking: BookingDetail }) {
           });
           navigate({ to: "/client" });
         },
-        onError: (e: unknown) => toast.error("Errore", { description: (e as Error).message }),
+        onError: (e: unknown) => toast.error("Errore", { description: errorMessage(e) }),
       },
     );
   }
@@ -373,7 +374,7 @@ function BookingDetailView({ booking }: { booking: BookingDetail }) {
                       navigate({ to: "/client/book" });
                     },
                     onError: (e: unknown) =>
-                      toast.error("Errore", { description: (e as Error).message }),
+                      toast.error("Errore", { description: errorMessage(e) }),
                   },
                 );
               }}

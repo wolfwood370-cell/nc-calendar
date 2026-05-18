@@ -42,6 +42,7 @@ import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { queryKeys } from "@/lib/query-keys";
+import { errorMessage } from "@/lib/utils";
 import type { SessionType } from "@/lib/mock-data";
 import { toast } from "sonner";
 import { GCAL_COLORS, GCAL_DEFAULT, nameForColor } from "@/lib/event-colors";
@@ -136,7 +137,7 @@ function EventTypesPage() {
       setOpen(false);
       setEditing(null);
     },
-    onError: (e: unknown) => toast.error("Errore", { description: (e as Error).message }),
+    onError: (e: unknown) => toast.error("Errore", { description: errorMessage(e) }),
   });
 
   const remove = useMutation({
@@ -148,7 +149,7 @@ function EventTypesPage() {
       toast.success("Tipologia eliminata");
       qc.invalidateQueries({ queryKey: queryKeys.eventTypes.coach(coachId) });
     },
-    onError: (e: unknown) => toast.error("Errore", { description: (e as Error).message }),
+    onError: (e: unknown) => toast.error("Errore", { description: errorMessage(e) }),
   });
 
   const types = listQ.data ?? [];

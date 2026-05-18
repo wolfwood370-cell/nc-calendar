@@ -23,6 +23,7 @@ import { sendPush } from "@/lib/push";
 import { supabase } from "@/integrations/supabase/client";
 import { syncCalendar } from "@/lib/sync-calendar";
 import { generateGoogleCalendarLink } from "@/lib/calendar-utils";
+import { getUserTimezoneLabel } from "@/lib/datetime";
 import { useAuth } from "@/lib/auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { invalidateBookingScope } from "@/lib/query-keys";
@@ -59,7 +60,7 @@ function jsDowToIso(d: number): number {
 }
 
 function parseHM(t: string): { h: number; m: number } {
-  const [h, m] = t.split(":");
+  const [h = "0", m = "0"] = t.split(":");
   return { h: parseInt(h, 10), m: parseInt(m, 10) };
 }
 
@@ -218,7 +219,8 @@ function generateSlots(
         const lastIdx = daySlots.length - 1;
         const midIdx = Math.floor(lastIdx / 2);
         [0, midIdx, lastIdx].forEach((idx) => {
-          daySlots[idx].recommended = true;
+          const slot = daySlots[idx];
+          if (slot) slot.recommended = true;
         });
       } else {
         for (const s of daySlots) if (s.injected) s.recommended = true;
@@ -297,8 +299,17 @@ function BookFlow() {
   }, [customTypes]);
 
   // Busy times del coach (tutti i clienti, anonimizzato via SECURITY DEFINER).
+  // M4: key on stable primitives (id + dates) rather than the parent block
+  // object's fields. block.id is the immutable handle; the dates are
+  // included so a block whose dates were edited still keys to a new query.
   const coachBusyQ = useQuery({
-    queryKey: ["coach-busy", coachIdForAvail, block?.start_date, block?.end_date],
+    queryKey: [
+      "coach-busy",
+      coachIdForAvail,
+      block?.id ?? null,
+      block?.start_date ?? null,
+      block?.end_date ?? null,
+    ],
     enabled: !!coachIdForAvail,
     queryFn: async () => {
       const from = block ? new Date(block.start_date) : startOfDay(new Date());
@@ -432,7 +443,7 @@ function BookFlow() {
 
   // Auto-select first available pool
   useEffect(() => {
-    if (!selectedPoolKey && pools.length > 0) setSelectedPoolKey(pools[0].key);
+    if (!selectedPoolKey && pools[0]) setSelectedPoolKey(pools[0].key);
   }, [selectedPoolKey, pools]);
 
   // ===== Aura UI helpers (must run before any early return to satisfy hooks rules) =====
@@ -450,10 +461,37 @@ function BookFlow() {
   }, [slots, selectedDate]);
 
   if (blocksQ.isLoading || bookingsQ.isLoading || availQ.isLoading || extraCreditsQ.isLoading) {
+    // M6: skeleton mirrors the actual booking layout to reserve space and
+    // prevent the layout shift (CLS) that the previous two generic rectangles
+    // caused when real content rendered.
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-12 w-1/2" />
-        <Skeleton className="h-40 w-full" />
+      <div className="bg-surface min-h-screen pb-32">
+        <header className="flex justify-between items-center w-full px-margin-mobile py-stack-md max-w-3xl mx-auto">
+          <Skeleton className="h-9 w-9 rounded-full" />
+          <Skeleton className="h-7 w-32" />
+          <Skeleton className="h-9 w-9 rounded-full" />
+        </header>
+        <div className="px-margin-mobile max-w-3xl mx-auto space-y-stack-lg">
+          {/* Pool selector skeleton */}
+          <div className="grid grid-cols-2 gap-3">
+            <Skeleton className="h-24 rounded-[24px]" />
+            <Skeleton className="h-24 rounded-[24px]" />
+          </div>
+          {/* Calendar skeleton */}
+          <div className="space-y-3">
+            <Skeleton className="h-6 w-40" />
+            <Skeleton className="h-72 w-full rounded-[24px]" />
+          </div>
+          {/* Time slots skeleton */}
+          <div className="space-y-3">
+            <Skeleton className="h-6 w-48" />
+            <div className="grid grid-cols-3 gap-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-14 rounded-2xl" />
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -501,10 +539,12 @@ function BookFlow() {
     );
     if (sameWeek)
       return { id: sameWeek.id, remaining: sameWeek.quantity_assigned - sameWeek.quantity_booked };
-    const any = block.allocations.find(
+    const fallback = block.allocations.find(
       (a) => matchPool(a) && a.quantity_assigned - a.quantity_booked > 0,
     );
-    return any ? { id: any.id, remaining: any.quantity_assigned - any.quantity_booked } : null;
+    return fallback
+      ? { id: fallback.id, remaining: fallback.quantity_assigned - fallback.quantity_booked }
+      : null;
   };
 
   // Cerca un extra_credit con quantità residua per il dato event_type, ordinato per scadenza.
@@ -878,11 +918,21 @@ function BookFlow() {
 
         {/* Available Times */}
         <section>
-          <h3 className="font-semibold text-lg text-on-surface mb-stack-md">
-            {selectedDate
-              ? `Orari disponibili per il ${format(selectedDate, "d MMMM", { locale: it })}`
-              : "Seleziona una data"}
-          </h3>
+          <div className="flex items-baseline justify-between flex-wrap gap-2 mb-stack-md">
+            <h3 className="font-semibold text-lg text-on-surface">
+              {selectedDate
+                ? `Orari disponibili per il ${format(selectedDate, "d MMMM", { locale: it })}`
+                : "Seleziona una data"}
+            </h3>
+            {/* M8: surface the user's timezone so coaches/clients in
+                different zones can resolve ambiguous times at a glance. */}
+            <span
+              className="text-xs text-on-surface-variant"
+              title="Fuso orario del tuo dispositivo"
+            >
+              {getUserTimezoneLabel().combined}
+            </span>
+          </div>
           {selectedDate && slotsForSelectedDay.length === 0 ? (
             <p className="text-sm text-on-surface-variant">
               Nessuno slot disponibile in questa data.

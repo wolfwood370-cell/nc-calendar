@@ -68,6 +68,7 @@ import { toast } from "sonner";
 import { sendInvitationEmail } from "@/lib/email";
 import { useCoachEventTypes } from "@/lib/queries";
 import { queryKeys } from "@/lib/query-keys";
+import { errorMessage } from "@/lib/utils";
 import { sessionLabel, type SessionType } from "@/lib/mock-data";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -211,7 +212,12 @@ function ClientsPage() {
       if (!isAdmin && user) bq = bq.eq("coach_id", user.id);
 
       const { data: bs } = await bq;
-      const blockList = (bs as any[]) ?? [];
+      // Supabase typed `.select(...)` returns the joined block_allocations as
+      // a discriminated array on each row; the BlockLite/AllocLite shapes
+      // below are a structural subset, so we project explicitly instead of
+      // forcing `as any[]`.
+      type BlockWithAllocs = BlockLite & { block_allocations: AllocLite[] | null };
+      const blockList = (bs ?? []) as BlockWithAllocs[];
 
       const parsedBlocks: BlockLite[] = [];
       const parsedAllocs: AllocLite[] = [];
@@ -574,7 +580,7 @@ function ClientsPage() {
       }
     } catch (e) {
       toast.warning("Cliente creato, ma assegnazione iniziale non riuscita", {
-        description: (e as Error).message,
+        description: errorMessage(e),
       });
     }
 
@@ -1226,17 +1232,42 @@ function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) =
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>Nome</Label>
-              <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+              <Label htmlFor="new-client-first-name">
+                Nome <span className="text-error">*</span>
+              </Label>
+              <Input
+                id="new-client-first-name"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                required
+                aria-required="true"
+              />
             </div>
             <div className="space-y-2">
-              <Label>Cognome</Label>
-              <Input value={lastName} onChange={(e) => setLastName(e.target.value)} required />
+              <Label htmlFor="new-client-last-name">
+                Cognome <span className="text-error">*</span>
+              </Label>
+              <Input
+                id="new-client-last-name"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                required
+                aria-required="true"
+              />
             </div>
           </div>
           <div className="space-y-2">
-            <Label>Email</Label>
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <Label htmlFor="new-client-email">
+              Email <span className="text-error">*</span>
+            </Label>
+            <Input
+              id="new-client-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              aria-required="true"
+            />
           </div>
           <p className="text-xs text-muted-foreground">
             Verrà generata automaticamente una password sicura. Potrai copiarla al termine.

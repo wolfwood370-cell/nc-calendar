@@ -33,7 +33,7 @@ function ClientHome() {
   });
 
   const fullName = profileQ.data?.full_name ?? user?.email ?? "Cliente";
-  const firstName = fullName.split(" ")[0];
+  const firstName = fullName.split(" ")[0] ?? fullName;
   const coachId = profileQ.data?.coach_id ?? null;
 
   const blocksQ = useClientBlocks(meId);

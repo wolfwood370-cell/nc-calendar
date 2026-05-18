@@ -18,7 +18,7 @@ export const GCAL_COLORS: GCalColor[] = [
   { name: "Graphite", hex: "#616161" },
 ];
 
-export const GCAL_DEFAULT = GCAL_COLORS[6].hex; // Peacock
+export const GCAL_DEFAULT = GCAL_COLORS[6]?.hex ?? "#039BE5"; // Peacock
 
 export function nameForColor(hex: string): string | undefined {
   return GCAL_COLORS.find((c) => c.hex.toLowerCase() === hex.toLowerCase())?.name;

@@ -407,16 +407,34 @@ function CalendarPage() {
         .eq("id", input.bookingId);
       if (error) throw error;
     },
-    onSuccess: (_data, vars) => {
-      toast.success("Sessione assegnata");
+    // M1: optimistic update — patch the bookings cache for the current coach
+    // immediately so the calendar reflects the new assignment without
+    // waiting for the round-trip + invalidation refetch. The context returns
+    // a snapshot used by onError to roll back if the network call fails.
+    onMutate: async (vars) => {
+      const key = queryKeys.bookings.coach(user?.id);
+      await qc.cancelQueries({ queryKey: key });
+      const previous = qc.getQueryData<BookingRow[]>(key);
+      qc.setQueryData<BookingRow[]>(key, (old) =>
+        (old ?? []).map((b) =>
+          b.id === vars.bookingId ? { ...b, client_id: vars.clientId } : b,
+        ),
+      );
       setAssignTarget(null);
       setAssignClientId("");
+      return { previous, key };
+    },
+    onError: (e: Error, _vars, ctx) => {
+      if (ctx?.previous) qc.setQueryData(ctx.key, ctx.previous);
+      toast.error("Errore", { description: e.message });
+    },
+    onSuccess: (_data, vars) => {
+      toast.success("Sessione assegnata");
       invalidateBookingScope(qc, {
         coachId: user?.id ?? null,
         clientId: vars.clientId,
       });
     },
-    onError: (e: Error) => toast.error("Errore", { description: e.message }),
   });
 
   // ----- Week navigation -----
@@ -424,7 +442,9 @@ function CalendarPage() {
     () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
     [weekStart],
   );
-  const weekEnd = weekDays[6];
+  // weekDays is built from `Array.from({ length: 7 }, ...)` so [6] is always
+  // defined; the fallback to `weekStart` satisfies noUncheckedIndexedAccess.
+  const weekEnd = weekDays[6] ?? weekStart;
 
   const bookingsByDay = useMemo(() => {
     const map: BookingRow[][] = Array.from({ length: 7 }, () => []);
@@ -436,8 +456,10 @@ function CalendarPage() {
       if (onlyPT && (isExternal || b.session_type !== "PT Session")) continue;
       const d = new Date(b.scheduled_at);
       for (let i = 0; i < 7; i++) {
-        if (sameDay(d, weekDays[i])) {
-          map[i].push(b);
+        const dayDate = weekDays[i];
+        const dayList = map[i];
+        if (dayDate && dayList && sameDay(d, dayDate)) {
+          dayList.push(b);
           break;
         }
       }
@@ -457,11 +479,16 @@ function CalendarPage() {
   );
   const filtersActive = onlyPT || onlyToAssign;
 
-  // ----- Sync flows (preserved from previous impl) -----
-  const didFullSync = useRef(false);
+  // ----- Sync flows -----
+  // M9: ref-based gates now carry the user.id (or `${user.id}-${monthKey}`)
+  // they last fired for, instead of a plain boolean. If the auth user
+  // changes without a remount (rare but possible during silent token
+  // refresh or a fast logout/login), the gate no longer falsely reports
+  // "already synced" for the new user.
+  const didFullSyncForUser = useRef<string | null>(null);
   useEffect(() => {
-    if (!user || didFullSync.current) return;
-    didFullSync.current = true;
+    if (!user || didFullSyncForUser.current === user.id) return;
+    didFullSyncForUser.current = user.id;
     const future = new Date();
     future.setFullYear(future.getFullYear() + 2);
     setMirroring(true);
@@ -497,7 +524,7 @@ function CalendarPage() {
 
   useEffect(() => {
     if (!user) return;
-    const monthKey = `${weekStart.getFullYear()}-${weekStart.getMonth()}`;
+    const monthKey = `${user.id}-${weekStart.getFullYear()}-${weekStart.getMonth()}`;
     if (lastMirrorMonth.current === monthKey) return;
     lastMirrorMonth.current = monthKey;
     const start = new Date(weekStart.getFullYear(), weekStart.getMonth(), 1).toISOString();
@@ -660,7 +687,7 @@ function CalendarPage() {
                 >
                   <ChevronLeft className="size-4" />
                 </button>
-                <span className="text-sm font-semibold min-w-[160px] text-center capitalize">
+                <span className="text-sm font-semibold min-w-40 text-center capitalize">
                   {fmtRange(weekStart, weekEnd)}
                 </span>
                 <button
@@ -798,7 +825,9 @@ function CalendarPage() {
                           className="absolute left-0 right-0 border-b border-surface-container"
                         />
                       ))}
-                      {bookingsByDay[i].map((b) => renderEvent(b, layoutByDay[i].get(b.id)))}
+                      {(bookingsByDay[i] ?? []).map((b) =>
+                        renderEvent(b, layoutByDay[i]?.get(b.id)),
+                      )}
                     </div>
                   );
                 })}
@@ -861,13 +890,15 @@ function CalendarPage() {
                   {focusClient.full_name ?? "Cliente"}
                 </h4>
                 <p className="text-sm text-on-surface-variant mb-4">{focusClient.email ?? ""}</p>
-                <Link
-                  to="/trainer/clients/$id"
-                  params={{ id: focusClient.id }}
-                  className="w-full text-center bg-surface-container-low text-on-surface text-sm font-semibold py-2 rounded-2xl hover:bg-surface-container transition-colors"
+                <Button
+                  asChild
+                  variant="secondary"
+                  className="w-full bg-surface-container-low text-on-surface hover:bg-surface-container rounded-2xl font-semibold"
                 >
-                  Profilo Completo
-                </Link>
+                  <Link to="/trainer/clients/$id" params={{ id: focusClient.id }}>
+                    Profilo Completo
+                  </Link>
+                </Button>
               </div>
 
               <div className={`bg-white rounded-[24px] p-4 shadow-soft-blue border border-surface-container-low`}>
