@@ -83,6 +83,11 @@
   --shadow-soft-blue: 0px 4px 20px rgba(0, 86, 133, 0.05);
   --shadow-soft-card: 0 8px 30px rgba(0, 0, 0, 0.04);
 
+  /* Material 3 typography aliases for compact labels (tags, chips, badges)
+     used in the mobile agenda view and similar dense surfaces. */
+  --text-label-sm: 11px;
+  --text-label-sm--line-height: 16px;
+
   /* Aura spacing aliases */
   --spacing-margin-mobile: 20px;
   --spacing-margin-desktop: 40px;

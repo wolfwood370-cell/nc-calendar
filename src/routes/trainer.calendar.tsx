@@ -36,11 +36,14 @@ import {
   useCoachClients,
   useCoachEventTypes,
   type BookingRow,
+  type ProfileRow,
+  type EventTypeRow,
 } from "@/lib/queries";
 import { invalidateBookingScope, queryKeys } from "@/lib/query-keys";
 import { useAuth } from "@/lib/auth";
 import { syncCalendarAwait } from "@/lib/sync-calendar";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/trainer/calendar")({
   component: CalendarPage,
@@ -135,6 +138,212 @@ function layoutDay(
   }
   flush();
   return result;
+}
+
+// ----------------------------------------------------------------------------
+// Mobile Agenda View (audit finding H5)
+// ----------------------------------------------------------------------------
+// Replaces the 7-column desktop grid on <md screens with a single-day agenda:
+//   - horizontal pill scroller for day selection
+//   - vertical list of event cards using the Aura Health card shape
+// Tapping an event card delegates to the same handlers the desktop grid uses
+// (Assign dialog for unassigned events, focus client for certified bookings),
+// so the action surface is identical across breakpoints.
+
+interface MobileAgendaViewProps {
+  weekDays: Date[];
+  bookingsByDay: BookingRow[][];
+  clientsMap: Map<string, ProfileRow>;
+  eventTypesMap: Map<string, EventTypeRow>;
+  today: Date;
+  onSelectAssign: (b: BookingRow) => void;
+  onSelectClient: (clientId: string) => void;
+}
+
+function MobileAgendaView({
+  weekDays,
+  bookingsByDay,
+  clientsMap,
+  eventTypesMap,
+  today,
+  onSelectAssign,
+  onSelectClient,
+}: MobileAgendaViewProps) {
+  // Default to today's index within the visible week; fall back to Monday.
+  const todayIdx = useMemo(
+    () => weekDays.findIndex((d) => sameDay(d, today)),
+    [weekDays, today],
+  );
+  const [selectedDayIdx, setSelectedDayIdx] = useState<number>(todayIdx >= 0 ? todayIdx : 0);
+
+  // When the user navigates weeks, keep the selected weekday index — so
+  // "Tuesday" stays selected when moving across weeks. If today appears in
+  // the new week and the user hasn't manually picked a day yet, prefer today.
+  const lastTodayIdxRef = useRef<number>(todayIdx);
+  useEffect(() => {
+    if (todayIdx !== -1 && todayIdx !== lastTodayIdxRef.current) {
+      setSelectedDayIdx(todayIdx);
+    }
+    lastTodayIdxRef.current = todayIdx;
+  }, [todayIdx]);
+
+  const dayBookings = useMemo(() => {
+    const list = bookingsByDay[selectedDayIdx] ?? [];
+    return [...list].sort(
+      (a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime(),
+    );
+  }, [bookingsByDay, selectedDayIdx]);
+
+  return (
+    <div className="md:hidden flex-1 flex flex-col gap-4">
+      {/* Date scroller */}
+      <div className="-mx-2 overflow-x-auto pb-1" aria-label="Selettore giorno">
+        <div className="flex items-center gap-2 px-2 w-max">
+          {weekDays.map((d, i) => {
+            const isActive = i === selectedDayIdx;
+            const isToday = sameDay(d, today);
+            return (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setSelectedDayIdx(i)}
+                className={cn(
+                  "shrink-0 min-w-[64px] px-3 py-2 rounded-full flex flex-col items-center gap-0.5 transition-colors",
+                  isActive
+                    ? "bg-primary-container text-on-primary-container shadow-soft-blue"
+                    : "text-outline hover:bg-surface-container active:bg-surface-container-high",
+                )}
+                aria-pressed={isActive}
+                aria-current={isToday ? "date" : undefined}
+              >
+                <span className="text-label-sm uppercase tracking-wider font-medium">
+                  {DAY_LABELS[i]}
+                </span>
+                <span
+                  className={cn(
+                    "text-base font-semibold tabular-nums",
+                    !isActive && isToday && "text-aura-primary",
+                  )}
+                >
+                  {d.getDate()}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Event list */}
+      {dayBookings.length === 0 ? (
+        <div className="rounded-[24px] border border-outline-variant/30 bg-white p-6 text-center text-sm text-outline shadow-soft-blue">
+          <CalendarIcon className="size-8 mx-auto mb-2 text-outline-variant" />
+          Nessun evento programmato per questo giorno.
+        </div>
+      ) : (
+        <ul className="flex flex-col gap-3" aria-label="Eventi del giorno">
+          {dayBookings.map((b) => (
+            <li key={b.id}>
+              <MobileEventCard
+                booking={b}
+                clientsMap={clientsMap}
+                eventTypesMap={eventTypesMap}
+                onSelectAssign={onSelectAssign}
+                onSelectClient={onSelectClient}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+interface MobileEventCardProps {
+  booking: BookingRow;
+  clientsMap: Map<string, ProfileRow>;
+  eventTypesMap: Map<string, EventTypeRow>;
+  onSelectAssign: (b: BookingRow) => void;
+  onSelectClient: (clientId: string) => void;
+}
+
+function MobileEventCard({
+  booking: b,
+  clientsMap,
+  eventTypesMap,
+  onSelectAssign,
+  onSelectClient,
+}: MobileEventCardProps) {
+  const d = new Date(b.scheduled_at);
+  const et = b.event_type_id ? eventTypesMap.get(b.event_type_id) : undefined;
+  const duration = et?.duration ?? 60;
+
+  const isUnassigned = !b.client_id;
+  const isExternal = !!b.client_id && b.client_id === b.coach_id;
+  const client = b.client_id && !isExternal ? clientsMap.get(b.client_id) : undefined;
+  const typeLabel = et?.name ?? (b.session_type ? sessionLabel(b.session_type) : "Sessione");
+
+  const startTime = d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+  const endTime = new Date(d.getTime() + duration * 60_000).toLocaleTimeString("it-IT", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  const isClickable = !isExternal;
+  const handleTap = () => {
+    if (isUnassigned) {
+      onSelectAssign(b);
+    } else if (!isExternal && b.client_id) {
+      onSelectClient(b.client_id);
+    }
+  };
+
+  const title = isUnassigned
+    ? "Da assegnare"
+    : isExternal
+      ? (b.notes ?? "").replace(/^Importato da Google Calendar:\s*/i, "") || "Evento esterno"
+      : client?.full_name || "Cliente";
+  const subtitle = isExternal ? null : typeLabel;
+
+  return (
+    <button
+      type="button"
+      onClick={isClickable ? handleTap : undefined}
+      disabled={!isClickable}
+      aria-label={`${title} alle ${startTime}`}
+      className={cn(
+        "w-full bg-white rounded-[24px] border border-outline-variant/30 shadow-soft-blue p-4 flex items-stretch gap-3 text-left",
+        isClickable && "hover:shadow-md active:scale-[0.99] transition-all cursor-pointer",
+        !isClickable && "cursor-default",
+      )}
+    >
+      <div className="flex flex-col justify-center items-center min-w-[56px] gap-0.5">
+        <span className="text-base font-semibold tabular-nums text-aura-primary">{startTime}</span>
+        <span className="text-label-sm tabular-nums text-outline">{endTime}</span>
+      </div>
+      <div className="w-px bg-outline-variant/30 self-stretch" aria-hidden="true" />
+      <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
+        <h3 className="text-sm font-semibold text-on-surface line-clamp-2">{title}</h3>
+        {subtitle && <p className="text-xs text-outline truncate">{subtitle}</p>}
+        <div className="flex flex-wrap gap-1.5 mt-1">
+          {isUnassigned && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-label-sm font-semibold bg-warning-container text-tertiary">
+              Assegna
+            </span>
+          )}
+          {isExternal && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-label-sm font-medium bg-surface-container text-outline">
+              Esterno
+            </span>
+          )}
+          {!isUnassigned && !isExternal && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-label-sm font-medium bg-primary-fixed/60 text-on-primary-fixed-variant">
+              {sessionLabel(b.session_type)}
+            </span>
+          )}
+        </div>
+      </div>
+    </button>
+  );
 }
 
 function CalendarPage() {
@@ -505,9 +714,23 @@ function CalendarPage() {
           )}
         </header>
 
-        {/* Grid */}
+        {/* Mobile agenda view (audit H5) — replaces the 7-column grid below md */}
+        <MobileAgendaView
+          weekDays={weekDays}
+          bookingsByDay={bookingsByDay}
+          clientsMap={clientsMap}
+          eventTypesMap={eventTypesMap}
+          today={today}
+          onSelectAssign={(b) => {
+            setAssignTarget(b);
+            setAssignClientId("");
+          }}
+          onSelectClient={(clientId) => setFocusClientId(clientId)}
+        />
+
+        {/* Grid — desktop only (md and up). Mobile users see MobileAgendaView above. */}
         <div
-          className={`flex-1 bg-white rounded-[32px] shadow-soft-blue border border-surface-container overflow-hidden flex flex-col`}
+          className={`hidden md:flex flex-1 bg-white rounded-[32px] shadow-soft-blue border border-surface-container overflow-hidden md:flex-col`}
         >
           {/* Days header */}
           <div className="flex border-b border-surface-container bg-surface sticky top-0 z-20">
