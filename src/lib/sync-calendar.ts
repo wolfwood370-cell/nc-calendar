@@ -1,4 +1,22 @@
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
+// M7: surface Google Calendar sync failures to the user. Previously every
+// call site swallowed errors into console.error and the user was told their
+// booking / cancellation had succeeded — even when their mirror Google
+// Calendar was out of sync. We now emit a non-blocking warning toast with a
+// stable id so repeated failures collapse into a single visible message
+// instead of stacking. Callers can opt out by passing { silent: true } for
+// background syncs where a user-visible message would be noise.
+function notifySyncFailure(action: SyncInput["action"], err: unknown) {
+  const description =
+    err instanceof Error ? err.message : "Riprova più tardi o ricollega l'account Google.";
+  const verb = action === "cancel" ? "cancellare l'evento su" : "sincronizzare con";
+  toast.warning(`Impossibile ${verb} Google Calendar`, {
+    id: "gcal-sync-warning",
+    description,
+  });
+}
 
 interface CreateInput {
   action: "create";
@@ -88,14 +106,22 @@ function buildBody(input: SyncInput): Record<string, unknown> {
   };
 }
 
-/** Fire-and-forget: errori loggati ma non bloccanti. */
-export function syncCalendar(input: SyncInput): void {
+/** Fire-and-forget: errori loggati e segnalati con toast non bloccante. */
+export function syncCalendar(input: SyncInput, options: { silent?: boolean } = {}): void {
   void supabase.functions
     .invoke("sync-calendar", { body: buildBody(input) })
-    .catch((err) => console.error("sync-calendar invoke failed", err));
+    .catch((err) => {
+      console.error("sync-calendar invoke failed", err);
+      if (!options.silent) notifySyncFailure(input.action, err);
+    });
 }
 
 /** Awaitable: utile per import storico e mirror check. */
 export async function syncCalendarAwait(input: SyncInput) {
   return supabase.functions.invoke("sync-calendar", { body: buildBody(input) });
+}
+
+/** Toast helper exported so awaitable callers can reuse the same UX. */
+export function reportSyncFailure(action: SyncInput["action"], err: unknown): void {
+  notifySyncFailure(action, err);
 }

@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { SessionType, BookingStatus } from "@/lib/mock-data";
 import { invalidateBookingScope, queryKeys } from "@/lib/query-keys";
+import { reportSyncFailure } from "@/lib/sync-calendar";
 
 export interface BookingRow {
   id: string;
@@ -349,6 +350,7 @@ export function useCancelBooking() {
           });
         } catch (err) {
           console.error("sync-calendar cancel failed", err);
+          reportSyncFailure("cancel", err);
         }
       }
 
@@ -376,6 +378,7 @@ export function useCoachCancelBooking() {
           });
         } catch (err) {
           console.error("sync-calendar cancel failed", err);
+          reportSyncFailure("cancel", err);
         }
       }
 

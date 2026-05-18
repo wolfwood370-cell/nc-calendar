@@ -41,7 +41,7 @@ import {
 } from "@/lib/queries";
 import { invalidateBookingScope, queryKeys } from "@/lib/query-keys";
 import { useAuth } from "@/lib/auth";
-import { syncCalendarAwait } from "@/lib/sync-calendar";
+import { syncCalendarAwait, reportSyncFailure } from "@/lib/sync-calendar";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -488,7 +488,10 @@ function CalendarPage() {
           qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(user.id) });
         }
       })
-      .catch((e) => console.error("full sync failed", e))
+      .catch((e) => {
+        console.error("full sync failed", e);
+        reportSyncFailure("import_history", e);
+      })
       .finally(() => setMirroring(false));
   }, [user, qc]);
 
@@ -533,7 +536,10 @@ function CalendarPage() {
           qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(user.id) });
         }
       })
-      .catch((e) => console.error("mirror_check failed", e))
+      .catch((e) => {
+        console.error("mirror_check failed", e);
+        reportSyncFailure("mirror_check", e);
+      })
       .finally(() => setMirroring(false));
   }, [user, weekStart, qc]);
 
