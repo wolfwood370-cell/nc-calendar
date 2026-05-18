@@ -38,6 +38,7 @@ import {
   isSameMonth,
   isBefore,
   startOfDay,
+  parseISO,
 } from "date-fns";
 import { it } from "date-fns/locale";
 
@@ -79,6 +80,19 @@ function collides(slotStart: number, slotEnd: number, ranges: BlockedRange[]): b
   return false;
 }
 
+// L5: canonical YYYY-MM-DD key for a Date. Both maps used inside
+// generateSlots were previously keyed with two different formats
+// (unpadded 0-indexed `${y}-${m}-${d}` for rangesByDay vs. zero-padded
+// 1-indexed for excByDate), which was internally consistent today but a
+// footgun for the next refactor. One helper, one format, matches the
+// DB-side YYYY-MM-DD date columns.
+function ymd(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 function generateSlots(
   daysAhead: number,
   blockedRanges: BlockedRange[],
@@ -98,11 +112,10 @@ function generateSlots(
     if (!excByDate.has(ex.date)) excByDate.set(ex.date, []);
     excByDate.get(ex.date)!.push(ex);
   }
-  // Pre-index blocked ranges by day
+  // Pre-index blocked ranges by day (YYYY-MM-DD)
   const rangesByDay = new Map<string, BlockedRange[]>();
   for (const r of blockedRanges) {
-    const d = new Date(r.start);
-    const k = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    const k = ymd(new Date(r.start));
     if (!rangesByDay.has(k)) rangesByDay.set(k, []);
     rangesByDay.get(k)!.push(r);
   }
@@ -117,13 +130,12 @@ function generateSlots(
       continue;
     if (rangeEnd && day > rangeEnd) break;
     const dow = jsDowToIso(day.getDay());
-    const dateKey = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
-    const dayExceptions = excByDate.get(dateKey) ?? [];
+    const dayKey = ymd(day);
+    const dayExceptions = excByDate.get(dayKey) ?? [];
     if (dayExceptions.some((ex) => !ex.start_time || !ex.end_time)) continue;
     const blocks = availability.filter((a) => a.day_of_week === dow);
     if (blocks.length === 0) continue;
 
-    const dayKey = `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`;
     const dayRanges = rangesByDay.get(dayKey) ?? [];
 
     // Build map of working windows in ms for the day.
@@ -365,7 +377,13 @@ function BookFlow() {
       for (const a of block.allocations) {
         const k = `block:${allocKey(a.event_type_id, a.session_type)}`;
         const remaining = a.quantity_assigned - a.quantity_booked;
-        const allocExp = a.valid_until ? new Date(`${a.valid_until}T23:59:59`) : null;
+        // L6: parseISO treats a date-only string as local midnight, which
+        // formats consistently across timezones ("20 maggio" everywhere) and
+        // compares correctly against the calendar's midnight-anchored `day`
+        // iterator at line ~823. The previous `\`${valid_until}T23:59:59\``
+        // expression parsed in the browser's local TZ, shifting credit
+        // expiry by up to ±12h for travelling users.
+        const allocExp = a.valid_until ? parseISO(a.valid_until) : null;
         if (poolsMap.has(k)) {
           const cur = poolsMap.get(k)!;
           cur.remaining += remaining;
