@@ -17,6 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { useIsBelowXl } from "@/hooks/use-mobile";
 import {
   Loader2,
   ChevronLeft,
@@ -343,6 +345,139 @@ function MobileEventCard({
   );
 }
 
+// ----------------------------------------------------------------------------
+// Focus client panel — shared content between the desktop sticky aside and
+// the mobile (<xl) Sheet (H5 follow-up). Both surfaces render the exact same
+// component so the markup / styling stays in lockstep.
+// ----------------------------------------------------------------------------
+
+interface FocusClientPanelProps {
+  focusClient: ProfileRow | null;
+  focusClientId: string | null;
+  isLoading: boolean;
+  lastNote: { scheduled_at: string; trainer_notes: string } | null;
+  isLoadingNote: boolean;
+}
+
+function FocusClientPanel({
+  focusClient,
+  focusClientId,
+  isLoading,
+  lastNote,
+  isLoadingNote,
+}: FocusClientPanelProps) {
+  // Aura strict card shape: rounded-[24px], border-outline-variant/30,
+  // shadow-soft-blue. Used for every inner data card in the panel.
+  const cardClass =
+    "bg-surface-container-lowest rounded-[24px] shadow-soft-blue border border-outline-variant/30";
+
+  if (!focusClientId) {
+    return (
+      <div className={`${cardClass} p-6 text-center text-sm text-outline`}>
+        <CalendarIcon className="size-10 mx-auto mb-3 text-outline-variant" />
+        Seleziona una sessione confermata per vedere il dettaglio cliente.
+      </div>
+    );
+  }
+
+  if (!focusClient && isLoading) {
+    return (
+      <div className={`${cardClass} p-6 space-y-3`}>
+        <Skeleton className="size-20 rounded-full mx-auto" />
+        <Skeleton className="h-4 w-2/3 mx-auto" />
+        <Skeleton className="h-3 w-1/2 mx-auto" />
+        <Skeleton className="h-9 w-full rounded-full" />
+      </div>
+    );
+  }
+
+  if (!focusClient) {
+    return (
+      <div className={`${cardClass} p-6 text-center text-sm text-outline`}>
+        Cliente non trovato.
+      </div>
+    );
+  }
+
+  const initials =
+    (focusClient.full_name ?? "?")
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((s) => s[0]?.toUpperCase() ?? "")
+      .join("") || "?";
+
+  const phoneDigits = focusClient.phone ? focusClient.phone.replace(/\D/g, "") : "";
+
+  return (
+    <>
+      <div className={`${cardClass} p-6 flex flex-col items-center text-center`}>
+        <div className="size-20 rounded-full bg-primary-fixed text-aura-primary flex items-center justify-center text-2xl font-bold border-4 border-surface mb-3 shadow-sm">
+          {initials}
+        </div>
+        <h4 className="text-lg font-bold text-on-surface">{focusClient.full_name ?? "Cliente"}</h4>
+        <p className="text-sm text-on-surface-variant mb-4 break-all">{focusClient.email ?? ""}</p>
+        <Button
+          asChild
+          variant="secondary"
+          className="w-full min-h-11 bg-surface-container-low text-on-surface hover:bg-surface-container rounded-full font-semibold"
+        >
+          <Link to="/trainer/clients/$id" params={{ id: focusClient.id }}>
+            Profilo Completo
+          </Link>
+        </Button>
+      </div>
+
+      <div className={`${cardClass} p-4`}>
+        {phoneDigits ? (
+          <a
+            href={`https://wa.me/${phoneDigits}`}
+            target="_blank"
+            rel="noreferrer"
+            className="w-full min-h-11 bg-brand-whatsapp/10 text-on-brand-whatsapp border border-brand-whatsapp/30 text-sm font-semibold py-3 rounded-full flex items-center justify-center gap-2 hover:bg-brand-whatsapp/20 transition-colors"
+          >
+            <MessageCircle className="size-4" /> Messaggio WhatsApp
+          </a>
+        ) : (
+          <button
+            disabled
+            className="w-full min-h-11 bg-surface-container-low text-outline border border-surface-variant text-sm font-semibold py-3 rounded-full flex items-center justify-center gap-2 cursor-not-allowed opacity-70"
+          >
+            <MessageCircle className="size-4" /> Numero non disponibile
+          </button>
+        )}
+      </div>
+
+      <div className={`${cardClass} p-5`}>
+        <div className="flex items-center justify-between mb-3">
+          <h5 className="text-label-sm uppercase tracking-wider font-bold text-on-surface">
+            Note Ultima Sessione
+          </h5>
+          {lastNote?.scheduled_at && (
+            <span className="text-label-sm text-outline">
+              {new Date(lastNote.scheduled_at).toLocaleDateString("it-IT", {
+                day: "2-digit",
+                month: "long",
+              })}
+            </span>
+          )}
+        </div>
+        <div className="bg-surface p-4 rounded-2xl">
+          {isLoadingNote ? (
+            <p className="text-sm text-outline">Caricamento…</p>
+          ) : lastNote?.trainer_notes ? (
+            <p className="text-sm text-on-surface-variant italic leading-relaxed">
+              "{lastNote.trainer_notes}"
+            </p>
+          ) : (
+            <p className="text-sm text-outline italic">Nessuna nota disponibile.</p>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
 function CalendarPage() {
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -375,6 +510,9 @@ function CalendarPage() {
   // ----- Focus Cliente -----
   const [focusClientId, setFocusClientId] = useState<string | null>(null);
   const focusClient = focusClientId ? (clientsMap.get(focusClientId) ?? null) : null;
+  // H5 follow-up: render the focus panel inside a Sheet when the viewport
+  // can't host the sticky aside (anything below the xl breakpoint).
+  const isBelowXl = useIsBelowXl();
 
   const lastNoteQ = useQuery({
     queryKey: ["last-note", focusClientId],
@@ -834,7 +972,8 @@ function CalendarPage() {
         </div>
       </section>
 
-      {/* CONTEXT PANEL */}
+      {/* CONTEXT PANEL — desktop only (xl+); the same content renders inside
+          a Sheet below xl, see <Sheet> further down. */}
       <aside className="hidden xl:flex flex-col w-80 border-l border-surface-variant bg-surface sticky top-0 h-screen">
         <div className="p-6 border-b border-surface-variant bg-white/50 backdrop-blur-md">
           <h3 className="text-lg font-bold text-aura-primary flex items-center gap-2">
@@ -842,116 +981,45 @@ function CalendarPage() {
           </h3>
         </div>
         <div className="p-6 overflow-y-auto flex-1 space-y-4">
-          {!focusClientId && (
-            <div
-              className={`bg-white rounded-[24px] p-6 shadow-soft-blue border border-surface-container-low text-center text-sm text-outline`}
-            >
-              <CalendarIcon className="size-10 mx-auto mb-3 text-outline-variant" />
-              Seleziona una sessione confermata per vedere il dettaglio cliente.
-            </div>
-          )}
-
-          {focusClientId && !focusClient && clientsQ.isLoading && (
-            <div
-              className={`bg-white rounded-[24px] p-6 shadow-soft-blue border border-surface-container-low space-y-3`}
-            >
-              <Skeleton className="size-20 rounded-full mx-auto" />
-              <Skeleton className="h-4 w-2/3 mx-auto" />
-              <Skeleton className="h-3 w-1/2 mx-auto" />
-              <Skeleton className="h-9 w-full rounded-2xl" />
-            </div>
-          )}
-
-          {focusClientId && !focusClient && !clientsQ.isLoading && (
-            <div
-              className={`bg-white rounded-[24px] p-6 shadow-soft-blue border border-surface-container-low text-center text-sm text-outline`}
-            >
-              Cliente non trovato.
-            </div>
-          )}
-
-          {focusClient && (
-            <>
-              <div
-                className={`bg-white rounded-[24px] p-6 shadow-soft-blue border border-surface-container-low flex flex-col items-center text-center`}
-              >
-                <div className="size-20 rounded-full bg-primary-fixed text-aura-primary flex items-center justify-center text-2xl font-bold border-4 border-surface mb-3 shadow-sm">
-                  {(focusClient.full_name ?? "?")
-                    .split(" ")
-                    .filter(Boolean)
-                    .slice(0, 2)
-                    .map((s) => s[0]?.toUpperCase())
-                    .join("")}
-                </div>
-                <h4 className="text-lg font-bold text-on-surface">
-                  {focusClient.full_name ?? "Cliente"}
-                </h4>
-                <p className="text-sm text-on-surface-variant mb-4">{focusClient.email ?? ""}</p>
-                <Button
-                  asChild
-                  variant="secondary"
-                  className="w-full bg-surface-container-low text-on-surface hover:bg-surface-container rounded-2xl font-semibold"
-                >
-                  <Link to="/trainer/clients/$id" params={{ id: focusClient.id }}>
-                    Profilo Completo
-                  </Link>
-                </Button>
-              </div>
-
-              <div
-                className={`bg-white rounded-[24px] p-4 shadow-soft-blue border border-surface-container-low`}
-              >
-                {focusClient.phone ? (
-                  <a
-                    href={`https://wa.me/${focusClient.phone.replace(/\D/g, "")}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="w-full bg-brand-whatsapp/10 text-on-brand-whatsapp border border-brand-whatsapp/30 text-sm font-semibold py-3 rounded-2xl flex items-center justify-center gap-2 hover:bg-brand-whatsapp/20 transition-colors"
-                  >
-                    <MessageCircle className="size-4" /> Messaggio WhatsApp
-                  </a>
-                ) : (
-                  <button
-                    disabled
-                    className="w-full bg-surface-container-low text-outline border border-surface-variant text-sm font-semibold py-3 rounded-2xl flex items-center justify-center gap-2 cursor-not-allowed opacity-70"
-                  >
-                    <MessageCircle className="size-4" /> Numero non disponibile
-                  </button>
-                )}
-              </div>
-
-              <div
-                className={`bg-white rounded-[24px] p-5 shadow-soft-blue border border-surface-container-low`}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <h5 className="text-[11px] uppercase tracking-wider font-bold text-on-surface">
-                    Note Ultima Sessione
-                  </h5>
-                  {lastNoteQ.data?.scheduled_at && (
-                    <span className="text-[11px] text-outline">
-                      {new Date(lastNoteQ.data.scheduled_at).toLocaleDateString("it-IT", {
-                        day: "2-digit",
-                        month: "long",
-                      })}
-                    </span>
-                  )}
-                </div>
-                <div className="bg-surface p-4 rounded-2xl">
-                  {lastNoteQ.isLoading ? (
-                    <p className="text-sm text-outline">Caricamento…</p>
-                  ) : lastNoteQ.data?.trainer_notes ? (
-                    <p className="text-sm text-on-surface-variant italic leading-relaxed">
-                      "{lastNoteQ.data.trainer_notes}"
-                    </p>
-                  ) : (
-                    <p className="text-sm text-outline italic">Nessuna nota disponibile.</p>
-                  )}
-                </div>
-              </div>
-            </>
-          )}
+          <FocusClientPanel
+            focusClient={focusClient}
+            focusClientId={focusClientId}
+            isLoading={clientsQ.isLoading}
+            lastNote={lastNoteQ.data ?? null}
+            isLoadingNote={lastNoteQ.isLoading}
+          />
         </div>
       </aside>
+
+      {/* MOBILE SHEET — only active below xl. Shows the same focus-client
+          content as the desktop aside; closing the Sheet clears
+          focusClientId so reopening starts clean. */}
+      <Sheet
+        open={isBelowXl && !!focusClientId}
+        onOpenChange={(open) => {
+          if (!open) setFocusClientId(null);
+        }}
+      >
+        <SheetContent
+          side="right"
+          className="bg-surface-container-lowest w-full sm:max-w-md rounded-l-[32px] border-l-0 p-0 flex flex-col gap-0"
+        >
+          <SheetHeader className="p-6 border-b border-outline-variant/30 bg-surface-container-lowest/80 backdrop-blur-md text-left space-y-0">
+            <SheetTitle className="text-lg font-bold text-aura-primary flex items-center gap-2">
+              <UserSearch className="size-5" /> Focus Cliente
+            </SheetTitle>
+          </SheetHeader>
+          <div className="p-6 overflow-y-auto flex-1 space-y-4">
+            <FocusClientPanel
+              focusClient={focusClient}
+              focusClientId={focusClientId}
+              isLoading={clientsQ.isLoading}
+              lastNote={lastNoteQ.data ?? null}
+              isLoadingNote={lastNoteQ.isLoading}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Assign Dialog */}
       <Dialog open={!!assignTarget} onOpenChange={(o) => !o && setAssignTarget(null)}>
