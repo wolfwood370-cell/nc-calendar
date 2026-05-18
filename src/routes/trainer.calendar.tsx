@@ -770,19 +770,32 @@ function CalendarPage() {
       );
     }
 
-    // Certified
+    // Certified — colora l'evento secondo il tipo di evento
+    const eventColor = et?.color || "#003e62";
     return (
       <button
         key={b.id}
         onClick={() => setFocusClientId(b.client_id)}
-        style={laneStyle}
-        className="absolute z-10 bg-primary-fixed border-l-4 border-aura-primary rounded-2xl p-2 flex flex-col justify-between text-left shadow-sm hover:shadow-md hover:scale-[1.02] hover:z-20 transition-all cursor-pointer"
+        style={{
+          ...laneStyle,
+          backgroundColor: `color-mix(in oklab, ${eventColor} 18%, white)`,
+          borderLeft: `4px solid ${eventColor}`,
+        }}
+        className="absolute z-10 rounded-2xl p-2 flex flex-col justify-between text-left shadow-sm hover:shadow-md hover:scale-[1.02] hover:z-20 transition-all cursor-pointer"
       >
         <div>
-          <h4 className="text-[12px] leading-tight font-semibold text-on-primary-fixed truncate">
+          <h4
+            className="text-[12px] leading-tight font-semibold truncate"
+            style={{ color: `color-mix(in oklab, ${eventColor} 75%, black)` }}
+          >
             {client?.full_name || "Cliente"} — {typeLabel || "Evento senza titolo"}
           </h4>
-          <p className="text-[10px] text-on-primary-fixed-variant mt-0.5">{timeLabel}</p>
+          <p
+            className="text-[10px] mt-0.5"
+            style={{ color: `color-mix(in oklab, ${eventColor} 65%, black)` }}
+          >
+            {timeLabel}
+          </p>
         </div>
       </button>
     );
