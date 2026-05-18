@@ -919,7 +919,10 @@ function matchEvent(
     }
   }
 
-  // Tipo evento: nome più lungo presente nel titolo/descrizione
+  // Tipo evento: prima prova match esatto sul nome intero (priorità massima),
+  // poi fallback a overlap di parole significative con prefix-match
+  // (gestisce varianti singolare/plurale e nomi compositi tipo
+  // "Test Funzionali + Check Tecnico" vs titolo "Test Funzionale — ...").
   let eventType: EventTypeLite | null = null;
   let bestLen = 0;
   for (const et of ctx.eventTypes) {
@@ -928,6 +931,42 @@ function matchEvent(
     if (lower.includes(n) && n.length > bestLen) {
       eventType = et;
       bestLen = n.length;
+    }
+  }
+
+  if (!eventType) {
+    const STOPWORDS = new Set([
+      "pt", "di", "del", "della", "dei", "delle", "da", "il", "la", "lo",
+      "le", "gli", "un", "una", "uno", "con", "per", "the", "and", "or",
+      "session", "sessione", "evento", "event", "call", "meeting",
+    ]);
+    const summaryWords = lower
+      .split(/[^a-zàèéìòù0-9]+/i)
+      .filter((w) => w.length >= 3);
+    const summaryStems = new Set(
+      summaryWords.map((w) => (w.length > 5 ? w.slice(0, 5) : w)),
+    );
+
+    let bestScore = 0;
+    let bestNameLen = 0;
+    for (const et of ctx.eventTypes) {
+      const n = (et.name ?? "").trim().toLowerCase();
+      if (n.length < 2) continue;
+      const words = n
+        .split(/[^a-zàèéìòù0-9]+/i)
+        .filter((w) => w.length >= 3 && !STOPWORDS.has(w));
+      if (words.length === 0) continue;
+      let score = 0;
+      for (const w of words) {
+        const stem = w.length > 5 ? w.slice(0, 5) : w;
+        if (summaryStems.has(stem)) score++;
+      }
+      // Prefer higher score; tie-break on longer original name (more specific).
+      if (score > 0 && (score > bestScore || (score === bestScore && n.length > bestNameLen))) {
+        eventType = et;
+        bestScore = score;
+        bestNameLen = n.length;
+      }
     }
   }
 
