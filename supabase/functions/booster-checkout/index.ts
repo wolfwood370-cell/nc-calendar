@@ -15,13 +15,13 @@ Deno.serve(async (req) => {
   try {
     const authResult = await requireAuth(req);
     if (authResult instanceof Response) return authResult;
-    
+
     const { userId, admin } = authResult;
     const body = await req.json();
     const package_type = body.package_type;
     const requested_client_id = body.client_id;
 
-    // Use requested client_id if provided (e.g. coach buying for client), 
+    // Use requested client_id if provided (e.g. coach buying for client),
     // otherwise default to the caller's userId.
     const targetClientId = requested_client_id || userId;
 
@@ -52,13 +52,15 @@ Deno.serve(async (req) => {
     // Fetch active block_allocation valid_until via inner join
     const { data: allocation, error: allocError } = await admin
       .from("block_allocations")
-      .select(`
+      .select(
+        `
         valid_until,
         training_blocks!inner (
           client_id,
           deleted_at
         )
-      `)
+      `,
+      )
       .eq("training_blocks.client_id", targetClientId)
       .is("training_blocks.deleted_at", null)
       .gte("valid_until", new Date().toISOString())
@@ -68,8 +70,11 @@ Deno.serve(async (req) => {
 
     if (allocError || !allocation || !allocation.valid_until) {
       return jsonResponse(
-        { error: "Nessun percorso attivo trovato. Devi avere un abbonamento in corso per acquistare i Booster." }, 
-        400
+        {
+          error:
+            "Nessun percorso attivo trovato. Devi avere un abbonamento in corso per acquistare i Booster.",
+        },
+        400,
       );
     }
 

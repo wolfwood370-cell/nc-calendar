@@ -61,10 +61,12 @@ export async function subscribeToPush(profileId: string): Promise<PushSubscripti
   // historical `as any` cast was a stale workaround. The `subscription`
   // column is typed as Json in supabase/types.ts so we still need a Json
   // cast here because PushSubscriptionJSON is a structural superset.
-  const { error } = await supabase.from("push_subscriptions").upsert(
-    { profile_id: profileId, subscription: json as never },
-    { onConflict: "profile_id,endpoint" },
-  );
+  const { error } = await supabase
+    .from("push_subscriptions")
+    .upsert(
+      { profile_id: profileId, subscription: json as never },
+      { onConflict: "profile_id,endpoint" },
+    );
   if (error) throw error;
 
   return sub;

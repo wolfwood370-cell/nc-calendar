@@ -279,9 +279,8 @@ function optimisticBookingRemove(qc: QueryClient, bookingId: string) {
     const snapshots = qc.getQueriesData<BookingRow[]>({
       predicate: (q) => q.queryKey[0] === "bookings",
     });
-    qc.setQueriesData<BookingRow[]>(
-      { predicate: (q) => q.queryKey[0] === "bookings" },
-      (old) => (old ?? []).filter((b) => b.id !== bookingId),
+    qc.setQueriesData<BookingRow[]>({ predicate: (q) => q.queryKey[0] === "bookings" }, (old) =>
+      (old ?? []).filter((b) => b.id !== bookingId),
     );
     return { snapshots };
   };
@@ -482,20 +481,6 @@ export function useCoachCancelBooking() {
   });
 }
 
-export function useMarkNoShow() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("bookings")
-        .update({ status: "no_show" as BookingStatus })
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["bookings"] }),
-  });
-}
-
 export function useCoachAvailabilityExceptions(coachId?: string | null) {
   return useQuery({
     queryKey: ["availability_exceptions", coachId],
@@ -510,19 +495,5 @@ export function useCoachAvailabilityExceptions(coachId?: string | null) {
       if (error) throw error;
       return (data ?? []) as AvailabilityExceptionRow[];
     },
-  });
-}
-
-export function useUpdateTrainerNotes() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (input: { id: string; notes: string }) => {
-      const { error } = await supabase
-        .from("bookings")
-        .update({ trainer_notes: input.notes })
-        .eq("id", input.id);
-      if (error) throw error;
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["bookings"] }),
   });
 }

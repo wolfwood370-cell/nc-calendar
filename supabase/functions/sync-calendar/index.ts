@@ -237,7 +237,6 @@ Deno.serve(async (req) => {
     },
   };
 
-
   // Helper: carica clienti + event types + email coach (per matching)
   async function loadCoachContext() {
     const [clientsRes, etRes, coachUserRes] = await Promise.all([
@@ -652,9 +651,9 @@ Deno.serve(async (req) => {
           if (match.client) patch.client_id = newClient;
           patch.event_type_id = newEt;
           patch.session_type = newType;
-           patch.notes = `Importato da Google Calendar: ${summary}`;
-           patch.title = summary;
-           if (b.block_id) {
+          patch.notes = `Importato da Google Calendar: ${summary}`;
+          patch.title = summary;
+          if (b.block_id) {
             await refundCreditFor(
               b.block_id,
               b.event_type_id ?? null,

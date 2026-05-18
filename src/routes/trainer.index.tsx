@@ -105,10 +105,14 @@ function Overview() {
   const blocksQ = useCoachBlocks(coachId);
   const eventTypesQ = useCoachEventTypes(coachId);
 
-  const clients = clientsQ.data ?? [];
-  const bookings = bookingsQ.data ?? [];
-  const blocks = blocksQ.data ?? [];
-  const eventTypes = eventTypesQ.data ?? [];
+  // Memoize the `?? []` fallbacks so downstream useMemo hooks see a stable
+  // reference when the underlying query data hasn't changed. Without these
+  // wrappers `clients.filter(...)` etc. inside derived useMemos would
+  // recompute on every render, defeating the memoization.
+  const clients = useMemo(() => clientsQ.data ?? [], [clientsQ.data]);
+  const bookings = useMemo(() => bookingsQ.data ?? [], [bookingsQ.data]);
+  const blocks = useMemo(() => blocksQ.data ?? [], [blocksQ.data]);
+  const eventTypes = useMemo(() => eventTypesQ.data ?? [], [eventTypesQ.data]);
 
   const clientById = useMemo(() => {
     const m = new Map<string, (typeof clients)[number]>();
@@ -166,11 +170,13 @@ function Overview() {
     for (const b of blocks) {
       if (b.status !== "active") continue;
       if (new Date(b.end_date).getTime() < now) continue;
-      const blockBookings = bookings.filter(bk => bk.block_id === b.id && bk.status === "completed");
+      const blockBookings = bookings.filter(
+        (bk) => bk.block_id === b.id && bk.status === "completed",
+      );
       const dynamicCompleted = blockBookings.length;
       const totalAssigned = b.allocations.reduce((s, a) => s + a.quantity_assigned, 0);
       const rem = Math.max(0, totalAssigned - dynamicCompleted);
-      
+
       if (rem <= 2) map.set(b.client_id, (map.get(b.client_id) ?? 0) + rem);
     }
     return Array.from(map.entries())
@@ -181,7 +187,7 @@ function Overview() {
       }))
       .sort((a, b) => a.remaining - b.remaining)
       .slice(0, 6);
-  }, [blocks, clientById]);
+  }, [blocks, bookings, clientById]);
 
   // Service distribution this month
   const distribution = useMemo(() => {
@@ -271,10 +277,7 @@ function Overview() {
 
   const ignoreBooking = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("bookings")
-        .update({ ignored: true })
-        .eq("id", id);
+      const { error } = await supabase.from("bookings").update({ ignored: true }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -402,7 +405,10 @@ function Overview() {
                       : null;
                   const googleTitle = r.title?.trim() || importedTitle || null;
                   const eventName =
-                    googleTitle || et?.name || sessionLabel(r.session_type) || "Evento Google Calendar";
+                    googleTitle ||
+                    et?.name ||
+                    sessionLabel(r.session_type) ||
+                    "Evento Google Calendar";
                   const typeLabel = et?.name ?? sessionLabel(r.session_type);
                   const isIgnored = reviewTab === "ignored";
                   return (

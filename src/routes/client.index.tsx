@@ -5,7 +5,12 @@ import type { BookingRow, EventTypeRow } from "@/lib/queries";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
-import { useClientBlocks, useClientBookings, useCoachEventTypes, useClientExtraCredits } from "@/lib/queries";
+import {
+  useClientBlocks,
+  useClientBookings,
+  useCoachEventTypes,
+  useClientExtraCredits,
+} from "@/lib/queries";
 import { sessionLabel } from "@/lib/mock-data";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
@@ -46,10 +51,7 @@ function ClientHome() {
     const blocks = blocksQ.data ?? [];
     const ets = eventTypesQ.data ?? [];
     const extraCredits = extraCreditsQ.data ?? [];
-    const map = new Map<
-      string,
-      { name: string; color: string; used: number; total: number }
-    >();
+    const map = new Map<string, { name: string; color: string; used: number; total: number }>();
     // 1. Inizializza i totali (assigned) dai block.allocations di tutti i blocchi
     for (const b of blocks) {
       for (const a of b.allocations) {
@@ -90,9 +92,7 @@ function ClientHome() {
       }
     }
 
-    return [...map.entries()]
-      .map(([key, v]) => ({ key, ...v }))
-      .sort((a, b) => b.total - a.total);
+    return [...map.entries()].map(([key, v]) => ({ key, ...v })).sort((a, b) => b.total - a.total);
   }, [blocksQ.data, eventTypesQ.data, bookingsQ.data, extraCreditsQ.data]);
 
   const nextBooking = useMemo(() => {
@@ -113,7 +113,8 @@ function ClientHome() {
       .slice(0, 3);
   }, [bookingsQ.data]);
 
-  const isLoading = blocksQ.isLoading || bookingsQ.isLoading || profileQ.isLoading || extraCreditsQ.isLoading;
+  const isLoading =
+    blocksQ.isLoading || bookingsQ.isLoading || profileQ.isLoading || extraCreditsQ.isLoading;
 
   return (
     <div className="max-w-md mx-auto bg-surface min-h-screen">
@@ -218,10 +219,7 @@ function ClientHome() {
           {isLoading ? (
             <Skeleton className="h-40 w-full rounded-[24px]" />
           ) : (
-            <SessionTimeline
-              bookings={bookingsQ.data ?? []}
-              eventTypes={eventTypesQ.data ?? []}
-            />
+            <SessionTimeline bookings={bookingsQ.data ?? []} eventTypes={eventTypesQ.data ?? []} />
           )}
         </section>
 
@@ -330,9 +328,7 @@ function TimelineCard({
   eventTypes: EventTypeRow[];
   compact?: boolean;
 }) {
-  const et = booking.event_type_id
-    ? eventTypes.find((e) => e.id === booking.event_type_id)
-    : null;
+  const et = booking.event_type_id ? eventTypes.find((e) => e.id === booking.event_type_id) : null;
   const typeName = et?.name ?? sessionLabel(booking.session_type);
   const color = et?.color ?? "#003e62";
   const title = booking.title?.trim() || typeName;
@@ -459,12 +455,7 @@ function SessionTimeline({
                   </h4>
                   <div className="flex flex-col gap-2">
                     {items.map((b) => (
-                      <TimelineCard
-                        key={b.id}
-                        booking={b}
-                        eventTypes={eventTypes}
-                        compact
-                      />
+                      <TimelineCard key={b.id} booking={b} eventTypes={eventTypes} compact />
                     ))}
                   </div>
                 </div>

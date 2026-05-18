@@ -74,20 +74,12 @@ export function BoosterCard({
 
           {price && (
             <div className="mt-1 flex items-baseline gap-2">
-              <span className="text-2xl font-display font-bold text-on-surface">
-                {price}
-              </span>
-              {perSession && (
-                <span className="text-xs text-on-surface-variant">
-                  {perSession}
-                </span>
-              )}
+              <span className="text-2xl font-display font-bold text-on-surface">{price}</span>
+              {perSession && <span className="text-xs text-on-surface-variant">{perSession}</span>}
             </div>
           )}
 
-          <p className="mt-2 text-sm text-on-surface-variant leading-relaxed">
-            {description}
-          </p>
+          <p className="mt-2 text-sm text-on-surface-variant leading-relaxed">{description}</p>
 
           {expiresAt && (
             <p className="mt-2 text-xs text-on-surface-variant">

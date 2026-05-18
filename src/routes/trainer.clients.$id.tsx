@@ -583,7 +583,12 @@ function ClientPathPage() {
           .update({ quantity_booked: Math.max(0, alloc.quantity_booked - 1) })
           .eq("id", alloc.id);
       }
-    } else if (input.status === "cancelled" && wasActive && !input.block_id && input.prevEventTypeId) {
+    } else if (
+      input.status === "cancelled" &&
+      wasActive &&
+      !input.block_id &&
+      input.prevEventTypeId
+    ) {
       // Refund extra_credits per cliente indipendente / booster
       const { data: ecRows } = await supabase
         .from("extra_credits")
@@ -980,7 +985,9 @@ function ClientPathPage() {
                       const weekEnd = date ? addDays(date, 7) : null;
                       const isPast = weekEnd ? isBefore(weekEnd, today) : false;
                       const isCurrent =
-                        date && weekEnd ? !isBefore(today, date) && isBefore(today, weekEnd) : false;
+                        date && weekEnd
+                          ? !isBefore(today, date) && isBefore(today, weekEnd)
+                          : false;
                       const weekBookings = bookingsByRowIdx[idx] ?? [];
                       return (
                         <div

@@ -28,8 +28,7 @@ const PACKAGES: PackageDef[] = [
     id: "single",
     title: "Sessione PT Aggiuntiva",
     price: "40 €",
-    description:
-      "1 Sessione extra per correggere l'esecuzione o recuperare un allenamento.",
+    description: "1 Sessione extra per correggere l'esecuzione o recuperare un allenamento.",
     icon: Sparkles,
   },
   {
@@ -37,8 +36,7 @@ const PACKAGES: PackageDef[] = [
     title: "Pacchetto Sessioni PT Aggiuntive",
     price: "99 €",
     perSession: "Solo 33 € a sessione",
-    description:
-      "Il pacchetto ideale per un boost intensivo di perfezionamento tecnico.",
+    description: "Il pacchetto ideale per un boost intensivo di perfezionamento tecnico.",
     icon: Zap,
     hero: true,
   },
@@ -96,8 +94,7 @@ function StorePage() {
     !!profile &&
     hasActiveBlock &&
     profile.status === "active" &&
-    ((profile.path_type === "fixed" && !profile.pack_label) ||
-      profile.path_type === "recurring");
+    ((profile.path_type === "fixed" && !profile.pack_label) || profile.path_type === "recurring");
 
   const restrictedToast = () =>
     toast.error("Accesso limitato", {
@@ -185,9 +182,8 @@ function StorePage() {
         className="rounded-[40px] bg-white/40 backdrop-blur-md border border-white/30 shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-5 md:p-8 space-y-6"
       >
         <p className="text-sm text-on-surface-variant leading-relaxed">
-          Risorse premium e sessioni one-to-one riservate esclusivamente agli
-          atleti con un percorso attivo. Il tuo accesso diretto per elevare
-          ulteriormente i tuoi standard.
+          Risorse premium e sessioni one-to-one riservate esclusivamente agli atleti con un percorso
+          attivo. Il tuo accesso diretto per elevare ulteriormente i tuoi standard.
         </p>
 
         {ownedCredits.length > 0 && (
@@ -217,8 +213,7 @@ function StorePage() {
           {!canPurchaseAddons && (
             <div className="rounded-2xl border border-amber-300/60 bg-amber-50/80 px-4 py-3 text-sm text-amber-900">
               Gli Add-on sono riservati esclusivamente ai clienti con un{" "}
-              <strong>Percorso Fisso</strong> o un{" "}
-              <strong>Abbonamento Mensile</strong> attivo.
+              <strong>Percorso Fisso</strong> o un <strong>Abbonamento Mensile</strong> attivo.
             </div>
           )}
           <div

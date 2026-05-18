@@ -108,12 +108,10 @@ function buildBody(input: SyncInput): Record<string, unknown> {
 
 /** Fire-and-forget: errori loggati e segnalati con toast non bloccante. */
 export function syncCalendar(input: SyncInput, options: { silent?: boolean } = {}): void {
-  void supabase.functions
-    .invoke("sync-calendar", { body: buildBody(input) })
-    .catch((err) => {
-      console.error("sync-calendar invoke failed", err);
-      if (!options.silent) notifySyncFailure(input.action, err);
-    });
+  void supabase.functions.invoke("sync-calendar", { body: buildBody(input) }).catch((err) => {
+    console.error("sync-calendar invoke failed", err);
+    if (!options.silent) notifySyncFailure(input.action, err);
+  });
 }
 
 /** Awaitable: utile per import storico e mirror check. */

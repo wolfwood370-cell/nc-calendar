@@ -124,9 +124,7 @@ function IntegrationsPage() {
       if (cancelled) return;
       const connected = !!settings?.gcal_enabled;
       setIsCalendarConnected(connected);
-      setConnectedEmail(
-        settings?.gcal_account_email ?? emailFromIdentity ?? user.email ?? null,
-      );
+      setConnectedEmail(settings?.gcal_account_email ?? emailFromIdentity ?? user.email ?? null);
     }
     check();
     return () => {
@@ -233,7 +231,8 @@ function IntegrationsPage() {
               </Button>
               <p className="text-[11px] leading-relaxed tracking-wide text-outline px-1 font-medium">
                 Nota: per la sincronizzazione corretta, utilizza esclusivamente l'account{" "}
-                <span className="font-semibold text-aura-primary">nctrainingsystems@gmail.com</span>.
+                <span className="font-semibold text-aura-primary">nctrainingsystems@gmail.com</span>
+                .
               </p>
             </>
           )}
@@ -331,7 +330,12 @@ interface CalendarManageSheetProps {
   onDisconnect: () => void;
 }
 
-function CalendarManageSheet({ open, onOpenChange, coachId, onDisconnect }: CalendarManageSheetProps) {
+function CalendarManageSheet({
+  open,
+  onOpenChange,
+  coachId,
+  onDisconnect,
+}: CalendarManageSheetProps) {
   const [isSyncing, setIsSyncing] = useState(false);
 
   const handleSyncNow = async () => {
@@ -453,10 +457,7 @@ function CalendarManageSheet({ open, onOpenChange, coachId, onDisconnect }: Cale
             </h3>
             <ul className="space-y-2">
               {logs.map((l, i) => (
-                <li
-                  key={i}
-                  className="flex items-start gap-3 rounded-2xl bg-surface px-4 py-3"
-                >
+                <li key={i} className="flex items-start gap-3 rounded-2xl bg-surface px-4 py-3">
                   <div className="size-2 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-aura-primary">{l.text}</p>

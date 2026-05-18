@@ -28,7 +28,11 @@ function ClientLayout() {
         <div className="mx-auto max-w-3xl px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="size-8 rounded-md overflow-hidden bg-white flex-shrink-0">
-              <img src={nccLogo} alt="NC Calendar" className="w-full h-full object-cover object-center scale-[1.2]" />
+              <img
+                src={nccLogo}
+                alt="NC Calendar"
+                className="w-full h-full object-cover object-center scale-[1.2]"
+              />
             </div>
             <span className="font-display font-semibold">NC Calendar</span>
           </div>

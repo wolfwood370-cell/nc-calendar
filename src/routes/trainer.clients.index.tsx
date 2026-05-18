@@ -178,13 +178,17 @@ function ClientsPage() {
     setLoading(true);
     let cq = supabase
       .from("profiles")
-      .select("id, full_name, email, phone, status, path_type, next_billing_date, pack_label, auto_renew")
+      .select(
+        "id, full_name, email, phone, status, path_type, next_billing_date, pack_label, auto_renew",
+      )
       .is("deleted_at", null);
     if (!isAdmin && user) cq = cq.eq("coach_id", user.id);
     const { data: cs } = await cq;
-    const clientList = ((cs as ClientRow[]) ?? []).slice().sort((a, b) =>
-      (a.full_name ?? "").localeCompare(b.full_name ?? "", "it", { sensitivity: "base" }),
-    );
+    const clientList = ((cs as ClientRow[]) ?? [])
+      .slice()
+      .sort((a, b) =>
+        (a.full_name ?? "").localeCompare(b.full_name ?? "", "it", { sensitivity: "base" }),
+      );
     setClients(clientList);
 
     let iq = supabase
@@ -200,12 +204,14 @@ function ClientsPage() {
     if (ids.length > 0) {
       let bq = supabase
         .from("training_blocks")
-        .select(`
+        .select(
+          `
           id, client_id, sequence_order, start_date, end_date,
           block_allocations (
             block_id, event_type_id, session_type, quantity_assigned, quantity_booked
           )
-        `)
+        `,
+        )
         .in("client_id", ids)
         .is("deleted_at", null)
         .order("sequence_order", { ascending: true });
@@ -241,7 +247,9 @@ function ClientsPage() {
       // Live bookings: source of truth for "completed" counters
       let bookQ = supabase
         .from("bookings")
-        .select("id, client_id, block_id, event_type_id, session_type, status, scheduled_at, ignored_by_clients")
+        .select(
+          "id, client_id, block_id, event_type_id, session_type, status, scheduled_at, ignored_by_clients",
+        )
         .in("client_id", ids)
         .is("deleted_at", null)
         .in("status", ["scheduled", "completed", "late_cancelled"]);
@@ -314,7 +322,8 @@ function ClientsPage() {
           bk.status !== "completed" &&
           bk.status !== "late_cancelled" &&
           bk.status !== "scheduled"
-        ) continue;
+        )
+          continue;
         const k = keyOf(bk.event_type_id ?? null, bk.session_type);
         const cur = aggMap.get(k);
         if (!cur) continue; // ignore bookings without a matching allocation bucket
@@ -612,7 +621,9 @@ function ClientsPage() {
           <h1 className="font-display text-3xl md:text-4xl font-bold text-aura-primary tracking-tight">
             I tuoi Clienti
           </h1>
-          <p className="text-sm text-on-surface-variant mt-1">Invita nuovi clienti e gestisci il roster.</p>
+          <p className="text-sm text-on-surface-variant mt-1">
+            Invita nuovi clienti e gestisci il roster.
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
@@ -655,10 +666,11 @@ function ClientsPage() {
             <button
               key={t.key}
               onClick={() => setActiveTab(t.key)}
-              className={`px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-colors ${isActive
+              className={`px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-colors ${
+                isActive
                   ? "bg-primary-fixed text-on-primary-fixed-variant"
                   : "bg-surface-container text-on-surface-variant hover:bg-surface-variant"
-                }`}
+              }`}
             >
               {t.label} ({t.count})
             </button>
@@ -678,11 +690,21 @@ function ClientsPage() {
             <Table className="border-separate border-spacing-0 [&_tr]:border-0">
               <TableHeader className="[&_tr]:border-0">
                 <TableRow className="border-0 hover:bg-transparent">
-                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-outline">Nome</TableHead>
-                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-outline">Email</TableHead>
-                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-outline">Telefono</TableHead>
-                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-outline">Stato</TableHead>
-                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-outline text-right">Azioni</TableHead>
+                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-outline">
+                    Nome
+                  </TableHead>
+                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-outline">
+                    Email
+                  </TableHead>
+                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-outline">
+                    Telefono
+                  </TableHead>
+                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-outline">
+                    Stato
+                  </TableHead>
+                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-outline text-right">
+                    Azioni
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody className="divide-y divide-outline-variant/10">
@@ -692,10 +714,17 @@ function ClientsPage() {
                     <TableCell className="text-muted-foreground">{i.email}</TableCell>
                     <TableCell className="text-muted-foreground">{i.phone ?? "—"}</TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="rounded-full">In attesa</Badge>
+                      <Badge variant="outline" className="rounded-full">
+                        In attesa
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button size="sm" variant="ghost" className="rounded-full" onClick={() => cancelInvite(i.id)}>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="rounded-full"
+                        onClick={() => cancelInvite(i.id)}
+                      >
                         <X className="size-4" /> Annulla
                       </Button>
                     </TableCell>
@@ -824,9 +853,10 @@ function ClientsPage() {
                         Riepilogo Sessioni
                       </p>
                       {d.summary.map((row) => {
-                        const pct = row.total > 0
-                          ? Math.min(100, Math.round((row.used / row.total) * 100))
-                          : 0;
+                        const pct =
+                          row.total > 0
+                            ? Math.min(100, Math.round((row.used / row.total) * 100))
+                            : 0;
                         return (
                           <div key={row.type}>
                             <div className="flex items-baseline justify-between gap-2">
@@ -1286,10 +1316,11 @@ function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) =
                   setPathType("fixed");
                   setPackLabel(null);
                 }}
-                className={`text-left rounded-[24px] border-2 p-3 backdrop-blur-xl transition-colors ${pathType === "fixed"
+                className={`text-left rounded-[24px] border-2 p-3 backdrop-blur-xl transition-colors ${
+                  pathType === "fixed"
                     ? "border-primary bg-primary/10 shadow-[0_8px_30px_rgba(0,62,98,0.08)]"
                     : "border-white/40 bg-white/40 hover:border-primary/40"
-                  }`}
+                }`}
               >
                 <div className="font-semibold text-sm">Percorso Fisso (Pacchetto)</div>
                 <div className="text-xs text-muted-foreground">
@@ -1302,10 +1333,11 @@ function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) =
                   setPathType("recurring");
                   setPackLabel(null);
                 }}
-                className={`text-left rounded-[24px] border-2 p-3 backdrop-blur-xl transition-colors ${pathType === "recurring"
+                className={`text-left rounded-[24px] border-2 p-3 backdrop-blur-xl transition-colors ${
+                  pathType === "recurring"
                     ? "border-primary bg-primary/10 shadow-[0_8px_30px_rgba(0,62,98,0.08)]"
                     : "border-white/40 bg-white/40 hover:border-primary/40"
-                  }`}
+                }`}
               >
                 <div className="font-semibold text-sm">Abbonamento Mensile</div>
                 <div className="text-xs text-muted-foreground">
@@ -1323,10 +1355,11 @@ function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) =
                     if (pt) setFreeEventTypeId(pt.id);
                   }
                 }}
-                className={`text-left rounded-[24px] border-2 p-3 backdrop-blur-xl transition-colors ${pathType === "free"
+                className={`text-left rounded-[24px] border-2 p-3 backdrop-blur-xl transition-colors ${
+                  pathType === "free"
                     ? "border-primary bg-primary/10 shadow-[0_8px_30px_rgba(0,62,98,0.08)]"
                     : "border-white/40 bg-white/40 hover:border-primary/40"
-                  }`}
+                }`}
               >
                 <div className="font-semibold text-sm">Cliente Libero (Senza Percorso)</div>
                 <div className="text-xs text-muted-foreground">

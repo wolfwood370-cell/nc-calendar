@@ -39,10 +39,7 @@ export function getUserTimezoneLabel(): { iana: string; offset: string; combined
     // Some embedded environments don't expose Intl.DateTimeFormat
   }
   const now = new Date();
-  const tzPart = now
-    .toLocaleTimeString("it-IT", { timeZoneName: "shortOffset" })
-    .split(" ")
-    .pop();
+  const tzPart = now.toLocaleTimeString("it-IT", { timeZoneName: "shortOffset" }).split(" ").pop();
   const offset = tzPart && tzPart.startsWith("GMT") ? tzPart : `GMT${formatOffsetMinutes(now)}`;
   return { iana, offset, combined: `${iana} (${offset})` };
 }

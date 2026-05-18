@@ -24,8 +24,7 @@ export const queryKeys = {
   },
   extraCredits: {
     root: ["extra_credits"] as const,
-    client: (clientId: string | null | undefined) =>
-      ["extra_credits", "client", clientId] as const,
+    client: (clientId: string | null | undefined) => ["extra_credits", "client", clientId] as const,
   },
   clients: {
     root: ["clients"] as const,
@@ -38,8 +37,7 @@ export const queryKeys = {
   profile: (userId: string | null | undefined) => ["profile", userId] as const,
   trainerAvailability: (coachId: string | null | undefined) =>
     ["trainer_availability", coachId] as const,
-  trainerSettings: (coachId: string | null | undefined) =>
-    ["trainer_settings", coachId] as const,
+  trainerSettings: (coachId: string | null | undefined) => ["trainer_settings", coachId] as const,
   availabilityExceptions: (coachId: string | null | undefined) =>
     ["availability_exceptions", coachId] as const,
 } as const;

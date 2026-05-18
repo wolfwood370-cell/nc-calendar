@@ -155,9 +155,7 @@ function AvailabilityPage() {
         [dow]: {
           active,
           blocks:
-            active && cur.blocks.length === 0
-              ? [{ start: "09:00", end: "13:00" }]
-              : cur.blocks,
+            active && cur.blocks.length === 0 ? [{ start: "09:00", end: "13:00" }] : cur.blocks,
         },
       };
     });
@@ -373,7 +371,9 @@ function AvailabilityPage() {
 
                         <div className="flex-1 min-w-0">
                           {!ds.active ? (
-                            <p className="text-sm text-outline-variant italic pt-2">Non disponibile</p>
+                            <p className="text-sm text-outline-variant italic pt-2">
+                              Non disponibile
+                            </p>
                           ) : (
                             <div className="space-y-2">
                               {ds.blocks.map((b, idx) => (
@@ -431,10 +431,7 @@ function AvailabilityPage() {
                             </div>
                           )}
                           {dayErrors[d.dow] && (
-                            <p
-                              role="alert"
-                              className="text-xs text-error pt-1 font-medium"
-                            >
+                            <p role="alert" className="text-xs text-error pt-1 font-medium">
                               {dayErrors[d.dow]}
                             </p>
                           )}

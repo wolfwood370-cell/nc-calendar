@@ -170,10 +170,7 @@ function MobileAgendaView({
   onSelectClient,
 }: MobileAgendaViewProps) {
   // Default to today's index within the visible week; fall back to Monday.
-  const todayIdx = useMemo(
-    () => weekDays.findIndex((d) => sameDay(d, today)),
-    [weekDays, today],
-  );
+  const todayIdx = useMemo(() => weekDays.findIndex((d) => sameDay(d, today)), [weekDays, today]);
   const [selectedDayIdx, setSelectedDayIdx] = useState<number>(todayIdx >= 0 ? todayIdx : 0);
 
   // When the user navigates weeks, keep the selected weekday index — so
@@ -416,9 +413,7 @@ function CalendarPage() {
       await qc.cancelQueries({ queryKey: key });
       const previous = qc.getQueryData<BookingRow[]>(key);
       qc.setQueryData<BookingRow[]>(key, (old) =>
-        (old ?? []).map((b) =>
-          b.id === vars.bookingId ? { ...b, client_id: vars.clientId } : b,
-        ),
+        (old ?? []).map((b) => (b.id === vars.bookingId ? { ...b, client_id: vars.clientId } : b)),
       );
       setAssignTarget(null);
       setAssignClientId("");
@@ -629,7 +624,9 @@ function CalendarPage() {
           style={laneStyle}
           className="absolute z-10 bg-surface-container-low border border-outline-variant/40 rounded-2xl p-2 cursor-default hover:bg-surface-container transition-colors"
         >
-          <h4 className="text-[12px] leading-tight font-medium text-on-surface-variant truncate">{title}</h4>
+          <h4 className="text-[12px] leading-tight font-medium text-on-surface-variant truncate">
+            {title}
+          </h4>
           <p className="text-[10px] text-outline mt-0.5">{timeLabel}</p>
         </div>
       );
@@ -901,7 +898,9 @@ function CalendarPage() {
                 </Button>
               </div>
 
-              <div className={`bg-white rounded-[24px] p-4 shadow-soft-blue border border-surface-container-low`}>
+              <div
+                className={`bg-white rounded-[24px] p-4 shadow-soft-blue border border-surface-container-low`}
+              >
                 {focusClient.phone ? (
                   <a
                     href={`https://wa.me/${focusClient.phone.replace(/\D/g, "")}`}
@@ -921,7 +920,9 @@ function CalendarPage() {
                 )}
               </div>
 
-              <div className={`bg-white rounded-[24px] p-5 shadow-soft-blue border border-surface-container-low`}>
+              <div
+                className={`bg-white rounded-[24px] p-5 shadow-soft-blue border border-surface-container-low`}
+              >
                 <div className="flex items-center justify-between mb-3">
                   <h5 className="text-[11px] uppercase tracking-wider font-bold text-on-surface">
                     Note Ultima Sessione
