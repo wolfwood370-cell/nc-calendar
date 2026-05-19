@@ -10,7 +10,7 @@ import {
   useCoachEventTypes,
 } from "@/lib/queries";
 import { queryKeys } from "@/lib/query-keys";
-import { sessionLabel } from "@/lib/mock-data";
+import { sessionLabel, type SessionType } from "@/lib/mock-data";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
@@ -125,28 +125,74 @@ function Overview() {
     return m;
   }, [eventTypes]);
 
-  // Centro Revisione: bookings with client_id NULL within last 7 days (active + ignored)
-  const reviewQ = useQuery({
+  // Centro Revisione: bookings with client_id NULL within last 7 days
+  // (active + ignored). Personal Blocks share the client_id IS NULL shape
+  // so without the is_personal filter they would re-appear in the
+  // "needs attention" list right after the coach converted them — the
+  // whole point of marking them personal is to clear them from this
+  // queue. The SELECT below uses the same defensive try-with-fallback
+  // pattern as queries.ts in case the migration hasn't shipped yet.
+  interface ReviewRow {
+    id: string;
+    scheduled_at: string;
+    title: string | null;
+    notes: string | null;
+    session_type: SessionType;
+    event_type_id: string | null;
+    ignored: boolean;
+    deleted_at: string | null;
+    is_personal?: boolean;
+  }
+  const reviewQ = useQuery<ReviewRow[]>({
     queryKey: ["bookings", "unassigned-all", coachId],
     enabled: !!coachId,
-    queryFn: async () => {
-      const { data, error } = await supabase
+    queryFn: async (): Promise<ReviewRow[]> => {
+      const baseCols =
+        "id, scheduled_at, title, notes, session_type, event_type_id, ignored, deleted_at";
+      const primary = await supabase
         .from("bookings")
-        .select("id, scheduled_at, title, notes, session_type, event_type_id, ignored, deleted_at")
+        .select(`${baseCols}, is_personal`)
         .eq("coach_id", coachId!)
         .is("client_id", null)
         .gte("scheduled_at", sevenDaysAgo().toISOString())
         .order("scheduled_at", { ascending: false });
-      if (error) {
-        console.error("[Dashboard] review fetch failed", error);
+      if (
+        primary.error &&
+        ((primary.error as { code?: string }).code === "42703" ||
+          (primary.error.message ?? "").includes("is_personal"))
+      ) {
+        const fallback = await supabase
+          .from("bookings")
+          .select(baseCols)
+          .eq("coach_id", coachId!)
+          .is("client_id", null)
+          .gte("scheduled_at", sevenDaysAgo().toISOString())
+          .order("scheduled_at", { ascending: false });
+        if (fallback.error) {
+          console.error("[Dashboard] review fetch failed", fallback.error);
+          return [];
+        }
+        return (fallback.data ?? []).map(
+          (r) => ({ ...(r as object), is_personal: false }) as ReviewRow,
+        );
+      }
+      if (primary.error) {
+        console.error("[Dashboard] review fetch failed", primary.error);
         return [];
       }
-      return data ?? [];
+      return (primary.data ?? []) as ReviewRow[];
     },
   });
   const allReviewItems = reviewQ.data ?? [];
-  const reviewItems = allReviewItems.filter((r) => !r.ignored && !r.deleted_at);
-  const ignoredItems = allReviewItems.filter((r) => r.ignored || r.deleted_at);
+  // Drop personal blocks from BOTH buckets: they're not "to review", and
+  // shouldn't be reachable from the "Ignorati" tab either — the coach
+  // already gave them a final classification.
+  const reviewItems = allReviewItems.filter(
+    (r) => !r.ignored && !r.deleted_at && r.is_personal !== true,
+  );
+  const ignoredItems = allReviewItems.filter(
+    (r) => (r.ignored || r.deleted_at) && r.is_personal !== true,
+  );
   const [reviewTab, setReviewTab] = useState<"todo" | "ignored">("todo");
 
   // Today's appointments

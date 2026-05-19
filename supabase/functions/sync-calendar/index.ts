@@ -665,15 +665,33 @@ Deno.serve(async (req) => {
       const timeMin = body.range_start_iso ?? new Date().toISOString();
       const timeMax = body.range_end_iso ?? twoYearsAhead2.toISOString();
 
-      const { data: locals } = await supabase
+      // Defensive: same migration race as the frontend bookings query.
+      // If the is_personal column hasn't shipped to this Supabase
+      // project yet, retry without it and treat the absence as
+      // is_personal=false for the matching loop below.
+      const localsBaseCols =
+        "id, google_event_id, scheduled_at, status, client_id, event_type_id, session_type, block_id";
+      let localsResp = await supabase
         .from("bookings")
-        .select(
-          "id, google_event_id, scheduled_at, status, client_id, event_type_id, session_type, block_id, is_personal",
-        )
+        .select(`${localsBaseCols}, is_personal`)
         .eq("coach_id", body.coach_id)
         .not("google_event_id", "is", null)
         .gte("scheduled_at", timeMin)
         .lte("scheduled_at", timeMax);
+      if (
+        localsResp.error &&
+        ((localsResp.error as { code?: string }).code === "42703" ||
+          (localsResp.error.message ?? "").includes("is_personal"))
+      ) {
+        localsResp = await supabase
+          .from("bookings")
+          .select(localsBaseCols)
+          .eq("coach_id", body.coach_id)
+          .not("google_event_id", "is", null)
+          .gte("scheduled_at", timeMin)
+          .lte("scheduled_at", timeMax);
+      }
+      const { data: locals } = localsResp;
 
       let cancelled = 0,
         moved = 0,
