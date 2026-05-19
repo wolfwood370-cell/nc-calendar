@@ -662,7 +662,20 @@ Deno.serve(async (req) => {
       const ctx = await loadCoachContext();
       const twoYearsAhead2 = new Date();
       twoYearsAhead2.setFullYear(twoYearsAhead2.getFullYear() + 2);
-      const timeMin = body.range_start_iso ?? new Date().toISOString();
+      // Default window now starts 30 days in the past, not "now".
+      // Coaches frequently log retroactive sessions in Google Calendar
+      // ("BIA Alan Spagnolo" created today against an April 16th date),
+      // and the previous default silently dropped them — the
+      // import_history flow runs once per browser session, so any
+      // backdated event created after the first calendar open would
+      // never be picked up. Callers that need a stricter window can
+      // still pass range_start_iso explicitly (the per-month calendar
+      // sync in trainer.calendar.tsx already does so).
+      const DEFAULT_LOOKBACK_DAYS = 30;
+      const defaultStart = new Date(
+        Date.now() - DEFAULT_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
+      ).toISOString();
+      const timeMin = body.range_start_iso ?? defaultStart;
       const timeMax = body.range_end_iso ?? twoYearsAhead2.toISOString();
 
       // Defensive: same migration race as the frontend bookings query.
