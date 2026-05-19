@@ -772,3 +772,129 @@ function QuickStat({
     </div>
   );
 }
+
+function initialsOf(name: string) {
+  return (
+    name
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((s) => s[0]?.toUpperCase() ?? "")
+      .join("") || "?"
+  );
+}
+
+function MobileTrainerDashboard({
+  firstName,
+  todayLabel,
+  sessionsToday,
+  nextBooking,
+}: {
+  firstName: string;
+  todayLabel: string;
+  sessionsToday: number;
+  nextBooking: {
+    id: string;
+    clientId: string;
+    clientName: string;
+    time: string;
+    typeLabel: string;
+  } | null;
+}) {
+  return (
+    <div className="md:hidden min-h-screen" style={{ backgroundColor: "#f8f9fe" }}>
+      {/* Glassmorphic top app bar */}
+      <header
+        className="sticky top-0 z-30 flex items-center justify-between px-5 py-3.5 border-b backdrop-blur-2xl"
+        style={{ backgroundColor: "rgba(255,255,255,0.7)", borderColor: "rgba(193,199,208,0.4)" }}
+      >
+        <h1 className="text-lg font-bold tracking-tight" style={{ color: "#005685" }}>
+          NC Calendar
+        </h1>
+        <Link
+          to="/trainer/availability"
+          aria-label="Impostazioni profilo"
+          className="w-10 h-10 rounded-full grid place-items-center font-semibold text-sm shadow-sm border"
+          style={{
+            backgroundColor: "#ffffff",
+            color: "#005685",
+            borderColor: "#c1c7d0",
+          }}
+        >
+          {initialsOf(firstName)}
+        </Link>
+      </header>
+
+      <main className="px-5 pt-6 pb-8 flex flex-col gap-6">
+        <h2
+          className="text-3xl font-bold tracking-tight"
+          style={{ color: "#005685" }}
+        >
+          Ciao, {firstName}
+        </h2>
+
+        {/* Card 1 — Daily summary */}
+        <section
+          className="rounded-[32px] p-6"
+          style={{
+            backgroundColor: "#ffffff",
+            boxShadow: "0 8px 30px rgba(0, 86, 133, 0.06)",
+          }}
+        >
+          <p
+            className="text-sm font-medium capitalize"
+            style={{ color: "#717880" }}
+          >
+            Oggi, {todayLabel}
+          </p>
+          <p
+            className="mt-2 text-5xl font-bold tabular-nums"
+            style={{ color: "#005685" }}
+          >
+            {sessionsToday}{" "}
+            <span className="text-2xl font-semibold" style={{ color: "#005685" }}>
+              {sessionsToday === 1 ? "Sessione" : "Sessioni"}
+            </span>
+          </p>
+        </section>
+
+        {/* Card 2 — Next client */}
+        <section
+          className="rounded-[32px] p-6 flex flex-col gap-5"
+          style={{
+            backgroundColor: "#ffffff",
+            boxShadow: "0 8px 30px rgba(0, 86, 133, 0.06)",
+          }}
+        >
+          <div>
+            <p
+              className="text-xs uppercase tracking-wider font-semibold mb-2"
+              style={{ color: "#717880" }}
+            >
+              Prossimo Cliente
+            </p>
+            {nextBooking ? (
+              <p className="text-lg font-semibold leading-tight" style={{ color: "#005685" }}>
+                {nextBooking.time} · {nextBooking.typeLabel} con {nextBooking.clientName}
+              </p>
+            ) : (
+              <p className="text-base" style={{ color: "#717880" }}>
+                Nessuna sessione in programma.
+              </p>
+            )}
+          </div>
+          {nextBooking && (
+            <Link
+              to="/trainer/clients/$id"
+              params={{ id: nextBooking.clientId }}
+              className="inline-flex items-center justify-center self-start rounded-full px-6 py-3 text-sm font-semibold transition-opacity active:opacity-80"
+              style={{ backgroundColor: "#005685", color: "#ffffff" }}
+            >
+              Apri Scheda
+            </Link>
+          )}
+        </section>
+      </main>
+    </div>
+  );
+}
