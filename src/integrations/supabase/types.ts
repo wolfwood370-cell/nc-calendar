@@ -100,7 +100,6 @@ export type Database = {
           created_at: string
           deleted_at: string | null
           duration_min: number
-          end_at: string | null
           event_type_id: string | null
           google_event_id: string | null
           id: string
