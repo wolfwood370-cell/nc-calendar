@@ -884,16 +884,21 @@ function CalendarPage() {
       const title =
         (b.notes ?? "").replace(/^Importato da Google Calendar:\s*/i, "") || "Evento esterno";
       return (
-        <div
+        <button
           key={b.id}
+          onClick={() => {
+            setAssignTarget(b);
+            setAssignClientId("");
+          }}
           style={laneStyle}
-          className="absolute z-10 bg-surface-container-low border border-outline-variant/40 rounded-2xl p-2 cursor-default hover:bg-surface-container transition-colors"
+          className="absolute z-10 bg-surface-container-low border border-outline-variant/40 rounded-2xl p-2 text-left hover:bg-surface-container transition-colors cursor-pointer"
+          aria-label={`Evento esterno: ${title} — assegna o segna come impegno personale`}
         >
           <h4 className="text-[12px] leading-tight font-medium text-on-surface-variant truncate">
             {title}
           </h4>
           <p className="text-[10px] text-outline mt-0.5">{timeLabel}</p>
-        </div>
+        </button>
       );
     }
 
