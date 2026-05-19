@@ -111,22 +111,72 @@ export function useCoachClients(coachId?: string) {
   });
 }
 
+// Defensive: the Personal Blocks feature added an `is_personal` column to
+// public.bookings. When the frontend deploys ahead of the migration (which
+// happens with Lovable's pipeline where SQL migrations are applied
+// separately from the JS build), Postgres returns 42703 / "column ...
+// does not exist" and the entire bookings query fails — leaving the
+// calendar with the "Errore nel caricamento del calendario." banner.
+// This helper tries the full SELECT first and retries without the new
+// column on that specific error, treating any returned rows as
+// is_personal=false until the migration lands.
+const BOOKINGS_BASE_COLS =
+  "id, client_id, coach_id, block_id, session_type, scheduled_at, status, meeting_link, deleted_at, event_type_id, notes, trainer_notes, google_event_id, title, duration_min, buffer_min";
+const BOOKINGS_COLS_WITH_PERSONAL = `${BOOKINGS_BASE_COLS}, is_personal`;
+
+function isMissingIsPersonalColumn(err: { code?: string; message?: string } | null): boolean {
+  if (!err) return false;
+  if (err.code === "42703") return true;
+  return typeof err.message === "string" && err.message.includes("is_personal");
+}
+
+async function selectBookingsByCoach(coachId: string): Promise<BookingRow[]> {
+  const { data, error } = await supabase
+    .from("bookings")
+    .select(BOOKINGS_COLS_WITH_PERSONAL)
+    .eq("coach_id", coachId)
+    .is("deleted_at", null)
+    .order("scheduled_at", { ascending: true });
+  if (error) {
+    if (!isMissingIsPersonalColumn(error)) throw error;
+    const fb = await supabase
+      .from("bookings")
+      .select(BOOKINGS_BASE_COLS)
+      .eq("coach_id", coachId)
+      .is("deleted_at", null)
+      .order("scheduled_at", { ascending: true });
+    if (fb.error) throw fb.error;
+    return (fb.data ?? []).map((b) => ({ ...(b as object), is_personal: false }) as BookingRow);
+  }
+  return (data ?? []) as BookingRow[];
+}
+
+async function selectBookingsByClient(clientId: string): Promise<BookingRow[]> {
+  const { data, error } = await supabase
+    .from("bookings")
+    .select(BOOKINGS_COLS_WITH_PERSONAL)
+    .eq("client_id", clientId)
+    .is("deleted_at", null)
+    .order("scheduled_at", { ascending: true });
+  if (error) {
+    if (!isMissingIsPersonalColumn(error)) throw error;
+    const fb = await supabase
+      .from("bookings")
+      .select(BOOKINGS_BASE_COLS)
+      .eq("client_id", clientId)
+      .is("deleted_at", null)
+      .order("scheduled_at", { ascending: true });
+    if (fb.error) throw fb.error;
+    return (fb.data ?? []).map((b) => ({ ...(b as object), is_personal: false }) as BookingRow);
+  }
+  return (data ?? []) as BookingRow[];
+}
+
 export function useCoachBookings(coachId?: string) {
   return useQuery({
     queryKey: ["bookings", "coach", coachId],
     enabled: !!coachId,
-    queryFn: async (): Promise<BookingRow[]> => {
-      const { data, error } = await supabase
-        .from("bookings")
-        .select(
-          "id, client_id, coach_id, block_id, session_type, scheduled_at, status, meeting_link, deleted_at, event_type_id, notes, trainer_notes, google_event_id, title, duration_min, buffer_min, is_personal",
-        )
-        .eq("coach_id", coachId!)
-        .is("deleted_at", null)
-        .order("scheduled_at", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as BookingRow[];
-    },
+    queryFn: () => selectBookingsByCoach(coachId!),
   });
 }
 
@@ -134,18 +184,7 @@ export function useClientBookings(clientId?: string) {
   return useQuery({
     queryKey: ["bookings", "client", clientId],
     enabled: !!clientId,
-    queryFn: async (): Promise<BookingRow[]> => {
-      const { data, error } = await supabase
-        .from("bookings")
-        .select(
-          "id, client_id, coach_id, block_id, session_type, scheduled_at, status, meeting_link, deleted_at, event_type_id, notes, trainer_notes, google_event_id, title, duration_min, buffer_min, is_personal",
-        )
-        .eq("client_id", clientId!)
-        .is("deleted_at", null)
-        .order("scheduled_at", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as BookingRow[];
-    },
+    queryFn: () => selectBookingsByClient(clientId!),
   });
 }
 
