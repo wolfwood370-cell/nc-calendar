@@ -51,29 +51,35 @@ Deno.serve(async (req) => {
       }
     }
 
-    let amount_cents = 0;
-    let quantity = 1;
-    let event_type_title = "";
+    // M7 (FULL_APP_AUDIT.md): pricing lives in the booster_packs table now.
+    // The request can carry an optional `currency` parameter so a future
+    // non-EUR market is a data change rather than a code change. Default
+    // stays "eur" so existing clients work unchanged.
+    const requestedCurrency: string =
+      typeof body.currency === "string" && body.currency.length > 0
+        ? body.currency.toLowerCase()
+        : "eur";
 
-    switch (package_type) {
-      case "single":
-        amount_cents = 4000;
-        quantity = 1;
-        event_type_title = "PT";
-        break;
-      case "pack":
-        amount_cents = 9900;
-        quantity = 3;
-        event_type_title = "PT";
-        break;
-      case "triage":
-        amount_cents = 7500;
-        quantity = 1;
-        event_type_title = "Triage";
-        break;
-      default:
-        return jsonResponse({ error: "Pacchetto non valido." }, 400);
+    const { data: pack, error: packErr } = await admin
+      .from("booster_packs")
+      .select("amount_cents, currency, quantity, event_type_title")
+      .eq("package_type", package_type)
+      .eq("currency", requestedCurrency)
+      .eq("active", true)
+      .maybeSingle();
+
+    if (packErr) {
+      console.error("booster-checkout: booster_packs lookup failed", packErr);
+      return jsonResponse({ error: "Errore lettura pacchetto." }, 500);
     }
+    if (!pack) {
+      return jsonResponse({ error: "Pacchetto non valido." }, 400);
+    }
+
+    const amount_cents = pack.amount_cents as number;
+    const quantity = pack.quantity as number;
+    const event_type_title = pack.event_type_title as string;
+    const currency = pack.currency as string;
 
     // Fetch active block_allocation valid_until via inner join
     const { data: allocation, error: allocError } = await admin
@@ -135,7 +141,7 @@ Deno.serve(async (req) => {
       line_items: [
         {
           price_data: {
-            currency: "eur",
+            currency,
             product_data: {
               name: `Booster: ${package_type === "pack" ? "Pack 3 Sessioni" : package_type === "single" ? "Singola Sessione" : "Triage"}`,
             },

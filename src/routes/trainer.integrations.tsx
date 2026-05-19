@@ -47,6 +47,11 @@ function IntegrationsPage() {
   const [isCalendarSyncEnabled, setIsCalendarSyncEnabled] = useState(true);
   const [isCalendarLoading, setIsCalendarLoading] = useState(false);
   const [connectedEmail, setConnectedEmail] = useState<string | null>(null);
+  // L5 (FULL_APP_AUDIT.md): expose Google Calendar token expiry so coaches
+  // can spot tokens that need re-consent before the next sync silently
+  // fails. The column is populated by persistProviderTokens below and
+  // refreshed server-side by sync-calendar on each successful refresh.
+  const [tokenExpiresAt, setTokenExpiresAt] = useState<Date | null>(null);
   const [isStripeLoading, setIsStripeLoading] = useState(false);
   const [calendarSheetOpen, setCalendarSheetOpen] = useState(false);
 
@@ -108,7 +113,7 @@ function IntegrationsPage() {
       // 2) Stato corrente in DB
       const { data: settings } = await supabase
         .from("integration_settings")
-        .select("gcal_enabled, gcal_account_email, gcal_refresh_token")
+        .select("gcal_enabled, gcal_account_email, gcal_refresh_token, gcal_token_expires_at")
         .eq("coach_id", user.id)
         .maybeSingle();
 
@@ -118,6 +123,9 @@ function IntegrationsPage() {
         if (cancelled) return;
         setIsCalendarConnected(true);
         setConnectedEmail(emailFromIdentity);
+        // persistProviderTokens just wrote `now() + 55min`; mirror it
+        // in state so the UI shows the fresh expiry immediately.
+        setTokenExpiresAt(new Date(Date.now() + 55 * 60 * 1000));
         return;
       }
 
@@ -125,6 +133,9 @@ function IntegrationsPage() {
       const connected = !!settings?.gcal_enabled;
       setIsCalendarConnected(connected);
       setConnectedEmail(settings?.gcal_account_email ?? emailFromIdentity ?? user.email ?? null);
+      setTokenExpiresAt(
+        settings?.gcal_token_expires_at ? new Date(settings.gcal_token_expires_at) : null,
+      );
     }
     check();
     return () => {
@@ -198,6 +209,7 @@ function IntegrationsPage() {
                   <Mail className="size-3" /> {connectedEmail}
                 </p>
               )}
+              <TokenExpiryBadge expiresAt={tokenExpiresAt} />
               <div className="flex items-center justify-between rounded-2xl bg-surface px-4 py-3">
                 <Label
                   htmlFor="cal-sync"
@@ -559,6 +571,34 @@ function IntegrationCard({
         <div className="space-y-3">{children}</div>
       )}
     </div>
+  );
+}
+
+// L5 (FULL_APP_AUDIT.md): small badge with the access-token expiry. Helps
+// coaches see at a glance whether the next sync is about to fail — the
+// access token rotates ~every hour, but if the refresh token was revoked
+// (account disconnected on Google's side) the access token expires and
+// sync-calendar auto-disables gcal_enabled. This badge surfaces the
+// last-known expiry so they can react before that happens.
+function TokenExpiryBadge({ expiresAt }: { expiresAt: Date | null }) {
+  if (!expiresAt) return null;
+  const now = Date.now();
+  const ms = expiresAt.getTime() - now;
+  const expired = ms <= 0;
+  const fmt = expiresAt.toLocaleString("it-IT", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const className = expired
+    ? "inline-flex items-center gap-1.5 rounded-full bg-amber-50 text-amber-700 px-2.5 py-1 text-[11px] font-medium"
+    : "inline-flex items-center gap-1.5 rounded-full bg-surface-container-low text-outline px-2.5 py-1 text-[11px] font-medium";
+  const label = expired ? `Token scaduto (${fmt}) — verrà rinnovato` : `Token valido fino a ${fmt}`;
+  return (
+    <span className={className}>
+      <Clock className="size-3" /> {label}
+    </span>
   );
 }
 

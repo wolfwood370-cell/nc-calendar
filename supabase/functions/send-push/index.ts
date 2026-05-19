@@ -73,7 +73,15 @@ Deno.serve(async (req) => {
           if (status === 404 || status === 410) {
             await auth.admin.from("push_subscriptions").delete().eq("id", row.id);
           }
-          console.error("push failed", row.id, status, e);
+          // L6 (FULL_APP_AUDIT.md): log only the message, not the full error
+          // object. The error from web-push can include the response body,
+          // which often echoes the push provider endpoint URL — a token-
+          // bearing string that should not land in long-lived function logs.
+          console.error("push failed", {
+            id: row.id,
+            status,
+            message: e instanceof Error ? e.message : String(e),
+          });
           return { id: row.id, ok: false, status };
         }
       }),
