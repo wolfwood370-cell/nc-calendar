@@ -333,8 +333,46 @@ function Overview() {
     month: "long",
   });
 
+  // Next client (next scheduled booking with a client)
+  const nextClient = useMemo(() => {
+    const now = Date.now();
+    return bookings
+      .filter((b) => b.client_id && b.status === "scheduled" && new Date(b.scheduled_at).getTime() > now)
+      .sort((a, b) => +new Date(a.scheduled_at) - +new Date(b.scheduled_at))[0];
+  }, [bookings]);
+
+  const todayLong = new Date().toLocaleDateString("it-IT", { day: "numeric", month: "long" });
+
   return (
-    <div className="bg-surface text-on-background -m-6 p-6 md:p-10 min-h-[calc(100vh-3.5rem)]">
+    <>
+      {/* MOBILE DASHBOARD — Aura Health design */}
+      <MobileTrainerDashboard
+        firstName={userName.split(" ")[0]}
+        todayLabel={todayLong}
+        sessionsToday={todayItems.length}
+        nextBooking={
+          nextClient
+            ? {
+                id: nextClient.id,
+                clientId: nextClient.client_id!,
+                clientName:
+                  clientById.get(nextClient.client_id!)?.full_name ??
+                  clientById.get(nextClient.client_id!)?.email ??
+                  "Cliente",
+                time: new Date(nextClient.scheduled_at).toLocaleTimeString("it-IT", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                }),
+                typeLabel:
+                  (nextClient.event_type_id ? eventTypeById.get(nextClient.event_type_id)?.name : null) ??
+                  sessionLabel(nextClient.session_type),
+              }
+            : null
+        }
+      />
+
+      {/* DESKTOP DASHBOARD — unchanged */}
+      <div className="hidden md:block bg-surface text-on-background -m-6 p-6 md:p-10 min-h-[calc(100vh-3.5rem)]">
       {/* Header */}
       <header className="mb-10">
         <h1 className="font-display text-4xl md:text-5xl font-bold text-on-background tracking-tight">
@@ -345,6 +383,8 @@ function Overview() {
           {todayItems.length === 1 ? "sessione programmata" : "sessioni programmate"}.
         </p>
       </header>
+
+
 
       {/* 2-column grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
