@@ -57,6 +57,25 @@ const END_HOUR = 22;
 const HOURS = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
 const DAY_LABELS = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
 
+// Heuristic detection for Google Calendar all-day events (birthdays,
+// anniversaries, holidays). sync-calendar normalizes Google's
+// `start.date` (date-only, no time) to `"<yyyy-MM-dd>T00:00:00Z"`, so
+// the `Z`-suffixed midnight pattern is the marker. A regular event
+// scheduled at midnight Italy time would be saved as
+// `"...T22:00:00+00:00"` after conversion, so the false-positive risk
+// is low for the Italy-based business timezone the app is built for.
+function isAllDayEvent(b: { scheduled_at: string }): boolean {
+  return /T00:00:00(?:\.000)?Z$/i.test(b.scheduled_at);
+}
+
+// 🎂 for birthday-like all-day events, 🎉 for everything else. Keeps
+// the strip glanceable at a tiny size where text alone gets noisy.
+function allDayIcon(b: { title: string | null; notes: string | null }): string {
+  const haystack = `${b.title ?? ""} ${b.notes ?? ""}`.toLowerCase();
+  if (/compleanno|birthday|anniversario|anniversary/.test(haystack)) return "🎂";
+  return "🎉";
+}
+
 // Resolve the most informative label for a personal block. Source order:
 //   1. b.title — populated by sync-calendar from Google Calendar event.summary
 //      for every imported event, so this is the original Google title
@@ -70,6 +89,47 @@ const DAY_LABELS = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
 // Anything that resolves to a non-empty trimmed string wins; the function
 // never returns "" or null, so callers can render it directly.
 const IMPORT_PREFIX = /^Importato da Google Calendar:\s*/i;
+
+// Shared label resolver for all-day cards: same precedence as
+// personalBlockTitle (Google title → notes → stripped notes), but the
+// generic fallback is more descriptive for the all-day strip context.
+function allDayLabel(b: { title: string | null; notes: string | null }): string {
+  const fromTitle = b.title?.trim();
+  if (fromTitle) return fromTitle;
+  const rawNotes = b.notes?.trim();
+  if (rawNotes) {
+    const stripped = rawNotes.replace(IMPORT_PREFIX, "").trim();
+    if (stripped) return stripped;
+    return rawNotes;
+  }
+  return "Evento giornaliero";
+}
+
+// Reusable pill for the desktop strip and the mobile pinned-top section.
+// `compact` collapses to a tighter footprint for the desktop weekly grid
+// where horizontal real estate per day is scarce.
+function AllDayPill({ booking, compact = false }: { booking: BookingRow; compact?: boolean }) {
+  const label = allDayLabel(booking);
+  const icon = allDayIcon(booking);
+  return (
+    <div
+      title={label}
+      // Aura tertiary-container token — readable contrast against the
+      // calendar's surface background, distinct from the muted neutrals
+      // used by personal blocks and the warning-container yellow used
+      // by unassigned events.
+      className={cn(
+        "rounded-full bg-tertiary-container text-on-tertiary-container flex items-center gap-1.5 truncate",
+        compact ? "px-2 py-0.5 text-[11px]" : "px-3 py-1 text-xs",
+      )}
+    >
+      <span aria-hidden="true" className="leading-none">
+        {icon}
+      </span>
+      <span className="truncate font-medium">{label}</span>
+    </div>
+  );
+}
 function personalBlockTitle(b: { title: string | null; notes: string | null }): string {
   const fromTitle = b.title?.trim();
   if (fromTitle) return fromTitle;
@@ -179,7 +239,11 @@ function layoutDay(
 
 interface MobileAgendaViewProps {
   weekDays: Date[];
-  bookingsByDay: BookingRow[][];
+  // Two buckets, mirroring the desktop split. The mobile agenda renders
+  // allDay events pinned at the top of the day's list (no time label,
+  // tertiary-container pills), then the timed events sorted by hour.
+  timedByDay: BookingRow[][];
+  allDayByDay: BookingRow[][];
   clientsMap: Map<string, ProfileRow>;
   eventTypesMap: Map<string, EventTypeRow>;
   today: Date;
@@ -189,7 +253,8 @@ interface MobileAgendaViewProps {
 
 function MobileAgendaView({
   weekDays,
-  bookingsByDay,
+  timedByDay,
+  allDayByDay,
   clientsMap,
   eventTypesMap,
   today,
@@ -211,12 +276,15 @@ function MobileAgendaView({
     lastTodayIdxRef.current = todayIdx;
   }, [todayIdx]);
 
-  const dayBookings = useMemo(() => {
-    const list = bookingsByDay[selectedDayIdx] ?? [];
+  const dayTimed = useMemo(() => {
+    const list = timedByDay[selectedDayIdx] ?? [];
     return [...list].sort(
       (a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime(),
     );
-  }, [bookingsByDay, selectedDayIdx]);
+  }, [timedByDay, selectedDayIdx]);
+
+  const dayAllDay = allDayByDay[selectedDayIdx] ?? [];
+  const isEmpty = dayTimed.length === 0 && dayAllDay.length === 0;
 
   return (
     <div className="md:hidden flex-1 flex flex-col gap-4">
@@ -257,15 +325,32 @@ function MobileAgendaView({
         </div>
       </div>
 
-      {/* Event list */}
-      {dayBookings.length === 0 ? (
+      {/* All-day pinned section — only renders when the selected day has
+          at least one all-day event. "Tutto il giorno" header replaces
+          the per-card time label so the strip reads as a calendar
+          banner rather than a clickable session card. */}
+      {dayAllDay.length > 0 && (
+        <section aria-label="Eventi giornalieri" className="flex flex-col gap-2">
+          <p className="text-label-sm uppercase tracking-wider text-outline px-1">
+            Tutto il giorno
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {dayAllDay.map((b) => (
+              <AllDayPill key={b.id} booking={b} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Timed event list */}
+      {isEmpty ? (
         <div className="rounded-[24px] border border-outline-variant/30 bg-white p-6 text-center text-sm text-outline shadow-soft-blue">
           <CalendarIcon className="size-8 mx-auto mb-2 text-outline-variant" />
           Nessun evento programmato per questo giorno.
         </div>
-      ) : (
+      ) : dayTimed.length === 0 ? null : (
         <ul className="flex flex-col gap-3" aria-label="Eventi del giorno">
-          {dayBookings.map((b) => (
+          {dayTimed.map((b) => (
             <li key={b.id}>
               <MobileEventCard
                 booking={b}
@@ -681,8 +766,14 @@ function CalendarPage() {
   // defined; the fallback to `weekStart` satisfies noUncheckedIndexedAccess.
   const weekEnd = weekDays[6] ?? weekStart;
 
-  const bookingsByDay = useMemo(() => {
-    const map: BookingRow[][] = Array.from({ length: 7 }, () => []);
+  // Per-day buckets, split into `timed` (rendered inside the hour grid /
+  // overlap lanes) and `allDay` (rendered above the grid in a dedicated
+  // strip). All-day events have scheduled_at at midnight UTC and would
+  // otherwise be filtered by the START_HOUR=7 guard in renderEvent — so
+  // they need their own pipeline to ever appear on the calendar.
+  const { timedByDay, allDayByDay } = useMemo(() => {
+    const timed: BookingRow[][] = Array.from({ length: 7 }, () => []);
+    const allDay: BookingRow[][] = Array.from({ length: 7 }, () => []);
     for (const b of bookings) {
       if (b.status === "cancelled") continue;
       // Personal blocks are their own category — never "unassigned" (no
@@ -695,29 +786,37 @@ function CalendarPage() {
       const d = new Date(b.scheduled_at);
       for (let i = 0; i < 7; i++) {
         const dayDate = weekDays[i];
-        const dayList = map[i];
-        if (dayDate && dayList && sameDay(d, dayDate)) {
-          dayList.push(b);
+        if (dayDate && sameDay(d, dayDate)) {
+          if (isAllDayEvent(b)) {
+            allDay[i]!.push(b);
+          } else {
+            timed[i]!.push(b);
+          }
           break;
         }
       }
     }
-    return map;
+    return { timedByDay: timed, allDayByDay: allDay };
   }, [bookings, weekDays, onlyToAssign, onlyPT]);
 
   const layoutByDay = useMemo(() => {
     // H3: per-booking snapshot wins so changing an event type's duration
-    // can't shift past sessions' overlap layout.
+    // can't shift past sessions' overlap layout. All-day events are
+    // excluded by the timed/allDay split above so they never enter
+    // the overlap-lane calculation (where a 24h span would force every
+    // sibling event into a one-pixel column).
     const durationOf = (b: BookingRow): number =>
       b.duration_min ??
       (b.event_type_id ? eventTypesMap.get(b.event_type_id)?.duration : undefined) ??
       60;
-    return bookingsByDay.map((day) => layoutDay(day, durationOf));
-  }, [bookingsByDay, eventTypesMap]);
+    return timedByDay.map((day) => layoutDay(day, durationOf));
+  }, [timedByDay, eventTypesMap]);
 
   const totalVisible = useMemo(
-    () => bookingsByDay.reduce((s, day) => s + day.length, 0),
-    [bookingsByDay],
+    () =>
+      timedByDay.reduce((s, day) => s + day.length, 0) +
+      allDayByDay.reduce((s, day) => s + day.length, 0),
+    [timedByDay, allDayByDay],
   );
   const filtersActive = onlyPT || onlyToAssign;
 
@@ -814,6 +913,11 @@ function CalendarPage() {
 
   // ----- Render helpers -----
   const renderEvent = (b: BookingRow, placement: EventPlacement | undefined) => {
+    // Safety net: timedByDay already excludes all-day events, but a
+    // pre-existing booking with a midnight scheduled_at that's also
+    // outside Google's start.date marker could slip in. Bail before
+    // the hour-grid math so it never renders at the top edge.
+    if (isAllDayEvent(b)) return null;
     const d = new Date(b.scheduled_at);
     const hour = d.getHours() + d.getMinutes() / 60;
     if (hour < START_HOUR || hour >= END_HOUR) return null;
@@ -1037,7 +1141,8 @@ function CalendarPage() {
         {/* Mobile agenda view (audit H5) — replaces the 7-column grid below md */}
         <MobileAgendaView
           weekDays={weekDays}
-          bookingsByDay={bookingsByDay}
+          timedByDay={timedByDay}
+          allDayByDay={allDayByDay}
           clientsMap={clientsMap}
           eventTypesMap={eventTypesMap}
           today={today}
@@ -1079,6 +1184,37 @@ function CalendarPage() {
             </div>
           </div>
 
+          {/* All-day strip — only renders when at least one day in the
+              week has all-day events. Sits between the day header and
+              the hour grid so Google birthdays/anniversaries are always
+              visible without competing for vertical space against timed
+              sessions in the lanes below. */}
+          {allDayByDay.some((d) => d.length > 0) && (
+            <div
+              className="flex border-b border-surface-container bg-surface/60"
+              aria-label="Eventi giornalieri"
+            >
+              <div className="w-16 shrink-0 border-r border-surface-container flex items-center justify-center">
+                <span className="text-[10px] uppercase tracking-wider text-outline">Tutto il dì</span>
+              </div>
+              <div className="flex-1 grid grid-cols-7">
+                {weekDays.map((_, i) => {
+                  const items = allDayByDay[i] ?? [];
+                  return (
+                    <div
+                      key={i}
+                      className="border-r border-surface-container last:border-r-0 px-1.5 py-1.5 flex flex-col gap-1 min-h-[36px]"
+                    >
+                      {items.map((b) => (
+                        <AllDayPill key={b.id} booking={b} compact />
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Time grid */}
           <div className="flex-1 overflow-y-auto">
             <div className="flex relative" style={{ minHeight: HOURS.length * HOUR_HEIGHT }}>
@@ -1112,7 +1248,7 @@ function CalendarPage() {
                           className="absolute left-0 right-0 border-b border-surface-container"
                         />
                       ))}
-                      {(bookingsByDay[i] ?? []).map((b) =>
+                      {(timedByDay[i] ?? []).map((b) =>
                         renderEvent(b, layoutByDay[i]?.get(b.id)),
                       )}
                     </div>
