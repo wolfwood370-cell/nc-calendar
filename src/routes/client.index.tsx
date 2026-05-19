@@ -191,7 +191,10 @@ function ClientHome() {
             <NextAppointmentCard
               bookingId={nextBooking.id}
               date={new Date(nextBooking.scheduled_at)}
-              durationMin={nextEventType?.duration ?? 60}
+              // H3: prefer the per-booking snapshot so a later coach
+              // edit to event_types.duration can't relabel an already-
+              // booked next session on the client dashboard.
+              durationMin={nextBooking.duration_min ?? nextEventType?.duration ?? 60}
               label={nextEventType?.name ?? sessionLabel(nextBooking.session_type)}
               color={nextEventType?.color ?? "#039BE5"}
             />

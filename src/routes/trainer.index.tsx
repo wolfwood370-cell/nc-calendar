@@ -508,7 +508,10 @@ function Overview() {
                   const label = et?.name ?? sessionLabel(b.session_type);
                   const Icon = iconForType(label);
                   const start = new Date(b.scheduled_at);
-                  const dur = et?.duration ?? 60;
+                  // H3: per-booking snapshot so changing the event type
+                  // duration today doesn't relabel sessions already on
+                  // the agenda.
+                  const dur = b.duration_min ?? et?.duration ?? 60;
                   const time = start.toLocaleTimeString("it-IT", {
                     hour: "2-digit",
                     minute: "2-digit",

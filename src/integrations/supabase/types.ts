@@ -94,10 +94,13 @@ export type Database = {
       bookings: {
         Row: {
           block_id: string | null
+          buffer_min: number
           client_id: string | null
           coach_id: string
           created_at: string
           deleted_at: string | null
+          duration_min: number
+          end_at: string | null
           event_type_id: string | null
           google_event_id: string | null
           id: string
@@ -114,10 +117,12 @@ export type Database = {
         }
         Insert: {
           block_id?: string | null
+          buffer_min?: number
           client_id?: string | null
           coach_id: string
           created_at?: string
           deleted_at?: string | null
+          duration_min?: number
           event_type_id?: string | null
           google_event_id?: string | null
           id?: string
@@ -134,10 +139,12 @@ export type Database = {
         }
         Update: {
           block_id?: string | null
+          buffer_min?: number
           client_id?: string | null
           coach_id?: string
           created_at?: string
           deleted_at?: string | null
+          duration_min?: number
           event_type_id?: string | null
           google_event_id?: string | null
           id?: string
@@ -635,6 +642,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cancel_booking: {
+        Args: { p_booking_id: string }
+        Returns: {
+          status: Database["public"]["Enums"]["booking_status"]
+          was_late: boolean
+        }[]
+      }
       get_coach_busy: {
         Args: { p_coach_id: string; p_from: string; p_to: string }
         Returns: {

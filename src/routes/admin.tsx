@@ -1,6 +1,6 @@
-import { createFileRoute, Navigate, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Navigate, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { useAuth, pathForRole } from "@/lib/auth";
+import { useAuth, pathForRole, type Role } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,32 @@ import { Loader2, Shield, Users, UserCog, LogOut, Dumbbell } from "lucide-react"
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin")({
+  // M2 (FULL_APP_AUDIT.md): server-side route guard. The previous
+  // role check happened in the React tree after useAuth resolved,
+  // letting non-admins briefly mount the admin page (queries fire,
+  // RLS blocks them but the flash of admin UI is confusing and a
+  // support-ticket vector). beforeLoad fires before the component
+  // mounts, so a wrong role redirects without ever instantiating
+  // AdminPage. The in-component check below survives as
+  // defense-in-depth for the brief window between AuthProvider's
+  // role state changing and the next route render.
+  beforeLoad: async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) {
+      throw redirect({ to: "/auth" });
+    }
+    const { data } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", session.user.id)
+      .maybeSingle();
+    const role = (data?.role as Role | undefined) ?? "client";
+    if (role !== "admin") {
+      throw redirect({ to: pathForRole(role) });
+    }
+  },
   component: AdminPage,
 });
 

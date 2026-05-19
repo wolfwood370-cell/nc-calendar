@@ -274,7 +274,9 @@ function MobileEventCard({
 }: MobileEventCardProps) {
   const d = new Date(b.scheduled_at);
   const et = b.event_type_id ? eventTypesMap.get(b.event_type_id) : undefined;
-  const duration = et?.duration ?? 60;
+  // H3: prefer the per-booking snapshot so edits to event_types.duration
+  // don't retroactively change historical sessions on the agenda.
+  const duration = b.duration_min ?? et?.duration ?? 60;
 
   const isUnassigned = !b.client_id;
   const isExternal = !!b.client_id && b.client_id === b.coach_id;
@@ -601,8 +603,12 @@ function CalendarPage() {
   }, [bookings, weekDays, onlyToAssign, onlyPT]);
 
   const layoutByDay = useMemo(() => {
+    // H3: per-booking snapshot wins so changing an event type's duration
+    // can't shift past sessions' overlap layout.
     const durationOf = (b: BookingRow): number =>
-      (b.event_type_id ? eventTypesMap.get(b.event_type_id)?.duration : undefined) ?? 60;
+      b.duration_min ??
+      (b.event_type_id ? eventTypesMap.get(b.event_type_id)?.duration : undefined) ??
+      60;
     return bookingsByDay.map((day) => layoutDay(day, durationOf));
   }, [bookingsByDay, eventTypesMap]);
 
@@ -710,7 +716,9 @@ function CalendarPage() {
     if (hour < START_HOUR || hour >= END_HOUR) return null;
 
     const et = b.event_type_id ? eventTypesMap.get(b.event_type_id) : undefined;
-    const duration = et?.duration ?? 60;
+    // H3: same snapshot-wins rule for the grid; otherwise the height of a
+    // past session would change when the coach edits the event type.
+    const duration = b.duration_min ?? et?.duration ?? 60;
     const top = (hour - START_HOUR) * HOUR_HEIGHT;
     const height = Math.max(28, (duration / 60) * HOUR_HEIGHT - 4);
 

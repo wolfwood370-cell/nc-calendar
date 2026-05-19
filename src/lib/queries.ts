@@ -19,6 +19,13 @@ export interface BookingRow {
   trainer_notes: string | null;
   google_event_id: string | null;
   title: string | null;
+  // H3 (FULL_APP_AUDIT.md): per-booking snapshot of the event type duration
+  // and buffer, populated by trg_set_booking_duration_defaults at INSERT
+  // time (migration 20260518120000). Renderers must prefer these over a
+  // live event_types lookup so historical sessions keep their original
+  // length even after the coach edits the parent event type.
+  duration_min: number;
+  buffer_min: number;
 }
 
 export interface AvailabilityExceptionRow {
@@ -104,7 +111,7 @@ export function useCoachBookings(coachId?: string) {
       const { data, error } = await supabase
         .from("bookings")
         .select(
-          "id, client_id, coach_id, block_id, session_type, scheduled_at, status, meeting_link, deleted_at, event_type_id, notes, trainer_notes, google_event_id, title",
+          "id, client_id, coach_id, block_id, session_type, scheduled_at, status, meeting_link, deleted_at, event_type_id, notes, trainer_notes, google_event_id, title, duration_min, buffer_min",
         )
         .eq("coach_id", coachId!)
         .is("deleted_at", null)
@@ -123,7 +130,7 @@ export function useClientBookings(clientId?: string) {
       const { data, error } = await supabase
         .from("bookings")
         .select(
-          "id, client_id, coach_id, block_id, session_type, scheduled_at, status, meeting_link, deleted_at, event_type_id, notes, trainer_notes, google_event_id, title",
+          "id, client_id, coach_id, block_id, session_type, scheduled_at, status, meeting_link, deleted_at, event_type_id, notes, trainer_notes, google_event_id, title, duration_min, buffer_min",
         )
         .eq("client_id", clientId!)
         .is("deleted_at", null)
@@ -296,68 +303,45 @@ function rollbackSnapshots(
   }
 }
 
+export interface CancelBookingResult {
+  coachId: string | null;
+  clientId: string | null;
+  wasLate: boolean;
+}
+
 export function useCancelBooking() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { id: string; late: boolean; allocationId?: string | null }) => {
-      const status: BookingStatus = input.late ? "late_cancelled" : "cancelled";
-
-      // Recupera info per Google Calendar sync + block_id per decidere il refund path
+    // M3 (FULL_APP_AUDIT.md): the late/free decision and the credit refund
+    // now happen inside the cancel_booking SECURITY DEFINER RPC, which
+    // compares scheduled_at to now() on the server clock. The frontend no
+    // longer chooses; it just calls and reads the result. Google Calendar
+    // sync stays here because it lives outside the DB transaction.
+    mutationFn: async (input: { id: string }): Promise<CancelBookingResult> => {
+      // Snapshot the minimal metadata needed for the post-cancel sync
+      // before the row is soft-deleted by the RPC.
       const { data: bk } = await supabase
         .from("bookings")
-        .select(
-          "id, coach_id, client_id, block_id, google_event_id, scheduled_at, session_type, event_type_id",
-        )
+        .select("id, coach_id, client_id, google_event_id, event_type_id")
         .eq("id", input.id)
         .maybeSingle();
 
-      const { error } = await supabase
-        .from("bookings")
-        .update({ status, deleted_at: new Date().toISOString() })
-        .eq("id", input.id);
+      const { data, error } = await supabase.rpc("cancel_booking", {
+        p_booking_id: input.id,
+      });
       if (error) throw error;
+      const result = (Array.isArray(data) ? data[0] : data) as
+        | { status: BookingStatus; was_late: boolean }
+        | null;
+      if (!result) throw new Error("Cancellazione non riuscita.");
+      const wasLate = result.was_late;
 
-      // se la cancellazione è in tempo, restituisci il credito
-      if (!input.late) {
-        if (input.allocationId) {
-          // Refund via block_allocations (client con blocco attivo)
-          const { data: alloc } = await supabase
-            .from("block_allocations")
-            .select("quantity_booked")
-            .eq("id", input.allocationId)
-            .maybeSingle();
-          if (alloc) {
-            await supabase
-              .from("block_allocations")
-              .update({ quantity_booked: Math.max(0, alloc.quantity_booked - 1) })
-              .eq("id", input.allocationId);
-          }
-        } else if (!bk?.block_id && bk?.client_id && bk?.event_type_id) {
-          // Refund via extra_credits (cliente indipendente / booster)
-          const { data: ecRows } = await supabase
-            .from("extra_credits")
-            .select("id, quantity_booked")
-            .eq("client_id", bk.client_id)
-            .eq("event_type_id", bk.event_type_id)
-            .gt("quantity_booked", 0)
-            .order("expires_at", { ascending: true })
-            .limit(1);
-          const ec = (ecRows ?? [])[0];
-          if (ec) {
-            await supabase
-              .from("extra_credits")
-              .update({ quantity_booked: Math.max(0, ec.quantity_booked - 1) })
-              .eq("id", ec.id);
-          }
-        }
-      }
-
-      // Sync Google Calendar: late => patch (mantieni evento grigio), free => delete
+      // Sync Google Calendar: late => patch (keep grey event), free => delete.
       if (bk?.google_event_id && bk.coach_id) {
         try {
           let clientName: string | undefined;
           let sessionLabel: string | undefined;
-          if (input.late) {
+          if (wasLate) {
             const [clientRes, etRes] = await Promise.all([
               bk.client_id
                 ? supabase.from("profiles").select("full_name").eq("id", bk.client_id).maybeSingle()
@@ -379,7 +363,7 @@ export function useCancelBooking() {
               action: "cancel",
               coach_id: bk.coach_id,
               google_event_id: bk.google_event_id,
-              late: input.late,
+              late: wasLate,
               client_name: clientName,
               session_label: sessionLabel,
             },
@@ -390,7 +374,11 @@ export function useCancelBooking() {
         }
       }
 
-      return { coachId: bk?.coach_id ?? null, clientId: bk?.client_id ?? null };
+      return {
+        coachId: bk?.coach_id ?? null,
+        clientId: bk?.client_id ?? null,
+        wasLate,
+      };
     },
     onMutate: (input) => optimisticBookingRemove(qc, input.id)(),
     onError: (_e, _vars, ctx) => rollbackSnapshots(qc, ctx?.snapshots),

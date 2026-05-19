@@ -45,6 +45,8 @@ interface BookingDetail {
   coach_id: string;
   block_id: string | null;
   event_type_id: string | null;
+  // H3: per-booking snapshot, see queries.ts BookingRow.
+  duration_min: number;
   event_type: {
     name: string;
     description: string | null;
@@ -103,7 +105,7 @@ function BookingDetailPage() {
       const { data: booking, error } = await supabase
         .from("bookings")
         .select(
-          "id, scheduled_at, status, session_type, trainer_notes, meeting_link, coach_id, event_type_id, block_id",
+          "id, scheduled_at, status, session_type, trainer_notes, meeting_link, coach_id, event_type_id, block_id, duration_min",
         )
         .eq("id", bookingId)
         .maybeSingle();
@@ -169,7 +171,10 @@ function BookingDetailView({ booking }: { booking: BookingDetail }) {
   const [confirmLateOpen, setConfirmLateOpen] = useState(false);
 
   const start = new Date(booking.scheduled_at);
-  const duration = booking.event_type?.duration ?? 60;
+  // H3: prefer the per-booking snapshot — the event_type join is the
+  // legacy fallback for very old bookings inserted before the duration
+  // denormalization trigger (migration 20260518120000) shipped.
+  const duration = booking.duration_min ?? booking.event_type?.duration ?? 60;
   const end = new Date(start.getTime() + duration * 60_000);
   const status = statusStyle(booking.status);
   const title = booking.event_type?.name ?? sessionLabel(booking.session_type);
@@ -183,40 +188,30 @@ function BookingDetailView({ booking }: { booking: BookingDetail }) {
     : null;
 
   const isFuture = start.getTime() > Date.now();
+  // within24h is now purely a UX hint — the server-side cancel_booking RPC
+  // is the authority on whether the cancellation counts as late (M3).
+  // Browser-local time can still drive which confirmation dialog to show;
+  // the actual outcome (refund vs no refund) comes from the RPC result.
   const hoursUntil = differenceInHours(start, new Date());
   const within24h = hoursUntil < 24;
   const canManage = booking.status === "scheduled" && isFuture;
 
-  // Look up an allocation to refund (only used for free cancel).
-  async function findAllocationForRefund(): Promise<string | null> {
-    if (!booking.block_id) return null;
-    const { data } = await supabase
-      .from("block_allocations")
-      .select("id, event_type_id, session_type, quantity_booked")
-      .eq("block_id", booking.block_id);
-    const list = (data ?? []) as Array<{
-      id: string;
-      event_type_id: string | null;
-      session_type: SessionType;
-      quantity_booked: number;
-    }>;
-    const match =
-      list.find(
-        (a) =>
-          booking.event_type_id &&
-          a.event_type_id === booking.event_type_id &&
-          a.quantity_booked > 0,
-      ) ?? list.find((a) => a.session_type === booking.session_type && a.quantity_booked > 0);
-    return match?.id ?? null;
+  function showCancelToast(wasLate: boolean) {
+    if (wasLate) {
+      toast.warning("Sessione annullata", {
+        description: "Credito perso (cancellazione tardiva).",
+      });
+    } else {
+      toast.success("Sessione annullata", { description: "Il credito è stato rimborsato." });
+    }
   }
 
-  async function handleFreeCancel() {
-    const allocationId = await findAllocationForRefund();
+  function handleFreeCancel() {
     cancelMut.mutate(
-      { id: booking.id, late: false, allocationId },
+      { id: booking.id },
       {
-        onSuccess: () => {
-          toast.success("Sessione annullata", { description: "Il credito è stato rimborsato." });
+        onSuccess: (result) => {
+          showCancelToast(result.wasLate);
           navigate({ to: "/client" });
         },
         onError: (e: unknown) => toast.error("Errore", { description: errorMessage(e) }),
@@ -226,12 +221,10 @@ function BookingDetailView({ booking }: { booking: BookingDetail }) {
 
   function handleLateCancel() {
     cancelMut.mutate(
-      { id: booking.id, late: true },
+      { id: booking.id },
       {
-        onSuccess: () => {
-          toast.warning("Sessione annullata", {
-            description: "Credito perso (cancellazione tardiva).",
-          });
+        onSuccess: (result) => {
+          showCancelToast(result.wasLate);
           navigate({ to: "/client" });
         },
         onError: (e: unknown) => toast.error("Errore", { description: errorMessage(e) }),
@@ -370,17 +363,25 @@ function BookingDetailView({ booking }: { booking: BookingDetail }) {
           <>
             <button
               type="button"
-              onClick={async () => {
-                // riprogramma = annulla con rimborso e vai a prenotazione
-                const allocationId = await findAllocationForRefund();
+              onClick={() => {
+                // riprogramma = annulla con rimborso e vai a prenotazione.
+                // The RPC computes late vs free on the server; we only show
+                // the success path if it confirms the refund happened.
                 cancelMut.mutate(
-                  { id: booking.id, late: false, allocationId },
+                  { id: booking.id },
                   {
-                    onSuccess: () => {
-                      toast.success("Credito rimborsato", {
-                        description: "Scegli un nuovo orario.",
-                      });
-                      navigate({ to: "/client/book" });
+                    onSuccess: (result) => {
+                      if (result.wasLate) {
+                        // Server clock saw < 24h. No refund happened, so
+                        // route them back to /client instead of to booking.
+                        showCancelToast(true);
+                        navigate({ to: "/client" });
+                      } else {
+                        toast.success("Credito rimborsato", {
+                          description: "Scegli un nuovo orario.",
+                        });
+                        navigate({ to: "/client/book" });
+                      }
                     },
                     onError: (e: unknown) =>
                       toast.error("Errore", { description: errorMessage(e) }),

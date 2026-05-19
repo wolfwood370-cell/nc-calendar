@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useParams } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -111,6 +111,8 @@ interface ClientBooking {
   session_type: SessionType;
   google_event_id: string | null;
   created_at: string;
+  // H3: per-booking duration snapshot, see queries.ts BookingRow.
+  duration_min: number;
 }
 
 function toIso(d: Date) {
@@ -131,6 +133,7 @@ function isMonday(d: Date) {
 function ClientPathPage() {
   const { id: clientId } = useParams({ from: "/trainer/clients/$id" });
   const { user } = useAuth();
+  const navigate = useNavigate();
   const qc = useQueryClient();
   const eventTypesQ = useCoachEventTypes(user?.id);
   const eventTypes = eventTypesQ.data ?? [];
@@ -170,13 +173,26 @@ function ClientPathPage() {
       .select("id, full_name, email, path_start_date")
       .eq("id", clientId)
       .maybeSingle();
-    const fn = profile?.full_name ?? profile?.email ?? "Cliente";
+
+    // M1 (FULL_APP_AUDIT.md): the query above has no explicit coach_id
+    // filter — RLS ("Coach read own clients") silently returns null for any
+    // client that doesn't belong to the current coach. Without this guard
+    // the page used to render with the literal "Cliente" placeholder and
+    // empty block/booking tables, masking the bad URL as a broken page
+    // instead of bouncing back to the client list.
+    if (!profile) {
+      toast.error("Cliente non trovato o non autorizzato.");
+      navigate({ to: "/trainer/clients" });
+      return;
+    }
+
+    const fn = profile.full_name ?? profile.email ?? "Cliente";
     setClientName(fn);
-    const parts = (profile?.full_name ?? "").trim().split(/\s+/);
+    const parts = (profile.full_name ?? "").trim().split(/\s+/);
     setFirstName(parts[0] ?? "");
     setLastName(parts.slice(1).join(" "));
     setPathStart(
-      profile?.path_start_date ? parseISO(profile.path_start_date as string) : undefined,
+      profile.path_start_date ? parseISO(profile.path_start_date as string) : undefined,
     );
 
     const { data: bls } = await supabase
@@ -263,7 +279,7 @@ function ClientPathPage() {
     const { data: cbs } = await supabase
       .from("bookings")
       .select(
-        "id, scheduled_at, title, status, block_id, event_type_id, session_type, google_event_id, created_at",
+        "id, scheduled_at, title, status, block_id, event_type_id, session_type, google_event_id, created_at, duration_min",
       )
       .eq("client_id", clientId)
       .is("deleted_at", null)
@@ -1044,7 +1060,11 @@ function ClientPathPage() {
                                   bk.status === "late_cancelled" ||
                                   bk.status === "no_show";
                                 const isCompleted = bk.status === "completed";
-                                const durationMin = et?.duration ?? 60;
+                                // H3: per-booking snapshot first; the
+                                // event_types lookup is a legacy fallback
+                                // for rows inserted before the trigger
+                                // (migration 20260518120000) shipped.
+                                const durationMin = bk.duration_min ?? et?.duration ?? 60;
                                 const end = addDays(at, 0);
                                 end.setMinutes(end.getMinutes() + durationMin);
                                 const dayLabel = format(at, "EEE d MMM", { locale: it }).replace(
