@@ -57,6 +57,31 @@ const END_HOUR = 22;
 const HOURS = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
 const DAY_LABELS = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
 
+// Resolve the most informative label for a personal block. Source order:
+//   1. b.title — populated by sync-calendar from Google Calendar event.summary
+//      for every imported event, so this is the original Google title
+//      ("Dentista") when the personal block was converted from a Google event.
+//   2. The raw notes — covers legacy/manual bookings where title may be empty.
+//   3. The notes stripped of the "Importato da Google Calendar:" prefix —
+//      keeps the human-readable title even if the import prefix is all that
+//      survived.
+//   4. Generic "Impegno personale" fallback for the (rare) case where no
+//      source carried a meaningful label.
+// Anything that resolves to a non-empty trimmed string wins; the function
+// never returns "" or null, so callers can render it directly.
+const IMPORT_PREFIX = /^Importato da Google Calendar:\s*/i;
+function personalBlockTitle(b: { title: string | null; notes: string | null }): string {
+  const fromTitle = b.title?.trim();
+  if (fromTitle) return fromTitle;
+  const rawNotes = b.notes?.trim();
+  if (rawNotes) {
+    const stripped = rawNotes.replace(IMPORT_PREFIX, "").trim();
+    if (stripped) return stripped;
+    return rawNotes;
+  }
+  return "Impegno personale";
+}
+
 function startOfWeek(d: Date): Date {
   const x = new Date(d);
   x.setHours(0, 0, 0, 0);
@@ -305,16 +330,14 @@ function MobileEventCard({
     }
   };
 
-  const personalLabel =
-    (b.title?.trim() || b.notes?.replace(/^Importato da Google Calendar:\s*/i, "").trim()) ||
-    "Impegno personale";
+  const personalLabel = personalBlockTitle(b);
 
   const title = isPersonal
     ? personalLabel
     : isUnassigned
       ? "Da assegnare"
       : isExternal
-        ? (b.notes ?? "").replace(/^Importato da Google Calendar:\s*/i, "") || "Evento esterno"
+        ? (b.notes ?? "").replace(IMPORT_PREFIX, "") || "Evento esterno"
         : (client?.full_name ?? "Cliente");
   const subtitle = isExternal || isPersonal ? null : typeLabel;
 
@@ -347,14 +370,7 @@ function MobileEventCard({
       </div>
       <div className="w-px bg-outline-variant/30 self-stretch" aria-hidden="true" />
       <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
-        <h3
-          className={cn(
-            "text-sm font-semibold line-clamp-2",
-            isPersonal ? "text-on-surface-variant" : "text-on-surface",
-          )}
-        >
-          {title}
-        </h3>
+        <h3 className="text-sm font-semibold line-clamp-2 text-on-surface">{title}</h3>
         {subtitle && <p className="text-xs text-outline truncate">{subtitle}</p>}
         <div className="flex flex-wrap gap-1.5 mt-1">
           {isPersonal && (
@@ -835,14 +851,10 @@ function CalendarPage() {
     const timeLabel = `${d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })} - ${new Date(d.getTime() + safeDuration * 60000).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}`;
 
     if (isPersonal) {
-      // Title precedence: explicit booking title → first line of notes
-      // (stripping the Google import prefix) → generic fallback. We
-      // never crash on missing data because every branch yields a
-      // string.
-      const title =
-        (b.title?.trim() ||
-          b.notes?.replace(/^Importato da Google Calendar:\s*/i, "").trim()) ||
-        "Impegno personale";
+      // personalBlockTitle (top of file) prefers the original Google event
+      // title (b.title), then falls back to notes — never produces an
+      // empty string, so the heading is always readable.
+      const title = personalBlockTitle(b);
       return (
         <div
           key={b.id}
@@ -853,7 +865,7 @@ function CalendarPage() {
           className="absolute z-10 bg-surface-container-high border border-outline-variant/40 rounded-2xl p-2 cursor-default"
           aria-label={`Impegno personale: ${title}`}
         >
-          <h4 className="text-[12px] leading-tight font-medium text-on-surface-variant truncate">
+          <h4 className="text-[12px] leading-tight font-semibold text-on-surface truncate">
             {title}
           </h4>
           <p className="text-[10px] text-outline mt-0.5">Personale · {timeLabel}</p>
@@ -882,7 +894,7 @@ function CalendarPage() {
 
     if (isExternal) {
       const title =
-        (b.notes ?? "").replace(/^Importato da Google Calendar:\s*/i, "") || "Evento esterno";
+        (b.notes ?? "").replace(IMPORT_PREFIX, "") || "Evento esterno";
       return (
         <div
           key={b.id}
