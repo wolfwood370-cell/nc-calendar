@@ -347,7 +347,7 @@ function Overview() {
     <>
       {/* MOBILE DASHBOARD — Aura Health design */}
       <MobileTrainerDashboard
-        firstName={userName.split(" ")[0]}
+        firstName={userName.split(" ")[0] ?? userName}
         todayLabel={todayLong}
         sessionsToday={todayItems.length}
         nextBooking={
