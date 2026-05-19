@@ -31,9 +31,25 @@ export function PwaRegister() {
 
     // Dynamic import: virtual module fornito da vite-plugin-pwa
     import(/* @vite-ignore */ "virtual:pwa-register" as string)
-      .then((mod: { registerSW: (opts?: { immediate?: boolean }) => void }) => {
-        mod.registerSW?.({ immediate: true });
-      })
+      .then(
+        (mod: {
+          registerSW: (opts?: { immediate?: boolean }) => Promise<ServiceWorkerRegistration | void>;
+        }) => {
+          // L7 (FULL_APP_AUDIT.md): surface SW registration failures via
+          // console.warn. Without this, iOS Safari rejections (e.g. SW
+          // registration outside HTTPS, standalone PWA on iOS < 16, or
+          // CSP-blocked SW scripts) failed silently and there was no
+          // signal in devtools that the PWA install path had broken.
+          // We still don't toast — most users don't need to see this —
+          // but it lands in error reporting like other console warnings.
+          const result = mod.registerSW?.({ immediate: true });
+          if (result && typeof result.catch === "function") {
+            result.catch((e: unknown) => {
+              console.warn("PWA SW registration failed", e);
+            });
+          }
+        },
+      )
       .catch(() => {
         /* plugin non disponibile in questo ambiente */
       });

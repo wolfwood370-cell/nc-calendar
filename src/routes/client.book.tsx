@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { sessionLabel, type SessionType } from "@/lib/mock-data";
@@ -268,6 +268,14 @@ function BookFlow() {
   const [selectedISO, setSelectedISO] = useState<string | null>(null);
   const [calendarMonth, setCalendarMonth] = useState<Date>(startOfMonth(new Date()));
   const [confirming, setConfirming] = useState(false);
+  // L2 (FULL_APP_AUDIT.md): synchronous lock. setConfirming(true) only
+  // disables the button after React's next render — a fast double-tap can
+  // fire two confirm() calls within the same event loop tick before the
+  // button updates. The H2 exclusion constraint catches the second INSERT
+  // (23P01), but the user sees a confusing "Slot già occupato" toast for
+  // a slot they just tried to book. The ref-based gate rejects the second
+  // call immediately, before any DB round-trip.
+  const confirmingRef = useRef(false);
 
   const block = (blocksQ.data ?? []).find((b) => b.status === "active");
   const coachIdForAvail = profileQ.data?.coach_id ?? null;
@@ -570,6 +578,10 @@ function BookFlow() {
   const emailNotificationsEnabled = profile?.email_notifications ?? true;
 
   const confirm = async () => {
+    // L2: synchronous double-tap guard, runs before React schedules the
+    // disabled-button re-render.
+    if (confirmingRef.current) return;
+
     if (!meId) {
       toast.error("Sessione non valida", {
         description: "Effettua di nuovo l'accesso e riprova.",
@@ -589,190 +601,159 @@ function BookFlow() {
       toast.error("Tipologia non disponibile.");
       return;
     }
+
+    confirmingRef.current = true;
     setConfirming(true);
     try {
-      // tracker locale per non sforare quando si prenotano più slot dello stesso tipo
-      const localUsed: Record<string, number> = {}; // alloc_id -> count
-      let bookedCount = 0;
-      let extraCreditCount = 0;
-      let lastCalendarUrl: string | null = null;
+      // L1 (FULL_APP_AUDIT.md): the previous body wrapped this single-slot
+      // flow in `for (const [iso, pick] of [[selectedISO, ...]])` as
+      // scaffolding for a future multi-slot booking UI. That UI never
+      // shipped, so the loop, the `localUsed` tracker and the singular/
+      // plural toast machinery were all dead code masking the real shape
+      // of the action. Unrolled to a straight-line single booking; the
+      // multi-slot version, when needed, can be a fresh implementation
+      // built around a real mutation rather than this hollow loop.
+      const iso = selectedISO;
+      const type: SessionType = pool.type;
+      const eventType = pool.eventTypeId
+        ? (customTypes.find((e) => e.id === pool.eventTypeId) ?? null)
+        : null;
+      const displayLabel = eventType?.name ?? sessionLabel(type);
 
-      const entries: [string, { type: SessionType; eventTypeId: string | null }][] = [
-        [selectedISO, { type: pool.type, eventTypeId: pool.eventTypeId }],
-      ];
-      for (const [iso, pick] of entries) {
-        const type = pick.type;
-        const eventType = pick.eventTypeId
-          ? customTypes.find((e) => e.id === pick.eventTypeId)
-          : null;
-        const displayLabel = eventType?.name ?? sessionLabel(type);
-
-        // Resolve credit source: 1) block allocation, 2) extra credit fallback.
-        let allocId: string | null = null;
-        let allocRemaining = 0;
-        let extraId: string | null = null;
-        let extraQtyBooked = 0;
-        if (pool.source === "block") {
-          const a = findAllocationForWeek(type, eventType?.id ?? null, iso);
-          if (a) {
-            allocId = a.id;
-            allocRemaining = a.remaining;
-          } else {
-            // block exhausted → try extra credit fallback
-            const ec = findExtraCredit(eventType?.id ?? null);
-            if (ec) {
-              extraId = ec.id;
-              extraQtyBooked = ec.quantity_booked;
-            }
-          }
+      // Resolve credit source: 1) block allocation, 2) extra credit fallback.
+      let allocId: string | null = null;
+      let extraId: string | null = null;
+      if (pool.source === "block") {
+        const a = findAllocationForWeek(type, eventType?.id ?? null, iso);
+        if (a) {
+          allocId = a.id;
         } else {
           const ec = findExtraCredit(eventType?.id ?? null);
-          if (ec) {
-            extraId = ec.id;
-            extraQtyBooked = ec.quantity_booked;
-          }
+          if (ec) extraId = ec.id;
         }
-
-        if (!allocId && !extraId) {
-          toast.error(`Credito esaurito per ${displayLabel}.`, {
-            description: "Acquista un Booster per continuare a prenotare.",
-            action: {
-              label: "Vai allo Store",
-              onClick: () => navigate({ to: "/client/store" }),
-            },
-          });
-          continue;
-        }
-
-        const trackerKey = allocId ?? `extra:${extraId}`;
-        const limit = allocId ? allocRemaining : 1;
-        const used = localUsed[trackerKey] ?? 0;
-        if (allocId && used >= limit) {
-          toast.error(`Credito esaurito per ${displayLabel} questa settimana.`);
-          continue;
-        }
-        const isOnline = eventType?.location_type === "online";
-        const meetingLink = isOnline ? generateMockMeetLink() : null;
-
-        // INSERT booking. Overlap and credit consumption are enforced
-        // server-side:
-        //   - bookings_no_overlap_per_coach (exclusion constraint, SQLSTATE 23P01)
-        //   - trg_booking_validate_block_allocation (P0001 on exhausted block)
-        //   - trg_booking_validate_extra_credits   (P0001 on exhausted credit)
-        // The previous client-side SELECT-then-INSERT conflict check has been
-        // removed because it has a wide race window between SELECT and INSERT.
-        const { error: bErr } = await supabase.from("bookings").insert({
-          client_id: meId,
-          coach_id: coachId,
-          block_id: allocId ? (block?.id ?? null) : null,
-          session_type: type,
-          event_type_id: eventType?.id ?? null,
-          scheduled_at: iso,
-          status: "scheduled",
-          meeting_link: meetingLink,
-        });
-        if (bErr) {
-          if (bErr.code === "23P01") {
-            toast.error("Slot già occupato", {
-              description:
-                "Un altro utente ha appena prenotato questo orario. Ricarica la pagina e scegli un altro slot.",
-            });
-          } else if (bErr.code === "P0001") {
-            toast.error("Prenotazione non possibile", { description: bErr.message });
-          } else {
-            toast.error("Errore prenotazione", { description: bErr.message });
-          }
-          continue;
-        }
-
-        // Credit deduction is handled atomically by the DB triggers above.
-        // Track extra-credit count locally only for the success toast copy.
-        if (extraId) {
-          extraCreditCount += 1;
-        }
-        localUsed[trackerKey] = used + 1;
-        bookedCount += 1;
-        lastCalendarUrl = generateGoogleCalendarLink(
-          { scheduled_at: iso },
-          eventType
-            ? {
-                name: eventType.name,
-                duration: eventType.duration,
-                location_type: eventType.location_type,
-                location_address: eventType.location_address,
-              }
-            : { name: displayLabel },
-          meName,
-        );
-
-        // notifications (fire and forget)
-        syncCalendar({
-          action: "create",
-          coachId,
-          clientName: meName,
-          sessionLabel: displayLabel,
-          startISO: iso,
-          meetingLink,
-          color: eventType?.color ?? null,
-        });
-        void Promise.all([
-          emailNotificationsEnabled
-            ? sendBookingConfirmationEmail({
-                to: meEmail,
-                recipientName: meName,
-                sessionLabel: displayLabel,
-                scheduledAt: new Date(iso),
-                coachName,
-                clientName: meName,
-              }).catch((e) => console.error("email failed", e))
-            : Promise.resolve(),
-          supabase.functions
-            .invoke("booking-notifications", {
-              body: {
-                coach_id: coachId,
-                client_name: meName,
-                client_phone: mePhone,
-                scheduled_at: iso,
-                session_label: displayLabel,
-                meeting_link: meetingLink,
-              },
-            })
-            .catch((e) => console.error("booking-notifications failed", e)),
-        ]);
-        sendPush({
-          profileId: meId,
-          title: "Prenotazione confermata",
-          body: `${displayLabel} — ${new Date(iso).toLocaleString("it-IT", { dateStyle: "medium", timeStyle: "short" })}`,
-          url: "/client",
-        });
-      }
-
-      if (bookedCount === 0) {
-        toast.warning("Nessuna sessione prenotata", {
-          description: "Verifica i crediti residui o la disponibilità.",
-        });
       } else {
-        toast.success(
-          `${bookedCount} ${bookedCount === 1 ? "sessione prenotata" : "sessioni prenotate"}`,
-          {
-            description:
-              extraCreditCount > 0
-                ? `${extraCreditCount === bookedCount ? "Scalata" : `${extraCreditCount}`} da crediti omaggio/extra. ${emailNotificationsEnabled ? "Email di conferma inviata." : ""}`.trim()
-                : emailNotificationsEnabled
-                  ? "Email di conferma inviata. I link videochiamata sono generati automaticamente per le sessioni online."
-                  : "I link videochiamata sono generati automaticamente per le sessioni online.",
-            action: lastCalendarUrl
-              ? {
-                  label: "Aggiungi al Calendario",
-                  onClick: () => window.open(lastCalendarUrl!, "_blank", "noopener,noreferrer"),
-                }
-              : undefined,
-          },
-        );
-        invalidateBookingScope(qc, { coachId, clientId: meId });
-        navigate({ to: "/client" });
+        const ec = findExtraCredit(eventType?.id ?? null);
+        if (ec) extraId = ec.id;
       }
+
+      if (!allocId && !extraId) {
+        toast.error(`Credito esaurito per ${displayLabel}.`, {
+          description: "Acquista un Booster per continuare a prenotare.",
+          action: {
+            label: "Vai allo Store",
+            onClick: () => navigate({ to: "/client/store" }),
+          },
+        });
+        return;
+      }
+
+      const isOnline = eventType?.location_type === "online";
+      const meetingLink = isOnline ? generateMockMeetLink() : null;
+
+      // INSERT booking. Overlap and credit consumption are enforced
+      // server-side:
+      //   - bookings_no_overlap_per_coach (exclusion constraint, SQLSTATE 23P01)
+      //   - trg_booking_validate_block_allocation (P0001 on exhausted block)
+      //   - trg_booking_validate_extra_credits   (P0001 on exhausted credit)
+      // The previous client-side SELECT-then-INSERT conflict check was removed
+      // because it has a wide race window between SELECT and INSERT.
+      const { error: bErr } = await supabase.from("bookings").insert({
+        client_id: meId,
+        coach_id: coachId,
+        block_id: allocId ? (block?.id ?? null) : null,
+        session_type: type,
+        event_type_id: eventType?.id ?? null,
+        scheduled_at: iso,
+        status: "scheduled",
+        meeting_link: meetingLink,
+      });
+      if (bErr) {
+        if (bErr.code === "23P01") {
+          toast.error("Slot già occupato", {
+            description:
+              "Un altro utente ha appena prenotato questo orario. Ricarica la pagina e scegli un altro slot.",
+          });
+        } else if (bErr.code === "P0001") {
+          toast.error("Prenotazione non possibile", { description: bErr.message });
+        } else {
+          toast.error("Errore prenotazione", { description: bErr.message });
+        }
+        return;
+      }
+
+      // Credit deduction is handled atomically by the DB triggers above.
+      const calendarUrl = generateGoogleCalendarLink(
+        { scheduled_at: iso },
+        eventType
+          ? {
+              name: eventType.name,
+              duration: eventType.duration,
+              location_type: eventType.location_type,
+              location_address: eventType.location_address,
+            }
+          : { name: displayLabel },
+        meName,
+      );
+
+      // notifications (fire and forget)
+      syncCalendar({
+        action: "create",
+        coachId,
+        clientName: meName,
+        sessionLabel: displayLabel,
+        startISO: iso,
+        meetingLink,
+        color: eventType?.color ?? null,
+      });
+      void Promise.all([
+        emailNotificationsEnabled
+          ? sendBookingConfirmationEmail({
+              to: meEmail,
+              recipientName: meName,
+              sessionLabel: displayLabel,
+              scheduledAt: new Date(iso),
+              coachName,
+              clientName: meName,
+            }).catch((e) => console.error("email failed", e))
+          : Promise.resolve(),
+        supabase.functions
+          .invoke("booking-notifications", {
+            body: {
+              coach_id: coachId,
+              client_name: meName,
+              client_phone: mePhone,
+              scheduled_at: iso,
+              session_label: displayLabel,
+              meeting_link: meetingLink,
+            },
+          })
+          .catch((e) => console.error("booking-notifications failed", e)),
+      ]);
+      sendPush({
+        profileId: meId,
+        title: "Prenotazione confermata",
+        body: `${displayLabel} — ${new Date(iso).toLocaleString("it-IT", { dateStyle: "medium", timeStyle: "short" })}`,
+        url: "/client",
+      });
+
+      const usedExtra = !!extraId;
+      toast.success("Sessione prenotata", {
+        description: usedExtra
+          ? `Scalata da credito omaggio/extra.${emailNotificationsEnabled ? " Email di conferma inviata." : ""}`
+          : emailNotificationsEnabled
+            ? "Email di conferma inviata. I link videochiamata sono generati automaticamente per le sessioni online."
+            : "I link videochiamata sono generati automaticamente per le sessioni online.",
+        action: calendarUrl
+          ? {
+              label: "Aggiungi al Calendario",
+              onClick: () => window.open(calendarUrl, "_blank", "noopener,noreferrer"),
+            }
+          : undefined,
+      });
+      invalidateBookingScope(qc, { coachId, clientId: meId });
+      navigate({ to: "/client" });
     } finally {
+      confirmingRef.current = false;
       setConfirming(false);
     }
   };

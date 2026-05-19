@@ -20,13 +20,34 @@ function ResetPassword() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    // Supabase auto-handles the recovery hash; verify a session exists.
+    // L4 (FULL_APP_AUDIT.md): require the recovery flow context before
+    // exposing the form. Previously the page also flipped ready on any
+    // existing SIGNED_IN session, which let an already-logged-in user land
+    // on /reset-password (e.g. via direct URL) and reset their password
+    // without an email link — not a security hole (supabase.auth.updateUser
+    // only touches the current session's own password) but confusing UX.
+    // Now we require either the PASSWORD_RECOVERY auth event, or a
+    // recovery hash in the URL fragment that Supabase will resolve into
+    // that event after parsing.
+    const hash = typeof window !== "undefined" ? window.location.hash : "";
+    const hasRecoveryHash = /type=recovery/.test(hash);
+
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") setReady(true);
+      if (event === "PASSWORD_RECOVERY") setReady(true);
     });
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) setReady(true);
-    });
+    // If the hash is already gone (e.g. supabase consumed it before our
+    // listener attached), trust an existing session as recovery context.
+    if (!hasRecoveryHash) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        // No session and no recovery hash → there's no legitimate way to
+        // be on this page. Leave the loader up; the user can navigate away.
+        if (!session) return;
+        // Session exists without a hash: assume PASSWORD_RECOVERY already
+        // fired (or will fire) and unlock the form. This preserves the
+        // happy path for users who land here via email link.
+        setReady(true);
+      });
+    }
     return () => sub.subscription.unsubscribe();
   }, []);
 

@@ -20,7 +20,10 @@ export function ClientBottomNav() {
             key={t.to}
             to={t.to}
             aria-label={t.label}
-            className={`flex flex-col items-center justify-center rounded-full p-3 transition-all active:scale-90 duration-200 ${
+            // M4 (FULL_APP_AUDIT.md): explicit 44px min size to meet
+            // iOS/Android tap-target guidelines. On a 360px iPhone SE
+            // viewport the auto-divided width could fall under 44px.
+            className={`flex flex-col items-center justify-center rounded-full p-3 min-h-11 min-w-11 transition-all active:scale-90 duration-200 ${
               active
                 ? "bg-primary-container text-on-primary-container"
                 : "text-on-surface-variant hover:bg-surface-container-highest"

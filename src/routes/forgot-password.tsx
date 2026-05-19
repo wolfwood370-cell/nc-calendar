@@ -24,12 +24,19 @@ function ForgotPassword() {
       redirectTo: `${window.location.origin}/reset-password`,
     });
     setBusy(false);
+    // L3 (FULL_APP_AUDIT.md): always present the same UX regardless of the
+    // outcome. Supabase already masks user existence on success, but
+    // surfacing the error.message let an attacker distinguish "I'm rate
+    // limited because I probed this account recently" from a fresh request.
+    // Log the actual error to console for debugging, but show the user the
+    // generic success path either way.
     if (error) {
-      toast.error("Invio non riuscito", { description: error.message });
-      return;
+      console.warn("resetPasswordForEmail failed:", error.message);
     }
     setSent(true);
-    toast.success("Email inviata", { description: "Controlla la tua casella di posta." });
+    toast.success("Email inviata", {
+      description: "Se l'indirizzo è registrato riceverai un link a breve.",
+    });
   };
 
   return (
