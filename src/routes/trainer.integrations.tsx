@@ -1,7 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { syncCalendarAwait } from "@/lib/sync-calendar";
+import { queryKeys } from "@/lib/query-keys";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -349,39 +352,62 @@ function CalendarManageSheet({
   onDisconnect,
 }: CalendarManageSheetProps) {
   const [isSyncing, setIsSyncing] = useState(false);
+  const qc = useQueryClient();
 
   const handleSyncNow = async () => {
     if (!coachId) return;
     setIsSyncing(true);
     try {
-      const { data, error } = await supabase.functions.invoke("sync-calendar", {
-        body: { action: "mirror_check", coach_id: coachId },
+      // "Sincronizza ora" sweeps from 1 January of the current year to
+      // +2 years out. import_history is idempotent: events with a known
+      // google_event_id are detected as `existing` and only get their
+      // metadata refreshed — no duplicate row is created. Brand-new
+      // Google events become fresh bookings. Backdated events created
+      // earlier in the year (e.g. a BIA logged retroactively in April)
+      // get picked up on the very next click of this button.
+      const yearStart = new Date(new Date().getFullYear(), 0, 1).toISOString();
+      const twoYearsAhead = new Date();
+      twoYearsAhead.setFullYear(twoYearsAhead.getFullYear() + 2);
+
+      const { data, error } = await syncCalendarAwait({
+        action: "import_history",
+        coachId,
+        rangeStartISO: yearStart,
+        rangeEndISO: twoYearsAhead.toISOString(),
       });
       if (error) throw error;
       const result = data as {
         ok?: boolean;
         imported?: number;
-        cancelled?: number;
-        moved?: number;
-        remapped?: number;
+        updated?: number;
+        matched?: number;
+        creditsBooked?: number;
+        skipped?: boolean;
         error?: string;
       } | null;
       if (result?.error) {
         toast.error("Sincronizzazione non riuscita", { description: result.error });
+      } else if (result?.skipped) {
+        toast.info("Sincronizzazione saltata", {
+          description: "Connetti Google Calendar per sincronizzare.",
+        });
       } else {
         const parts: string[] = [];
-        if (result?.imported) parts.push(`${result.imported} importati`);
-        if (result?.cancelled) parts.push(`${result.cancelled} cancellati`);
-        if (result?.moved) parts.push(`${result.moved} spostati`);
-        if (result?.remapped) parts.push(`${result.remapped} riassegnati`);
+        if (result?.imported) parts.push(`${result.imported} nuovi`);
+        if (result?.updated) parts.push(`${result.updated} aggiornati`);
+        if (result?.creditsBooked) parts.push(`${result.creditsBooked} crediti scalati`);
         toast.success(
           parts.length > 0
             ? `Sincronizzazione completata: ${parts.join(", ")}.`
             : "Sincronizzazione completata. Nessun nuovo evento.",
         );
+        // Refresh the bookings caches so the calendar/dashboard pick up
+        // newly imported rows without a manual page reload.
+        qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(coachId) });
+        qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(coachId) });
       }
     } catch (err) {
-      console.error("sync-calendar mirror_check failed", err);
+      console.error("sync-calendar import_history failed", err);
       toast.error("Sincronizzazione non riuscita", {
         description: err instanceof Error ? err.message : "Errore sconosciuto",
       });
