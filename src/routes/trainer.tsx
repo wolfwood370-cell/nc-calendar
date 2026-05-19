@@ -2,7 +2,6 @@ import { createFileRoute, Outlet, Navigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { TrainerSidebar } from "@/components/trainer-sidebar";
-import { TrainerBottomNav } from "@/components/trainer-bottom-nav";
 import { useAuth, pathForRole } from "@/lib/auth";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -33,20 +32,17 @@ function TrainerLayout() {
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
-        <div className="hidden md:block">
-          <TrainerSidebar />
-        </div>
+        <TrainerSidebar />
         <SidebarInset>
-          <header className="hidden md:flex h-14 items-center gap-3 border-b border-white/20 px-4 sticky top-0 bg-white/40 backdrop-blur-2xl z-10">
+          <header className="h-14 flex items-center gap-3 border-b border-white/20 px-4 sticky top-0 bg-white/40 backdrop-blur-2xl z-10">
             <SidebarTrigger />
             <div className="h-5 w-px bg-border/40" />
             <p className="text-sm text-muted-foreground">Studio Trainer</p>
           </header>
-          <main className="p-0 md:p-6 pb-24 md:pb-6">
+          <main className="p-6">
             <Outlet />
           </main>
         </SidebarInset>
-        <TrainerBottomNav />
       </div>
     </SidebarProvider>
   );
