@@ -107,8 +107,22 @@ function buildBody(input: SyncInput): Record<string, unknown> {
 }
 
 /** Fire-and-forget: errori loggati e segnalati con toast non bloccante. */
+async function invokeWithAuth(input: SyncInput) {
+  // The edge function requires a Bearer token (verify_jwt=false but the
+  // handler itself calls requireAuth). supabase.functions.invoke should
+  // attach it automatically when a session exists, but on cold loads /
+  // token refreshes the header can be missing — leading to 401
+  // "Non autenticato". Read the session explicitly and attach it.
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  return supabase.functions.invoke("sync-calendar", {
+    body: buildBody(input),
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
+}
+
 export function syncCalendar(input: SyncInput, options: { silent?: boolean } = {}): void {
-  void supabase.functions.invoke("sync-calendar", { body: buildBody(input) }).catch((err) => {
+  void invokeWithAuth(input).catch((err) => {
     console.error("sync-calendar invoke failed", err);
     if (!options.silent) notifySyncFailure(input.action, err);
   });
@@ -116,7 +130,7 @@ export function syncCalendar(input: SyncInput, options: { silent?: boolean } = {
 
 /** Awaitable: utile per import storico e mirror check. */
 export async function syncCalendarAwait(input: SyncInput) {
-  return supabase.functions.invoke("sync-calendar", { body: buildBody(input) });
+  return invokeWithAuth(input);
 }
 
 /** Toast helper exported so awaitable callers can reuse the same UX. */
