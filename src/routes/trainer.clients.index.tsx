@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -632,7 +632,12 @@ function ClientsPage() {
                 <UserPlus className="size-4" /> Aggiungi Cliente
               </Button>
             </DialogTrigger>
-            <CreateClientDialog onSubmit={createClientAccount} />
+            {/* Forward `open` so the child can detect the open→closed
+                transition and reset its multi-step state. Without this
+                the child keeps step=3 + previous form values from one
+                open to the next (the React subtree persists between
+                opens; Radix only animates the DOM in/out). */}
+            <CreateClientDialog open={createOpen} onSubmit={createClientAccount} />
           </Dialog>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -1121,7 +1126,13 @@ const DURATION_PRESETS: Array<{ value: string; label: string; months: number | n
   { value: "custom", label: "Manuale (numero blocchi)", months: null },
 ];
 
-function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) => Promise<void> }) {
+function CreateClientDialog({
+  open,
+  onSubmit,
+}: {
+  open: boolean;
+  onSubmit: (d: CreateClientPayload) => Promise<void>;
+}) {
   const { user } = useAuth();
   const eventTypesQ = useCoachEventTypes(user?.id);
   const eventTypes = eventTypesQ.data ?? [];
@@ -1138,6 +1149,32 @@ function CreateClientDialog({ onSubmit }: { onSubmit: (d: CreateClientPayload) =
   const [freeSessions, setFreeSessions] = useState<number>(1);
   const [freeEventTypeId, setFreeEventTypeId] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
+
+  // Reset the entire multi-step flow when the dialog transitions from
+  // open → closed. The component stays mounted across opens (Radix gates
+  // only the portaled DOM, not the React subtree), so without this the
+  // next "Aggiungi Cliente" click would land on step 3 with the previous
+  // values still typed in. Gated on a transition ref so we don't reset
+  // on every render while the dialog is closed (which would also wipe
+  // any in-progress typing from quirky external state callers).
+  const wasOpenRef = useRef(false);
+  useEffect(() => {
+    if (wasOpenRef.current && !open) {
+      setStep(1);
+      setFirstName("");
+      setLastName("");
+      setEmail("");
+      setPathType("fixed");
+      setDurationPreset("3");
+      setCustomMonths(3);
+      setPackLabel(null);
+      setRules([]);
+      setFreeSessions(1);
+      setFreeEventTypeId("");
+      setSubmitting(false);
+    }
+    wasOpenRef.current = open;
+  }, [open]);
 
   const totalBlocks =
     pathType === "recurring"

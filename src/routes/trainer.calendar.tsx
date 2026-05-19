@@ -278,9 +278,16 @@ function MobileEventCard({
   // don't retroactively change historical sessions on the agenda.
   const duration = b.duration_min ?? et?.duration ?? 60;
 
-  const isUnassigned = !b.client_id;
-  const isExternal = !!b.client_id && b.client_id === b.coach_id;
-  const client = b.client_id && !isExternal ? clientsMap.get(b.client_id) : undefined;
+  // Personal Block discriminator (checked first — a personal block can
+  // never also be unassigned/external).
+  const isPersonal = !!b.is_personal;
+  const isUnassigned = !isPersonal && !b.client_id;
+  const isExternal = !isPersonal && !!b.client_id && b.client_id === b.coach_id;
+  // clientsMap.get returns undefined for missing/unknown ids; the optional
+  // chain below already guards every access. Personal blocks skip the
+  // lookup entirely since client_id is null.
+  const client =
+    !isPersonal && b.client_id && !isExternal ? clientsMap.get(b.client_id) : undefined;
   const typeLabel = et?.name ?? (b.session_type ? sessionLabel(b.session_type) : "Sessione");
 
   const startTime = d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
@@ -289,21 +296,27 @@ function MobileEventCard({
     minute: "2-digit",
   });
 
-  const isClickable = !isExternal;
+  const isClickable = !isExternal && !isPersonal;
   const handleTap = () => {
     if (isUnassigned) {
       onSelectAssign(b);
-    } else if (!isExternal && b.client_id) {
+    } else if (!isExternal && !isPersonal && b.client_id) {
       onSelectClient(b.client_id);
     }
   };
 
-  const title = isUnassigned
-    ? "Da assegnare"
-    : isExternal
-      ? (b.notes ?? "").replace(/^Importato da Google Calendar:\s*/i, "") || "Evento esterno"
-      : client?.full_name || "Cliente";
-  const subtitle = isExternal ? null : typeLabel;
+  const personalLabel =
+    (b.title?.trim() || b.notes?.replace(/^Importato da Google Calendar:\s*/i, "").trim()) ||
+    "Impegno personale";
+
+  const title = isPersonal
+    ? personalLabel
+    : isUnassigned
+      ? "Da assegnare"
+      : isExternal
+        ? (b.notes ?? "").replace(/^Importato da Google Calendar:\s*/i, "") || "Evento esterno"
+        : (client?.full_name ?? "Cliente");
+  const subtitle = isExternal || isPersonal ? null : typeLabel;
 
   return (
     <button
@@ -312,20 +325,43 @@ function MobileEventCard({
       disabled={!isClickable}
       aria-label={`${title} alle ${startTime}`}
       className={cn(
-        "w-full bg-white rounded-[24px] border border-outline-variant/30 shadow-soft-blue p-4 flex items-stretch gap-3 text-left",
+        "w-full rounded-[24px] border border-outline-variant/30 shadow-soft-blue p-4 flex items-stretch gap-3 text-left",
+        // Personal blocks: muted surface to read as "blocked time, not a
+        // client session". Uses the Aura neutral container token so it
+        // stays in step with the design system in light/dark variants.
+        isPersonal ? "bg-surface-container-high" : "bg-white",
         isClickable && "hover:shadow-md active:scale-[0.99] transition-all cursor-pointer",
         !isClickable && "cursor-default",
       )}
     >
       <div className="flex flex-col justify-center items-center min-w-[56px] gap-0.5">
-        <span className="text-base font-semibold tabular-nums text-aura-primary">{startTime}</span>
+        <span
+          className={cn(
+            "text-base font-semibold tabular-nums",
+            isPersonal ? "text-outline" : "text-aura-primary",
+          )}
+        >
+          {startTime}
+        </span>
         <span className="text-label-sm tabular-nums text-outline">{endTime}</span>
       </div>
       <div className="w-px bg-outline-variant/30 self-stretch" aria-hidden="true" />
       <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
-        <h3 className="text-sm font-semibold text-on-surface line-clamp-2">{title}</h3>
+        <h3
+          className={cn(
+            "text-sm font-semibold line-clamp-2",
+            isPersonal ? "text-on-surface-variant" : "text-on-surface",
+          )}
+        >
+          {title}
+        </h3>
         {subtitle && <p className="text-xs text-outline truncate">{subtitle}</p>}
         <div className="flex flex-wrap gap-1.5 mt-1">
+          {isPersonal && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-label-sm font-medium bg-surface-container text-outline">
+              Personale
+            </span>
+          )}
           {isUnassigned && (
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-label-sm font-semibold bg-warning-container text-tertiary">
               Assegna
@@ -336,7 +372,7 @@ function MobileEventCard({
               Esterno
             </span>
           )}
-          {!isUnassigned && !isExternal && (
+          {!isUnassigned && !isExternal && !isPersonal && (
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-label-sm font-medium bg-primary-fixed/60 text-on-primary-fixed-variant">
               {sessionLabel(b.session_type)}
             </span>
@@ -572,6 +608,54 @@ function CalendarPage() {
     },
   });
 
+  // Personal Block: convert an unassigned event into the coach's own
+  // commitment. is_personal=true is the discriminator; we also null out
+  // client_id / block_id / event_type_id so the row carries no stale
+  // links that would confuse other UI (e.g. "Esterno" detection).
+  const markAsPersonal = useMutation({
+    mutationFn: async (bookingId: string) => {
+      const { error } = await supabase
+        .from("bookings")
+        .update({
+          is_personal: true,
+          client_id: null,
+          block_id: null,
+          event_type_id: null,
+        })
+        .eq("id", bookingId);
+      if (error) throw error;
+    },
+    onMutate: async (bookingId) => {
+      const key = queryKeys.bookings.coach(user?.id);
+      await qc.cancelQueries({ queryKey: key });
+      const previous = qc.getQueryData<BookingRow[]>(key);
+      qc.setQueryData<BookingRow[]>(key, (old) =>
+        (old ?? []).map((b) =>
+          b.id === bookingId
+            ? {
+                ...b,
+                is_personal: true,
+                client_id: null,
+                block_id: null,
+                event_type_id: null,
+              }
+            : b,
+        ),
+      );
+      setAssignTarget(null);
+      setAssignClientId("");
+      return { previous, key };
+    },
+    onError: (e: Error, _vars, ctx) => {
+      if (ctx?.previous) qc.setQueryData(ctx.key, ctx.previous);
+      toast.error("Errore", { description: e.message });
+    },
+    onSuccess: () => {
+      toast.success("Impegno personale segnato");
+      invalidateBookingScope(qc, { coachId: user?.id ?? null, clientId: null });
+    },
+  });
+
   // ----- Week navigation -----
   const weekDays = useMemo(
     () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
@@ -585,10 +669,13 @@ function CalendarPage() {
     const map: BookingRow[][] = Array.from({ length: 7 }, () => []);
     for (const b of bookings) {
       if (b.status === "cancelled") continue;
-      const isUnassigned = !b.client_id;
-      const isExternal = !!b.client_id && b.client_id === b.coach_id;
+      // Personal blocks are their own category — never "unassigned" (no
+      // client to pick), never "external" (the coach owns them), never PT.
+      const isPersonal = !!b.is_personal;
+      const isUnassigned = !isPersonal && !b.client_id;
+      const isExternal = !isPersonal && !!b.client_id && b.client_id === b.coach_id;
       if (onlyToAssign && !isUnassigned) continue;
-      if (onlyPT && (isExternal || b.session_type !== "PT Session")) continue;
+      if (onlyPT && (isExternal || isPersonal || b.session_type !== "PT Session")) continue;
       const d = new Date(b.scheduled_at);
       for (let i = 0; i < 7; i++) {
         const dayDate = weekDays[i];
@@ -735,12 +822,44 @@ function CalendarPage() {
       width: `calc(${widthPct}% - 8px)`,
     } as const;
 
-    const isUnassigned = !b.client_id; // To Review
-    const isExternal = !!b.client_id && b.client_id === b.coach_id; // Sync senza match
-    const client = b.client_id && !isExternal ? clientsMap.get(b.client_id) : undefined;
+    // Personal Block first: an is_personal=true row should not be
+    // re-classified as unassigned/external even if old data has
+    // client_id=coach_id from before the migration.
+    const isPersonal = !!b.is_personal;
+    const isUnassigned = !isPersonal && !b.client_id; // To Review
+    const isExternal = !isPersonal && !!b.client_id && b.client_id === b.coach_id; // Sync senza match
+    const client =
+      !isPersonal && b.client_id && !isExternal ? clientsMap.get(b.client_id) : undefined;
     const typeLabel = et?.name ?? (b.session_type ? sessionLabel(b.session_type) : "Sessione");
     const safeDuration = duration > 0 ? duration : 60;
     const timeLabel = `${d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })} - ${new Date(d.getTime() + safeDuration * 60000).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}`;
+
+    if (isPersonal) {
+      // Title precedence: explicit booking title → first line of notes
+      // (stripping the Google import prefix) → generic fallback. We
+      // never crash on missing data because every branch yields a
+      // string.
+      const title =
+        (b.title?.trim() ||
+          b.notes?.replace(/^Importato da Google Calendar:\s*/i, "").trim()) ||
+        "Impegno personale";
+      return (
+        <div
+          key={b.id}
+          style={laneStyle}
+          // Aura neutral container — muted enough to read as "blocked
+          // time" while still distinct from the surface-container-low
+          // used for external Google events.
+          className="absolute z-10 bg-surface-container-high border border-outline-variant/40 rounded-2xl p-2 cursor-default"
+          aria-label={`Impegno personale: ${title}`}
+        >
+          <h4 className="text-[12px] leading-tight font-medium text-on-surface-variant truncate">
+            {title}
+          </h4>
+          <p className="text-[10px] text-outline mt-0.5">Personale · {timeLabel}</p>
+        </div>
+      );
+    }
 
     if (isUnassigned) {
       return (
@@ -1046,7 +1165,7 @@ function CalendarPage() {
       <Dialog open={!!assignTarget} onOpenChange={(o) => !o && setAssignTarget(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Assegna evento a un cliente</DialogTitle>
+            <DialogTitle>Assegna evento</DialogTitle>
             <DialogDescription>
               {assignTarget &&
                 new Date(assignTarget.scheduled_at).toLocaleString("it-IT", {
@@ -1056,24 +1175,45 @@ function CalendarPage() {
               {""}
             </DialogDescription>
           </DialogHeader>
-          <Select value={assignClientId} onValueChange={setAssignClientId}>
-            <SelectTrigger>
-              <SelectValue placeholder="Seleziona cliente…" />
-            </SelectTrigger>
-            <SelectContent>
-              {clients.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.full_name ?? c.email ?? "Cliente"}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="space-y-3">
+            <Select value={assignClientId} onValueChange={setAssignClientId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Seleziona cliente…" />
+              </SelectTrigger>
+              <SelectContent>
+                {clients.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.full_name ?? c.email ?? "Cliente"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {/* Personal Block escape hatch: events that aren't a client
+                session (es. impegno personale del coach) can be moved out
+                of the "Da assegnare" bucket without forcing a fake client
+                assignment. */}
+            <div className="flex items-center gap-2 text-xs text-outline">
+              <div className="h-px flex-1 bg-outline-variant/40" aria-hidden />
+              oppure
+              <div className="h-px flex-1 bg-outline-variant/40" aria-hidden />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full justify-center"
+              disabled={markAsPersonal.isPending || assignBooking.isPending}
+              onClick={() => assignTarget && markAsPersonal.mutate(assignTarget.id)}
+            >
+              {markAsPersonal.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+              Segna come Impegno Personale
+            </Button>
+          </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setAssignTarget(null)}>
               Annulla
             </Button>
             <Button
-              disabled={!assignClientId || assignBooking.isPending}
+              disabled={!assignClientId || assignBooking.isPending || markAsPersonal.isPending}
               onClick={() =>
                 assignTarget &&
                 assignBooking.mutate({ bookingId: assignTarget.id, clientId: assignClientId })
