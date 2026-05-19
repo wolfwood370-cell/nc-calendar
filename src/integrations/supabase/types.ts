@@ -106,6 +106,7 @@ export type Database = {
           id: string
           ignored: boolean
           ignored_by_clients: string[]
+          is_personal: boolean
           meeting_link: string | null
           notes: string | null
           scheduled_at: string
@@ -128,6 +129,7 @@ export type Database = {
           id?: string
           ignored?: boolean
           ignored_by_clients?: string[]
+          is_personal?: boolean
           meeting_link?: string | null
           notes?: string | null
           scheduled_at: string
@@ -150,6 +152,7 @@ export type Database = {
           id?: string
           ignored?: boolean
           ignored_by_clients?: string[]
+          is_personal?: boolean
           meeting_link?: string | null
           notes?: string | null
           scheduled_at?: string

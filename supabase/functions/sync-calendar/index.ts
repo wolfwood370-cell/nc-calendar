@@ -668,7 +668,7 @@ Deno.serve(async (req) => {
       const { data: locals } = await supabase
         .from("bookings")
         .select(
-          "id, google_event_id, scheduled_at, status, client_id, event_type_id, session_type, block_id",
+          "id, google_event_id, scheduled_at, status, client_id, event_type_id, session_type, block_id, is_personal",
         )
         .eq("coach_id", body.coach_id)
         .not("google_event_id", "is", null)
@@ -708,6 +708,11 @@ Deno.serve(async (req) => {
       // 2) Aggiorna i booking locali confrontandoli con la copia in cache
       for (const b of locals ?? []) {
         if (b.status === "cancelled") continue;
+        // Personal blocks: the coach explicitly opted this row out of the
+        // client-session bucket. Skip re-matching so a future mirror_check
+        // can't reset is_personal indirectly by overwriting client_id /
+        // event_type_id from a fuzzy Google match.
+        if ((b as { is_personal?: boolean }).is_personal === true) continue;
         const ev = remoteById.get(b.google_event_id!);
         if (!ev || (ev.status as string) === "cancelled") {
           await supabase

@@ -6,7 +6,10 @@ import { reportSyncFailure } from "@/lib/sync-calendar";
 
 export interface BookingRow {
   id: string;
-  client_id: string;
+  // Nullable: unassigned events (no client picked yet) and personal
+  // blocks (coach's own commitment) carry client_id = null. Existing
+  // callers already gate on `b.client_id ? … : …` / `!b.client_id`.
+  client_id: string | null;
   coach_id: string;
   block_id: string | null;
   session_type: SessionType;
@@ -26,6 +29,11 @@ export interface BookingRow {
   // length even after the coach edits the parent event type.
   duration_min: number;
   buffer_min: number;
+  // Personal Blocks: when true the row is the coach's own commitment
+  // (e.g. "Dentista"), not a client session. block_id / event_type_id /
+  // client_id are all NULL in this case. Rendered with a muted neutral
+  // style and excluded from "to assign" / "external" UI categories.
+  is_personal: boolean;
 }
 
 export interface AvailabilityExceptionRow {
@@ -111,7 +119,7 @@ export function useCoachBookings(coachId?: string) {
       const { data, error } = await supabase
         .from("bookings")
         .select(
-          "id, client_id, coach_id, block_id, session_type, scheduled_at, status, meeting_link, deleted_at, event_type_id, notes, trainer_notes, google_event_id, title, duration_min, buffer_min",
+          "id, client_id, coach_id, block_id, session_type, scheduled_at, status, meeting_link, deleted_at, event_type_id, notes, trainer_notes, google_event_id, title, duration_min, buffer_min, is_personal",
         )
         .eq("coach_id", coachId!)
         .is("deleted_at", null)
@@ -130,7 +138,7 @@ export function useClientBookings(clientId?: string) {
       const { data, error } = await supabase
         .from("bookings")
         .select(
-          "id, client_id, coach_id, block_id, session_type, scheduled_at, status, meeting_link, deleted_at, event_type_id, notes, trainer_notes, google_event_id, title, duration_min, buffer_min",
+          "id, client_id, coach_id, block_id, session_type, scheduled_at, status, meeting_link, deleted_at, event_type_id, notes, trainer_notes, google_event_id, title, duration_min, buffer_min, is_personal",
         )
         .eq("client_id", clientId!)
         .is("deleted_at", null)
