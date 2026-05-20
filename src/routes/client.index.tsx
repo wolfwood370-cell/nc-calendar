@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { Bell, Plus, Clock, Calendar, Check, ChevronDown } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Bell, Plus, Clock, Calendar, ChevronDown, Sparkles } from "lucide-react";
 import type { BookingRow, EventTypeRow } from "@/lib/queries";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
@@ -13,7 +13,9 @@ import {
 } from "@/lib/queries";
 import { sessionLabel } from "@/lib/mock-data";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Progress } from "@/components/ui/progress";
+import { AuraProgressRing } from "@/components/ui/aura-progress-ring";
+import { JoinVideoCallButton } from "@/components/join-video-call-button";
+import { RescheduleDrawer } from "@/components/reschedule-drawer";
 
 export const Route = createFileRoute("/client/")({
   component: ClientHome,
@@ -152,26 +154,40 @@ function ClientHome() {
               Nessun percorso attivo. Contatta il tuo coach.
             </p>
           ) : (
-            <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-5">
               {summary.map((row) => {
-                const pct = row.total > 0 ? Math.min(100, (row.used / row.total) * 100) : 0;
                 const remaining = Math.max(0, row.total - row.used);
+                const isLow = row.total > 0 && remaining > 0 && remaining <= 2;
                 return (
-                  <div key={row.key} className="flex flex-col gap-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-base font-semibold text-on-surface">{row.name}</span>
-                      <span className="text-base font-semibold" style={{ color: row.color }}>
-                        {row.used} / {row.total}
+                  <div
+                    key={row.key}
+                    className="flex items-center gap-4 rounded-[24px] bg-surface-container-low/50 px-4 py-3"
+                  >
+                    <AuraProgressRing
+                      used={row.used}
+                      total={row.total}
+                      size={72}
+                      strokeWidth={7}
+                      color={row.color}
+                    />
+                    <div className="flex-1 min-w-0 flex flex-col gap-1">
+                      <span className="text-base font-semibold text-on-surface truncate">
+                        {row.name}
                       </span>
-                    </div>
-                    <div className="h-3 w-full bg-primary-container/20 rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{ width: `${pct}%`, backgroundColor: row.color }}
-                      />
-                    </div>
-                    <div className="text-xs text-on-surface-variant/70">
-                      Fatte: {row.used} • Rimanenti: {remaining}
+                      <span className="text-xs text-on-surface-variant">
+                        {remaining} rimanenti su {row.total}
+                      </span>
+                      {isLow && (
+                        // Soft alerting recharge CTA — pill-shaped per Aura.
+                        // Routes to the booster store (Stripe checkout entry).
+                        <Link
+                          to="/client/store"
+                          className="mt-1 inline-flex self-start items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-tertiary-container/20 text-tertiary"
+                        >
+                          <Sparkles className="size-3.5" />
+                          Ricarica Crediti
+                        </Link>
+                      )}
                     </div>
                   </div>
                 );
@@ -188,15 +204,15 @@ function ClientHome() {
           {isLoading ? (
             <Skeleton className="h-32 w-full rounded-[32px]" />
           ) : nextBooking ? (
-            <NextAppointmentCard
-              bookingId={nextBooking.id}
-              date={new Date(nextBooking.scheduled_at)}
+            <LiveBookingCard
+              booking={nextBooking}
               // H3: prefer the per-booking snapshot so a later coach
               // edit to event_types.duration can't relabel an already-
               // booked next session on the client dashboard.
               durationMin={nextBooking.duration_min ?? nextEventType?.duration ?? 60}
               label={nextEventType?.name ?? sessionLabel(nextBooking.session_type)}
               color={nextEventType?.color ?? "#039BE5"}
+              coachId={coachId}
             />
           ) : (
             <div className="bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-6 border border-outline-variant/30 text-center">
@@ -241,19 +257,28 @@ function ClientHome() {
   );
 }
 
-function NextAppointmentCard({
-  bookingId,
-  date,
+// LiveBookingCard — replaces the previous NextAppointmentCard with a
+// time-aware "live state". When the booking is today and starts within
+// 60 minutes, the card transitions to a premium primary-container
+// background, pulses a live dot next to the time, and surfaces the
+// Join button full-width (when the booking carries a Google Meet URL).
+// Otherwise it renders the regular Aura white card with the date label.
+// In both states a small "Riprogramma" pill opens the RescheduleDrawer
+// inline — no navigation, no desktop AlertDialog detour on mobile.
+function LiveBookingCard({
+  booking,
   durationMin,
   label,
   color,
+  coachId,
 }: {
-  bookingId: string;
-  date: Date;
+  booking: BookingRow;
   durationMin: number;
   label: string;
   color: string;
+  coachId: string | null;
 }) {
+  const date = new Date(booking.scheduled_at);
   const end = new Date(date.getTime() + durationMin * 60_000);
   const startStr = date.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
   const endStr = end.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
@@ -270,40 +295,146 @@ function NextAppointmentCard({
   else if (sameDay(date, tomorrow)) dayLabel = "Domani";
   else dayLabel = date.toLocaleDateString("it-IT", { day: "numeric", month: "long" });
 
+  // Live-state computation. The card auto-flips at the 60-minute mark
+  // even while the dashboard is open — a 30s tick re-renders it.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+  const minutesUntil = Math.round((date.getTime() - now) / 60_000);
+  const isLive = sameDay(date, today) && minutesUntil <= 60 && minutesUntil >= -durationMin;
+  const meetingLink = booking.meeting_link?.trim() || null;
+  const [rescheduleOpen, setRescheduleOpen] = useState(false);
+
   return (
-    <Link
-      to="/client/bookings/$bookingId"
-      params={{ bookingId }}
-      className="block bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-6 border border-outline-variant/30 hover:bg-surface-container-low transition-colors"
-    >
-      <div className="flex justify-between items-start gap-2">
-        <div className="flex gap-4 items-center min-w-0">
-          <div
-            className="w-16 h-16 shrink-0 rounded-full grid place-items-center"
-            style={{ backgroundColor: `${color}1a`, color }}
-          >
-            <Calendar className="size-8" />
-          </div>
-          <div className="flex flex-col gap-1 min-w-0">
-            <h4 className="text-2xl font-semibold text-on-surface capitalize leading-tight truncate">
-              {dayLabel}
-            </h4>
-            <div className="flex items-center gap-2 text-on-surface-variant">
-              <Clock className="size-[18px]" />
-              <span className="text-base">
-                {startStr} - {endStr}
-              </span>
-            </div>
-          </div>
-        </div>
-        <span
-          className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold shrink-0"
-          style={{ backgroundColor: `${color}1a`, color }}
+    <>
+      <div
+        className={
+          isLive
+            ? "rounded-[32px] shadow-[0_12px_32px_rgba(0,86,133,0.18)] p-6 bg-primary-container text-on-primary-container relative overflow-hidden transition-colors"
+            : "rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-6 bg-surface-container-lowest border border-outline-variant/30 transition-colors"
+        }
+      >
+        {/* Top row: avatar / day + time / type chip */}
+        <Link
+          to="/client/bookings/$bookingId"
+          params={{ bookingId: booking.id }}
+          className="block"
         >
-          {label}
-        </span>
+          <div className="flex justify-between items-start gap-2">
+            <div className="flex gap-4 items-center min-w-0">
+              <div
+                className="w-16 h-16 shrink-0 rounded-full grid place-items-center"
+                style={
+                  isLive
+                    ? { backgroundColor: "rgba(255,255,255,0.18)", color: "white" }
+                    : { backgroundColor: `${color}1a`, color }
+                }
+              >
+                <Calendar className="size-8" />
+              </div>
+              <div className="flex flex-col gap-1 min-w-0">
+                <h4
+                  className={
+                    isLive
+                      ? "text-2xl font-semibold capitalize leading-tight truncate text-on-primary-container"
+                      : "text-2xl font-semibold text-on-surface capitalize leading-tight truncate"
+                  }
+                >
+                  {dayLabel}
+                </h4>
+                <div
+                  className={
+                    isLive
+                      ? "flex items-center gap-2 text-on-primary-container/90"
+                      : "flex items-center gap-2 text-on-surface-variant"
+                  }
+                >
+                  {isLive ? (
+                    // Pulsing live dot — visible at all times the card
+                    // is in live state. Aria-label so screen readers
+                    // announce the urgency.
+                    <span
+                      aria-label="Sessione in arrivo"
+                      className="relative inline-flex size-2.5 shrink-0"
+                    >
+                      <span className="absolute inset-0 rounded-full bg-white/70 animate-ping" />
+                      <span className="relative inline-flex size-2.5 rounded-full bg-white" />
+                    </span>
+                  ) : (
+                    <Clock className="size-[18px]" />
+                  )}
+                  <span className="text-base font-semibold tabular-nums">
+                    {startStr} - {endStr}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <span
+              className={
+                isLive
+                  ? "inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold shrink-0 bg-white/20 text-on-primary-container"
+                  : "inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold shrink-0"
+              }
+              style={isLive ? undefined : { backgroundColor: `${color}1a`, color }}
+            >
+              {label}
+            </span>
+          </div>
+        </Link>
+
+        {/* Live-state action region: full-width Join button + secondary
+            Riprogramma pill. Hidden in the default state to keep the
+            card compact. */}
+        {isLive && (
+          <div className="mt-5 flex flex-col gap-2">
+            {meetingLink ? (
+              // JoinVideoCallButton variant inverted for the primary-
+              // container background. Native Meet URL — see sync-calendar
+              // create branch which writes meeting_link via service-role.
+              <a
+                href={meetingLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-4 px-6 rounded-full bg-white text-primary text-md font-bold flex items-center justify-center gap-2 shadow-sm active:scale-[0.99] transition-transform"
+              >
+                🎥 Partecipa alla Videochiamata
+              </a>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setRescheduleOpen(true)}
+              className="w-full py-3 rounded-full bg-white/10 text-on-primary-container text-sm font-semibold border border-white/30 active:scale-[0.99] transition-transform"
+            >
+              Riprogramma
+            </button>
+          </div>
+        )}
+
+        {/* Default-state reschedule pill (smaller, less prominent). */}
+        {!isLive && (
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setRescheduleOpen(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-surface-container-low text-on-surface text-xs font-semibold border border-outline-variant/30 active:scale-95 transition-transform"
+            >
+              Riprogramma
+            </button>
+            {meetingLink && <JoinVideoCallButton url={meetingLink} size="sm" variant="outline" />}
+          </div>
+        )}
       </div>
-    </Link>
+
+      <RescheduleDrawer
+        open={rescheduleOpen}
+        onOpenChange={setRescheduleOpen}
+        booking={booking}
+        coachId={coachId}
+        durationMin={durationMin}
+      />
+    </>
   );
 }
 
