@@ -166,7 +166,13 @@ function ClientsPage() {
   const [blocks, setBlocks] = useState<BlockLite[]>([]);
   const [allocs, setAllocs] = useState<AllocLite[]>([]);
   const [bookings, setBookings] = useState<BookingLite[]>([]);
+  // Predictive analytics: rows from the `client_exhaustion_forecast` view.
+  // Keyed by client_id for O(1) lookup when rendering the card grid.
+  const [forecasts, setForecasts] = useState<
+    Map<string, { daysLeft: number | null; date: string | null; weeklyAvg: number }>
+  >(new Map());
   const [loading, setLoading] = useState(true);
+
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
