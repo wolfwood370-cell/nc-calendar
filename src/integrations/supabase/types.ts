@@ -324,7 +324,6 @@ export type Database = {
           gcal_token_expires_at: string | null
           gcal_webhook_url: string | null
           id: string
-          stripe_account_id: string | null
           updated_at: string
           wa_access_token: string | null
           wa_enabled: boolean
@@ -343,7 +342,6 @@ export type Database = {
           gcal_token_expires_at?: string | null
           gcal_webhook_url?: string | null
           id?: string
-          stripe_account_id?: string | null
           updated_at?: string
           wa_access_token?: string | null
           wa_enabled?: boolean
@@ -362,7 +360,6 @@ export type Database = {
           gcal_token_expires_at?: string | null
           gcal_webhook_url?: string | null
           id?: string
-          stripe_account_id?: string | null
           updated_at?: string
           wa_access_token?: string | null
           wa_enabled?: boolean
