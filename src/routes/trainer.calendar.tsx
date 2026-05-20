@@ -492,6 +492,23 @@ function MobileEventCard({
               {sessionLabel(b.session_type)}
             </span>
           )}
+          {/* Native Google Meet link surfaced as a chip when sync-calendar
+              has minted a Meet room for this booking. Click stops the
+              card's outer onClick (which would open the focus panel)
+              and opens the Meet URL in a new tab. */}
+          {!isUnassigned && !isExternal && !isPersonal && b.meeting_link && (
+            <a
+              href={b.meeting_link}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-label-sm font-semibold bg-secondary-container text-on-secondary-container"
+            >
+              <span aria-hidden>🎥</span>
+              Meet
+            </a>
+          )}
         </div>
       </div>
     </button>

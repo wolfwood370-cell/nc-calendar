@@ -60,6 +60,11 @@ function IntegrationsPage() {
   // refreshed server-side by sync-calendar on each successful refresh.
   const [tokenExpiresAt, setTokenExpiresAt] = useState<Date | null>(null);
   const [isStripeLoading, setIsStripeLoading] = useState(false);
+  // Stripe connection state driven by integration_settings.stripe_account_id
+  // (migration 20260520140000). The column is nullable; non-null = connected.
+  // Until per-coach Stripe Connect onboarding ships, ops can flip this with
+  // a single SQL update — see the migration file for the documented snippet.
+  const [isStripeConnected, setIsStripeConnected] = useState(false);
   const [calendarSheetOpen, setCalendarSheetOpen] = useState(false);
 
   // Check connection + capture provider tokens after OAuth redirect
@@ -117,12 +122,40 @@ function IntegrationsPage() {
       const emailFromIdentity =
         (googleIdentity?.identity_data as { email?: string } | undefined)?.email ?? null;
 
-      // 2) Stato corrente in DB
-      const { data: settings } = await supabase
+      // 2) Stato corrente in DB. We try-with-stripe_account_id first, then
+      // fall back to the narrower SELECT if the migration hasn't shipped
+      // (Postgres 42703). Same pattern queries.ts uses for is_personal /
+      // category — keeps the page alive across migration races.
+      type IntegrationSettingsRow = {
+        gcal_enabled: boolean | null;
+        gcal_account_email: string | null;
+        gcal_refresh_token: string | null;
+        gcal_token_expires_at: string | null;
+        stripe_account_id?: string | null;
+      };
+      const baseCols =
+        "gcal_enabled, gcal_account_email, gcal_refresh_token, gcal_token_expires_at";
+      let settingsRow: IntegrationSettingsRow | null = null;
+      const primaryResp = await supabase
         .from("integration_settings")
-        .select("gcal_enabled, gcal_account_email, gcal_refresh_token, gcal_token_expires_at")
+        .select(`${baseCols}, stripe_account_id`)
         .eq("coach_id", user.id)
         .maybeSingle();
+      if (
+        primaryResp.error &&
+        ((primaryResp.error as { code?: string }).code === "42703" ||
+          (primaryResp.error.message ?? "").includes("stripe_account_id"))
+      ) {
+        const fallback = await supabase
+          .from("integration_settings")
+          .select(baseCols)
+          .eq("coach_id", user.id)
+          .maybeSingle();
+        settingsRow = (fallback.data as IntegrationSettingsRow | null) ?? null;
+      } else if (!primaryResp.error) {
+        settingsRow = (primaryResp.data as IntegrationSettingsRow | null) ?? null;
+      }
+      const settings = settingsRow;
 
       // 3) Se abbiamo un provider_token fresco dall'OAuth flow, persistilo
       if (providerToken && googleIdentity) {
@@ -143,6 +176,11 @@ function IntegrationsPage() {
       setTokenExpiresAt(
         settings?.gcal_token_expires_at ? new Date(settings.gcal_token_expires_at) : null,
       );
+      // Stripe: any non-null stripe_account_id flips the badge to
+      // "Connesso". When the migration hasn't shipped settings.stripe_
+      // account_id will be undefined and the badge stays "disconnected"
+      // — matching the platform-level no-onboarding default.
+      setIsStripeConnected(!!settings?.stripe_account_id);
     }
     check();
     return () => {
@@ -257,31 +295,53 @@ function IntegrationsPage() {
           )}
         </IntegrationCard>
 
-        {/* Stripe */}
+        {/* Stripe — connected state driven by
+            integration_settings.stripe_account_id (see migration
+            20260520140000). Until per-coach Stripe Connect onboarding
+            ships, ops flip this with a SQL update documented in the
+            migration file. */}
         <IntegrationCard
           accentColor="#635BFF"
-          connected={false}
+          connected={isStripeConnected}
           icon={<CreditCard className="size-7" style={{ color: "#635BFF" }} />}
           iconBg="#635BFF15"
           title="Stripe"
           description="Accetta pagamenti dai clienti e gestisci abbonamenti per i tuoi pacchetti."
         >
-          <ul className="space-y-2 text-sm text-outline">
-            <li className="flex items-center gap-2">
-              <Check className="size-4 text-[#635BFF]" /> Pagamenti carte e wallet
-            </li>
-            <li className="flex items-center gap-2">
-              <Check className="size-4 text-[#635BFF]" /> Abbonamenti ricorrenti
-            </li>
-          </ul>
-          <Button
-            onClick={handleConnectStripe}
-            disabled={isStripeLoading}
-            className="w-full rounded-full bg-[#635BFF] hover:bg-[#5249e0] text-white"
-          >
-            {isStripeLoading && <Loader2 className="size-4 animate-spin mr-2" />}
-            Connetti Stripe
-          </Button>
+          {isStripeConnected ? (
+            <>
+              <ul className="space-y-2 text-sm text-outline">
+                <li className="flex items-center gap-2">
+                  <Check className="size-4 text-[#635BFF]" /> Booster Pack attivi
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="size-4 text-[#635BFF]" /> Pagamenti carte e wallet
+                </li>
+              </ul>
+              <p className="text-[11px] text-outline">
+                Account collegato. I checkout Booster vengono fatturati attraverso questo account.
+              </p>
+            </>
+          ) : (
+            <>
+              <ul className="space-y-2 text-sm text-outline">
+                <li className="flex items-center gap-2">
+                  <Check className="size-4 text-[#635BFF]" /> Pagamenti carte e wallet
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="size-4 text-[#635BFF]" /> Abbonamenti ricorrenti
+                </li>
+              </ul>
+              <Button
+                onClick={handleConnectStripe}
+                disabled={isStripeLoading}
+                className="w-full rounded-full bg-[#635BFF] hover:bg-[#5249e0] text-white"
+              >
+                {isStripeLoading && <Loader2 className="size-4 animate-spin mr-2" />}
+                Connetti Stripe
+              </Button>
+            </>
+          )}
         </IntegrationCard>
 
         {/* Google Meet */}
@@ -640,9 +700,21 @@ function TokenExpiryBadge({ expiresAt }: { expiresAt: Date | null }) {
 
 function StatusPill({ status }: { status: "connected" | "disconnected" | "error" }) {
   if (status === "connected") {
+    // Aura Health System: --color-status-success-bg + --color-on-status-
+    // success. Tokens live in src/styles.css; styled inline because they
+    // aren't exposed as Tailwind utilities.
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 text-emerald-700 px-3 py-1 text-xs font-medium">
-        <span className="size-1.5 rounded-full bg-emerald-500" />
+      <span
+        className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium"
+        style={{
+          backgroundColor: "var(--color-status-success-bg)",
+          color: "var(--color-on-status-success)",
+        }}
+      >
+        <span
+          className="size-1.5 rounded-full"
+          style={{ backgroundColor: "var(--color-on-status-success)" }}
+        />
         Connesso
       </span>
     );
