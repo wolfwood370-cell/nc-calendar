@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/auth";
 import nccLogo from "@/assets/ncc-logo.png";
 import { Button } from "@/components/ui/button";
 import { InstallPwaButton } from "@/components/install-pwa-button";
-import { PwaInstallToast } from "@/components/pwa-install-toast";
+import { PwaOnboarding } from "@/components/pwa-onboarding";
 import { ClientBottomNav } from "@/components/client-bottom-nav";
 
 export const Route = createFileRoute("/client")({
