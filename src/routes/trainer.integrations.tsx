@@ -3,7 +3,11 @@ import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { syncCalendarAwait } from "@/lib/sync-calendar";
+import {
+  syncCalendarAwait,
+  clearAutoSyncThrottle,
+  markAutoSyncDone,
+} from "@/lib/sync-calendar";
 import { queryKeys } from "@/lib/query-keys";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -357,6 +361,11 @@ function CalendarManageSheet({
   const handleSyncNow = async () => {
     if (!coachId) return;
     setIsSyncing(true);
+    // P1 (sync throttle): manual button always wins. Clear the gate
+    // first so the next auto-sync cycle doesn't immediately skip on
+    // top of our work, then stamp markAutoSyncDone() once the call
+    // succeeds — the 10-minute window restarts from now.
+    clearAutoSyncThrottle();
     try {
       // "Sincronizza ora" sweeps from 1 January of the current year to
       // +2 years out. import_history is idempotent: events with a known
@@ -405,6 +414,7 @@ function CalendarManageSheet({
         // newly imported rows without a manual page reload.
         qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(coachId) });
         qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(coachId) });
+        markAutoSyncDone();
       }
     } catch (err) {
       console.error("sync-calendar import_history failed", err);

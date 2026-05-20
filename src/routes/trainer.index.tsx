@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,20 +12,6 @@ import {
 import { queryKeys } from "@/lib/query-keys";
 import { sessionLabel, type SessionType } from "@/lib/mock-data";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
@@ -350,26 +336,17 @@ function Overview() {
     onError: (e: Error) => toast.error("Errore", { description: e.message }),
   });
 
-  const [assignTarget, setAssignTarget] = useState<{ id: string; title: string } | null>(null);
-  const [assignClientId, setAssignClientId] = useState<string>("");
-  const assignBooking = useMutation({
-    mutationFn: async (input: { bookingId: string; clientId: string }) => {
-      const { error } = await supabase
-        .from("bookings")
-        .update({ client_id: input.clientId })
-        .eq("id", input.bookingId);
-      if (error) throw error;
-    },
-    onSuccess: (_data, vars) => {
-      toast.success("Sessione assegnata");
-      setAssignTarget(null);
-      setAssignClientId("");
-      qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(user?.id) });
-      qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(user?.id) });
-      qc.invalidateQueries({ queryKey: queryKeys.bookings.client(vars.clientId) });
-    },
-    onError: (e: Error) => toast.error("Errore", { description: e.message }),
-  });
+  // P4: open the global ReviewBookingDialog by pushing `?reviewEventId=`
+  // into the URL. The dialog lives at the /trainer layout level (see
+  // src/routes/trainer.tsx) and handles assign / personal / consulenza
+  // server-side; this page just routes the user into it.
+  const navigate = useNavigate();
+  const openReview = (bookingId: string) => {
+    navigate({
+      to: "/trainer",
+      search: (prev: Record<string, unknown>) => ({ ...prev, reviewEventId: bookingId }),
+    });
+  };
 
   const loading = clientsQ.isLoading || bookingsQ.isLoading || blocksQ.isLoading;
   const userName = (user?.user_metadata?.full_name as string) || user?.email || "Coach";
@@ -503,10 +480,7 @@ function Overview() {
                         <Button
                           size="sm"
                           className="rounded-full bg-aura-primary text-white hover:bg-aura-primary/90"
-                          onClick={() => {
-                            setAssignTarget({ id: r.id, title: r.title || "Sessione" });
-                            setAssignClientId("");
-                          }}
+                          onClick={() => openReview(r.id)}
                         >
                           Assegna
                         </Button>
@@ -712,46 +686,9 @@ function Overview() {
         <QuickStat icon={UserPlus} label="Nuovi (30gg)" value={stats.newClients} />
       </section>
 
-      {/* Assign client dialog */}
-      <Dialog
-        open={!!assignTarget}
-        onOpenChange={(o) => {
-          if (!o) setAssignTarget(null);
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Assegna sessione a un cliente</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">{assignTarget?.title}</p>
-          <Select value={assignClientId} onValueChange={setAssignClientId}>
-            <SelectTrigger>
-              <SelectValue placeholder="Seleziona cliente" />
-            </SelectTrigger>
-            <SelectContent>
-              {clients.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.full_name ?? c.email ?? "Cliente"}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAssignTarget(null)}>
-              Annulla
-            </Button>
-            <Button
-              disabled={!assignClientId || assignBooking.isPending}
-              onClick={() =>
-                assignTarget &&
-                assignBooking.mutate({ bookingId: assignTarget.id, clientId: assignClientId })
-              }
-            >
-              Assegna
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* The Assign / Personal / Consulenza dialog is now mounted globally
+          at the /trainer layout (src/routes/trainer.tsx) and driven by
+          ?reviewEventId. openReview() just navigates. */}
     </div>
   );
 }

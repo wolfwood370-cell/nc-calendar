@@ -1,6 +1,69 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+// ----------------------------------------------------------------------------
+// Auto-sync throttle (P1 of the sync overhaul)
+// ----------------------------------------------------------------------------
+// Both auto-sync useEffects in trainer.calendar.tsx fire on every mount of
+// the calendar route — including silent token refreshes, fast navigation
+// back to /trainer/calendar, and PWA wake-up. Without a gate every visit
+// burned a Google Calendar API quota slot. A coach who tabs in and out of
+// the calendar a dozen times per hour would chew through the quota by
+// mid-morning.
+//
+// The throttle persists `last_gcal_sync` (ms since epoch) in localStorage.
+// shouldSkipAutoSync() returns true when the last successful auto-sync is
+// less than 10 minutes old; markAutoSyncDone() stamps the timestamp on
+// completion. The manual "Sincronizza ora" button explicitly bypasses
+// this gate (see clearAutoSyncThrottle + the call site in
+// trainer.integrations.tsx) so a coach who needs fresh data right now
+// can always force a refetch.
+
+const AUTO_SYNC_KEY = "last_gcal_sync";
+const AUTO_SYNC_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
+
+function readTimestamp(): number | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(AUTO_SYNC_KEY);
+    if (!raw) return null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
+  } catch {
+    // localStorage can throw in private-browsing modes; treat as "no record".
+    return null;
+  }
+}
+
+function writeTimestamp(ms: number): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(AUTO_SYNC_KEY, String(ms));
+  } catch {
+    // Quota exceeded / disabled — best-effort persistence.
+  }
+}
+
+export function shouldSkipAutoSync(now: number = Date.now()): boolean {
+  const ts = readTimestamp();
+  if (ts === null) return false;
+  return now - ts < AUTO_SYNC_WINDOW_MS;
+}
+
+export function markAutoSyncDone(now: number = Date.now()): void {
+  writeTimestamp(now);
+}
+
+/** Manual sync path: clear the gate so the next render-time check passes. */
+export function clearAutoSyncThrottle(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(AUTO_SYNC_KEY);
+  } catch {
+    /* noop */
+  }
+}
+
 // M7: surface Google Calendar sync failures to the user. Previously every
 // call site swallowed errors into console.error and the user was told their
 // booking / cancellation had succeeded — even when their mirror Google

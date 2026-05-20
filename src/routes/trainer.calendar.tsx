@@ -1,22 +1,7 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useQueryClient, useMutation, useQuery } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useIsBelowXl } from "@/hooks/use-mobile";
 import {
@@ -41,9 +26,14 @@ import {
   type ProfileRow,
   type EventTypeRow,
 } from "@/lib/queries";
-import { invalidateBookingScope, queryKeys } from "@/lib/query-keys";
+import { queryKeys } from "@/lib/query-keys";
 import { useAuth } from "@/lib/auth";
-import { syncCalendarAwait, reportSyncFailure } from "@/lib/sync-calendar";
+import {
+  syncCalendarAwait,
+  reportSyncFailure,
+  shouldSkipAutoSync,
+  markAutoSyncDone,
+} from "@/lib/sync-calendar";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -114,12 +104,12 @@ function AllDayPill({ booking, compact = false }: { booking: BookingRow; compact
   return (
     <div
       title={label}
-      // Aura tertiary-container token — readable contrast against the
-      // calendar's surface background, distinct from the muted neutrals
-      // used by personal blocks and the warning-container yellow used
-      // by unassigned events.
+      // Aura secondary-container — soft blue that reads as "informational
+      // event" against the white calendar surface. Distinct from the
+      // muted neutrals of personal blocks and the warning-container
+      // yellow of unassigned events. Spec'd per the design system pass.
       className={cn(
-        "rounded-full bg-tertiary-container text-on-tertiary-container flex items-center gap-1.5 truncate",
+        "rounded-full bg-secondary-container text-on-secondary-container flex items-center gap-1.5 truncate",
         compact ? "px-2 py-0.5 text-[11px]" : "px-3 py-1 text-xs",
       )}
     >
@@ -670,92 +660,18 @@ function CalendarPage() {
     },
   });
 
-  // ----- Assign dialog -----
-  const [assignTarget, setAssignTarget] = useState<BookingRow | null>(null);
-  const [assignClientId, setAssignClientId] = useState<string>("");
-  const assignBooking = useMutation({
-    mutationFn: async (input: { bookingId: string; clientId: string }) => {
-      const { error } = await supabase
-        .from("bookings")
-        .update({ client_id: input.clientId })
-        .eq("id", input.bookingId);
-      if (error) throw error;
-    },
-    // M1: optimistic update — patch the bookings cache for the current coach
-    // immediately so the calendar reflects the new assignment without
-    // waiting for the round-trip + invalidation refetch. The context returns
-    // a snapshot used by onError to roll back if the network call fails.
-    onMutate: async (vars) => {
-      const key = queryKeys.bookings.coach(user?.id);
-      await qc.cancelQueries({ queryKey: key });
-      const previous = qc.getQueryData<BookingRow[]>(key);
-      qc.setQueryData<BookingRow[]>(key, (old) =>
-        (old ?? []).map((b) => (b.id === vars.bookingId ? { ...b, client_id: vars.clientId } : b)),
-      );
-      setAssignTarget(null);
-      setAssignClientId("");
-      return { previous, key };
-    },
-    onError: (e: Error, _vars, ctx) => {
-      if (ctx?.previous) qc.setQueryData(ctx.key, ctx.previous);
-      toast.error("Errore", { description: e.message });
-    },
-    onSuccess: (_data, vars) => {
-      toast.success("Sessione assegnata");
-      invalidateBookingScope(qc, {
-        coachId: user?.id ?? null,
-        clientId: vars.clientId,
-      });
-    },
-  });
-
-  // Personal Block: convert an unassigned event into the coach's own
-  // commitment. is_personal=true is the discriminator; we also null out
-  // client_id / block_id / event_type_id so the row carries no stale
-  // links that would confuse other UI (e.g. "Esterno" detection).
-  const markAsPersonal = useMutation({
-    mutationFn: async (bookingId: string) => {
-      const { error } = await supabase
-        .from("bookings")
-        .update({
-          is_personal: true,
-          client_id: null,
-          block_id: null,
-          event_type_id: null,
-        })
-        .eq("id", bookingId);
-      if (error) throw error;
-    },
-    onMutate: async (bookingId) => {
-      const key = queryKeys.bookings.coach(user?.id);
-      await qc.cancelQueries({ queryKey: key });
-      const previous = qc.getQueryData<BookingRow[]>(key);
-      qc.setQueryData<BookingRow[]>(key, (old) =>
-        (old ?? []).map((b) =>
-          b.id === bookingId
-            ? {
-                ...b,
-                is_personal: true,
-                client_id: null,
-                block_id: null,
-                event_type_id: null,
-              }
-            : b,
-        ),
-      );
-      setAssignTarget(null);
-      setAssignClientId("");
-      return { previous, key };
-    },
-    onError: (e: Error, _vars, ctx) => {
-      if (ctx?.previous) qc.setQueryData(ctx.key, ctx.previous);
-      toast.error("Errore", { description: e.message });
-    },
-    onSuccess: () => {
-      toast.success("Impegno personale segnato");
-      invalidateBookingScope(qc, { coachId: user?.id ?? null, clientId: null });
-    },
-  });
+  // ----- Review dialog opening helper (P4) -----
+  // The actual dialog lives in the /trainer layout and reads its target
+  // from the URL search param. Calendar tiles just navigate with the
+  // booking id, the dialog opens automatically. Same param works from
+  // Dashboard, Mobile views, deep links shared via chat, etc.
+  const navigate = useNavigate();
+  const openReview = (bookingId: string) => {
+    navigate({
+      to: "/trainer/calendar",
+      search: (prev: Record<string, unknown>) => ({ ...prev, reviewEventId: bookingId }),
+    });
+  };
 
   // ----- Week navigation -----
   const weekDays = useMemo(
@@ -830,13 +746,24 @@ function CalendarPage() {
   useEffect(() => {
     if (!user || didFullSyncForUser.current === user.id) return;
     didFullSyncForUser.current = user.id;
+    // P1 (sync throttle): if another tab / earlier visit auto-synced
+    // within the last 10 minutes, skip this call. Coaches who bounce
+    // between routes were burning Google API quota on every mount.
+    // The manual "Sincronizza ora" button explicitly bypasses this gate
+    // and resets the timestamp, so it can always force a fresh sweep.
+    if (shouldSkipAutoSync()) return;
     const future = new Date();
     future.setFullYear(future.getFullYear() + 2);
     setMirroring(true);
     syncCalendarAwait({
       action: "import_history",
       coachId: user.id,
-      rangeStartISO: "2026-01-01T00:00:00Z",
+      // Server-side computes the *actual* timeMin (P2): the earlier of
+      // Jan 1 of the current year or the earliest active training_block
+      // start_date. The hint we send is just the upper bound the
+      // frontend wants visible; if a coach has clients starting in 2025
+      // the server will widen it for us.
+      rangeStartISO: new Date(new Date().getFullYear(), 0, 1).toISOString(),
       rangeEndISO: future.toISOString(),
     })
       .then(({ data }) => {
@@ -854,6 +781,7 @@ function CalendarPage() {
           });
           qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(user.id) });
           qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(user.id) });
+          markAutoSyncDone();
         }
       })
       .catch((e) => {
@@ -868,6 +796,11 @@ function CalendarPage() {
     const monthKey = `${user.id}-${weekStart.getFullYear()}-${weekStart.getMonth()}`;
     if (lastMirrorMonth.current === monthKey) return;
     lastMirrorMonth.current = monthKey;
+    // P1 throttle also gates mirror_check — the per-month gate already
+    // limits this, but a coach who paginates back-and-forth between
+    // months would still re-trigger. The shared 10-minute window
+    // collapses that into a single Google API call per visit cluster.
+    if (shouldSkipAutoSync()) return;
     const start = new Date(weekStart.getFullYear(), weekStart.getMonth(), 1).toISOString();
     const end = new Date(
       weekStart.getFullYear(),
@@ -903,6 +836,7 @@ function CalendarPage() {
           qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(user.id) });
           qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(user.id) });
         }
+        markAutoSyncDone();
       })
       .catch((e) => {
         console.error("mirror_check failed", e);
@@ -981,10 +915,7 @@ function CalendarPage() {
       return (
         <button
           key={b.id}
-          onClick={() => {
-            setAssignTarget(b);
-            setAssignClientId("");
-          }}
+          onClick={() => openReview(b.id)}
           style={laneStyle}
           className="absolute z-10 border-2 border-dashed border-warning-border bg-warning-container/40 rounded-2xl p-2 flex flex-col items-center justify-center gap-1 text-tertiary hover:bg-warning-container/70 hover:scale-[1.02] transition-all cursor-pointer"
         >
@@ -1002,10 +933,7 @@ function CalendarPage() {
       return (
         <button
           key={b.id}
-          onClick={() => {
-            setAssignTarget(b);
-            setAssignClientId("");
-          }}
+          onClick={() => openReview(b.id)}
           style={laneStyle}
           className="absolute z-10 bg-surface-container-low border border-outline-variant/40 rounded-2xl p-2 text-left hover:bg-surface-container transition-colors cursor-pointer"
           aria-label={`Evento esterno: ${title} — assegna o segna come impegno personale`}
@@ -1151,10 +1079,7 @@ function CalendarPage() {
           clientsMap={clientsMap}
           eventTypesMap={eventTypesMap}
           today={today}
-          onSelectAssign={(b) => {
-            setAssignTarget(b);
-            setAssignClientId("");
-          }}
+          onSelectAssign={(b) => openReview(b.id)}
           onSelectClient={(clientId) => setFocusClientId(clientId)}
         />
 
@@ -1314,70 +1239,10 @@ function CalendarPage() {
         </SheetContent>
       </Sheet>
 
-      {/* Assign Dialog */}
-      <Dialog open={!!assignTarget} onOpenChange={(o) => !o && setAssignTarget(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Assegna evento</DialogTitle>
-            <DialogDescription>
-              {assignTarget &&
-                new Date(assignTarget.scheduled_at).toLocaleString("it-IT", {
-                  dateStyle: "full",
-                  timeStyle: "short",
-                })}
-              {""}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <Select value={assignClientId} onValueChange={setAssignClientId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Seleziona cliente…" />
-              </SelectTrigger>
-              <SelectContent>
-                {clients.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.full_name ?? c.email ?? "Cliente"}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {/* Personal Block escape hatch: events that aren't a client
-                session (es. impegno personale del coach) can be moved out
-                of the "Da assegnare" bucket without forcing a fake client
-                assignment. */}
-            <div className="flex items-center gap-2 text-xs text-outline">
-              <div className="h-px flex-1 bg-outline-variant/40" aria-hidden />
-              oppure
-              <div className="h-px flex-1 bg-outline-variant/40" aria-hidden />
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full justify-center"
-              disabled={markAsPersonal.isPending || assignBooking.isPending}
-              onClick={() => assignTarget && markAsPersonal.mutate(assignTarget.id)}
-            >
-              {markAsPersonal.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
-              Segna come Impegno Personale
-            </Button>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setAssignTarget(null)}>
-              Annulla
-            </Button>
-            <Button
-              disabled={!assignClientId || assignBooking.isPending || markAsPersonal.isPending}
-              onClick={() =>
-                assignTarget &&
-                assignBooking.mutate({ bookingId: assignTarget.id, clientId: assignClientId })
-              }
-            >
-              {assignBooking.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
-              Assegna
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* The Assign / Personal / Consulenza dialog is now mounted globally
+          in the /trainer layout (src/routes/trainer.tsx) and driven by the
+          ?reviewEventId search param. openReview() above just navigates
+          with that param; closing clears it. */}
     </div>
   );
 }

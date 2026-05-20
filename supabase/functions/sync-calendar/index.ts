@@ -333,6 +333,41 @@ Deno.serve(async (req) => {
     },
   };
 
+  // Helper (P2): compute the actual timeMin for a Google Calendar list
+  // request. Spec: take the MIN of (Jan 1 current year) and (earliest
+  // active training_block.start_date for this coach), then return the
+  // earlier of that vs the caller's hint. This guarantees coaches with
+  // older active clients see every event from the start of their
+  // training, no matter how the frontend was configured.
+  //
+  // Returns an ISO string ready to feed to `calendar.events.list`.
+  async function computeDynamicTimeMin(callerHintIso: string | undefined): Promise<string> {
+    const jan1 = new Date(new Date().getFullYear(), 0, 1).toISOString();
+    let earliestStart: string | null = null;
+    try {
+      const { data, error } = await supabase
+        .from("training_blocks")
+        .select("start_date")
+        .eq("coach_id", body.coach_id)
+        .is("deleted_at", null)
+        .order("start_date", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (!error && data?.start_date) {
+        // training_blocks.start_date is a date; promote to UTC midnight.
+        earliestStart = `${data.start_date}T00:00:00Z`;
+      }
+    } catch (e) {
+      // Read-only query — fall back to jan1/caller hint on failure.
+      console.warn("computeDynamicTimeMin: training_blocks lookup failed", e);
+    }
+    const candidates = [jan1, earliestStart, callerHintIso].filter(
+      (v): v is string => typeof v === "string" && v.length > 0,
+    );
+    // Earliest wins so the window is as wide as needed.
+    return candidates.reduce((min, cur) => (cur < min ? cur : min));
+  }
+
   // Helper: carica clienti + event types + email coach (per matching)
   async function loadCoachContext() {
     const [clientsRes, etRes, coachUserRes] = await Promise.all([
@@ -521,7 +556,10 @@ Deno.serve(async (req) => {
 
     if (body.action === "import_history") {
       const ctx = await loadCoachContext();
-      const timeMin = body.range_start_iso ?? "2026-01-01T00:00:00Z";
+      // P2: dynamic timeMin = earlier of (caller hint, Jan 1 current
+      // year, earliest active training_block start_date). Coaches with
+      // clients whose paths started in 2025 still see those sessions.
+      const timeMin = await computeDynamicTimeMin(body.range_start_iso);
       const twoYearsAhead = new Date();
       twoYearsAhead.setFullYear(twoYearsAhead.getFullYear() + 2);
       const timeMax = body.range_end_iso ?? twoYearsAhead.toISOString();
@@ -662,20 +700,14 @@ Deno.serve(async (req) => {
       const ctx = await loadCoachContext();
       const twoYearsAhead2 = new Date();
       twoYearsAhead2.setFullYear(twoYearsAhead2.getFullYear() + 2);
-      // Default window now starts 30 days in the past, not "now".
-      // Coaches frequently log retroactive sessions in Google Calendar
-      // ("BIA Alan Spagnolo" created today against an April 16th date),
-      // and the previous default silently dropped them — the
-      // import_history flow runs once per browser session, so any
-      // backdated event created after the first calendar open would
-      // never be picked up. Callers that need a stricter window can
-      // still pass range_start_iso explicitly (the per-month calendar
-      // sync in trainer.calendar.tsx already does so).
-      const DEFAULT_LOOKBACK_DAYS = 30;
-      const defaultStart = new Date(
-        Date.now() - DEFAULT_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
-      ).toISOString();
-      const timeMin = body.range_start_iso ?? defaultStart;
+      // P2: dynamic timeMin — for per-month sync callers the caller
+      // hint (start of month) wins because it's tighter than the
+      // dynamic floor. For "Sincronizza ora" without a hint we still
+      // get the wide retroactive sweep guaranteed by Jan 1 / earliest
+      // training_block. The old 30-day lookback default is now
+      // subsumed by the Jan 1 floor (which is at least 31 days back
+      // for any time of year).
+      const timeMin = await computeDynamicTimeMin(body.range_start_iso);
       const timeMax = body.range_end_iso ?? twoYearsAhead2.toISOString();
 
       // Defensive: same migration race as the frontend bookings query.

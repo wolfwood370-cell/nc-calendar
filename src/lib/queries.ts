@@ -34,7 +34,23 @@ export interface BookingRow {
   // client_id are all NULL in this case. Rendered with a muted neutral
   // style and excluded from "to assign" / "external" UI categories.
   is_personal: boolean;
+  // Sub-type discriminator for non-client time. Always 'client_session'
+  // unless is_personal is true; then it narrows to the chosen flavor
+  // ('personal' for generic blocks, 'consulenza' for consulenze, etc.).
+  // Optional in BookingRow so frontend code written before the column
+  // shipped keeps working under the defensive fallback.
+  category?: BookingCategory;
 }
+
+export type BookingCategory = "client_session" | "personal" | "consulenza";
+
+// Human-readable Italian label per category. Exported so the calendar
+// + dashboard can render consistent badges without each call site
+// reimplementing the switch.
+export const BOOKING_CATEGORY_LABEL: Record<Exclude<BookingCategory, "client_session">, string> = {
+  personal: "Personale",
+  consulenza: "Consulenza",
+};
 
 export interface AvailabilityExceptionRow {
   id: string;
@@ -122,54 +138,86 @@ export function useCoachClients(coachId?: string) {
 // is_personal=false until the migration lands.
 const BOOKINGS_BASE_COLS =
   "id, client_id, coach_id, block_id, session_type, scheduled_at, status, meeting_link, deleted_at, event_type_id, notes, trainer_notes, google_event_id, title, duration_min, buffer_min";
+// Two extra optional columns added by separate migrations. We attempt the
+// widest SELECT first and fall back through the narrower variants if the
+// project hasn't applied the relevant migration yet.
 const BOOKINGS_COLS_WITH_PERSONAL = `${BOOKINGS_BASE_COLS}, is_personal`;
+const BOOKINGS_COLS_FULL = `${BOOKINGS_COLS_WITH_PERSONAL}, category`;
 
-function isMissingIsPersonalColumn(err: { code?: string; message?: string } | null): boolean {
+function isMissingColumnError(
+  err: { code?: string; message?: string } | null,
+  needle: string,
+): boolean {
   if (!err) return false;
   if (err.code === "42703") return true;
-  return typeof err.message === "string" && err.message.includes("is_personal");
+  return typeof err.message === "string" && err.message.includes(needle);
+}
+
+// Generic ladder: try wider → narrower SELECTs until one succeeds, then
+// fill in missing columns with safe defaults. The supabase-js typing
+// can't model the union of "all three columns" / "two columns" / "base"
+// well, so we treat results as raw objects and project them at the end.
+async function loadBookingsWithFallback(
+  build: (cols: string) => PromiseLike<{
+    data: unknown;
+    error: { code?: string; message?: string } | null;
+  }>,
+): Promise<BookingRow[]> {
+  // Attempt 1: widest schema (category + is_personal).
+  const wide = await build(BOOKINGS_COLS_FULL);
+  if (!wide.error) {
+    return (wide.data as BookingRow[] | null) ?? [];
+  }
+  if (!isMissingColumnError(wide.error, "category")) {
+    // Maybe is_personal is missing too — try base.
+    if (isMissingColumnError(wide.error, "is_personal")) {
+      const base = await build(BOOKINGS_BASE_COLS);
+      if (base.error) throw base.error;
+      return ((base.data as Record<string, unknown>[] | null) ?? []).map(
+        (b) =>
+          ({ ...b, is_personal: false, category: "client_session" }) as unknown as BookingRow,
+      );
+    }
+    throw wide.error;
+  }
+
+  // Attempt 2: category missing, is_personal present.
+  const mid = await build(BOOKINGS_COLS_WITH_PERSONAL);
+  if (!mid.error) {
+    return ((mid.data as Record<string, unknown>[] | null) ?? []).map(
+      (b) => ({ ...b, category: "client_session" }) as unknown as BookingRow,
+    );
+  }
+  if (!isMissingColumnError(mid.error, "is_personal")) throw mid.error;
+
+  // Attempt 3: pre-personal-blocks project.
+  const base = await build(BOOKINGS_BASE_COLS);
+  if (base.error) throw base.error;
+  return ((base.data as Record<string, unknown>[] | null) ?? []).map(
+    (b) => ({ ...b, is_personal: false, category: "client_session" }) as unknown as BookingRow,
+  );
 }
 
 async function selectBookingsByCoach(coachId: string): Promise<BookingRow[]> {
-  const { data, error } = await supabase
-    .from("bookings")
-    .select(BOOKINGS_COLS_WITH_PERSONAL)
-    .eq("coach_id", coachId)
-    .is("deleted_at", null)
-    .order("scheduled_at", { ascending: true });
-  if (error) {
-    if (!isMissingIsPersonalColumn(error)) throw error;
-    const fb = await supabase
+  return loadBookingsWithFallback((cols) =>
+    supabase
       .from("bookings")
-      .select(BOOKINGS_BASE_COLS)
+      .select(cols)
       .eq("coach_id", coachId)
       .is("deleted_at", null)
-      .order("scheduled_at", { ascending: true });
-    if (fb.error) throw fb.error;
-    return (fb.data ?? []).map((b) => ({ ...(b as object), is_personal: false }) as BookingRow);
-  }
-  return (data ?? []) as BookingRow[];
+      .order("scheduled_at", { ascending: true }),
+  );
 }
 
 async function selectBookingsByClient(clientId: string): Promise<BookingRow[]> {
-  const { data, error } = await supabase
-    .from("bookings")
-    .select(BOOKINGS_COLS_WITH_PERSONAL)
-    .eq("client_id", clientId)
-    .is("deleted_at", null)
-    .order("scheduled_at", { ascending: true });
-  if (error) {
-    if (!isMissingIsPersonalColumn(error)) throw error;
-    const fb = await supabase
+  return loadBookingsWithFallback((cols) =>
+    supabase
       .from("bookings")
-      .select(BOOKINGS_BASE_COLS)
+      .select(cols)
       .eq("client_id", clientId)
       .is("deleted_at", null)
-      .order("scheduled_at", { ascending: true });
-    if (fb.error) throw fb.error;
-    return (fb.data ?? []).map((b) => ({ ...(b as object), is_personal: false }) as BookingRow);
-  }
-  return (data ?? []) as BookingRow[];
+      .order("scheduled_at", { ascending: true }),
+  );
 }
 
 export function useCoachBookings(coachId?: string) {
