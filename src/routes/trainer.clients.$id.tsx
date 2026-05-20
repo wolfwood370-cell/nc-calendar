@@ -1283,7 +1283,7 @@ function BlockCreditsDialog({
             </p>
           )}
           {draft.map((r) => (
-            <div key={r.id} className="grid grid-cols-12 gap-2 items-end rounded-md border p-2">
+            <div key={r.id} className="grid grid-cols-12 gap-2 items-end rounded-2xl border p-2">
               <div className="col-span-7 space-y-1">
                 <Label className="text-xs">Tipologia</Label>
                 <Select

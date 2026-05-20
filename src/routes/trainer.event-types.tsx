@@ -419,14 +419,14 @@ function EventTypeDialog({
           >
             <Label
               htmlFor="loc-physical"
-              className="flex items-center gap-2 rounded-md border p-3 cursor-pointer hover:bg-accent/50"
+              className="flex items-center gap-2 rounded-[16px] border p-3 cursor-pointer hover:bg-accent/50"
             >
               <RadioGroupItem value="physical" id="loc-physical" />
               <MapPin className="size-4" /> Fisico
             </Label>
             <Label
               htmlFor="loc-online"
-              className="flex items-center gap-2 rounded-md border p-3 cursor-pointer hover:bg-accent/50"
+              className="flex items-center gap-2 rounded-[16px] border p-3 cursor-pointer hover:bg-accent/50"
             >
               <RadioGroupItem value="online" id="loc-online" />
               <Video className="size-4" /> Online
