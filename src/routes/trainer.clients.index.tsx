@@ -273,8 +273,40 @@ function ClientsPage() {
       setAllocs([]);
       setBookings([]);
     }
+
+    // Predictive exhaustion forecast — view enforces RLS via the underlying
+    // tables, so the coach automatically gets only their own clients.
+    type ForecastRow = {
+      client_id: string;
+      days_until_exhaustion: number | null;
+      predicted_exhaustion_date: string | null;
+      weekly_avg: number | null;
+    };
+    const { data: fc } = await (
+      supabase as unknown as {
+        from: (t: string) => {
+          select: (cols: string) => Promise<{ data: ForecastRow[] | null }>;
+        };
+      }
+    )
+      .from("client_exhaustion_forecast")
+      .select("client_id, days_until_exhaustion, predicted_exhaustion_date, weekly_avg");
+    const fmap = new Map<
+      string,
+      { daysLeft: number | null; date: string | null; weeklyAvg: number }
+    >();
+    for (const r of fc ?? []) {
+      fmap.set(r.client_id, {
+        daysLeft: r.days_until_exhaustion,
+        date: r.predicted_exhaustion_date,
+        weeklyAvg: Number(r.weekly_avg ?? 0),
+      });
+    }
+    setForecasts(fmap);
+
     setLoading(false);
   }
+
 
   useEffect(() => {
     if (user) load();
