@@ -28,6 +28,7 @@ import { Route as ClientBookRouteImport } from './routes/client.book'
 import { Route as TrainerClientsIndexRouteImport } from './routes/trainer.clients.index'
 import { Route as TrainerClientsIdRouteImport } from './routes/trainer.clients.$id'
 import { Route as ClientBookingsBookingIdRouteImport } from './routes/client.bookings.$bookingId'
+import { Route as ApiPublicWebhooksGcalWatchRouteImport } from './routes/api/public/webhooks/gcal-watch'
 
 const TrainerRoute = TrainerRouteImport.update({
   id: '/trainer',
@@ -124,6 +125,12 @@ const ClientBookingsBookingIdRoute = ClientBookingsBookingIdRouteImport.update({
   path: '/bookings/$bookingId',
   getParentRoute: () => ClientRoute,
 } as any)
+const ApiPublicWebhooksGcalWatchRoute =
+  ApiPublicWebhooksGcalWatchRouteImport.update({
+    id: '/api/public/webhooks/gcal-watch',
+    path: '/api/public/webhooks/gcal-watch',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -145,6 +152,7 @@ export interface FileRoutesByFullPath {
   '/client/bookings/$bookingId': typeof ClientBookingsBookingIdRoute
   '/trainer/clients/$id': typeof TrainerClientsIdRoute
   '/trainer/clients/': typeof TrainerClientsIndexRoute
+  '/api/public/webhooks/gcal-watch': typeof ApiPublicWebhooksGcalWatchRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -164,6 +172,7 @@ export interface FileRoutesByTo {
   '/client/bookings/$bookingId': typeof ClientBookingsBookingIdRoute
   '/trainer/clients/$id': typeof TrainerClientsIdRoute
   '/trainer/clients': typeof TrainerClientsIndexRoute
+  '/api/public/webhooks/gcal-watch': typeof ApiPublicWebhooksGcalWatchRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -186,6 +195,7 @@ export interface FileRoutesById {
   '/client/bookings/$bookingId': typeof ClientBookingsBookingIdRoute
   '/trainer/clients/$id': typeof TrainerClientsIdRoute
   '/trainer/clients/': typeof TrainerClientsIndexRoute
+  '/api/public/webhooks/gcal-watch': typeof ApiPublicWebhooksGcalWatchRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -209,6 +219,7 @@ export interface FileRouteTypes {
     | '/client/bookings/$bookingId'
     | '/trainer/clients/$id'
     | '/trainer/clients/'
+    | '/api/public/webhooks/gcal-watch'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -228,6 +239,7 @@ export interface FileRouteTypes {
     | '/client/bookings/$bookingId'
     | '/trainer/clients/$id'
     | '/trainer/clients'
+    | '/api/public/webhooks/gcal-watch'
   id:
     | '__root__'
     | '/'
@@ -249,6 +261,7 @@ export interface FileRouteTypes {
     | '/client/bookings/$bookingId'
     | '/trainer/clients/$id'
     | '/trainer/clients/'
+    | '/api/public/webhooks/gcal-watch'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -259,6 +272,7 @@ export interface RootRouteChildren {
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   TrainerRoute: typeof TrainerRouteWithChildren
+  ApiPublicWebhooksGcalWatchRoute: typeof ApiPublicWebhooksGcalWatchRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -396,6 +410,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClientBookingsBookingIdRouteImport
       parentRoute: typeof ClientRoute
     }
+    '/api/public/webhooks/gcal-watch': {
+      id: '/api/public/webhooks/gcal-watch'
+      path: '/api/public/webhooks/gcal-watch'
+      fullPath: '/api/public/webhooks/gcal-watch'
+      preLoaderRoute: typeof ApiPublicWebhooksGcalWatchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -449,7 +470,18 @@ const rootRouteChildren: RootRouteChildren = {
   ForgotPasswordRoute: ForgotPasswordRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   TrainerRoute: TrainerRouteWithChildren,
+  ApiPublicWebhooksGcalWatchRoute: ApiPublicWebhooksGcalWatchRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
