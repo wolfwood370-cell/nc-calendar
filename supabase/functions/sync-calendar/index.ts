@@ -7,7 +7,13 @@ import { requireAuth } from "../_shared/auth.ts";
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 
 interface SyncPayload {
-  action: "create" | "cancel" | "update" | "import_history" | "mirror_check";
+  action:
+    | "create"
+    | "cancel"
+    | "update"
+    | "import_history"
+    | "mirror_check"
+    | "register_watch";
   coach_id: string;
   client_name?: string;
   session_label?: string;
@@ -25,6 +31,9 @@ interface SyncPayload {
   // returned URL onto the matching booking row (booking_id).
   request_meet?: boolean;
   booking_id?: string;
+  // register_watch only: override the webhook callback URL. Defaults to
+  // the stable Lovable-published URL for this project.
+  webhook_url?: string;
 }
 
 type ClientLite = { id: string; full_name: string | null; email: string | null };
@@ -1009,6 +1018,85 @@ Deno.serve(async (req) => {
           imported,
           creditsBooked,
           checked: locals?.length ?? 0,
+        },
+        200,
+      );
+    }
+
+    if (body.action === "register_watch") {
+      // Register a Google Calendar push-notification channel pointing at
+      // /api/public/webhooks/gcal-watch. We generate a fresh UUID per call
+      // (so re-registering invalidates the previous channel) plus a 32-byte
+      // hex token that the webhook validates against gcal_channel_token to
+      // reject spoofed callbacks. Channels expire after ~1 week; the UI
+      // should call this again well before gcal_channel_expires_at.
+      const channelId = crypto.randomUUID();
+      const tokenBytes = new Uint8Array(32);
+      crypto.getRandomValues(tokenBytes);
+      const channelToken = Array.from(tokenBytes)
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+      const webhookUrl =
+        body.webhook_url ??
+        "https://project--81e402d5-14ed-48a5-938a-c89e014f695a.lovable.app/api/public/webhooks/gcal-watch";
+
+      const res = await gcalFetch(
+        supabase,
+        body.coach_id,
+        tokensRef,
+        `/calendars/${encodeURIComponent(calendarId)}/events/watch`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            id: channelId,
+            type: "web_hook",
+            address: webhookUrl,
+            token: channelToken,
+          }),
+        },
+      );
+      const watchData = (await res.json().catch(() => ({}))) as {
+        resourceId?: string;
+        expiration?: string;
+        id?: string;
+      };
+      if (!res.ok) {
+        console.error("sync-calendar: register_watch failed", {
+          status: res.status,
+          body: watchData,
+        });
+        return json(
+          { ok: false, error: `gcal watch ${res.status}: ${JSON.stringify(watchData)}` },
+          200,
+        );
+      }
+
+      // Google returns expiration as a string of Epoch milliseconds.
+      const expiresAt = watchData.expiration
+        ? new Date(Number(watchData.expiration)).toISOString()
+        : null;
+
+      const { error: persistErr } = await supabase
+        .from("integration_settings")
+        .update({
+          gcal_channel_id: channelId,
+          gcal_resource_id: watchData.resourceId ?? null,
+          gcal_channel_token: channelToken,
+          gcal_channel_expires_at: expiresAt,
+          gcal_webhook_url: webhookUrl,
+        })
+        .eq("coach_id", body.coach_id);
+      if (persistErr) {
+        console.error("sync-calendar: persist watch channel failed", persistErr);
+        return json({ ok: false, error: "persist_failed" }, 200);
+      }
+
+      return json(
+        {
+          ok: true,
+          channel_id: channelId,
+          resource_id: watchData.resourceId ?? null,
+          expires_at: expiresAt,
         },
         200,
       );
