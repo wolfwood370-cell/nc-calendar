@@ -7,7 +7,13 @@ import { requireAuth } from "../_shared/auth.ts";
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 
 interface SyncPayload {
-  action: "create" | "cancel" | "update" | "import_history" | "mirror_check";
+  action:
+    | "create"
+    | "cancel"
+    | "update"
+    | "import_history"
+    | "mirror_check"
+    | "register_watch";
   coach_id: string;
   client_name?: string;
   session_label?: string;
@@ -25,6 +31,9 @@ interface SyncPayload {
   // returned URL onto the matching booking row (booking_id).
   request_meet?: boolean;
   booking_id?: string;
+  // register_watch only: override the webhook callback URL. Defaults to
+  // the stable Lovable-published URL for this project.
+  webhook_url?: string;
 }
 
 type ClientLite = { id: string; full_name: string | null; email: string | null };
