@@ -217,7 +217,7 @@ function ClientHome() {
             Prossimo Appuntamento
           </h3>
           {isLoading ? (
-            <Skeleton className="h-32 w-full rounded-[32px]" />
+            <AuraCardSkeleton className="h-32" />
           ) : nextBooking ? (
             <LiveBookingCard
               booking={nextBooking}
@@ -251,7 +251,7 @@ function ClientHome() {
         <section className="flex flex-col gap-stack-md">
           <h3 className="text-xl font-semibold text-on-surface ml-1">Il Tuo Percorso Recente</h3>
           {isLoading ? (
-            <Skeleton className="h-40 w-full rounded-[24px]" />
+            <AuraCardSkeleton className="h-40" />
           ) : (
             <SessionTimeline bookings={bookingsQ.data ?? []} eventTypes={eventTypesQ.data ?? []} />
           )}
