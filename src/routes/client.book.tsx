@@ -42,6 +42,7 @@ import {
   parseISO,
 } from "date-fns";
 import { it } from "date-fns/locale";
+import { EmptyStateCard } from "@/components/empty-state-card";
 
 export const Route = createFileRoute("/client/book")({
   component: BookFlow,
@@ -507,21 +508,12 @@ function BookFlow() {
   if (!block && pools.length === 0) {
     return (
       <div className="bg-surface min-h-screen px-margin-mobile py-8 max-w-3xl mx-auto">
-        <div className="rounded-[32px] bg-white/60 backdrop-blur-xl border border-white/40 shadow-[0_8px_30px_rgba(0,86,133,0.06)] p-8 text-center space-y-4">
-          <h2 className="font-display text-2xl font-semibold text-on-surface">
-            Nessun credito disponibile
-          </h2>
-          <p className="text-sm text-on-surface-variant">
-            Non hai un percorso attivo né sessioni extra. Acquista un Booster per continuare a
-            prenotare.
-          </p>
-          <button
-            onClick={() => navigate({ to: "/client/store" })}
-            className="bg-primary-container text-on-primary rounded-full px-6 py-3 text-sm font-semibold active:scale-95 transition-transform"
-          >
-            Vai allo Store
-          </button>
-        </div>
+        <EmptyStateCard
+          title="Pronto a salire di livello?"
+          description="Non hai un percorso attivo né sessioni extra. Acquista un NC Add-on o un Booster per sbloccare nuove prenotazioni."
+          ctaLabel="Vai allo Store"
+          ctaTo="/client/store"
+        />
       </div>
     );
   }

@@ -14,6 +14,7 @@ import {
 import { sessionLabel } from "@/lib/mock-data";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
+import { EmptyStateCard } from "@/components/empty-state-card";
 
 export const Route = createFileRoute("/client/")({
   component: ClientHome,
@@ -148,9 +149,12 @@ function ClientHome() {
               <Skeleton className="h-12 w-full rounded-md" />
             </div>
           ) : summary.length === 0 ? (
-            <p className="text-sm text-on-surface-variant py-4 text-center">
-              Nessun percorso attivo. Contatta il tuo coach.
-            </p>
+            <EmptyStateCard
+              title="Pronto a salire di livello?"
+              description="Non hai ancora un percorso attivo. Scegli un Booster o un NC Add-on per iniziare a prenotare le tue sessioni."
+              ctaLabel="Esplora gli Add-on"
+              ctaTo="/client/store"
+            />
           ) : (
             <div className="flex flex-col gap-6">
               {summary.map((row) => {

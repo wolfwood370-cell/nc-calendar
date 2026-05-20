@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/auth";
 import nccLogo from "@/assets/ncc-logo.png";
 import { Button } from "@/components/ui/button";
 import { InstallPwaButton } from "@/components/install-pwa-button";
-import { PwaInstallToast } from "@/components/pwa-install-toast";
+import { PwaOnboarding } from "@/components/pwa-onboarding";
 import { ClientBottomNav } from "@/components/client-bottom-nav";
 
 export const Route = createFileRoute("/client")({
@@ -22,7 +22,7 @@ function ClientLayout() {
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
-      <PwaInstallToast />
+      <PwaOnboarding />
       {/* Desktop / tablet header (hidden on mobile, the dashboard provides its own top bar) */}
       <header className="hidden md:block border-b sticky top-0 bg-surface/80 backdrop-blur z-10">
         <div className="mx-auto max-w-3xl px-4 h-14 flex items-center justify-between">
