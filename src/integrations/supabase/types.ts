@@ -318,13 +318,17 @@ export type Database = {
           gcal_access_token: string | null
           gcal_account_email: string | null
           gcal_calendar_id: string | null
+          gcal_channel_expires_at: string | null
+          gcal_channel_id: string | null
+          gcal_channel_token: string | null
           gcal_enabled: boolean
+          gcal_last_notification_at: string | null
           gcal_refresh_token: string | null
+          gcal_resource_id: string | null
           gcal_service_account_json: string | null
           gcal_token_expires_at: string | null
           gcal_webhook_url: string | null
           id: string
-          stripe_account_id: string | null
           updated_at: string
           wa_access_token: string | null
           wa_enabled: boolean
@@ -337,13 +341,17 @@ export type Database = {
           gcal_access_token?: string | null
           gcal_account_email?: string | null
           gcal_calendar_id?: string | null
+          gcal_channel_expires_at?: string | null
+          gcal_channel_id?: string | null
+          gcal_channel_token?: string | null
           gcal_enabled?: boolean
+          gcal_last_notification_at?: string | null
           gcal_refresh_token?: string | null
+          gcal_resource_id?: string | null
           gcal_service_account_json?: string | null
           gcal_token_expires_at?: string | null
           gcal_webhook_url?: string | null
           id?: string
-          stripe_account_id?: string | null
           updated_at?: string
           wa_access_token?: string | null
           wa_enabled?: boolean
@@ -356,13 +364,17 @@ export type Database = {
           gcal_access_token?: string | null
           gcal_account_email?: string | null
           gcal_calendar_id?: string | null
+          gcal_channel_expires_at?: string | null
+          gcal_channel_id?: string | null
+          gcal_channel_token?: string | null
           gcal_enabled?: boolean
+          gcal_last_notification_at?: string | null
           gcal_refresh_token?: string | null
+          gcal_resource_id?: string | null
           gcal_service_account_json?: string | null
           gcal_token_expires_at?: string | null
           gcal_webhook_url?: string | null
           id?: string
-          stripe_account_id?: string | null
           updated_at?: string
           wa_access_token?: string | null
           wa_enabled?: boolean

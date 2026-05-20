@@ -886,6 +886,77 @@ function CalendarPage() {
       .finally(() => setMirroring(false));
   }, [user, weekStart, qc]);
 
+  // ----- Realtime: react to Google Calendar webhook pushes & live booking
+  // mutations. The /api/public/webhooks/gcal-watch endpoint bumps
+  // `integration_settings.gcal_last_notification_at` whenever Google pushes
+  // a change. We subscribe here so the UI refreshes without a manual reload.
+  //
+  // Two channels:
+  //   1) bookings  → invalidate booking caches on any insert/update/delete
+  //      for this coach (covers webhook-driven changes AND mutations from
+  //      other tabs / devices).
+  //   2) integration_settings → when the webhook watermark moves, trigger
+  //      an authenticated import_history sync so cancelled/moved Google
+  //      events are reconciled into our DB.
+  useEffect(() => {
+    if (!user) return;
+    const coachId = user.id;
+    let lastNotificationSeen = 0;
+
+    const channel = supabase
+      .channel(`trainer-calendar-${coachId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "bookings", filter: `coach_id=eq.${coachId}` },
+        () => {
+          qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(coachId) });
+          qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(coachId) });
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "integration_settings",
+          filter: `coach_id=eq.${coachId}`,
+        },
+        (payload) => {
+          const ts = (payload.new as { gcal_last_notification_at?: string | null })
+            ?.gcal_last_notification_at;
+          if (!ts) return;
+          const t = new Date(ts).getTime();
+          if (!Number.isFinite(t) || t <= lastNotificationSeen) return;
+          lastNotificationSeen = t;
+          // Background sync — silent, no toast on success; failure surfaces
+          // via reportSyncFailure as usual.
+          const future = new Date();
+          future.setFullYear(future.getFullYear() + 2);
+          syncCalendarAwait({
+            action: "import_history",
+            coachId,
+            rangeStartISO: new Date(new Date().getFullYear(), 0, 1).toISOString(),
+            rangeEndISO: future.toISOString(),
+          })
+            .then(() => {
+              qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(coachId) });
+              qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(coachId) });
+            })
+            .catch((e) => {
+              console.error("webhook-triggered sync failed", e);
+              reportSyncFailure("import_history", e);
+            });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [user, qc]);
+
+
+
   // ----- Render helpers -----
   const renderEvent = (b: BookingRow, placement: EventPlacement | undefined) => {
     // Safety net: timedByDay already excludes all-day events, but a
