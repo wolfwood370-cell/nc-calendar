@@ -705,26 +705,84 @@ Deno.serve(async (req) => {
         const sessionType = match.eventType?.base_type ?? "PT Session";
         const eventTypeId = match.eventType?.id ?? null;
 
-        let { data: existing } = await supabase
+        // H1 (audit 2026-05-20): SELECT now includes is_personal so the
+        // guard below can skip Personal Blocks / Consulenza rows. Without
+        // this guard, import_history would happily overwrite client_id /
+        // session_type / event_type_id / notes / title on rows the coach
+        // already converted to a special category — and could even
+        // re-trigger consumeCreditFor against a phantom client match.
+        // mirror_check already had this skip; parity restored here.
+        // Defensive fallback handles the case where the column migration
+        // (20260519150000_bookings_is_personal.sql) hasn't shipped to the
+        // target project yet — same pattern queries.ts uses on the client.
+        const existingBaseCols =
+          "id, status, scheduled_at, block_id, client_id, event_type_id, session_type";
+        let existingResp = await supabase
           .from("bookings")
-          .select("id, status, scheduled_at, block_id, client_id, event_type_id, session_type")
+          .select(`${existingBaseCols}, is_personal`)
           .eq("google_event_id", id)
           .maybeSingle();
+        if (
+          existingResp.error &&
+          ((existingResp.error as { code?: string }).code === "42703" ||
+            (existingResp.error.message ?? "").includes("is_personal"))
+        ) {
+          existingResp = await supabase
+            .from("bookings")
+            .select(existingBaseCols)
+            .eq("google_event_id", id)
+            .maybeSingle();
+        }
+        let existing = existingResp.data as
+          | (Record<string, unknown> & {
+              id: string;
+              status: string;
+              scheduled_at: string;
+              block_id: string | null;
+              client_id: string | null;
+              event_type_id: string | null;
+              session_type: string;
+              is_personal?: boolean;
+            })
+          | null;
 
         // Fallback: stesso cliente + stesso orario senza google_event_id (evita duplicati)
         if (!existing && match.client) {
-          const { data: localTwin } = await supabase
+          let twinResp = await supabase
             .from("bookings")
-            .select("id, status, scheduled_at, block_id, client_id, event_type_id, session_type")
+            .select(`${existingBaseCols}, is_personal`)
             .eq("coach_id", body.coach_id)
             .eq("client_id", clientId)
             .eq("scheduled_at", startIso)
             .is("google_event_id", null)
             .maybeSingle();
+          if (
+            twinResp.error &&
+            ((twinResp.error as { code?: string }).code === "42703" ||
+              (twinResp.error.message ?? "").includes("is_personal"))
+          ) {
+            twinResp = await supabase
+              .from("bookings")
+              .select(existingBaseCols)
+              .eq("coach_id", body.coach_id)
+              .eq("client_id", clientId)
+              .eq("scheduled_at", startIso)
+              .is("google_event_id", null)
+              .maybeSingle();
+          }
+          const localTwin = twinResp.data as typeof existing;
           if (localTwin) {
             await supabase.from("bookings").update({ google_event_id: id }).eq("id", localTwin.id);
             existing = localTwin;
           }
+        }
+
+        // H1 guard: any row the coach has marked is_personal=true is off-
+        // limits to import_history. Skipping here is finer-grained than
+        // bailing on the whole sync — we just leave the personal row
+        // untouched and move on to the next Google event.
+        if (existing && existing.is_personal === true) {
+          continue;
         }
 
         if (existing) {

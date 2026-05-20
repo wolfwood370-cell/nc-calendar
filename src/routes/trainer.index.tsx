@@ -984,7 +984,7 @@ function Overview() {
                         </Link>
                       </div>
                       <span
-                        className={`text-xs font-semibold px-2 py-1 rounded-md whitespace-nowrap ${badgeBg}`}
+                        className={`text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap ${badgeBg}`}
                       >
                         {c.remaining} {c.remaining === 1 ? "rimanente" : "rimanenti"}
                       </span>
