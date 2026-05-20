@@ -997,6 +997,30 @@ function ClientsPage() {
             const isCompleted = d.status === "completed";
             const phoneDigits = (c.phone ?? "").replace(/\D/g, "");
 
+            // Predictive exhaustion analytics (computed server-side via
+            // client_exhaustion_forecast view).
+            const fc = forecasts.get(c.id);
+            const showForecast =
+              !isArchived &&
+              !isCompleted &&
+              fc &&
+              fc.daysLeft !== null &&
+              fc.daysLeft <= 14 &&
+              fc.daysLeft >= 0;
+            const isCritical = !!fc && fc.daysLeft !== null && fc.daysLeft < 7;
+            const formattedExhaustion =
+              fc?.date
+                ? new Intl.DateTimeFormat("it-IT", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  }).format(new Date(fc.date + "T00:00:00"))
+                : null;
+            const reminderText = encodeURIComponent(
+              `Ciao ${(c.full_name ?? "").split(" ")[0] || ""}! Sto pianificando le prossime sessioni — vedo che i tuoi crediti stanno per esaurirsi. Vuoi rinnovare?`,
+            );
+
+
             const badgeClass = isArchived
               ? "bg-surface-container text-on-surface-variant"
               : isCompleted
