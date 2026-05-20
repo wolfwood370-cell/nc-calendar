@@ -22,7 +22,7 @@ function ClientLayout() {
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
-      <PwaInstallToast />
+      <PwaOnboarding />
       {/* Desktop / tablet header (hidden on mobile, the dashboard provides its own top bar) */}
       <header className="hidden md:block border-b sticky top-0 bg-surface/80 backdrop-blur z-10">
         <div className="mx-auto max-w-3xl px-4 h-14 flex items-center justify-between">
