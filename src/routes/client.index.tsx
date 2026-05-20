@@ -16,6 +16,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AuraProgressRing } from "@/components/ui/aura-progress-ring";
 import { JoinVideoCallButton } from "@/components/join-video-call-button";
 import { RescheduleDrawer } from "@/components/reschedule-drawer";
+// EmptyStateCard arrived from origin/main (PWA onboarding + empty
+// states pass). Reused in the "Il Tuo Percorso" zero-state branch
+// below — auto-merge applied that branch cleanly, only the import
+// list collided with mine. Progress wasn't kept because my pass
+// replaced the linear bars with AuraProgressRing entirely.
+import { EmptyStateCard } from "@/components/empty-state-card";
 
 export const Route = createFileRoute("/client/")({
   component: ClientHome,
@@ -150,9 +156,12 @@ function ClientHome() {
               <Skeleton className="h-12 w-full rounded-md" />
             </div>
           ) : summary.length === 0 ? (
-            <p className="text-sm text-on-surface-variant py-4 text-center">
-              Nessun percorso attivo. Contatta il tuo coach.
-            </p>
+            <EmptyStateCard
+              title="Pronto a salire di livello?"
+              description="Non hai ancora un percorso attivo. Scegli un Booster o un NC Add-on per iniziare a prenotare le tue sessioni."
+              ctaLabel="Esplora gli Add-on"
+              ctaTo="/client/store"
+            />
           ) : (
             <div className="flex flex-col gap-5">
               {summary.map((row) => {
