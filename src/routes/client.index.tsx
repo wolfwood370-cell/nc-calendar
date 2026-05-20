@@ -12,7 +12,7 @@ import {
   useClientExtraCredits,
 } from "@/lib/queries";
 import { sessionLabel } from "@/lib/mock-data";
-import { Skeleton } from "@/components/ui/skeleton";
+import { AuraCardSkeleton } from "@/components/ui/aura-skeleton";
 import { AuraProgressRing } from "@/components/ui/aura-progress-ring";
 import { JoinVideoCallButton } from "@/components/join-video-call-button";
 import { RescheduleDrawer } from "@/components/reschedule-drawer";
@@ -152,8 +152,14 @@ function ClientHome() {
 
           {isLoading ? (
             <div className="flex flex-col gap-4">
-              <Skeleton className="h-12 w-full rounded-md" />
-              <Skeleton className="h-12 w-full rounded-md" />
+              <AuraCardSkeleton className="h-12 flex items-center gap-3 p-3">
+                <AuraCardSkeleton className="w-8 h-8 rounded-full" />
+                <div className="flex-1" />
+              </AuraCardSkeleton>
+              <AuraCardSkeleton className="h-12 flex items-center gap-3 p-3">
+                <AuraCardSkeleton className="w-8 h-8 rounded-full" />
+                <div className="flex-1" />
+              </AuraCardSkeleton>
             </div>
           ) : summary.length === 0 ? (
             <EmptyStateCard
@@ -211,7 +217,7 @@ function ClientHome() {
             Prossimo Appuntamento
           </h3>
           {isLoading ? (
-            <Skeleton className="h-32 w-full rounded-[32px]" />
+            <AuraCardSkeleton className="h-32" />
           ) : nextBooking ? (
             <LiveBookingCard
               booking={nextBooking}
@@ -245,7 +251,7 @@ function ClientHome() {
         <section className="flex flex-col gap-stack-md">
           <h3 className="text-xl font-semibold text-on-surface ml-1">Il Tuo Percorso Recente</h3>
           {isLoading ? (
-            <Skeleton className="h-40 w-full rounded-[24px]" />
+            <AuraCardSkeleton className="h-40" />
           ) : (
             <SessionTimeline bookings={bookingsQ.data ?? []} eventTypes={eventTypesQ.data ?? []} />
           )}

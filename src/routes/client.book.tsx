@@ -840,7 +840,7 @@ function BookFlow() {
         </section>
 
         {/* Date Selector Card */}
-        <section className="bg-surface-container-lowest rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-6">
+        <section className="bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-6">
           <div className="flex justify-between items-center mb-6">
             <button
               onClick={goPrevMonth}

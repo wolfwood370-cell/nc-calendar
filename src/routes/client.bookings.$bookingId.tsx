@@ -11,7 +11,7 @@ import {
   Info,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { Skeleton } from "@/components/ui/skeleton";
+import { AuraCardSkeleton, AuraLineSkeleton } from "@/components/ui/aura-skeleton";
 import { sessionLabel, type BookingStatus, type SessionType } from "@/lib/mock-data";
 import { generateGoogleCalendarLink } from "@/lib/calendar-utils";
 import { format, differenceInHours } from "date-fns";
@@ -149,9 +149,18 @@ function BookingDetailPage() {
         <main className="px-margin-mobile space-y-gutter">
           {q.isLoading ? (
             <>
-              <Skeleton className="h-40 w-full rounded-xl" />
-              <Skeleton className="h-16 w-full rounded-xl" />
-              <Skeleton className="h-32 w-full rounded-xl" />
+              <AuraCardSkeleton className="h-40 flex flex-col gap-4 p-4">
+                <AuraLineSkeleton className="w-2/3" />
+                <AuraLineSkeleton className="w-1/2 h-3" />
+              </AuraCardSkeleton>
+              <AuraCardSkeleton className="h-16 flex items-center gap-3 p-4">
+                <AuraLineSkeleton className="w-1/3" />
+              </AuraCardSkeleton>
+              <AuraCardSkeleton className="h-32 flex flex-col gap-3 p-4">
+                <AuraLineSkeleton className="w-3/4" />
+                <AuraLineSkeleton className="w-full h-3" />
+                <AuraLineSkeleton className="w-5/6 h-3" />
+              </AuraCardSkeleton>
             </>
           ) : !q.data ? (
             <p className="text-center text-on-surface-variant py-10">Sessione non trovata.</p>
@@ -235,7 +244,7 @@ function BookingDetailView({ booking }: { booking: BookingDetail }) {
   return (
     <>
       {/* Hero card */}
-      <section className="bg-surface-container-lowest rounded-xl p-stack-lg shadow-[0_8px_30px_rgba(0,0,0,0.04)]">
+      <section className="bg-surface-container-lowest rounded-[32px] p-stack-lg shadow-[0_8px_30px_rgba(0,0,0,0.04)]">
         <div className="flex flex-col gap-stack-md">
           <div>
             <span
@@ -291,7 +300,7 @@ function BookingDetailView({ booking }: { booking: BookingDetail }) {
       </section>
 
       {/* Duration */}
-      <section className="bg-surface-container-lowest rounded-xl p-stack-md shadow-[0_8px_30px_rgba(0,0,0,0.04)] flex items-center gap-3">
+      <section className="bg-surface-container-lowest rounded-[32px] p-stack-md shadow-[0_8px_30px_rgba(0,0,0,0.04)] flex items-center gap-3">
         <Timer className="size-5 text-primary" />
         <p className="text-base text-on-surface">
           Durata: <span className="font-semibold">{duration} min</span>
@@ -316,7 +325,7 @@ function BookingDetailView({ booking }: { booking: BookingDetail }) {
       )}
 
       {/* Coach notes */}
-      <section className="bg-surface-container-lowest rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.04)] overflow-hidden relative border-l-4 border-primary">
+      <section className="bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] overflow-hidden relative border-l-4 border-primary">
         <div className="p-stack-lg">
           <div className="flex items-center gap-3 mb-stack-md">
             <div className="w-10 h-10 rounded-full bg-primary-container text-white grid place-items-center border border-outline-variant">

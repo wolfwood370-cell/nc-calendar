@@ -1788,12 +1788,12 @@ function CreateClientDialog({
 
           <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-1">
             {rules.length === 0 ? (
-              <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+              <div className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">
                 Nessuna regola. Clicca "Aggiungi Regola" per iniziare.
               </div>
             ) : (
               rules.map((r) => (
-                <div key={r.id} className="rounded-md border p-3 space-y-3">
+                <div key={r.id} className="rounded-2xl border p-3 space-y-3">
                   <div className="grid grid-cols-12 gap-2 items-end">
                     <div className="col-span-12 sm:col-span-5 space-y-1">
                       <Label className="text-xs">Event Type</Label>
