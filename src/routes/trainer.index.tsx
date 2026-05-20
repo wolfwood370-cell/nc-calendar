@@ -12,6 +12,13 @@ import {
 import { queryKeys } from "@/lib/query-keys";
 import { sessionLabel, type SessionType } from "@/lib/mock-data";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AuraCardSkeleton,
+  AuraAvatarSkeleton,
+  AuraLineSkeleton,
+  AuraPillSkeleton,
+} from "@/components/ui/aura-skeleton";
+import { SwipeableCard } from "@/components/ui/swipeable-card";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -359,6 +366,31 @@ function Overview() {
     });
   };
 
+  // Mobile swipe-left shortcut: mark a Centro Revisione card as personal
+  // without opening the dialog. The RPC mark_booking_special refunds any
+  // consumed credit atomically + clears block/client/event_type links,
+  // so this is safe to fire without intermediate confirmation.
+  const markPersonalQuick = useMutation({
+    mutationFn: async (bookingId: string) => {
+      const { error } = await supabase.rpc("mark_booking_special", {
+        p_booking_id: bookingId,
+        p_category: "personal",
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Impegno personale segnato");
+      qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(user?.id) });
+      qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(user?.id) });
+    },
+    onError: (e: Error) => {
+      const message = /function .* does not exist/i.test(e.message)
+        ? "Aggiornamento DB necessario: applica la migration mark_booking_special."
+        : e.message;
+      toast.error("Errore", { description: message });
+    },
+  });
+
   const loading = clientsQ.isLoading || bookingsQ.isLoading || blocksQ.isLoading;
   const userName = (user?.user_metadata?.full_name as string) || user?.email || "Coach";
   const todayLabel = new Date().toLocaleDateString("it-IT", {
@@ -459,27 +491,45 @@ function Overview() {
             Ciao, {userName.split(" ")[0]}
           </h2>
 
-          {/* Daily Summary Card */}
-          <section className="bg-surface-container-lowest rounded-[32px] border border-outline-variant/20 shadow-[0_12px_32px_rgba(0,0,0,0.04)] p-6 flex flex-col gap-3 relative overflow-hidden">
-            <div
-              aria-hidden
-              className="absolute top-0 right-0 w-32 h-32 bg-primary-fixed/30 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"
-            />
-            <p className="text-sm font-semibold text-on-surface-variant">Oggi, {todayMobileLabel}</p>
-            <div className="flex flex-col gap-1">
-              <span className="text-5xl font-extrabold text-primary tracking-tight leading-none">
-                {loading ? "—" : todayItems.length}
-              </span>
-              <span className="text-xl font-semibold text-on-surface">
-                {todayItems.length === 1 ? "Sessione Programmata" : "Sessioni Programmate"}
-              </span>
-            </div>
-          </section>
+          {/* Daily Summary Card — AuraCardSkeleton during initial load
+              eliminates the flash-of-zero before the bookings query
+              resolves. */}
+          {loading ? (
+            <AuraCardSkeleton className="p-6 flex flex-col gap-3">
+              <AuraLineSkeleton className="w-32 h-3" />
+              <AuraLineSkeleton className="w-20 h-12 rounded-2xl" />
+              <AuraLineSkeleton className="w-48 h-5" />
+            </AuraCardSkeleton>
+          ) : (
+            <section className="bg-surface-container-lowest rounded-[32px] border border-outline-variant/20 shadow-[0_12px_32px_rgba(0,0,0,0.04)] p-6 flex flex-col gap-3 relative overflow-hidden">
+              <div
+                aria-hidden
+                className="absolute top-0 right-0 w-32 h-32 bg-primary-fixed/30 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"
+              />
+              <p className="text-sm font-semibold text-on-surface-variant">
+                Oggi, {todayMobileLabel}
+              </p>
+              <div className="flex flex-col gap-1">
+                <span className="text-5xl font-extrabold text-primary tracking-tight leading-none">
+                  {todayItems.length}
+                </span>
+                <span className="text-xl font-semibold text-on-surface">
+                  {todayItems.length === 1 ? "Sessione Programmata" : "Sessioni Programmate"}
+                </span>
+              </div>
+            </section>
+          )}
 
           {/* Next Event Card — only renders when there's an upcoming
               booking. Tapping "Apri Scheda" jumps to the calendar page,
               same destination as desktop "Vedi tutto". */}
-          {nextBooking && (
+          {loading ? (
+            <AuraCardSkeleton className="p-6 flex flex-col gap-4">
+              <AuraPillSkeleton size="w-32 h-3" />
+              <AuraLineSkeleton className="w-3/4 h-6" />
+              <AuraPillSkeleton size="w-full h-12" />
+            </AuraCardSkeleton>
+          ) : nextBooking ? (
             <section className="bg-surface-container-lowest rounded-[32px] border border-outline-variant/20 shadow-[0_12px_32px_rgba(0,0,0,0.04)] p-6 flex flex-col gap-4">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-primary-container" />
@@ -513,11 +563,27 @@ function Overview() {
                 <ArrowRight className="size-4" />
               </Link>
             </section>
-          )}
+          ) : null}
 
           {/* Today's session stream — reuses todayItems already computed
               by the desktop view, just rendered as standalone cards. */}
-          {todayItems.length > 0 && (
+          {loading ? (
+            <section className="flex flex-col gap-3">
+              <AuraLineSkeleton className="w-32 h-4 ml-1" />
+              <div className="flex flex-col gap-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <AuraCardSkeleton key={i} className="p-4 flex items-center gap-4 h-20">
+                    <AuraPillSkeleton size="w-12 h-4" />
+                    <div className="w-px self-stretch bg-outline-variant/40" aria-hidden />
+                    <div className="flex-1 flex flex-col gap-2">
+                      <AuraLineSkeleton className="w-2/3 h-4" />
+                      <AuraLineSkeleton className="w-1/3 h-3" />
+                    </div>
+                  </AuraCardSkeleton>
+                ))}
+              </div>
+            </section>
+          ) : todayItems.length > 0 ? (
             <section className="flex flex-col gap-3">
               <h3 className="text-base font-semibold text-on-surface px-1">Sessioni di oggi</h3>
               <div className="flex flex-col gap-3">
@@ -549,14 +615,34 @@ function Overview() {
                 })}
               </div>
             </section>
-          )}
+          ) : null}
 
           {/* Centro Revisione preview on mobile — only if there's
-              something to act on. Cards are pill-edged for consistency
-              with the Aura mobile language. */}
-          {reviewItems.length > 0 && (
+              something to act on. Cards are pill-edged + swipeable:
+              swipe right reveals "Assegna" (opens the global review
+              dialog), swipe left reveals "Personale" (fires the
+              mark_booking_special RPC directly, no extra dialog). */}
+          {loading ? (
+            <section className="flex flex-col gap-3">
+              <AuraLineSkeleton className="w-32 h-4 ml-1" />
+              <div className="flex flex-col gap-3">
+                {Array.from({ length: 2 }).map((_, i) => (
+                  <AuraCardSkeleton key={i} className="p-4 flex items-center gap-3 h-20">
+                    <AuraAvatarSkeleton size="sm" className="size-10" />
+                    <div className="flex-1 flex flex-col gap-2">
+                      <AuraLineSkeleton className="w-3/4 h-4" />
+                      <AuraLineSkeleton className="w-1/2 h-3" />
+                    </div>
+                  </AuraCardSkeleton>
+                ))}
+              </div>
+            </section>
+          ) : reviewItems.length > 0 ? (
             <section className="flex flex-col gap-3">
               <h3 className="text-base font-semibold text-on-surface px-1">Da revisionare</h3>
+              <p className="text-xs text-on-surface-variant px-1 -mt-1">
+                Scorri a destra per assegnare, a sinistra per impegno personale.
+              </p>
               <div className="flex flex-col gap-3">
                 {reviewItems.slice(0, 3).map((r) => {
                   const importedTitle =
@@ -566,39 +652,52 @@ function Overview() {
                   const eventName = r.title?.trim() || importedTitle || "Evento Google Calendar";
                   const start = new Date(r.scheduled_at);
                   return (
-                    <button
+                    <SwipeableCard
                       key={r.id}
-                      type="button"
-                      onClick={() => openReview(r.id)}
-                      className="bg-surface-container-lowest rounded-[32px] border border-outline-variant/20 shadow-[0_12px_32px_rgba(0,0,0,0.04)] p-4 text-left flex items-center gap-3 active:scale-[0.99] transition-transform"
+                      rightAction={{
+                        label: "Assegna",
+                        className: "bg-primary-container text-on-primary-container",
+                        onFire: () => openReview(r.id),
+                      }}
+                      leftAction={{
+                        label: "Personale",
+                        className: "bg-surface-container-highest text-outline",
+                        onFire: () => markPersonalQuick.mutate(r.id),
+                      }}
                     >
-                      <span className="inline-flex size-10 items-center justify-center rounded-full bg-tertiary-container/20 text-tertiary">
-                        <AlertTriangle className="size-5" />
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-on-surface truncate">
-                          {eventName}
-                        </p>
-                        <p className="text-xs text-on-surface-variant capitalize">
-                          {start.toLocaleDateString("it-IT", {
-                            weekday: "short",
-                            day: "numeric",
-                            month: "short",
-                          })}{" "}
-                          ·{" "}
-                          {start.toLocaleTimeString("it-IT", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </p>
-                      </div>
-                      <ArrowRight className="size-4 text-outline" aria-hidden />
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => openReview(r.id)}
+                        className="w-full bg-surface-container-lowest rounded-[32px] border border-outline-variant/20 shadow-[0_12px_32px_rgba(0,0,0,0.04)] p-4 text-left flex items-center gap-3 active:scale-[0.99] transition-transform"
+                      >
+                        <span className="inline-flex size-10 items-center justify-center rounded-full bg-tertiary-container/20 text-tertiary">
+                          <AlertTriangle className="size-5" />
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-on-surface truncate">
+                            {eventName}
+                          </p>
+                          <p className="text-xs text-on-surface-variant capitalize">
+                            {start.toLocaleDateString("it-IT", {
+                              weekday: "short",
+                              day: "numeric",
+                              month: "short",
+                            })}{" "}
+                            ·{" "}
+                            {start.toLocaleTimeString("it-IT", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </p>
+                        </div>
+                        <ArrowRight className="size-4 text-outline" aria-hidden />
+                      </button>
+                    </SwipeableCard>
                   );
                 })}
               </div>
             </section>
-          )}
+          ) : null}
         </main>
       </div>
 

@@ -16,6 +16,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AuraCardSkeleton, AuraLineSkeleton } from "@/components/ui/aura-skeleton";
 import { sessionLabel } from "@/lib/mock-data";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -237,6 +238,9 @@ interface MobileAgendaViewProps {
   clientsMap: Map<string, ProfileRow>;
   eventTypesMap: Map<string, EventTypeRow>;
   today: Date;
+  /** First-load flag from useCoachBookings so we can paint Aura
+      skeletons instead of the empty-state placeholder. */
+  isLoading: boolean;
   onSelectAssign: (b: BookingRow) => void;
   onSelectClient: (clientId: string) => void;
 }
@@ -248,6 +252,7 @@ function MobileAgendaView({
   clientsMap,
   eventTypesMap,
   today,
+  isLoading,
   onSelectAssign,
   onSelectClient,
 }: MobileAgendaViewProps) {
@@ -332,8 +337,27 @@ function MobileAgendaView({
         </section>
       )}
 
-      {/* Timed event list */}
-      {isEmpty ? (
+      {/* Timed event list — Aura skeletons on first load to avoid the
+          flash-of-empty-state while bookingsQ resolves. */}
+      {isLoading ? (
+        <ul className="flex flex-col gap-3" aria-label="Caricamento eventi">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <li key={i}>
+              <AuraCardSkeleton className="p-4 flex items-stretch gap-3 h-24">
+                <div className="flex flex-col items-center justify-center gap-2 min-w-[56px]">
+                  <AuraLineSkeleton className="w-10 h-4" />
+                  <AuraLineSkeleton className="w-8 h-3" />
+                </div>
+                <div className="w-px self-stretch bg-outline-variant/30" aria-hidden />
+                <div className="flex-1 flex flex-col justify-center gap-2">
+                  <AuraLineSkeleton className="w-2/3 h-4" />
+                  <AuraLineSkeleton className="w-1/3 h-3" />
+                </div>
+              </AuraCardSkeleton>
+            </li>
+          ))}
+        </ul>
+      ) : isEmpty ? (
         <div className="rounded-[24px] border border-outline-variant/30 bg-white p-6 text-center text-sm text-outline shadow-soft-blue">
           <CalendarIcon className="size-8 mx-auto mb-2 text-outline-variant" />
           Nessun evento programmato per questo giorno.
@@ -1079,6 +1103,7 @@ function CalendarPage() {
           clientsMap={clientsMap}
           eventTypesMap={eventTypesMap}
           today={today}
+          isLoading={bookingsQ.isLoading}
           onSelectAssign={(b) => openReview(b.id)}
           onSelectClient={(clientId) => setFocusClientId(clientId)}
         />

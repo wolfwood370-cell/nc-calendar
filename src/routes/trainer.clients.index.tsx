@@ -72,6 +72,12 @@ import { errorMessage } from "@/lib/utils";
 import { sessionLabel, type SessionType } from "@/lib/mock-data";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AuraCardSkeleton,
+  AuraAvatarSkeleton,
+  AuraLineSkeleton,
+  AuraPillSkeleton,
+} from "@/components/ui/aura-skeleton";
 import { useQueryClient } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/trainer/clients/")({
@@ -671,20 +677,23 @@ function ClientsPage() {
             })}
           </div>
 
-          {/* Client cards */}
+          {/* Client cards — AuraCardSkeletons during first load, with
+              circular avatar + name + pill chip placeholders that match
+              the resolved layout 1:1 so there's no visual jump. */}
           {loading ? (
             <div className="flex flex-col gap-3">
               {Array.from({ length: 4 }).map((_, i) => (
-                <div
+                <AuraCardSkeleton
                   key={i}
-                  className="bg-surface-container-lowest rounded-[32px] border border-outline-variant/20 p-4 shadow-[0_12px_32px_rgba(0,0,0,0.04)] flex items-center gap-4"
+                  className="p-4 flex items-center gap-4 h-24"
                 >
-                  <Skeleton className="w-16 h-16 rounded-full shrink-0" />
-                  <div className="flex-1 space-y-2">
-                    <Skeleton className="h-5 w-2/3" />
-                    <Skeleton className="h-3 w-1/3" />
+                  <AuraAvatarSkeleton size="lg" />
+                  <div className="flex-1 flex flex-col gap-2">
+                    <AuraLineSkeleton className="w-2/3 h-5" />
+                    <AuraPillSkeleton size="w-28 h-5" />
                   </div>
-                </div>
+                  <AuraPillSkeleton size="w-24 h-9" />
+                </AuraCardSkeleton>
               ))}
             </div>
           ) : visibleCards.length === 0 ? (
