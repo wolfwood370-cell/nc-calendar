@@ -42,6 +42,7 @@ import {
   parseISO,
 } from "date-fns";
 import { it } from "date-fns/locale";
+import { EmptyStateCard } from "@/components/empty-state-card";
 
 export const Route = createFileRoute("/client/book")({
   component: BookFlow,
