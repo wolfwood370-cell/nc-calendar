@@ -16,7 +16,9 @@ import {
   type AllocationRow,
   type EventTypeRow,
 } from "@/lib/queries";
-import { generateMockMeetLink } from "@/components/join-video-call-button";
+// generateMockMeetLink was deprecated: the real Google Meet URL is now
+// minted server-side by sync-calendar (conferenceData + booking_id) and
+// written onto bookings.meeting_link via service-role UPDATE.
 import { toast } from "sonner";
 import { sendBookingConfirmationEmail } from "@/lib/email";
 import { sendPush } from "@/lib/push";
@@ -648,7 +650,6 @@ function BookFlow() {
       }
 
       const isOnline = eventType?.location_type === "online";
-      const meetingLink = isOnline ? generateMockMeetLink() : null;
 
       // INSERT booking. Overlap and credit consumption are enforced
       // server-side:
@@ -657,16 +658,25 @@ function BookFlow() {
       //   - trg_booking_validate_extra_credits   (P0001 on exhausted credit)
       // The previous client-side SELECT-then-INSERT conflict check was removed
       // because it has a wide race window between SELECT and INSERT.
-      const { error: bErr } = await supabase.from("bookings").insert({
-        client_id: meId,
-        coach_id: coachId,
-        block_id: allocId ? (block?.id ?? null) : null,
-        session_type: type,
-        event_type_id: eventType?.id ?? null,
-        scheduled_at: iso,
-        status: "scheduled",
-        meeting_link: meetingLink,
-      });
+      //
+      // meeting_link starts NULL for online sessions: sync-calendar will
+      // create a real Google Meet room and write the URL back. The fall-
+      // back mock link generator is kept around for offline-mode demos
+      // but the production path always waits for the real Meet URL.
+      const { data: insertedBooking, error: bErr } = await supabase
+        .from("bookings")
+        .insert({
+          client_id: meId,
+          coach_id: coachId,
+          block_id: allocId ? (block?.id ?? null) : null,
+          session_type: type,
+          event_type_id: eventType?.id ?? null,
+          scheduled_at: iso,
+          status: "scheduled",
+          meeting_link: null,
+        })
+        .select("id")
+        .single();
       if (bErr) {
         if (bErr.code === "23P01") {
           toast.error("Slot già occupato", {
@@ -680,6 +690,7 @@ function BookFlow() {
         }
         return;
       }
+      const bookingId = (insertedBooking as { id: string } | null)?.id ?? null;
 
       // Credit deduction is handled atomically by the DB triggers above.
       const calendarUrl = generateGoogleCalendarLink(
@@ -695,15 +706,23 @@ function BookFlow() {
         meName,
       );
 
-      // notifications (fire and forget)
+      // notifications (fire and forget). sync-calendar runs:
+      //   - the Google Calendar event insert
+      //   - if online, asks Google to create a Meet room (conferenceData
+      //     + conferenceDataVersion=1) and writes the returned URL onto
+      //     bookings.meeting_link via service-role UPDATE
+      //   - writes google_event_id back too so future mirror/cancel
+      //     flows know which Google event maps to this booking
       syncCalendar({
         action: "create",
         coachId,
         clientName: meName,
         sessionLabel: displayLabel,
         startISO: iso,
-        meetingLink,
+        meetingLink: null,
         color: eventType?.color ?? null,
+        requestMeet: isOnline,
+        bookingId: bookingId ?? undefined,
       });
       void Promise.all([
         emailNotificationsEnabled
@@ -724,7 +743,11 @@ function BookFlow() {
               client_phone: mePhone,
               scheduled_at: iso,
               session_label: displayLabel,
-              meeting_link: meetingLink,
+              // notification only carries the URL once the server has
+              // had time to mint it; for now we omit it here. The
+              // booking row itself will get the URL via sync-calendar
+              // server-side update.
+              meeting_link: null,
             },
           })
           .catch((e) => console.error("booking-notifications failed", e)),

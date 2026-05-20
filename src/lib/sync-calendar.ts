@@ -90,6 +90,13 @@ interface CreateInput {
   endISO?: string;
   meetingLink?: string | null;
   color?: string | null;
+  // Native Google Meet integration: when true the server asks Google
+  // to spin up a Meet room as part of the event insert, captures the
+  // returned URL, and writes it onto the matching booking row.
+  // bookingId is required for the write-back to land — otherwise the
+  // Meet URL only comes back in the response.
+  requestMeet?: boolean;
+  bookingId?: string;
 }
 interface CancelInput {
   action: "cancel";
@@ -140,6 +147,8 @@ function buildBody(input: SyncInput): Record<string, unknown> {
       end_iso: input.endISO,
       meeting_link: input.meetingLink ?? null,
       color: input.color ?? null,
+      request_meet: input.requestMeet ?? false,
+      booking_id: input.bookingId ?? undefined,
     };
   }
   if (input.action === "cancel") {

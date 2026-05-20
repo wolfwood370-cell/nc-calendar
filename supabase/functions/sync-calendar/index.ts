@@ -20,6 +20,11 @@ interface SyncPayload {
   range_start_iso?: string;
   range_end_iso?: string;
   calendar_id?: string;
+  // Native Google Meet integration: when true, the create branch asks
+  // Google to spin up a Meet room on event insert and persists the
+  // returned URL onto the matching booking row (booking_id).
+  request_meet?: boolean;
+  booking_id?: string;
 }
 
 type ClientLite = { id: string; full_name: string | null; email: string | null };
@@ -256,15 +261,36 @@ Deno.serve(async (req) => {
   // Helper Calendar API tipizzati
   const calendar = {
     events: {
-      insert: async (params: { calendarId: string; requestBody: Record<string, unknown> }) => {
-        const res = await gcalFetch(
-          supabase,
-          body.coach_id,
-          tokensRef,
-          `/calendars/${encodeURIComponent(params.calendarId)}/events`,
-          { method: "POST", body: JSON.stringify(params.requestBody) },
-        );
-        const data = (await res.json().catch(() => ({}))) as { id?: string };
+      insert: async (params: {
+        calendarId: string;
+        requestBody: Record<string, unknown>;
+        /** Set 1 to opt the event into Google Meet auto-creation when
+            requestBody.conferenceData is present. Google requires this
+            query param explicitly — the field in the body alone is
+            silently ignored without it. */
+        conferenceDataVersion?: 0 | 1;
+      }) => {
+        const qs = new URLSearchParams();
+        if (params.conferenceDataVersion !== undefined) {
+          qs.set("conferenceDataVersion", String(params.conferenceDataVersion));
+        }
+        const qsStr = qs.toString();
+        const path = `/calendars/${encodeURIComponent(params.calendarId)}/events${
+          qsStr ? `?${qsStr}` : ""
+        }`;
+        const res = await gcalFetch(supabase, body.coach_id, tokensRef, path, {
+          method: "POST",
+          body: JSON.stringify(params.requestBody),
+        });
+        // Capture the full event payload — we need conferenceData.entryPoints
+        // and the top-level hangoutLink after a successful Meet creation.
+        const data = (await res.json().catch(() => ({}))) as {
+          id?: string;
+          hangoutLink?: string;
+          conferenceData?: {
+            entryPoints?: Array<{ entryPointType?: string; uri?: string }>;
+          };
+        };
         if (!res.ok) throw new Error(`gcal insert ${res.status}: ${JSON.stringify(data)}`);
         return { data };
       },
@@ -272,14 +298,20 @@ Deno.serve(async (req) => {
         calendarId: string;
         eventId: string;
         requestBody: Record<string, unknown>;
+        conferenceDataVersion?: 0 | 1;
       }) => {
-        const res = await gcalFetch(
-          supabase,
-          body.coach_id,
-          tokensRef,
-          `/calendars/${encodeURIComponent(params.calendarId)}/events/${encodeURIComponent(params.eventId)}`,
-          { method: "PATCH", body: JSON.stringify(params.requestBody) },
-        );
+        const qs = new URLSearchParams();
+        if (params.conferenceDataVersion !== undefined) {
+          qs.set("conferenceDataVersion", String(params.conferenceDataVersion));
+        }
+        const qsStr = qs.toString();
+        const path = `/calendars/${encodeURIComponent(params.calendarId)}/events/${encodeURIComponent(
+          params.eventId,
+        )}${qsStr ? `?${qsStr}` : ""}`;
+        const res = await gcalFetch(supabase, body.coach_id, tokensRef, path, {
+          method: "PATCH",
+          body: JSON.stringify(params.requestBody),
+        });
         if (!res.ok) {
           const t = await res.text();
           throw new Error(`gcal patch ${res.status}: ${t}`);
@@ -493,8 +525,66 @@ Deno.serve(async (req) => {
       };
       const colorId = hexToGoogleColorId(body.color);
       if (colorId) event.colorId = colorId;
-      const res = await calendar.events.insert({ calendarId, requestBody: event });
-      return json({ ok: true, event_id: res.data.id }, 200);
+
+      // Google Meet auto-creation. When the caller flagged this booking as
+      // online (request_meet), we ask Google to spin up a Meet room as
+      // part of the event insert. The conferenceData.createRequest body
+      // pairs with the conferenceDataVersion=1 query param — Google
+      // silently ignores conferenceData without the query param.
+      // requestId scopes the create to this booking so retries from the
+      // same booking don't generate duplicate rooms.
+      const wantsMeet = body.request_meet === true;
+      if (wantsMeet) {
+        event.conferenceData = {
+          createRequest: {
+            requestId: `booking_${body.booking_id ?? crypto.randomUUID()}`,
+            conferenceSolutionKey: { type: "hangoutsMeet" },
+          },
+        };
+      }
+
+      const res = await calendar.events.insert({
+        calendarId,
+        requestBody: event,
+        conferenceDataVersion: wantsMeet ? 1 : 0,
+      });
+
+      // Capture the Meet URL: Google returns either the top-level
+      // hangoutLink (preferred) or, if the createRequest is still
+      // pending, an entryPoint with type "video". Persist to the
+      // bookings row when we have a booking_id from the caller.
+      let meetUrl: string | null = null;
+      if (wantsMeet) {
+        meetUrl =
+          res.data.hangoutLink ??
+          res.data.conferenceData?.entryPoints?.find((e) => e.entryPointType === "video")
+            ?.uri ??
+          null;
+        if (meetUrl && body.booking_id) {
+          const { error: updErr } = await supabase
+            .from("bookings")
+            .update({
+              meeting_link: meetUrl,
+              google_event_id: res.data.id ?? null,
+            })
+            .eq("id", body.booking_id);
+          if (updErr) {
+            console.error("sync-calendar: failed to persist Meet URL on booking", updErr);
+            // Surface this in the response so the caller can decide.
+            // The Google event is real either way.
+          }
+        }
+      } else if (body.booking_id && res.data.id) {
+        // No Meet requested but still write back the google_event_id so
+        // later mirror/cancel flows know which Google event maps to this
+        // booking.
+        await supabase
+          .from("bookings")
+          .update({ google_event_id: res.data.id })
+          .eq("id", body.booking_id);
+      }
+
+      return json({ ok: true, event_id: res.data.id, meet_url: meetUrl }, 200);
     }
 
     if (body.action === "cancel") {
