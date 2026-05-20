@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, Navigate, useNavigate } from "@tanstack/react-
 import { useEffect } from "react";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { TrainerSidebar } from "@/components/trainer-sidebar";
+import { TrainerBottomNav } from "@/components/trainer-bottom-nav";
 import { ReviewBookingDialog } from "@/components/review-booking-dialog";
 import { useAuth, pathForRole } from "@/lib/auth";
 import { Loader2 } from "lucide-react";
@@ -56,15 +57,23 @@ function TrainerLayout() {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full">
-        <TrainerSidebar />
+      <div className="min-h-screen flex w-full bg-background">
+        {/* Sidebar: desktop only. On mobile the TrainerBottomNav at the
+            bottom of the viewport replaces it (mobile layer integration). */}
+        <div className="hidden md:flex">
+          <TrainerSidebar />
+        </div>
         <SidebarInset>
-          <header className="h-14 flex items-center gap-3 border-b border-white/20 px-4 sticky top-0 bg-white/40 backdrop-blur-2xl z-10">
+          {/* Desktop top bar — kept md+ only to preserve the existing
+              SidebarTrigger UX on desktop. The mobile views render their
+              own glassmorphic header inside each page. */}
+          <header className="hidden md:flex h-14 items-center gap-3 border-b border-white/20 px-4 sticky top-0 bg-white/40 backdrop-blur-2xl z-10">
             <SidebarTrigger />
             <div className="h-5 w-px bg-border/40" />
             <p className="text-sm text-muted-foreground">Studio Trainer</p>
           </header>
-          <main className="p-6">
+          {/* pb on mobile clears the bottom nav (64px nav + safe-area). */}
+          <main className="p-0 md:p-6 pb-[88px] md:pb-6">
             <Outlet />
           </main>
           {/* Global review modal — reachable from any /trainer/* page via
@@ -75,6 +84,8 @@ function TrainerLayout() {
             onClose={closeReviewDialog}
           />
         </SidebarInset>
+        {/* Mobile bottom navigation. Hidden on md+ by the component itself. */}
+        <TrainerBottomNav />
       </div>
     </SidebarProvider>
   );
