@@ -108,6 +108,27 @@ function IntegrationsPage() {
         return;
       }
       toast.success("Google Calendar collegato con successo.");
+
+      // Register the Google Calendar push-notification channel so the
+      // backend webhook (/api/public/webhooks/gcal-watch) receives live
+      // updates from day one. Fire-and-forget: a failure here doesn't
+      // block the connection — auto-sync still works as fallback.
+      try {
+        const { data: watchData, error: watchErr } = await syncCalendarAwait({
+          action: "register_watch",
+          coachId: user.id,
+        });
+        if (watchErr) {
+          console.error("register_watch invoke failed", watchErr);
+        } else {
+          const result = watchData as { ok?: boolean; error?: string } | null;
+          if (result?.error) {
+            console.error("register_watch returned error", result.error);
+          }
+        }
+      } catch (e) {
+        console.error("register_watch threw", e);
+      }
     }
 
     async function check() {
