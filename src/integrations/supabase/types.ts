@@ -176,8 +176,22 @@ export type Database = {
             foreignKeyName: "bookings_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
+            referencedRelation: "client_exhaustion_forecast"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "bookings_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "client_exhaustion_forecast"
+            referencedColumns: ["client_id"]
           },
           {
             foreignKeyName: "bookings_coach_id_fkey"
@@ -220,6 +234,13 @@ export type Database = {
           status?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "client_invitations_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "client_exhaustion_forecast"
+            referencedColumns: ["client_id"]
+          },
           {
             foreignKeyName: "client_invitations_coach_id_fkey"
             columns: ["coach_id"]
@@ -385,6 +406,13 @@ export type Database = {
             foreignKeyName: "integration_settings_coach_id_fkey"
             columns: ["coach_id"]
             isOneToOne: true
+            referencedRelation: "client_exhaustion_forecast"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "integration_settings_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -444,6 +472,13 @@ export type Database = {
             foreignKeyName: "profiles_coach_id_fkey"
             columns: ["coach_id"]
             isOneToOne: false
+            referencedRelation: "client_exhaustion_forecast"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "profiles_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -479,6 +514,13 @@ export type Database = {
             foreignKeyName: "push_subscriptions_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
+            referencedRelation: "client_exhaustion_forecast"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "push_subscriptions_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -510,6 +552,13 @@ export type Database = {
           start_time?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "trainer_availability_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "client_exhaustion_forecast"
+            referencedColumns: ["client_id"]
+          },
           {
             foreignKeyName: "trainer_availability_coach_id_fkey"
             columns: ["coach_id"]
@@ -591,8 +640,22 @@ export type Database = {
             foreignKeyName: "training_blocks_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
+            referencedRelation: "client_exhaustion_forecast"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "training_blocks_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_blocks_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "client_exhaustion_forecast"
+            referencedColumns: ["client_id"]
           },
           {
             foreignKeyName: "training_blocks_coach_id_fkey"
@@ -659,7 +722,33 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      client_exhaustion_forecast: {
+        Row: {
+          client_id: string | null
+          coach_id: string | null
+          days_until_exhaustion: number | null
+          predicted_exhaustion_date: string | null
+          remaining_credits: number | null
+          sessions_last_30d: number | null
+          weekly_avg: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "client_exhaustion_forecast"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "profiles_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       cancel_booking: {
