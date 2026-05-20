@@ -14,6 +14,7 @@ import {
 import { sessionLabel } from "@/lib/mock-data";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
+import { EmptyStateCard } from "@/components/empty-state-card";
 
 export const Route = createFileRoute("/client/")({
   component: ClientHome,
