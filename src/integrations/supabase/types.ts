@@ -95,7 +95,6 @@ export type Database = {
         Row: {
           block_id: string | null
           buffer_min: number
-          category: string
           client_id: string | null
           coach_id: string
           created_at: string
@@ -119,7 +118,6 @@ export type Database = {
         Insert: {
           block_id?: string | null
           buffer_min?: number
-          category?: string
           client_id?: string | null
           coach_id: string
           created_at?: string
@@ -143,7 +141,6 @@ export type Database = {
         Update: {
           block_id?: string | null
           buffer_min?: number
-          category?: string
           client_id?: string | null
           coach_id?: string
           created_at?: string
@@ -674,10 +671,6 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
-      }
-      mark_booking_special: {
-        Args: { p_booking_id: string; p_category?: string }
-        Returns: undefined
       }
     }
     Enums: {
