@@ -143,7 +143,7 @@ function AdminPage() {
       <header className="h-14 border-b bg-background/80 backdrop-blur sticky top-0 z-10">
         <div className="mx-auto max-w-6xl h-full px-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="size-8 rounded-md bg-primary text-primary-foreground grid place-items-center">
+            <div className="size-8 rounded-full bg-primary text-primary-foreground grid place-items-center">
               <Dumbbell className="size-4" />
             </div>
             <span className="font-display font-semibold">Stride</span>
@@ -286,7 +286,7 @@ function StatCard({
           <p className="text-sm text-muted-foreground">{label}</p>
           <p className="font-display text-3xl font-semibold mt-1">{value}</p>
         </div>
-        <div className="size-10 rounded-md bg-primary/10 text-primary grid place-items-center">
+        <div className="size-10 rounded-full bg-primary/10 text-primary grid place-items-center">
           <Icon className="size-5" />
         </div>
       </CardContent>
