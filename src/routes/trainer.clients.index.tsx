@@ -1116,7 +1116,42 @@ function ClientsPage() {
                   )}
                 </div>
 
+                {showForecast && formattedExhaustion && (
+                  <div
+                    className={`mb-4 -mt-2 rounded-2xl px-3 py-2.5 flex items-center gap-2.5 ${
+                      isCritical
+                        ? "bg-error-container/60 text-on-error-container"
+                        : "bg-tertiary-container/70 text-on-tertiary-container"
+                    }`}
+                  >
+                    <Sparkles
+                      className={`size-4 shrink-0 ${isCritical ? "text-error" : "text-on-tertiary-container"}`}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-semibold leading-tight truncate">
+                        Esaurimento crediti previsto il: {formattedExhaustion}
+                      </p>
+                      {isCritical && (
+                        <p className="text-[10px] opacity-80 leading-tight mt-0.5">
+                          Meno di 7 giorni · suggerisci un rinnovo
+                        </p>
+                      )}
+                    </div>
+                    {isCritical && phoneDigits && (
+                      <a
+                        href={`https://wa.me/${phoneDigits}?text=${reminderText}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="shrink-0 px-3 py-1 rounded-full text-[11px] font-semibold bg-white/80 text-error hover:bg-white transition-colors"
+                      >
+                        Promemoria
+                      </a>
+                    )}
+                  </div>
+                )}
+
                 <div className="pt-4 border-t border-surface-variant flex items-center gap-2">
+
                   <Button
                     asChild
                     className="flex-1 rounded-full bg-aura-primary/10 text-aura-primary hover:bg-aura-primary/20 shadow-none"
