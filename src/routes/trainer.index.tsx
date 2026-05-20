@@ -13,6 +13,13 @@ import { queryKeys } from "@/lib/query-keys";
 import { sessionLabel, type SessionType } from "@/lib/mock-data";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { toast } from "sonner";
 import {
   Users,
@@ -25,6 +32,10 @@ import {
   Stethoscope,
   Sparkles,
   CheckCircle2,
+  Bell,
+  Clock,
+  ListChecks,
+  ArrowRight,
 } from "lucide-react";
 
 export const Route = createFileRoute("/trainer/")({
@@ -356,8 +367,246 @@ function Overview() {
     month: "long",
   });
 
+  // Next upcoming session (for the mobile "Prossimo Evento" card). Looks at
+  // all assigned future bookings, picks the closest one. Reused on mobile
+  // since the desktop "Oggi" list shows today only.
+  const nextBooking = useMemo(() => {
+    const now = Date.now();
+    return bookings
+      .filter((b) => b.client_id && b.status === "scheduled")
+      .filter((b) => new Date(b.scheduled_at).getTime() >= now)
+      .sort((a, b) => +new Date(a.scheduled_at) - +new Date(b.scheduled_at))[0];
+  }, [bookings]);
+
+  const todayMobileLabel = new Date().toLocaleDateString("it-IT", {
+    day: "numeric",
+    month: "long",
+  });
+
   return (
-    <div className="bg-surface text-on-background -m-6 p-6 md:p-10 min-h-[calc(100vh-3.5rem)]">
+    <>
+      {/* ============================================================
+          MOBILE LAYOUT (block md:hidden) — replicates the Stitch
+          mockup trainer_dashboard_nc_calendar_oggi_20_maggio.html.
+          Reuses every existing query (clientsQ, bookingsQ, etc.) and
+          mutations — nothing new on the data side.
+          ============================================================ */}
+      <div className="block md:hidden bg-background min-h-screen">
+        {/* Glassmorphic top bar */}
+        <header className="fixed top-0 left-0 right-0 z-40 backdrop-blur-xl bg-surface/80 flex justify-between items-center px-4 py-3 border-b border-outline-variant/20">
+          <div className="flex items-center gap-3">
+            <Sheet>
+              <SheetTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Apri menu profilo"
+                  className="w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center font-semibold text-sm border border-outline-variant/30 active:scale-95 transition-transform"
+                >
+                  {initials(userName)}
+                </button>
+              </SheetTrigger>
+              <SheetContent
+                side="bottom"
+                className="rounded-t-[32px] bg-surface-container-lowest border-t border-outline-variant/20 p-0"
+              >
+                <SheetHeader className="px-6 pt-6 pb-2 text-left">
+                  <SheetTitle className="text-lg font-semibold text-on-surface">
+                    Impostazioni rapide
+                  </SheetTitle>
+                </SheetHeader>
+                <nav className="px-4 pb-8 pt-2 flex flex-col gap-2" aria-label="Menu profilo">
+                  <Link
+                    to="/trainer/availability"
+                    className="flex items-center gap-3 px-4 py-3 rounded-[24px] bg-surface-container-low text-on-surface font-medium active:scale-[0.98] transition-transform"
+                  >
+                    <Clock className="size-5 text-primary" />
+                    <span>Disponibilità</span>
+                    <ArrowRight className="size-4 text-outline ml-auto" />
+                  </Link>
+                  <Link
+                    to="/trainer/event-types"
+                    className="flex items-center gap-3 px-4 py-3 rounded-[24px] bg-surface-container-low text-on-surface font-medium active:scale-[0.98] transition-transform"
+                  >
+                    <ListChecks className="size-5 text-primary" />
+                    <span>Tipi di Evento</span>
+                    <ArrowRight className="size-4 text-outline ml-auto" />
+                  </Link>
+                  <Link
+                    to="/trainer/integrations"
+                    className="flex items-center gap-3 px-4 py-3 rounded-[24px] bg-surface-container-low text-on-surface font-medium active:scale-[0.98] transition-transform"
+                  >
+                    <Sparkles className="size-5 text-primary" />
+                    <span>Integrazioni</span>
+                    <ArrowRight className="size-4 text-outline ml-auto" />
+                  </Link>
+                </nav>
+              </SheetContent>
+            </Sheet>
+            <h1 className="text-xl font-bold text-primary tracking-tight">NC Calendar</h1>
+          </div>
+          <button
+            type="button"
+            aria-label="Notifiche"
+            className="w-10 h-10 flex items-center justify-center rounded-full text-primary active:scale-95 transition-transform"
+          >
+            <Bell className="size-5" />
+          </button>
+        </header>
+
+        {/* Main scrollable content */}
+        <main className="px-4 pt-[88px] pb-8 flex flex-col gap-6">
+          <h2 className="text-[28px] leading-9 font-bold text-on-surface">
+            Ciao, {userName.split(" ")[0]}
+          </h2>
+
+          {/* Daily Summary Card */}
+          <section className="bg-surface-container-lowest rounded-[32px] border border-outline-variant/20 shadow-[0_12px_32px_rgba(0,0,0,0.04)] p-6 flex flex-col gap-3 relative overflow-hidden">
+            <div
+              aria-hidden
+              className="absolute top-0 right-0 w-32 h-32 bg-primary-fixed/30 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"
+            />
+            <p className="text-sm font-semibold text-on-surface-variant">Oggi, {todayMobileLabel}</p>
+            <div className="flex flex-col gap-1">
+              <span className="text-5xl font-extrabold text-primary tracking-tight leading-none">
+                {loading ? "—" : todayItems.length}
+              </span>
+              <span className="text-xl font-semibold text-on-surface">
+                {todayItems.length === 1 ? "Sessione Programmata" : "Sessioni Programmate"}
+              </span>
+            </div>
+          </section>
+
+          {/* Next Event Card — only renders when there's an upcoming
+              booking. Tapping "Apri Scheda" jumps to the calendar page,
+              same destination as desktop "Vedi tutto". */}
+          {nextBooking && (
+            <section className="bg-surface-container-lowest rounded-[32px] border border-outline-variant/20 shadow-[0_12px_32px_rgba(0,0,0,0.04)] p-6 flex flex-col gap-4">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-primary-container" />
+                <p className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
+                  Prossimo Evento
+                </p>
+              </div>
+              <h3 className="text-xl font-semibold text-on-surface leading-snug">
+                {new Date(nextBooking.scheduled_at).toLocaleTimeString("it-IT", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}{" "}
+                ·{" "}
+                {(() => {
+                  const et = nextBooking.event_type_id
+                    ? eventTypeById.get(nextBooking.event_type_id)
+                    : null;
+                  const client = nextBooking.client_id
+                    ? clientById.get(nextBooking.client_id)
+                    : null;
+                  const label = et?.name ?? sessionLabel(nextBooking.session_type);
+                  const name = client?.full_name ?? client?.email ?? "Cliente";
+                  return `${label} con ${name}`;
+                })()}
+              </h3>
+              <Link
+                to="/trainer/calendar"
+                className="mt-2 bg-primary-container text-on-primary font-semibold rounded-full py-3 px-6 w-full flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition"
+              >
+                Apri Calendario
+                <ArrowRight className="size-4" />
+              </Link>
+            </section>
+          )}
+
+          {/* Today's session stream — reuses todayItems already computed
+              by the desktop view, just rendered as standalone cards. */}
+          {todayItems.length > 0 && (
+            <section className="flex flex-col gap-3">
+              <h3 className="text-base font-semibold text-on-surface px-1">Sessioni di oggi</h3>
+              <div className="flex flex-col gap-3">
+                {todayItems.map((b) => {
+                  const c = b.client_id ? clientById.get(b.client_id) : null;
+                  const et = b.event_type_id ? eventTypeById.get(b.event_type_id) : null;
+                  const label = et?.name ?? sessionLabel(b.session_type);
+                  const name = c?.full_name ?? c?.email ?? "Cliente";
+                  return (
+                    <article
+                      key={b.id}
+                      className="bg-surface-container-lowest rounded-[32px] border border-outline-variant/20 shadow-[0_12px_32px_rgba(0,0,0,0.04)] p-4 flex items-center gap-4"
+                    >
+                      <div className="flex flex-col items-center min-w-[64px]">
+                        <span className="text-base font-semibold text-on-surface tabular-nums">
+                          {new Date(b.scheduled_at).toLocaleTimeString("it-IT", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                      </div>
+                      <div className="w-px self-stretch bg-outline-variant/40" aria-hidden />
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-semibold text-on-surface truncate">{name}</h4>
+                        <p className="text-xs text-on-surface-variant truncate">{label}</p>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {/* Centro Revisione preview on mobile — only if there's
+              something to act on. Cards are pill-edged for consistency
+              with the Aura mobile language. */}
+          {reviewItems.length > 0 && (
+            <section className="flex flex-col gap-3">
+              <h3 className="text-base font-semibold text-on-surface px-1">Da revisionare</h3>
+              <div className="flex flex-col gap-3">
+                {reviewItems.slice(0, 3).map((r) => {
+                  const importedTitle =
+                    typeof r.notes === "string"
+                      ? r.notes.match(/^Importato da Google Calendar:\s*(.+)$/)?.[1]?.trim()
+                      : null;
+                  const eventName = r.title?.trim() || importedTitle || "Evento Google Calendar";
+                  const start = new Date(r.scheduled_at);
+                  return (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => openReview(r.id)}
+                      className="bg-surface-container-lowest rounded-[32px] border border-outline-variant/20 shadow-[0_12px_32px_rgba(0,0,0,0.04)] p-4 text-left flex items-center gap-3 active:scale-[0.99] transition-transform"
+                    >
+                      <span className="inline-flex size-10 items-center justify-center rounded-full bg-tertiary-container/20 text-tertiary">
+                        <AlertTriangle className="size-5" />
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-on-surface truncate">
+                          {eventName}
+                        </p>
+                        <p className="text-xs text-on-surface-variant capitalize">
+                          {start.toLocaleDateString("it-IT", {
+                            weekday: "short",
+                            day: "numeric",
+                            month: "short",
+                          })}{" "}
+                          ·{" "}
+                          {start.toLocaleTimeString("it-IT", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                      </div>
+                      <ArrowRight className="size-4 text-outline" aria-hidden />
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+        </main>
+      </div>
+
+      {/* ============================================================
+          DESKTOP LAYOUT (hidden md:block) — original dashboard,
+          UNCHANGED below this divider.
+          ============================================================ */}
+      <div className="hidden md:block bg-surface text-on-background -m-6 p-6 md:p-10 min-h-[calc(100vh-3.5rem)]">
       {/* Header */}
       <header className="mb-10">
         <h1 className="font-display text-4xl md:text-5xl font-bold text-on-background tracking-tight">
@@ -689,7 +938,8 @@ function Overview() {
       {/* The Assign / Personal / Consulenza dialog is now mounted globally
           at the /trainer layout (src/routes/trainer.tsx) and driven by
           ?reviewEventId. openReview() just navigates. */}
-    </div>
+      </div>
+    </>
   );
 }
 

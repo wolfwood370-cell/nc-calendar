@@ -614,7 +614,158 @@ function ClientsPage() {
   ];
 
   return (
-    <div className="-m-6 p-6 md:p-10 bg-surface min-h-[calc(100vh-3.5rem)]">
+    <>
+      {/* ============================================================
+          MOBILE LAYOUT (block md:hidden) — replicates
+          i_tuoi_atleti_elenco_clienti.html. Reuses visibleCards from
+          the existing filter pipeline so search/tabs/sort behavior
+          stays identical to desktop.
+          ============================================================ */}
+      <div className="block md:hidden bg-background min-h-screen">
+        <header className="fixed top-0 left-0 right-0 z-40 bg-background/80 backdrop-blur-md border-b border-outline-variant/30 flex justify-between items-center h-16 px-4">
+          {/* Menu button is decorative on mobile for now — sidebar is
+              desktop-only, navigation lives in the bottom nav. */}
+          <span className="w-10 h-10" aria-hidden />
+          <h1 className="text-xl font-semibold text-primary text-center absolute left-1/2 -translate-x-1/2">
+            I Tuoi Atleti
+          </h1>
+          <Button
+            type="button"
+            onClick={() => setCreateOpen(true)}
+            aria-label="Aggiungi cliente"
+            className="bg-primary-container text-on-primary rounded-full w-10 h-10 p-0 flex items-center justify-center"
+          >
+            <Plus className="size-5" />
+          </Button>
+        </header>
+
+        <main className="pt-20 pb-24 px-4 max-w-3xl mx-auto w-full flex flex-col gap-4">
+          {/* Pill search */}
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-outline" />
+            <Input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Cerca atleta…"
+              className="w-full bg-surface-container-lowest border border-outline-variant rounded-full py-3 pl-12 pr-4 text-on-surface focus-visible:ring-2 focus-visible:ring-primary/20"
+            />
+          </div>
+
+          {/* Tabs as scrollable pills */}
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+            {tabs.map((t) => {
+              const isActive = activeTab === t.key;
+              return (
+                <button
+                  key={`m-${t.key}`}
+                  onClick={() => setActiveTab(t.key)}
+                  className={`shrink-0 px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-colors ${
+                    isActive
+                      ? "bg-primary-fixed text-on-primary-fixed-variant"
+                      : "bg-surface-container text-on-surface-variant"
+                  }`}
+                >
+                  {t.label} ({t.count})
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Client cards */}
+          {loading ? (
+            <div className="flex flex-col gap-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="bg-surface-container-lowest rounded-[32px] border border-outline-variant/20 p-4 shadow-[0_12px_32px_rgba(0,0,0,0.04)] flex items-center gap-4"
+                >
+                  <Skeleton className="w-16 h-16 rounded-full shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-5 w-2/3" />
+                    <Skeleton className="h-3 w-1/3" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : visibleCards.length === 0 ? (
+            <div className="bg-surface-container-lowest rounded-[32px] border border-outline-variant/20 p-8 text-center shadow-[0_12px_32px_rgba(0,0,0,0.04)]">
+              {clients.length === 0 ? (
+                <div className="space-y-3">
+                  <UserPlus className="size-9 mx-auto text-outline-variant" />
+                  <p className="text-on-surface-variant font-semibold">
+                    Nessun cliente ancora. Aggiungi il primo per iniziare.
+                  </p>
+                  <Button
+                    onClick={() => setCreateOpen(true)}
+                    className="rounded-full bg-primary text-on-primary"
+                  >
+                    <UserPlus className="size-4" /> Aggiungi Cliente
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-outline">Nessun cliente in questa categoria.</p>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {visibleCards.map((d) => {
+                const c = d.client;
+                const pathLabel = c.pack_label
+                  ? c.pack_label
+                  : c.path_type === "recurring"
+                    ? "NC Performance"
+                    : "Percorso Fisso";
+                // Tertiary accent for non-recurring packs (matches the
+                // mockup's "NC Nutrition" orange chip for variety).
+                const isAccent = !!c.pack_label;
+                return (
+                  <article
+                    key={`m-${c.id}`}
+                    className="bg-surface-container-lowest rounded-[32px] border border-outline-variant/20 p-4 shadow-[0_12px_32px_rgba(0,0,0,0.04)] flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  >
+                    <div className="flex items-center gap-4 min-w-0">
+                      <div className="w-16 h-16 rounded-full bg-surface-variant overflow-hidden flex-shrink-0 flex items-center justify-center text-lg font-bold text-on-surface-variant">
+                        {initials(c.full_name, c.email)}
+                      </div>
+                      <div className="min-w-0">
+                        <h2 className="text-lg font-semibold text-on-surface truncate">
+                          {c.full_name ?? "Senza nome"}
+                        </h2>
+                        <span
+                          className={`mt-1 inline-block px-3 py-1 rounded-full text-xs font-semibold ${
+                            isAccent
+                              ? "bg-tertiary-container/20 text-tertiary"
+                              : "bg-primary-container/10 text-primary-container"
+                          }`}
+                        >
+                          {pathLabel}
+                        </span>
+                      </div>
+                    </div>
+                    <Link
+                      to="/trainer/clients/$id"
+                      params={{ id: c.id }}
+                      className="self-end sm:self-auto border border-primary-container text-primary-container hover:bg-primary-container/10 transition-colors rounded-full px-6 py-2 font-semibold text-sm active:scale-95 text-center min-w-[110px]"
+                    >
+                      Dettagli
+                    </Link>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </main>
+
+        {/* Mobile shares the same Dialog instances with the desktop
+            layout below. Hidden DialogTrigger means programmatic
+            createOpen toggle from the "+" button + empty-state button
+            opens the same multi-step CreateClientDialog. */}
+      </div>
+
+      {/* ============================================================
+          DESKTOP LAYOUT (hidden md:block) — unchanged below.
+          ============================================================ */}
+      <div className="hidden md:block -m-6 p-6 md:p-10 bg-surface min-h-[calc(100vh-3.5rem)]">
       {/* Header */}
       <div className="flex flex-wrap items-end justify-between gap-3 mb-8">
         <div>
@@ -937,7 +1088,8 @@ function ClientsPage() {
           })}
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }
 
