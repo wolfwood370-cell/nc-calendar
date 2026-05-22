@@ -27,6 +27,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { TrainerNotificationsBell } from "@/components/trainer-notifications-bell";
 import { toast } from "sonner";
 import {
   Users,
@@ -39,7 +40,6 @@ import {
   Stethoscope,
   Sparkles,
   CheckCircle2,
-  Bell,
   Clock,
   ListChecks,
   ArrowRight,
@@ -476,13 +476,7 @@ function Overview() {
             </Sheet>
             <h1 className="text-xl font-bold text-primary tracking-tight">NC Calendar</h1>
           </div>
-          <button
-            type="button"
-            aria-label="Notifiche"
-            className="w-10 h-10 flex items-center justify-center rounded-full text-primary active:scale-95 transition-transform"
-          >
-            <Bell className="size-5" />
-          </button>
+          <TrainerNotificationsBell />
         </header>
 
         {/* Main scrollable content */}
