@@ -315,6 +315,11 @@ function LiveBookingCard({
   const isLive = sameDay(date, today) && minutesUntil <= 60 && minutesUntil >= -durationMin;
   const meetingLink = booking.meeting_link?.trim() || null;
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
+  // 24h reschedule lockout. The server-side trigger
+  // z_trg_validate_client_booking_update (migration 20260522100000) is the
+  // source of truth; this UI guard mirrors it so the button visibly
+  // disables before the user wastes a tap.
+  const canReschedule = minutesUntil >= 60 * 24;
 
   return (
     <>
@@ -414,23 +419,47 @@ function LiveBookingCard({
             <button
               type="button"
               onClick={() => setRescheduleOpen(true)}
-              className="w-full py-3 rounded-full bg-white/10 text-on-primary-container text-sm font-semibold border border-white/30 active:scale-[0.99] transition-transform"
+              disabled={!canReschedule}
+              aria-disabled={!canReschedule}
+              title={
+                canReschedule
+                  ? undefined
+                  : "Le modifiche si bloccano 24 ore prima dell'inizio."
+              }
+              className="w-full py-3 rounded-full bg-white/10 text-on-primary-container text-sm font-semibold border border-white/30 active:scale-[0.99] transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Riprogramma
             </button>
+            {!canReschedule && (
+              <p className="text-[11px] text-on-primary-container/80 text-center px-2">
+                Le modifiche si bloccano 24 ore prima dell'inizio.
+              </p>
+            )}
           </div>
         )}
 
         {/* Default-state reschedule pill (smaller, less prominent). */}
         {!isLive && (
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="mt-4 flex flex-wrap gap-2 items-center">
             <button
               type="button"
               onClick={() => setRescheduleOpen(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-surface-container-low text-on-surface text-xs font-semibold border border-outline-variant/30 active:scale-95 transition-transform"
+              disabled={!canReschedule}
+              aria-disabled={!canReschedule}
+              title={
+                canReschedule
+                  ? undefined
+                  : "Le modifiche si bloccano 24 ore prima dell'inizio."
+              }
+              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-surface-container-low text-on-surface text-xs font-semibold border border-outline-variant/30 active:scale-95 transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Riprogramma
             </button>
+            {!canReschedule && (
+              <span className="text-[11px] text-on-surface-variant">
+                Bloccata 24h prima
+              </span>
+            )}
             {meetingLink && <JoinVideoCallButton url={meetingLink} size="sm" variant="outline" />}
           </div>
         )}

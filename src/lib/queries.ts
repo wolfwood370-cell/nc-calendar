@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tansta
 import { supabase } from "@/integrations/supabase/client";
 import type { SessionType, BookingStatus } from "@/lib/mock-data";
 import { invalidateBookingScope, queryKeys } from "@/lib/query-keys";
-import { reportSyncFailure } from "@/lib/sync-calendar";
+import { reportSyncFailure, syncCalendar } from "@/lib/sync-calendar";
 
 export interface BookingRow {
   id: string;
@@ -479,6 +479,88 @@ export function useCancelBooking() {
     onError: (_e, _vars, ctx) => rollbackSnapshots(qc, ctx?.snapshots),
     onSuccess: (scope) => {
       invalidateBookingScope(qc, scope);
+    },
+  });
+}
+
+// ----------------------------------------------------------------------------
+// useRescheduleBooking — client self-service reschedule via UPDATE-only path.
+// ----------------------------------------------------------------------------
+// Pure UPDATE on scheduled_at. The new DB trigger
+// z_trg_validate_client_booking_update (migration 20260522100000) enforces:
+//   - 24h cutoff against OLD.scheduled_at
+//   - whitelist: only scheduled_at may change
+// On client-driven UPDATEs, the trigger raises P0001 with an Italian message
+// when violated, so callers can pass error.message straight into a toast.
+//
+// Same booking row → same id → same google_event_id → same meeting_link.
+// No credit refund/re-consume (the credit was already debited at create
+// time and stays accounted against the same allocation). After a successful
+// UPDATE we fire-and-forget a sync-calendar action=update so the coach's
+// Google Calendar event shifts too.
+//
+// Optimistic patch: shifts scheduled_at in every cached bookings list
+// (coach + client + per-client) so the agenda re-orders before the server
+// round-trip. Rollback on error restores the snapshot.
+// ----------------------------------------------------------------------------
+export function useRescheduleBooking() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      bookingId: string;
+      newScheduledISO: string;
+    }): Promise<{
+      coach_id: string;
+      client_id: string | null;
+      google_event_id: string | null;
+      scheduled_at: string;
+    }> => {
+      const { data, error } = await supabase
+        .from("bookings")
+        .update({ scheduled_at: input.newScheduledISO })
+        .eq("id", input.bookingId)
+        .select("coach_id, client_id, google_event_id, scheduled_at")
+        .single();
+      if (error) throw error;
+      return data as {
+        coach_id: string;
+        client_id: string | null;
+        google_event_id: string | null;
+        scheduled_at: string;
+      };
+    },
+    onMutate: async (vars) => {
+      await qc.cancelQueries({ predicate: (q) => q.queryKey[0] === "bookings" });
+      const snapshots = qc.getQueriesData<BookingRow[]>({
+        predicate: (q) => q.queryKey[0] === "bookings",
+      });
+      qc.setQueriesData<BookingRow[]>(
+        { predicate: (q) => q.queryKey[0] === "bookings" },
+        (old) =>
+          (old ?? []).map((b) =>
+            b.id === vars.bookingId ? { ...b, scheduled_at: vars.newScheduledISO } : b,
+          ),
+      );
+      return { snapshots };
+    },
+    onError: (_e, _vars, ctx) => rollbackSnapshots(qc, ctx?.snapshots),
+    onSuccess: (data) => {
+      invalidateBookingScope(qc, {
+        coachId: data.coach_id,
+        clientId: data.client_id,
+      });
+      // Mirror the new time to Google Calendar. Fire-and-forget: a sync
+      // failure surfaces a warning toast via notifySyncFailure but doesn't
+      // rollback the local UPDATE (the booking row IS the source of truth;
+      // GCal is downstream).
+      if (data.google_event_id) {
+        syncCalendar({
+          action: "update",
+          coachId: data.coach_id,
+          googleEventId: data.google_event_id,
+          startISO: data.scheduled_at,
+        });
+      }
     },
   });
 }
