@@ -111,12 +111,15 @@ export async function sendBookingConfirmationEmail(params: BookingEmailParams) {
     hour: "2-digit",
     minute: "2-digit",
   });
-  const greeting = params.recipientName ? `Ciao ${params.recipientName},` : "Ciao,";
+  const greeting = params.recipientName ? `Ciao ${esc(params.recipientName)},` : "Ciao,";
+  const sessionLabel = esc(params.sessionLabel);
+  const coachName = esc(params.coachName);
+  const clientName = esc(params.clientName);
   const html = baseLayout(
     "Conferma Appuntamento",
     `<p>${greeting}</p>
-     <p><strong>Conferma Appuntamento:</strong> hai prenotato una sessione <strong>${params.sessionLabel}</strong> per il <strong>${when}</strong>.</p>
-     <p style="margin-top:16px;">Coach: <strong>${params.coachName}</strong><br/>Cliente: <strong>${params.clientName}</strong></p>`,
+     <p><strong>Conferma Appuntamento:</strong> hai prenotato una sessione <strong>${sessionLabel}</strong> per il <strong>${when}</strong>.</p>
+     <p style="margin-top:16px;">Coach: <strong>${coachName}</strong><br/>Cliente: <strong>${clientName}</strong></p>`,
     { label: "Vai alla piattaforma", href: appUrl("/") },
   );
   return sendEmail({
