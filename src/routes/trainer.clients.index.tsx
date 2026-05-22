@@ -68,6 +68,7 @@ import { toast } from "sonner";
 import { sendInvitationEmail } from "@/lib/email";
 import { useCoachEventTypes } from "@/lib/queries";
 import { queryKeys } from "@/lib/query-keys";
+import { parseEdgeError } from "@/lib/edge-function-error";
 import { errorMessage } from "@/lib/utils";
 import { sessionLabel, type SessionType } from "@/lib/mock-data";
 import { Separator } from "@/components/ui/separator";
@@ -442,7 +443,14 @@ function ClientsPage() {
     });
     const errMsg = (res as { error?: string } | null)?.error;
     if (error || errMsg) {
-      toast.error("Eliminazione non riuscita", { description: errMsg ?? error?.message });
+      // supabase.functions.invoke buries the real server message in
+      // err.context (a Response). parseEdgeError extracts the actual
+      // text the Edge Function emitted via jsonResponse({error}), so
+      // the coach sees "Cliente non trovato" / "Permesso negato" /
+      // "function admin_delete_client(uuid) does not exist" instead of
+      // the generic "Edge Function returned a non-2xx status code".
+      const detailed = errMsg ?? (error ? await parseEdgeError(error) : "Errore sconosciuto");
+      toast.error("Eliminazione non riuscita", { description: detailed });
       return;
     }
     toast.success(`${name} eliminato definitivamente.`);

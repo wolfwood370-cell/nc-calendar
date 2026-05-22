@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { parseEdgeError } from "@/lib/edge-function-error";
 
 // ----------------------------------------------------------------------------
 // Auto-sync throttle (P1 of the sync overhaul)
@@ -71,9 +72,13 @@ export function clearAutoSyncThrottle(): void {
 // stable id so repeated failures collapse into a single visible message
 // instead of stacking. Callers can opt out by passing { silent: true } for
 // background syncs where a user-visible message would be noise.
-function notifySyncFailure(action: SyncInput["action"], err: unknown) {
-  const description =
-    err instanceof Error ? err.message : "Riprova più tardi o ricollega l'account Google.";
+async function notifySyncFailure(action: SyncInput["action"], err: unknown) {
+  // parseEdgeError walks err.context (the original Response) so the toast
+  // shows the actual server message ("Google Calendar non collegato",
+  // "Token scaduto, riconnetti", "Quota Google esaurita", …) instead of
+  // the generic "Edge Function returned a non-2xx status code" that
+  // supabase.functions.invoke exposes by default.
+  const description = await parseEdgeError(err);
   const verb = action === "cancel" ? "cancellare l'evento su" : "sincronizzare con";
   toast.warning(`Impossibile ${verb} Google Calendar`, {
     id: "gcal-sync-warning",
@@ -196,7 +201,7 @@ async function invokeWithAuth(input: SyncInput) {
 export function syncCalendar(input: SyncInput, options: { silent?: boolean } = {}): void {
   void invokeWithAuth(input).catch((err) => {
     console.error("sync-calendar invoke failed", err);
-    if (!options.silent) notifySyncFailure(input.action, err);
+    if (!options.silent) void notifySyncFailure(input.action, err);
   });
 }
 
@@ -207,5 +212,5 @@ export async function syncCalendarAwait(input: SyncInput) {
 
 /** Toast helper exported so awaitable callers can reuse the same UX. */
 export function reportSyncFailure(action: SyncInput["action"], err: unknown): void {
-  notifySyncFailure(action, err);
+  void notifySyncFailure(action, err);
 }
