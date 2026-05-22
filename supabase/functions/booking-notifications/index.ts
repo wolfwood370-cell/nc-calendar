@@ -1,20 +1,36 @@
-// Edge function: notifica il coach quando un cliente prenota una sessione.
-// Canali attivati per ogni invocazione:
-//   - in-app: INSERT in `notifications` (sempre)
+// Edge function: notifica il coach quando un cliente prenota o riprogramma
+// una sessione. Canali attivati per ogni invocazione:
+//   - in-app:  INSERT in `notifications` (sempre)
 //   - Web Push: webpush.sendNotification al coach (sempre, se subscriber)
-//   - WhatsApp: messaggio al cliente (opt-in via integration_settings.wa_*)
-//   - Webhook esterno: POST a integration_settings.gcal_webhook_url (opt-in)
-// Invocata dal frontend (client.book.tsx) dopo INSERT bookings.
+//   - WhatsApp: messaggio al cliente (opt-in via integration_settings.wa_*,
+//               solo per booking.created — non spammiamo i clienti quando
+//               riprogrammano essi stessi)
+//   - Webhook esterno: POST a integration_settings.gcal_webhook_url (opt-in,
+//               per entrambi gli event_type, con il discriminator nel body)
+// Invocata dal frontend:
+//   - client.book.tsx       → event_type="booking.created" (default)
+//   - client-reschedule-sheet → event_type="booking.rescheduled"
 
 import webpush from "npm:web-push@3.6.7";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { requireAuth, assertUuid } from "../_shared/auth.ts";
 
+type EventType = "booking.created" | "booking.rescheduled";
+
 interface Payload {
+  // Optional for back-compat: legacy callers (without the field) are
+  // treated as "booking.created".
+  event_type?: EventType;
   coach_id: string;
   client_name: string;
   client_phone?: string | null;
-  scheduled_at: string; // ISO
+  // For created → the new booking time. For rescheduled → the new time.
+  scheduled_at: string;
+  // For rescheduled only: the previous time (NEW.scheduled_at vs OLD.
+  // scheduled_at in the bookings table). The DB trigger
+  // validate_client_booking_update enforces a 24h cutoff on OLD; we
+  // re-check here as defense-in-depth.
+  old_scheduled_at?: string | null;
   session_label: string;
   meeting_link?: string | null;
   booking_id?: string | null;
@@ -43,6 +59,10 @@ Deno.serve(async (req) => {
 
   try {
     const body = (await req.json()) as Payload;
+    const eventType: EventType = body.event_type ?? "booking.created";
+    if (eventType !== "booking.created" && eventType !== "booking.rescheduled") {
+      return jsonResponse({ error: "Unknown event_type" }, 400);
+    }
     if (!body.coach_id || !body.scheduled_at) {
       return jsonResponse({ error: "Missing fields" }, 400);
     }
@@ -81,6 +101,59 @@ Deno.serve(async (req) => {
       }
     }
 
+    // --------------------------------------------------------------------
+    // Reschedule-specific validation (defense in depth on top of the DB
+    // trigger validate_client_booking_update — see
+    // supabase/migrations/20260522100000_client_booking_update_guards.sql).
+    // --------------------------------------------------------------------
+    if (eventType === "booking.rescheduled") {
+      if (!body.old_scheduled_at) {
+        return jsonResponse({ error: "Missing old_scheduled_at" }, 400);
+      }
+      if (!body.booking_id) {
+        return jsonResponse({ error: "Missing booking_id" }, 400);
+      }
+      const oldTime = new Date(body.old_scheduled_at).getTime();
+      if (!Number.isFinite(oldTime)) {
+        return jsonResponse({ error: "Invalid old_scheduled_at" }, 400);
+      }
+      // Same semantic as the DB trigger: cutoff against OLD, not NEW.
+      // A client who tries to "save" a slot by repeatedly bumping it
+      // forward is blocked because OLD < now+24h fails before NEW is
+      // considered.
+      if (oldTime - Date.now() < 24 * 60 * 60 * 1000) {
+        return jsonResponse(
+          { error: "Non è possibile spostare un appuntamento a meno di 24 ore dall'inizio." },
+          403,
+        );
+      }
+      // Verify the booking exists and the caller owns it (client side)
+      // or coaches it. Prevents a malicious client from forging a
+      // notification about someone else's booking.
+      const { data: booking } = await supabase
+        .from("bookings")
+        .select("id, client_id, coach_id")
+        .eq("id", body.booking_id)
+        .maybeSingle();
+      if (!booking) {
+        return jsonResponse({ error: "Booking inesistente" }, 404);
+      }
+      const b = booking as { client_id: string | null; coach_id: string };
+      if (
+        b.client_id !== auth.userId &&
+        b.coach_id !== auth.userId &&
+        auth.role !== "admin"
+      ) {
+        return jsonResponse({ error: "Permesso negato" }, 403);
+      }
+      if (b.coach_id !== body.coach_id) {
+        // The booking's coach must match the notification's coach_id —
+        // otherwise the caller could redirect a notification to an
+        // unrelated coach.
+        return jsonResponse({ error: "coach_id non coerente" }, 400);
+      }
+    }
+
     const { data: settings } = await supabase
       .from("integration_settings")
       .select("wa_phone_id, wa_access_token, wa_enabled, gcal_webhook_url, gcal_enabled")
@@ -92,15 +165,20 @@ Deno.serve(async (req) => {
     // ---- 1. In-app notification (always) -------------------------------
     const notifPayload: Record<string, unknown> = {
       client_name: body.client_name,
-      scheduled_at: body.scheduled_at,
       session_label: body.session_label,
     };
     if (body.booking_id) notifPayload.booking_id = body.booking_id;
     if (body.meeting_link) notifPayload.meeting_link = body.meeting_link;
+    if (eventType === "booking.rescheduled") {
+      notifPayload.old_scheduled_at = body.old_scheduled_at;
+      notifPayload.new_scheduled_at = body.scheduled_at;
+    } else {
+      notifPayload.scheduled_at = body.scheduled_at;
+    }
     try {
       const { error: notifErr } = await supabase.from("notifications").insert({
         recipient_id: body.coach_id,
-        type: "booking.created",
+        type: eventType,
         payload: notifPayload,
       });
       if (notifErr) throw notifErr;
@@ -121,14 +199,28 @@ Deno.serve(async (req) => {
           .from("push_subscriptions")
           .select("id, subscription")
           .eq("profile_id", body.coach_id);
-        const dateLabel = new Date(body.scheduled_at).toLocaleString("it-IT", {
+        const newDateLabel = new Date(body.scheduled_at).toLocaleString("it-IT", {
           dateStyle: "medium",
           timeStyle: "short",
           timeZone: "Europe/Rome",
         });
+        let pushTitle: string;
+        let pushBody: string;
+        if (eventType === "booking.rescheduled" && body.old_scheduled_at) {
+          const oldDateLabel = new Date(body.old_scheduled_at).toLocaleString("it-IT", {
+            dateStyle: "medium",
+            timeStyle: "short",
+            timeZone: "Europe/Rome",
+          });
+          pushTitle = "Sessione spostata";
+          pushBody = `${body.client_name}: ${oldDateLabel} → ${newDateLabel}`;
+        } else {
+          pushTitle = "Nuova prenotazione";
+          pushBody = `${body.client_name} · ${body.session_label} · ${newDateLabel}`;
+        }
         const pushPayload = JSON.stringify({
-          title: "Nuova prenotazione",
-          body: `${body.client_name} · ${body.session_label} · ${dateLabel}`,
+          title: pushTitle,
+          body: pushBody,
           url: "/trainer/calendar",
         });
         const pushResults = await Promise.all(
@@ -164,8 +256,13 @@ Deno.serve(async (req) => {
       results.push = { skipped: "no_vapid" };
     }
 
-    // ---- 3. WhatsApp (opt-in, to client) -------------------------------
+    // ---- 3. WhatsApp (opt-in, to client, only on first creation) -------
+    // We deliberately don't WhatsApp the client on reschedule: the
+    // client just performed the reschedule themselves, so a
+    // confirmation message would be redundant. Coach is informed via
+    // in-app + Web Push above.
     if (
+      eventType === "booking.created" &&
       settings?.wa_enabled &&
       settings.wa_phone_id &&
       settings.wa_access_token &&
@@ -215,9 +312,10 @@ Deno.serve(async (req) => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            type: "booking.created",
+            type: eventType,
             client_name: body.client_name,
             scheduled_at: body.scheduled_at,
+            old_scheduled_at: body.old_scheduled_at ?? null,
             session_label: body.session_label,
             meeting_link: body.meeting_link ?? null,
           }),
