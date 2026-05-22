@@ -133,13 +133,7 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           duration_min?: number
-          // Origin/main's regenerated types marked end_at as required, but
-          // it's a GENERATED ALWAYS STORED column (migration
-          // 20260518120000) — Postgres rejects INSERTs that supply a value
-          // and Supabase auto-fills it. Make it optional so INSERT call
-          // sites (client.book.tsx, reschedule-drawer.tsx) don't have to
-          // pretend to compute it.
-          end_at?: string
+          end_at: string
           event_type_id?: string | null
           google_event_id?: string | null
           id?: string
@@ -405,29 +399,6 @@ export type Database = {
             columns: ["event_type_id"]
             isOneToOne: false
             referencedRelation: "event_types"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      gcal_sync_signals: {
-        Row: {
-          coach_id: string
-          last_notification_at: string
-        }
-        Insert: {
-          coach_id: string
-          last_notification_at?: string
-        }
-        Update: {
-          coach_id?: string
-          last_notification_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "gcal_sync_signals_coach_id_fkey"
-            columns: ["coach_id"]
-            isOneToOne: true
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
