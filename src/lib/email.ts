@@ -30,6 +30,22 @@ function appUrl(path: string): string {
   return path;
 }
 
+/**
+ * HTML-escape user-supplied strings before interpolating them into the
+ * email templates below. Without this, a coach whose `full_name` contains
+ * `</strong><a href="https://phishing.com">…</a>` would have that link
+ * rendered verbatim in every invitation/confirmation sent to clients.
+ */
+function esc(value: string | null | undefined): string {
+  if (value == null) return "";
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function baseLayout(title: string, body: string, cta?: { label: string; href: string }): string {
   return `<!doctype html>
 <html lang="it">
