@@ -11,15 +11,17 @@
 //   2. Time slots — generated from the coach's availability rules for
 //      the picked day, filtered against get_coach_busy + the current
 //      booking's own window (we don't want to count the booking we're
-//      about to cancel as busy).
-//   3. Confirm — refunds the credit on the old booking via useCancelBooking
-//      and inserts a new one at the picked time. The DB triggers shipped
-//      in earlier phases (validate_booking_block_allocation,
-//      validate_booking_extra_credits, bookings_no_overlap_per_coach)
-//      enforce credit + overlap safety server-side.
+//      about to move as busy against itself).
+//   3. Confirm — runs a pure UPDATE on bookings.scheduled_at via
+//      useRescheduleBooking. The new DB trigger
+//      z_trg_validate_client_booking_update (migration 20260522100000)
+//      enforces 24h cutoff + column whitelist server-side; the existing
+//      bookings_no_overlap_per_coach exclusion constraint still catches
+//      double-booking with SQLSTATE 23P01. Credits + meeting_link +
+//      google_event_id are preserved end-to-end (same row, same id).
 //
-// On confirm success the drawer closes and we toast. Errors bubble up as
-// destructive toasts and keep the drawer open so the user can retry.
+// On confirm success the drawer closes and we toast. Errors bubble up
+// as destructive toasts and keep the drawer open so the user can retry.
 // ----------------------------------------------------------------------------
 
 import * as React from "react";
@@ -40,7 +42,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   useCoachAvailability,
   useCoachAvailabilityExceptions,
-  useCancelBooking,
+  useRescheduleBooking,
   type AvailabilityRow,
   type AvailabilityExceptionRow,
   type BookingRow,
@@ -227,69 +229,54 @@ export function RescheduleDrawer({
     [selectedDay, durationMin, availabilityQ.data, exceptionsQ.data, busyRanges, excludeBookingStart],
   );
 
-  const cancelMut = useCancelBooking();
+  const rescheduleMut = useRescheduleBooking();
 
-  const handleConfirm = async () => {
-    if (!selectedISO || submitting) return;
+  const handleConfirm = () => {
+    if (!selectedISO || submitting || rescheduleMut.isPending) return;
     if (!booking.coach_id || !booking.client_id) {
+      // Personal blocks (coach-owned, no real client) are filtered out
+      // upstream — LiveBookingCard hides the reschedule button when
+      // the row isn't client-owned. This is the defense-in-depth toast.
       toast.error("Dati prenotazione incompleti.");
       return;
     }
     setSubmitting(true);
-    try {
-      // Insert the new booking first. If the DB rejects (overlap, credit
-      // exhausted, etc.) we leave the original booking alive. Triggers
-      // shipped in earlier phases enforce credit deduction + overlap.
-      const { error: insertErr } = await supabase.from("bookings").insert({
-        client_id: booking.client_id,
-        coach_id: booking.coach_id,
-        block_id: booking.block_id ?? null,
-        session_type: booking.session_type,
-        event_type_id: booking.event_type_id ?? null,
-        scheduled_at: selectedISO,
-        status: "scheduled",
-        meeting_link: null,
-      });
-      if (insertErr) {
-        if (insertErr.code === "23P01") {
-          toast.error("Slot già occupato", {
-            description: "Qualcun altro ha appena prenotato questo orario. Scegli un altro slot.",
-          });
-        } else if (insertErr.code === "P0001") {
-          toast.error("Riprogrammazione non possibile", { description: insertErr.message });
-        } else {
-          toast.error("Errore", { description: insertErr.message });
-        }
-        return;
-      }
 
-      // New booking is in. Now cancel the old one — useCancelBooking goes
-      // through the cancel_booking SECURITY DEFINER RPC which computes
-      // late/free server-side off scheduled_at vs now() and refunds the
-      // credit atomically. Google Calendar sync rides along inside the
-      // mutation. The rescheduled slot's own server-side credit
-      // consumption already happened in the insert above.
-      cancelMut.mutate(
-        { id: booking.id },
-        {
-          onSuccess: () => {
-            toast.success("Sessione riprogrammata");
-            onOpenChange(false);
-          },
-          onError: (e: Error) => {
-            // New booking already created; surface the refund failure so
-            // the user can ask support to reconcile. They don't lose the
-            // new slot.
-            toast.warning("Riprogrammata, ma il rimborso del credito è fallito", {
-              description: e.message,
-            });
-            onOpenChange(false);
-          },
+    // Pure UPDATE on scheduled_at. The new DB trigger
+    // z_trg_validate_client_booking_update enforces 24h cutoff +
+    // column whitelist; the no-overlap exclusion constraint catches
+    // double-booking. Same booking row → same id → same
+    // google_event_id → same meeting_link preserved across the shift.
+    // Google Calendar event PATCH fires inside the hook's onSuccess.
+    rescheduleMut.mutate(
+      { bookingId: booking.id, newScheduledISO: selectedISO },
+      {
+        onSuccess: () => {
+          toast.success("Sessione riprogrammata");
+          onOpenChange(false);
         },
-      );
-    } finally {
-      setSubmitting(false);
-    }
+        onError: (err) => {
+          const e = err as { code?: string; message?: string };
+          if (e.code === "23P01") {
+            toast.error("Slot già occupato", {
+              description:
+                "Qualcun altro ha appena prenotato questo orario. Scegli un altro slot.",
+            });
+          } else if (e.code === "P0001") {
+            // The trigger raises P0001 with a localized message for
+            // both the 24h cutoff and the column-whitelist guard.
+            // Surfacing it directly tells the athlete exactly which
+            // safeguard they hit.
+            toast.error("Riprogrammazione non possibile", {
+              description: e.message ?? "Riprova fra qualche minuto.",
+            });
+          } else {
+            toast.error("Errore", { description: e.message ?? "Riprova fra qualche minuto." });
+          }
+        },
+        onSettled: () => setSubmitting(false),
+      },
+    );
   };
 
   const isLoadingPickers =
@@ -303,7 +290,8 @@ export function RescheduleDrawer({
             Riprogramma sessione
           </DrawerTitle>
           <DrawerDescription className="text-sm text-on-surface-variant">
-            Scegli un nuovo giorno e orario. Il credito della sessione attuale verrà rimborsato.
+            Scegli un nuovo giorno e orario. La modifica è permessa fino a 24 ore
+            prima dell'inizio.
           </DrawerDescription>
         </DrawerHeader>
 
@@ -384,10 +372,10 @@ export function RescheduleDrawer({
           <Button
             type="button"
             onClick={handleConfirm}
-            disabled={!selectedISO || submitting || cancelMut.isPending}
+            disabled={!selectedISO || submitting || rescheduleMut.isPending}
             className="w-full rounded-full bg-primary text-on-primary font-semibold py-4 text-base disabled:opacity-50"
           >
-            {(submitting || cancelMut.isPending) && (
+            {(submitting || rescheduleMut.isPending) && (
               <Loader2 className="size-4 animate-spin mr-1" />
             )}
             Conferma riprogrammazione
