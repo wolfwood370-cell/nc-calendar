@@ -133,13 +133,19 @@ interface MirrorCheckInput {
   rangeStartISO?: string;
   rangeEndISO?: string;
 }
+interface RegisterWatchInput {
+  action: "register_watch";
+  coachId: string;
+  webhookUrl?: string;
+}
 
 export type SyncInput =
   | CreateInput
   | CancelInput
   | UpdateInput
   | ImportHistoryInput
-  | MirrorCheckInput;
+  | MirrorCheckInput
+  | RegisterWatchInput;
 
 function buildBody(input: SyncInput): Record<string, unknown> {
   const base = { action: input.action, coach_id: input.coachId };
@@ -174,6 +180,12 @@ function buildBody(input: SyncInput): Record<string, unknown> {
       client_name: input.clientName,
       session_label: input.sessionLabel,
       color: input.color ?? null,
+    };
+  }
+  if (input.action === "register_watch") {
+    return {
+      ...base,
+      ...(input.webhookUrl ? { webhook_url: input.webhookUrl } : {}),
     };
   }
   return {

@@ -12,7 +12,9 @@ import {
   useClientExtraCredits,
 } from "@/lib/queries";
 import { sessionLabel } from "@/lib/mock-data";
-import { Skeleton } from "@/components/ui/skeleton";
+// Auto-merge resolution: union of both import lists. Drop the legacy
+// <Skeleton> (no remaining callers), keep both Aura variants used by
+// the loading state below.
 import { AuraCardSkeleton, AuraLineSkeleton } from "@/components/ui/aura-skeleton";
 import { AuraProgressRing } from "@/components/ui/aura-progress-ring";
 import { JoinVideoCallButton } from "@/components/join-video-call-button";
@@ -152,10 +154,11 @@ function ClientHome() {
           <h2 className="text-xl font-semibold text-on-surface mb-6">Il Tuo Percorso</h2>
 
           {isLoading ? (
-            // Audit 2026-05-22 M4: AuraSkeleton enforces the rounded-[32px]
-            // shape that matches the per-row cards rendered post-hydrate.
-            // Inner stripes via AuraLineSkeleton (rounded-full) suggest
-            // the progress-ring + label layout without locking it in.
+            // Auto-merge resolution: kept the richer HEAD version — it
+            // mirrors the resolved layout (AuraProgressRing size-72 +
+            // name + label lines) more faithfully than origin's two
+            // h-12 rows. Both used AuraCardSkeleton + Aura tokens so
+            // there's no design-system regression.
             <div className="flex flex-col gap-3">
               {Array.from({ length: 2 }).map((_, i) => (
                 <AuraCardSkeleton key={i} className="p-4 flex items-center gap-4 h-20">
@@ -223,7 +226,7 @@ function ClientHome() {
             Prossimo Appuntamento
           </h3>
           {isLoading ? (
-            <Skeleton className="h-32 w-full rounded-[32px]" />
+            <AuraCardSkeleton className="h-32" />
           ) : nextBooking ? (
             <LiveBookingCard
               booking={nextBooking}
@@ -257,7 +260,7 @@ function ClientHome() {
         <section className="flex flex-col gap-stack-md">
           <h3 className="text-xl font-semibold text-on-surface ml-1">Il Tuo Percorso Recente</h3>
           {isLoading ? (
-            <Skeleton className="h-40 w-full rounded-[24px]" />
+            <AuraCardSkeleton className="h-40" />
           ) : (
             <SessionTimeline bookings={bookingsQ.data ?? []} eventTypes={eventTypesQ.data ?? []} />
           )}

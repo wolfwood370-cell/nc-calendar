@@ -89,6 +89,13 @@ export type Database = {
             referencedRelation: "training_blocks"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "block_allocations_event_type_id_fkey"
+            columns: ["event_type_id"]
+            isOneToOne: false
+            referencedRelation: "event_types"
+            referencedColumns: ["id"]
+          },
         ]
       }
       bookings: {
@@ -101,6 +108,7 @@ export type Database = {
           created_at: string
           deleted_at: string | null
           duration_min: number
+          end_at: string
           event_type_id: string | null
           google_event_id: string | null
           id: string
@@ -125,6 +133,13 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           duration_min?: number
+          // Origin/main's regenerated types marked end_at as required, but
+          // it's a GENERATED ALWAYS STORED column (migration
+          // 20260518120000) — Postgres rejects INSERTs that supply a value
+          // and Supabase auto-fills it. Make it optional so INSERT call
+          // sites (client.book.tsx, reschedule-drawer.tsx) don't have to
+          // pretend to compute it.
+          end_at?: string
           event_type_id?: string | null
           google_event_id?: string | null
           id?: string
@@ -149,6 +164,7 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           duration_min?: number
+          end_at?: string
           event_type_id?: string | null
           google_event_id?: string | null
           id?: string
@@ -176,8 +192,22 @@ export type Database = {
             foreignKeyName: "bookings_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
+            referencedRelation: "client_exhaustion_forecast"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "bookings_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "client_exhaustion_forecast"
+            referencedColumns: ["client_id"]
           },
           {
             foreignKeyName: "bookings_coach_id_fkey"
@@ -186,7 +216,47 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "bookings_event_type_id_fkey"
+            columns: ["event_type_id"]
+            isOneToOne: false
+            referencedRelation: "event_types"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      booster_packs: {
+        Row: {
+          active: boolean
+          amount_cents: number
+          created_at: string
+          currency: string
+          event_type_title: string
+          id: string
+          package_type: string
+          quantity: number
+        }
+        Insert: {
+          active?: boolean
+          amount_cents: number
+          created_at?: string
+          currency?: string
+          event_type_title: string
+          id?: string
+          package_type: string
+          quantity?: number
+        }
+        Update: {
+          active?: boolean
+          amount_cents?: number
+          created_at?: string
+          currency?: string
+          event_type_title?: string
+          id?: string
+          package_type?: string
+          quantity?: number
+        }
+        Relationships: []
       }
       client_invitations: {
         Row: {
@@ -220,6 +290,13 @@ export type Database = {
           status?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "client_invitations_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "client_exhaustion_forecast"
+            referencedColumns: ["client_id"]
+          },
           {
             foreignKeyName: "client_invitations_coach_id_fkey"
             columns: ["coach_id"]
@@ -278,7 +355,7 @@ export type Database = {
         Row: {
           client_id: string
           created_at: string
-          event_type_id: string
+          event_type_id: string | null
           expires_at: string
           id: string
           price_paid: number | null
@@ -289,7 +366,7 @@ export type Database = {
         Insert: {
           client_id: string
           created_at?: string
-          event_type_id: string
+          event_type_id?: string | null
           expires_at: string
           id?: string
           price_paid?: number | null
@@ -300,7 +377,7 @@ export type Database = {
         Update: {
           client_id?: string
           created_at?: string
-          event_type_id?: string
+          event_type_id?: string | null
           expires_at?: string
           id?: string
           price_paid?: number | null
@@ -308,7 +385,29 @@ export type Database = {
           quantity_booked?: number
           stripe_payment_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "extra_credits_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_exhaustion_forecast"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "extra_credits_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "extra_credits_event_type_id_fkey"
+            columns: ["event_type_id"]
+            isOneToOne: false
+            referencedRelation: "event_types"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       integration_settings: {
         Row: {
@@ -318,8 +417,13 @@ export type Database = {
           gcal_access_token: string | null
           gcal_account_email: string | null
           gcal_calendar_id: string | null
+          gcal_channel_expires_at: string | null
+          gcal_channel_id: string | null
+          gcal_channel_token: string | null
           gcal_enabled: boolean
+          gcal_last_notification_at: string | null
           gcal_refresh_token: string | null
+          gcal_resource_id: string | null
           gcal_service_account_json: string | null
           gcal_token_expires_at: string | null
           gcal_webhook_url: string | null
@@ -337,8 +441,13 @@ export type Database = {
           gcal_access_token?: string | null
           gcal_account_email?: string | null
           gcal_calendar_id?: string | null
+          gcal_channel_expires_at?: string | null
+          gcal_channel_id?: string | null
+          gcal_channel_token?: string | null
           gcal_enabled?: boolean
+          gcal_last_notification_at?: string | null
           gcal_refresh_token?: string | null
+          gcal_resource_id?: string | null
           gcal_service_account_json?: string | null
           gcal_token_expires_at?: string | null
           gcal_webhook_url?: string | null
@@ -356,8 +465,13 @@ export type Database = {
           gcal_access_token?: string | null
           gcal_account_email?: string | null
           gcal_calendar_id?: string | null
+          gcal_channel_expires_at?: string | null
+          gcal_channel_id?: string | null
+          gcal_channel_token?: string | null
           gcal_enabled?: boolean
+          gcal_last_notification_at?: string | null
           gcal_refresh_token?: string | null
+          gcal_resource_id?: string | null
           gcal_service_account_json?: string | null
           gcal_token_expires_at?: string | null
           gcal_webhook_url?: string | null
@@ -369,6 +483,13 @@ export type Database = {
           wa_phone_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "integration_settings_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: true
+            referencedRelation: "client_exhaustion_forecast"
+            referencedColumns: ["client_id"]
+          },
           {
             foreignKeyName: "integration_settings_coach_id_fkey"
             columns: ["coach_id"]
@@ -432,6 +553,13 @@ export type Database = {
             foreignKeyName: "profiles_coach_id_fkey"
             columns: ["coach_id"]
             isOneToOne: false
+            referencedRelation: "client_exhaustion_forecast"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "profiles_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -467,10 +595,35 @@ export type Database = {
             foreignKeyName: "push_subscriptions_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
+            referencedRelation: "client_exhaustion_forecast"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "push_subscriptions_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
+      }
+      send_email_rate_limit: {
+        Row: {
+          id: string
+          sent_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          sent_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          sent_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       trainer_availability: {
         Row: {
@@ -498,6 +651,13 @@ export type Database = {
           start_time?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "trainer_availability_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "client_exhaustion_forecast"
+            referencedColumns: ["client_id"]
+          },
           {
             foreignKeyName: "trainer_availability_coach_id_fkey"
             columns: ["coach_id"]
@@ -579,8 +739,22 @@ export type Database = {
             foreignKeyName: "training_blocks_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
+            referencedRelation: "client_exhaustion_forecast"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "training_blocks_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_blocks_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "client_exhaustion_forecast"
+            referencedColumns: ["client_id"]
           },
           {
             foreignKeyName: "training_blocks_coach_id_fkey"
@@ -647,15 +821,46 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      client_exhaustion_forecast: {
+        Row: {
+          client_id: string | null
+          coach_id: string | null
+          days_until_exhaustion: number | null
+          predicted_exhaustion_date: string | null
+          remaining_credits: number | null
+          sessions_last_30d: number | null
+          weekly_avg: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "client_exhaustion_forecast"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "profiles_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
+      admin_delete_client: { Args: { p_client_id: string }; Returns: undefined }
       cancel_booking: {
         Args: { p_booking_id: string }
         Returns: {
           status: Database["public"]["Enums"]["booking_status"]
           was_late: boolean
         }[]
+      }
+      check_email_rate_limit: {
+        Args: { p_limit?: number; p_user_id: string }
+        Returns: boolean
       }
       get_coach_busy: {
         Args: { p_coach_id: string; p_from: string; p_to: string }

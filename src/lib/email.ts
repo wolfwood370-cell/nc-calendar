@@ -30,6 +30,22 @@ function appUrl(path: string): string {
   return path;
 }
 
+/**
+ * HTML-escape user-supplied strings before interpolating them into the
+ * email templates below. Without this, a coach whose `full_name` contains
+ * `</strong><a href="https://phishing.com">…</a>` would have that link
+ * rendered verbatim in every invitation/confirmation sent to clients.
+ */
+function esc(value: string | null | undefined): string {
+  if (value == null) return "";
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function baseLayout(title: string, body: string, cta?: { label: string; href: string }): string {
   return `<!doctype html>
 <html lang="it">
@@ -61,11 +77,12 @@ export interface InvitationEmailParams {
 }
 
 export async function sendInvitationEmail(params: InvitationEmailParams) {
-  const greeting = params.clientName ? `Ciao ${params.clientName},` : "Ciao,";
+  const greeting = params.clientName ? `Ciao ${esc(params.clientName)},` : "Ciao,";
+  const coachName = esc(params.coachName);
   const html = baseLayout(
     "Sei stato invitato su NC Training Systems",
     `<p>${greeting}</p>
-     <p>Sei stato invitato su <strong>NC Training Systems</strong> dal tuo Coach <strong>${params.coachName}</strong>.</p>
+     <p>Sei stato invitato su <strong>NC Training Systems</strong> dal tuo Coach <strong>${coachName}</strong>.</p>
      <p>Clicca sul pulsante qui sotto per creare il tuo account utilizzando questa email.</p>`,
     { label: "Crea il tuo account", href: appUrl("/auth") },
   );
@@ -94,12 +111,15 @@ export async function sendBookingConfirmationEmail(params: BookingEmailParams) {
     hour: "2-digit",
     minute: "2-digit",
   });
-  const greeting = params.recipientName ? `Ciao ${params.recipientName},` : "Ciao,";
+  const greeting = params.recipientName ? `Ciao ${esc(params.recipientName)},` : "Ciao,";
+  const sessionLabel = esc(params.sessionLabel);
+  const coachName = esc(params.coachName);
+  const clientName = esc(params.clientName);
   const html = baseLayout(
     "Conferma Appuntamento",
     `<p>${greeting}</p>
-     <p><strong>Conferma Appuntamento:</strong> hai prenotato una sessione <strong>${params.sessionLabel}</strong> per il <strong>${when}</strong>.</p>
-     <p style="margin-top:16px;">Coach: <strong>${params.coachName}</strong><br/>Cliente: <strong>${params.clientName}</strong></p>`,
+     <p><strong>Conferma Appuntamento:</strong> hai prenotato una sessione <strong>${sessionLabel}</strong> per il <strong>${when}</strong>.</p>
+     <p style="margin-top:16px;">Coach: <strong>${coachName}</strong><br/>Cliente: <strong>${clientName}</strong></p>`,
     { label: "Vai alla piattaforma", href: appUrl("/") },
   );
   return sendEmail({

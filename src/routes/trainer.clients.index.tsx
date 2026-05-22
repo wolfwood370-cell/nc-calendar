@@ -167,7 +167,13 @@ function ClientsPage() {
   const [blocks, setBlocks] = useState<BlockLite[]>([]);
   const [allocs, setAllocs] = useState<AllocLite[]>([]);
   const [bookings, setBookings] = useState<BookingLite[]>([]);
+  // Predictive analytics: rows from the `client_exhaustion_forecast` view.
+  // Keyed by client_id for O(1) lookup when rendering the card grid.
+  const [forecasts, setForecasts] = useState<
+    Map<string, { daysLeft: number | null; date: string | null; weeklyAvg: number }>
+  >(new Map());
   const [loading, setLoading] = useState(true);
+
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -268,8 +274,40 @@ function ClientsPage() {
       setAllocs([]);
       setBookings([]);
     }
+
+    // Predictive exhaustion forecast — view enforces RLS via the underlying
+    // tables, so the coach automatically gets only their own clients.
+    type ForecastRow = {
+      client_id: string;
+      days_until_exhaustion: number | null;
+      predicted_exhaustion_date: string | null;
+      weekly_avg: number | null;
+    };
+    const { data: fc } = await (
+      supabase as unknown as {
+        from: (t: string) => {
+          select: (cols: string) => Promise<{ data: ForecastRow[] | null }>;
+        };
+      }
+    )
+      .from("client_exhaustion_forecast")
+      .select("client_id, days_until_exhaustion, predicted_exhaustion_date, weekly_avg");
+    const fmap = new Map<
+      string,
+      { daysLeft: number | null; date: string | null; weeklyAvg: number }
+    >();
+    for (const r of fc ?? []) {
+      fmap.set(r.client_id, {
+        daysLeft: r.days_until_exhaustion,
+        date: r.predicted_exhaustion_date,
+        weeklyAvg: Number(r.weekly_avg ?? 0),
+      });
+    }
+    setForecasts(fmap);
+
     setLoading(false);
   }
+
 
   useEffect(() => {
     if (user) load();
@@ -967,6 +1005,30 @@ function ClientsPage() {
             const isCompleted = d.status === "completed";
             const phoneDigits = (c.phone ?? "").replace(/\D/g, "");
 
+            // Predictive exhaustion analytics (computed server-side via
+            // client_exhaustion_forecast view).
+            const fc = forecasts.get(c.id);
+            const showForecast =
+              !isArchived &&
+              !isCompleted &&
+              fc &&
+              fc.daysLeft !== null &&
+              fc.daysLeft <= 14 &&
+              fc.daysLeft >= 0;
+            const isCritical = !!fc && fc.daysLeft !== null && fc.daysLeft < 7;
+            const formattedExhaustion =
+              fc?.date
+                ? new Intl.DateTimeFormat("it-IT", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  }).format(new Date(fc.date + "T00:00:00"))
+                : null;
+            const reminderText = encodeURIComponent(
+              `Ciao ${(c.full_name ?? "").split(" ")[0] || ""}! Sto pianificando le prossime sessioni — vedo che i tuoi crediti stanno per esaurirsi. Vuoi rinnovare?`,
+            );
+
+
             const badgeClass = isArchived
               ? "bg-surface-container text-on-surface-variant"
               : isCompleted
@@ -1062,7 +1124,42 @@ function ClientsPage() {
                   )}
                 </div>
 
+                {showForecast && formattedExhaustion && (
+                  <div
+                    className={`mb-4 -mt-2 rounded-2xl px-3 py-2.5 flex items-center gap-2.5 ${
+                      isCritical
+                        ? "bg-error-container/60 text-on-error-container"
+                        : "bg-tertiary-container/70 text-on-tertiary-container"
+                    }`}
+                  >
+                    <Sparkles
+                      className={`size-4 shrink-0 ${isCritical ? "text-error" : "text-on-tertiary-container"}`}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-semibold leading-tight truncate">
+                        Esaurimento crediti previsto il: {formattedExhaustion}
+                      </p>
+                      {isCritical && (
+                        <p className="text-[10px] opacity-80 leading-tight mt-0.5">
+                          Meno di 7 giorni · suggerisci un rinnovo
+                        </p>
+                      )}
+                    </div>
+                    {isCritical && phoneDigits && (
+                      <a
+                        href={`https://wa.me/${phoneDigits}?text=${reminderText}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="shrink-0 px-3 py-1 rounded-full text-[11px] font-semibold bg-white/80 text-error hover:bg-white transition-colors"
+                      >
+                        Promemoria
+                      </a>
+                    )}
+                  </div>
+                )}
+
                 <div className="pt-4 border-t border-surface-variant flex items-center gap-2">
+
                   <Button
                     asChild
                     className="flex-1 rounded-full bg-aura-primary/10 text-aura-primary hover:bg-aura-primary/20 shadow-none"
@@ -1699,12 +1796,12 @@ function CreateClientDialog({
 
           <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-1">
             {rules.length === 0 ? (
-              <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+              <div className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">
                 Nessuna regola. Clicca "Aggiungi Regola" per iniziare.
               </div>
             ) : (
               rules.map((r) => (
-                <div key={r.id} className="rounded-md border p-3 space-y-3">
+                <div key={r.id} className="rounded-2xl border p-3 space-y-3">
                   <div className="grid grid-cols-12 gap-2 items-end">
                     <div className="col-span-12 sm:col-span-5 space-y-1">
                       <Label className="text-xs">Event Type</Label>
