@@ -77,11 +77,12 @@ export interface InvitationEmailParams {
 }
 
 export async function sendInvitationEmail(params: InvitationEmailParams) {
-  const greeting = params.clientName ? `Ciao ${params.clientName},` : "Ciao,";
+  const greeting = params.clientName ? `Ciao ${esc(params.clientName)},` : "Ciao,";
+  const coachName = esc(params.coachName);
   const html = baseLayout(
     "Sei stato invitato su NC Training Systems",
     `<p>${greeting}</p>
-     <p>Sei stato invitato su <strong>NC Training Systems</strong> dal tuo Coach <strong>${params.coachName}</strong>.</p>
+     <p>Sei stato invitato su <strong>NC Training Systems</strong> dal tuo Coach <strong>${coachName}</strong>.</p>
      <p>Clicca sul pulsante qui sotto per creare il tuo account utilizzando questa email.</p>`,
     { label: "Crea il tuo account", href: appUrl("/auth") },
   );
