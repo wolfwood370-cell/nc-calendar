@@ -89,6 +89,13 @@ export type Database = {
             referencedRelation: "training_blocks"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "block_allocations_event_type_id_fkey"
+            columns: ["event_type_id"]
+            isOneToOne: false
+            referencedRelation: "event_types"
+            referencedColumns: ["id"]
+          },
         ]
       }
       bookings: {
@@ -101,6 +108,7 @@ export type Database = {
           created_at: string
           deleted_at: string | null
           duration_min: number
+          end_at: string
           event_type_id: string | null
           google_event_id: string | null
           id: string
@@ -125,6 +133,7 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           duration_min?: number
+          end_at: string
           event_type_id?: string | null
           google_event_id?: string | null
           id?: string
@@ -149,6 +158,7 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           duration_min?: number
+          end_at?: string
           event_type_id?: string | null
           google_event_id?: string | null
           id?: string
@@ -200,7 +210,47 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "bookings_event_type_id_fkey"
+            columns: ["event_type_id"]
+            isOneToOne: false
+            referencedRelation: "event_types"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      booster_packs: {
+        Row: {
+          active: boolean
+          amount_cents: number
+          created_at: string
+          currency: string
+          event_type_title: string
+          id: string
+          package_type: string
+          quantity: number
+        }
+        Insert: {
+          active?: boolean
+          amount_cents: number
+          created_at?: string
+          currency?: string
+          event_type_title: string
+          id?: string
+          package_type: string
+          quantity?: number
+        }
+        Update: {
+          active?: boolean
+          amount_cents?: number
+          created_at?: string
+          currency?: string
+          event_type_title?: string
+          id?: string
+          package_type?: string
+          quantity?: number
+        }
+        Relationships: []
       }
       client_invitations: {
         Row: {
@@ -299,7 +349,7 @@ export type Database = {
         Row: {
           client_id: string
           created_at: string
-          event_type_id: string
+          event_type_id: string | null
           expires_at: string
           id: string
           price_paid: number | null
@@ -310,7 +360,7 @@ export type Database = {
         Insert: {
           client_id: string
           created_at?: string
-          event_type_id: string
+          event_type_id?: string | null
           expires_at: string
           id?: string
           price_paid?: number | null
@@ -321,7 +371,7 @@ export type Database = {
         Update: {
           client_id?: string
           created_at?: string
-          event_type_id?: string
+          event_type_id?: string | null
           expires_at?: string
           id?: string
           price_paid?: number | null
@@ -329,7 +379,29 @@ export type Database = {
           quantity_booked?: number
           stripe_payment_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "extra_credits_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_exhaustion_forecast"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "extra_credits_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "extra_credits_event_type_id_fkey"
+            columns: ["event_type_id"]
+            isOneToOne: false
+            referencedRelation: "event_types"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       integration_settings: {
         Row: {
@@ -350,6 +422,7 @@ export type Database = {
           gcal_token_expires_at: string | null
           gcal_webhook_url: string | null
           id: string
+          stripe_account_id: string | null
           updated_at: string
           wa_access_token: string | null
           wa_enabled: boolean
@@ -373,6 +446,7 @@ export type Database = {
           gcal_token_expires_at?: string | null
           gcal_webhook_url?: string | null
           id?: string
+          stripe_account_id?: string | null
           updated_at?: string
           wa_access_token?: string | null
           wa_enabled?: boolean
@@ -396,6 +470,7 @@ export type Database = {
           gcal_token_expires_at?: string | null
           gcal_webhook_url?: string | null
           id?: string
+          stripe_account_id?: string | null
           updated_at?: string
           wa_access_token?: string | null
           wa_enabled?: boolean
@@ -525,6 +600,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      send_email_rate_limit: {
+        Row: {
+          id: string
+          sent_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          sent_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          sent_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       trainer_availability: {
         Row: {
@@ -751,12 +844,17 @@ export type Database = {
       }
     }
     Functions: {
+      admin_delete_client: { Args: { p_client_id: string }; Returns: undefined }
       cancel_booking: {
         Args: { p_booking_id: string }
         Returns: {
           status: Database["public"]["Enums"]["booking_status"]
           was_late: boolean
         }[]
+      }
+      check_email_rate_limit: {
+        Args: { p_limit?: number; p_user_id: string }
+        Returns: boolean
       }
       get_coach_busy: {
         Args: { p_coach_id: string; p_from: string; p_to: string }
