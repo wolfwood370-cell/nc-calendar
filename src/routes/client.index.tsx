@@ -13,6 +13,7 @@ import {
 } from "@/lib/queries";
 import { sessionLabel } from "@/lib/mock-data";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AuraCardSkeleton, AuraLineSkeleton } from "@/components/ui/aura-skeleton";
 import { AuraProgressRing } from "@/components/ui/aura-progress-ring";
 import { JoinVideoCallButton } from "@/components/join-video-call-button";
 import { RescheduleDrawer } from "@/components/reschedule-drawer";
@@ -151,9 +152,20 @@ function ClientHome() {
           <h2 className="text-xl font-semibold text-on-surface mb-6">Il Tuo Percorso</h2>
 
           {isLoading ? (
-            <div className="flex flex-col gap-4">
-              <Skeleton className="h-12 w-full rounded-md" />
-              <Skeleton className="h-12 w-full rounded-md" />
+            // Audit 2026-05-22 M4: AuraSkeleton enforces the rounded-[32px]
+            // shape that matches the per-row cards rendered post-hydrate.
+            // Inner stripes via AuraLineSkeleton (rounded-full) suggest
+            // the progress-ring + label layout without locking it in.
+            <div className="flex flex-col gap-3">
+              {Array.from({ length: 2 }).map((_, i) => (
+                <AuraCardSkeleton key={i} className="p-4 flex items-center gap-4 h-20">
+                  <div className="size-[72px] rounded-full bg-surface-container-high/40 shrink-0" />
+                  <div className="flex-1 flex flex-col gap-2">
+                    <AuraLineSkeleton className="w-2/3 h-4" />
+                    <AuraLineSkeleton className="w-1/3 h-3" />
+                  </div>
+                </AuraCardSkeleton>
+              ))}
             </div>
           ) : summary.length === 0 ? (
             <EmptyStateCard

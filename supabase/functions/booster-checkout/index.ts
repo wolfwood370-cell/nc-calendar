@@ -1,5 +1,5 @@
 import Stripe from "npm:stripe@^14.0.0";
-import { requireAuth } from "../_shared/auth.ts";
+import { requireAuth, assertUuid } from "../_shared/auth.ts";
 import { jsonResponse } from "../_shared/cors.ts";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
@@ -24,6 +24,14 @@ Deno.serve(async (req) => {
     // Use requested client_id if provided (e.g. coach buying for client),
     // otherwise default to the caller's userId.
     const targetClientId = requested_client_id || userId;
+    // Audit 2026-05-22 M2: validate the resolved id upfront so a
+    // malformed payload returns a clean 400 instead of a 22P02 from
+    // the downstream UPDATE on bookings/extra_credits.
+    try {
+      assertUuid(targetClientId, "client_id");
+    } catch (e) {
+      return jsonResponse({ error: e instanceof Error ? e.message : "Invalid client_id" }, 400);
+    }
 
     // C2 (FULL_APP_AUDIT.md): when the caller is buying for someone else
     // than themselves, verify that relationship server-side. Without this

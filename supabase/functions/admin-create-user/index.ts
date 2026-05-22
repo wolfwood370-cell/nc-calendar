@@ -1,12 +1,14 @@
 // Edge function: il Coach crea manualmente un account Cliente (email + password temp).
 // Usa la service_role key per evitare il logout della sessione corrente del Coach.
+//
+// Audit 2026-05-22 H1: previously this function had a local
+// `corsHeaders = { "Access-Control-Allow-Origin": "*", ... }` block that
+// bypassed the shared CORS hardening from audit phase 1 (C3). Now it uses
+// the shared helper which respects ALLOWED_ORIGIN and degrades to the
+// production origin instead of "*".
 import { createClient } from "npm:@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
+import { assertUuid } from "../_shared/auth.ts";
 
 interface Payload {
   email: string;
@@ -17,12 +19,7 @@ interface Payload {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
-      status: 405,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+  if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -36,10 +33,7 @@ Deno.serve(async (req) => {
     });
     const { data: userData, error: userErr } = await userClient.auth.getUser();
     if (userErr || !userData.user) {
-      return new Response(JSON.stringify({ error: "Non autenticato" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: "Non autenticato" }, 401);
     }
     const coachId = userData.user.id;
 
@@ -55,18 +49,22 @@ Deno.serve(async (req) => {
       .maybeSingle();
     const role = (roleRow as { role?: string } | null)?.role;
     if (role !== "coach" && role !== "admin") {
-      return new Response(JSON.stringify({ error: "Permesso negato" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: "Permesso negato" }, 403);
     }
 
     const { email, password, first_name, last_name } = (await req.json()) as Payload;
     if (!email || !password || !first_name || !last_name) {
-      return new Response(JSON.stringify({ error: "Campi mancanti" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: "Campi mancanti" }, 400);
+    }
+    // Audit 2026-05-22 M2: defensive UUID format check on the caller id —
+    // here it comes from getUser() so it's already a real UUID, but
+    // running it through assertUuid() makes the pattern uniform with the
+    // other Edge Functions and catches future code paths that might
+    // accept it from a payload.
+    try {
+      assertUuid(coachId, "coach_id");
+    } catch (e) {
+      return jsonResponse({ error: e instanceof Error ? e.message : "Invalid id" }, 400);
     }
 
     const fullName = `${first_name.trim()} ${last_name.trim()}`.trim();
@@ -80,10 +78,7 @@ Deno.serve(async (req) => {
       status: "pending",
     });
     if (invErr && !String(invErr.message).toLowerCase().includes("duplicate")) {
-      return new Response(JSON.stringify({ error: invErr.message }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: invErr.message }, 400);
     }
 
     // Crea l'utente con email già confermata
@@ -94,10 +89,7 @@ Deno.serve(async (req) => {
       user_metadata: { full_name: fullName },
     });
     if (createErr || !created.user) {
-      return new Response(JSON.stringify({ error: createErr?.message ?? "Creazione fallita" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: createErr?.message ?? "Creazione fallita" }, 400);
     }
 
     // Safety net: assicura che il profilo esista e sia collegato al coach
@@ -111,15 +103,10 @@ Deno.serve(async (req) => {
       { onConflict: "id" },
     );
 
-    return new Response(JSON.stringify({ ok: true, user_id: created.user.id }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ ok: true, user_id: created.user.id }, 200);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Errore sconosciuto";
-    return new Response(JSON.stringify({ error: msg }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    console.error("admin-create-user: unexpected error", { message: msg });
+    return jsonResponse({ error: msg }, 500);
   }
 });

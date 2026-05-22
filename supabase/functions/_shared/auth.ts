@@ -2,6 +2,21 @@
 import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { jsonResponse } from "./cors.ts";
 
+// Audit 2026-05-22 M2: input validation. Edge Function payloads carry
+// caller-supplied IDs that get fed straight to SELECT/UPDATE/DELETE
+// queries. supabase-js eventually returns 22P02 on a malformed UUID, but
+// that surfaces to the client as a generic 400 with no useful description.
+// Validating up front (and bailing cleanly) keeps callers honest and the
+// logs cleaner. Throws on failure so call sites can do
+// `try { assertUuid(id, "client_id") } catch (e) { return jsonResponse(...) }`.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function assertUuid(value: unknown, fieldName: string): asserts value is string {
+  if (typeof value !== "string" || !UUID_RE.test(value)) {
+    throw new Error(`${fieldName} non è un UUID valido`);
+  }
+}
+
 export interface AuthContext {
   userId: string;
   role: string | null;

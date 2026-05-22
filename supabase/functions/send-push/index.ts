@@ -1,7 +1,7 @@
 // Edge function: invia Web Push notifications a tutti i device di un profilo.
 import webpush from "npm:web-push@3.6.7";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
-import { requireAuth } from "../_shared/auth.ts";
+import { requireAuth, assertUuid } from "../_shared/auth.ts";
 
 interface Payload {
   profile_id: string;
@@ -34,6 +34,11 @@ Deno.serve(async (req) => {
   try {
     const { profile_id, title, body, url } = (await req.json()) as Payload;
     if (!profile_id || !title) return jsonResponse({ error: "Missing fields" }, 400);
+    try {
+      assertUuid(profile_id, "profile_id");
+    } catch (e) {
+      return jsonResponse({ error: e instanceof Error ? e.message : "Invalid profile_id" }, 400);
+    }
     if (!VAPID_PUBLIC || !VAPID_PRIVATE) {
       return jsonResponse({ error: "VAPID keys not configured" }, 500);
     }
@@ -89,7 +94,12 @@ Deno.serve(async (req) => {
 
     return jsonResponse({ ok: true, sent: results.length, results });
   } catch (e) {
-    console.error("send-push error", e);
-    return jsonResponse({ error: String(e) }, 500);
+    // Audit 2026-05-22 L1: consistent scrubbing with the inner catch
+    // (line 76) — never log the full error object since web-push errors
+    // can echo subscription endpoint URLs (browser-specific tokens) in
+    // their response body.
+    const message = e instanceof Error ? e.message : String(e);
+    console.error("send-push error", { message });
+    return jsonResponse({ error: message }, 500);
   }
 });

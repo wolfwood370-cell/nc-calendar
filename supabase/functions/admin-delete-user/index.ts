@@ -8,7 +8,7 @@
 // succeeds — if that call fails the data is gone but the auth row
 // remains as a tombstone, which is recoverable manually.
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
-import { requireAuth } from "../_shared/auth.ts";
+import { requireAuth, assertUuid } from "../_shared/auth.ts";
 
 interface Payload {
   client_id: string;
@@ -25,6 +25,11 @@ Deno.serve(async (req) => {
 
     const { client_id } = (await req.json()) as Payload;
     if (!client_id) return jsonResponse({ error: "client_id mancante" }, 400);
+    try {
+      assertUuid(client_id, "client_id");
+    } catch (e) {
+      return jsonResponse({ error: e instanceof Error ? e.message : "Invalid client_id" }, 400);
+    }
 
     // Verifica ownership: il cliente deve appartenere al coach (admin bypassa).
     const { data: profile } = await admin

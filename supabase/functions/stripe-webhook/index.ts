@@ -80,7 +80,11 @@ Deno.serve(async (req) => {
       }
 
       if (!eventType) {
-        console.error("No event_types exist for coach:", profile.coach_id);
+        // Audit 2026-05-22 M3: structured log so a future log filter can
+        // strip / mask the coach_id field consistently rather than parsing
+        // free-form text. Coach UUID isn't a secret but pairing it with
+        // payment context is unnecessary noise in production logs.
+        console.error("stripe-webhook: no event_types for coach", { coachId: profile.coach_id });
         return new Response("No event types available", { status: 400 });
       }
 

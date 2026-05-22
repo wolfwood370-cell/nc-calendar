@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AuraCardSkeleton } from "@/components/ui/aura-skeleton";
 import { sessionLabel, type BookingStatus, type SessionType } from "@/lib/mock-data";
 import { generateGoogleCalendarLink } from "@/lib/calendar-utils";
 import { format, differenceInHours } from "date-fns";
@@ -148,10 +149,13 @@ function BookingDetailPage() {
 
         <main className="px-margin-mobile space-y-gutter">
           {q.isLoading ? (
+            // Audit 2026-05-22 M4: Aura skeletons (rounded-[32px]) match
+            // the resolved hero/duration/coach-notes card shapes below
+            // so the layout doesn't reflow when data hydrates.
             <>
-              <Skeleton className="h-40 w-full rounded-xl" />
-              <Skeleton className="h-16 w-full rounded-xl" />
-              <Skeleton className="h-32 w-full rounded-xl" />
+              <AuraCardSkeleton className="h-40" />
+              <AuraCardSkeleton className="h-16" />
+              <AuraCardSkeleton className="h-32" />
             </>
           ) : !q.data ? (
             <p className="text-center text-on-surface-variant py-10">Sessione non trovata.</p>

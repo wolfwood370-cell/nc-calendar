@@ -83,10 +83,22 @@ async function ensureFreshAccessToken(
   });
   if (!res.ok) {
     const errText = await res.text();
+    // Audit 2026-05-22 M1: don't dump the raw response body — Google's
+    // OAuth error responses (and especially any proxy wrapper) can
+    // echo request fields back, including the refresh_token. Parse out
+    // the typed `error` code if present; fall back to a length-bounded
+    // sentinel that won't leak the token even if the body shape changes.
+    let errorCode: string | null = null;
+    try {
+      const parsed = JSON.parse(errText) as { error?: unknown };
+      if (typeof parsed.error === "string") errorCode = parsed.error;
+    } catch {
+      /* non-JSON body — log the status only */
+    }
     console.error("sync-calendar: refresh token request failed", {
       coachId,
       status: res.status,
-      body: errText,
+      errorCode,
     });
     // 400 "invalid_grant" means the refresh token was revoked or the
     // user removed app access from their Google account; 401 means the
