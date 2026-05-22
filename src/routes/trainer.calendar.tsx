@@ -886,18 +886,22 @@ function CalendarPage() {
       .finally(() => setMirroring(false));
   }, [user, weekStart, qc]);
 
-  // ----- Realtime: react to Google Calendar webhook pushes & live booking
-  // mutations. The /api/public/webhooks/gcal-watch endpoint bumps
-  // `integration_settings.gcal_last_notification_at` whenever Google pushes
-  // a change. We subscribe here so the UI refreshes without a manual reload.
+  // ----- Realtime: react to Google Calendar webhook pushes.
+  // The /api/public/webhooks/gcal-watch endpoint bumps
+  // `gcal_sync_signals.last_notification_at` (a Realtime-safe table that
+  // intentionally contains no tokens; see migration
+  // 20260523100000_gcal_sync_signals_realtime_safe.sql for why we split
+  // it out from integration_settings).
   //
-  // Two channels:
-  //   1) bookings  → invalidate booking caches on any insert/update/delete
-  //      for this coach (covers webhook-driven changes AND mutations from
-  //      other tabs / devices).
-  //   2) integration_settings → when the webhook watermark moves, trigger
-  //      an authenticated import_history sync so cancelled/moved Google
-  //      events are reconciled into our DB.
+  // Note on the dropped bookings subscription: the audit 2026-05-22
+  // security hardening pulled `public.bookings` out of the
+  // supabase_realtime publication to prevent any-channel cross-coach
+  // schedule leakage. The previous cross-tab/cross-device sync via
+  // postgres_changes on bookings is therefore dormant — local mutations
+  // (cancel, reschedule, mark_personal) still optimistically patch the
+  // cache via React Query, and webhook-driven changes get reconciled
+  // via the signal handler below. Multi-tab parity for direct UI
+  // mutations is a documented follow-up.
   useEffect(() => {
     if (!user) return;
     const coachId = user.id;
@@ -907,29 +911,23 @@ function CalendarPage() {
       .channel(`trainer-calendar-${coachId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "bookings", filter: `coach_id=eq.${coachId}` },
-        () => {
-          qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(coachId) });
-          qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(coachId) });
-        },
-      )
-      .on(
-        "postgres_changes",
         {
-          event: "UPDATE",
+          event: "*",
           schema: "public",
-          table: "integration_settings",
+          table: "gcal_sync_signals",
           filter: `coach_id=eq.${coachId}`,
         },
         (payload) => {
-          const ts = (payload.new as { gcal_last_notification_at?: string | null })
-            ?.gcal_last_notification_at;
+          const ts = (payload.new as { last_notification_at?: string | null })
+            ?.last_notification_at;
           if (!ts) return;
           const t = new Date(ts).getTime();
           if (!Number.isFinite(t) || t <= lastNotificationSeen) return;
           lastNotificationSeen = t;
-          // Background sync — silent, no toast on success; failure surfaces
-          // via reportSyncFailure as usual.
+          // Background sync — silent, no toast on success; failure
+          // surfaces via reportSyncFailure as usual. import_history is
+          // idempotent and runs through the user-scoped Google OAuth
+          // (no service-role impersonation of the user's calendar).
           const future = new Date();
           future.setFullYear(future.getFullYear() + 2);
           syncCalendarAwait({

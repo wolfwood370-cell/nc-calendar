@@ -10,11 +10,18 @@
 // We must answer 200 quickly or Google will retry with backoff and eventually
 // kill the channel. Heavy work (re-importing events, reconciling cancels)
 // is delegated to the trainer's browser via a Realtime broadcast: the
-// webhook just bumps `gcal_last_notification_at` on integration_settings,
-// the calendar route is subscribed to that row, and on change it kicks off
-// the existing authenticated `sync-calendar` import_history flow + cache
-// invalidation. This keeps Google OAuth user-scoped (no service-role
-// impersonation) and reuses the battle-tested import path.
+// webhook bumps `last_notification_at` on the `gcal_sync_signals` table
+// (a dedicated Realtime-safe watermark; see migration
+// 20260523100000_gcal_sync_signals_realtime_safe.sql), the calendar route
+// is subscribed to that row, and on change it kicks off the existing
+// authenticated `sync-calendar` import_history flow + cache invalidation.
+//
+// Why a separate table? `integration_settings` (where the watermark used
+// to live) carries OAuth refresh/access tokens, WhatsApp tokens, and the
+// service-account JSON. Audit 2026-05-22 dropped it from supabase_realtime
+// to avoid broadcasting credentials to any subscriber. The signaling
+// channel was rebuilt on a tokens-free table so the live-sync UX
+// survives the security hardening.
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
@@ -75,14 +82,21 @@ export const Route = createFileRoute("/api/public/webhooks/gcal-watch")({
           // expensive refresh — there's nothing to reconcile yet.
           if (resourceState === "sync") return ok;
 
-          // Bump the watermark. The trainer's calendar route subscribes to
-          // postgres_changes on this row and will trigger the authenticated
-          // import_history sync (which handles creates, updates, and
-          // soft-cancels deleted events) plus React Query invalidations.
+          // Bump the watermark on the Realtime-safe signal table. The
+          // trainer's calendar route subscribes to postgres_changes on
+          // gcal_sync_signals and will trigger the authenticated
+          // import_history sync on UPDATE. UPSERT (vs UPDATE) covers the
+          // first-ever notification per coach where the row doesn't
+          // exist yet.
           await supabaseAdmin
-            .from("integration_settings")
-            .update({ gcal_last_notification_at: new Date().toISOString() })
-            .eq("coach_id", row.coach_id);
+            .from("gcal_sync_signals")
+            .upsert(
+              {
+                coach_id: row.coach_id,
+                last_notification_at: new Date().toISOString(),
+              },
+              { onConflict: "coach_id" },
+            );
         } catch (err) {
           // Never surface 5xx to Google.
           console.error("[gcal-watch] handler error", err);

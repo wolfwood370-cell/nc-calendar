@@ -409,6 +409,29 @@ export type Database = {
           },
         ]
       }
+      gcal_sync_signals: {
+        Row: {
+          coach_id: string
+          last_notification_at: string
+        }
+        Insert: {
+          coach_id: string
+          last_notification_at?: string
+        }
+        Update: {
+          coach_id?: string
+          last_notification_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gcal_sync_signals_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       integration_settings: {
         Row: {
           calendar_optimization_enabled: boolean
