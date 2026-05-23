@@ -493,6 +493,48 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          payload: Json
+          read_at: string | null
+          recipient_id: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          payload?: Json
+          read_at?: string | null
+          recipient_id: string
+          type: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          payload?: Json
+          read_at?: string | null
+          recipient_id?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "client_exhaustion_forecast"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "notifications_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           auto_renew: boolean
@@ -877,10 +919,12 @@ export type Database = {
         }
         Returns: boolean
       }
+      mark_all_notifications_read: { Args: never; Returns: undefined }
       mark_booking_special: {
         Args: { p_booking_id: string; p_category?: string }
         Returns: undefined
       }
+      mark_notification_read: { Args: { p_id: string }; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "coach" | "client"
