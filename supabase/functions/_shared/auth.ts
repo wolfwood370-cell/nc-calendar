@@ -8,7 +8,7 @@ import { jsonResponse } from "./cors.ts";
 // that surfaces to the client as a generic 400 with no useful description.
 // Validating up front (and bailing cleanly) keeps callers honest and the
 // logs cleaner. Throws on failure so call sites can do
-// `try { assertUuid(id, "client_id") } catch (e) { return jsonResponse(...) }`.
+// `try { assertUuid(id, "client_id") } catch (e) { return jsonResponse(..., 200, req) }`.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function assertUuid(value: unknown, fieldName: string): asserts value is string {
@@ -42,7 +42,7 @@ export async function requireAuth(
 
   const authHeader = req.headers.get("Authorization") ?? "";
   if (!authHeader.toLowerCase().startsWith("bearer ")) {
-    return jsonResponse({ error: "Non autenticato" }, 401);
+    return jsonResponse({ error: "Non autenticato" }, 401, req);
   }
 
   const userClient = createClient(SUPABASE_URL, ANON, {
@@ -50,7 +50,7 @@ export async function requireAuth(
   });
   const { data, error } = await userClient.auth.getUser();
   if (error || !data.user) {
-    return jsonResponse({ error: "Non autenticato" }, 401);
+    return jsonResponse({ error: "Non autenticato" }, 401, req);
   }
   const userId = data.user.id;
 
@@ -67,7 +67,7 @@ export async function requireAuth(
       .maybeSingle();
     role = (roleRow as { role?: string } | null)?.role ?? null;
     if (!role || !requiredRoles.includes(role)) {
-      return jsonResponse({ error: "Permesso negato" }, 403);
+      return jsonResponse({ error: "Permesso negato" }, 403, req);
     }
   }
 

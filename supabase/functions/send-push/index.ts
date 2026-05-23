@@ -26,27 +26,27 @@ if (VAPID_PUBLIC && VAPID_PRIVATE) {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders(req) });
-  if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
+  if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405, req);
 
   const auth = await requireAuth(req);
   if (auth instanceof Response) return auth;
 
   try {
     const { profile_id, title, body, url } = (await req.json()) as Payload;
-    if (!profile_id || !title) return jsonResponse({ error: "Missing fields" }, 400);
+    if (!profile_id || !title) return jsonResponse({ error: "Missing fields" }, 400, req);
     try {
       assertUuid(profile_id, "profile_id");
     } catch (e) {
-      return jsonResponse({ error: e instanceof Error ? e.message : "Invalid profile_id" }, 400);
+      return jsonResponse({ error: e instanceof Error ? e.message : "Invalid profile_id" }, 400, req);
     }
     if (!VAPID_PUBLIC || !VAPID_PRIVATE) {
-      return jsonResponse({ error: "VAPID keys not configured" }, 500);
+      return jsonResponse({ error: "VAPID keys not configured" }, 500, req);
     }
 
     // Authorization: caller may push to self, OR coach/admin may push to their managed clients.
     if (profile_id !== auth.userId) {
       if (auth.role !== "coach" && auth.role !== "admin") {
-        return jsonResponse({ error: "Permesso negato" }, 403);
+        return jsonResponse({ error: "Permesso negato" }, 403, req);
       }
       if (auth.role === "coach") {
         const { data: target } = await auth.admin
@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
           .maybeSingle();
         const coachId = (target as { coach_id?: string } | null)?.coach_id;
         if (coachId !== auth.userId) {
-          return jsonResponse({ error: "Permesso negato" }, 403);
+          return jsonResponse({ error: "Permesso negato" }, 403, req);
         }
       }
     }
@@ -92,7 +92,7 @@ Deno.serve(async (req) => {
       }),
     );
 
-    return jsonResponse({ ok: true, sent: results.length, results });
+    return jsonResponse({ ok: true, sent: results.length, results }, 200, req);
   } catch (e) {
     // Audit 2026-05-22 L1: consistent scrubbing with the inner catch
     // (line 76) — never log the full error object since web-push errors
@@ -100,6 +100,6 @@ Deno.serve(async (req) => {
     // their response body.
     const message = e instanceof Error ? e.message : String(e);
     console.error("send-push error", { message });
-    return jsonResponse({ error: message }, 500);
+    return jsonResponse({ error: message }, 500, req);
   }
 });

@@ -52,7 +52,7 @@ if (VAPID_PUBLIC && VAPID_PRIVATE) {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders(req) });
-  if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
+  if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405, req);
 
   const auth = await requireAuth(req);
   if (auth instanceof Response) return auth;
@@ -61,15 +61,15 @@ Deno.serve(async (req) => {
     const body = (await req.json()) as Payload;
     const eventType: EventType = body.event_type ?? "booking.created";
     if (eventType !== "booking.created" && eventType !== "booking.rescheduled") {
-      return jsonResponse({ error: "Unknown event_type" }, 400);
+      return jsonResponse({ error: "Unknown event_type" }, 400, req);
     }
     if (!body.coach_id || !body.scheduled_at) {
-      return jsonResponse({ error: "Missing fields" }, 400);
+      return jsonResponse({ error: "Missing fields" }, 400, req);
     }
     try {
       assertUuid(body.coach_id, "coach_id");
     } catch (e) {
-      return jsonResponse({ error: e instanceof Error ? e.message : "Invalid coach_id" }, 400);
+      return jsonResponse({ error: e instanceof Error ? e.message : "Invalid coach_id" }, 400, req);
     }
     if (body.booking_id) {
       try {
@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
         return jsonResponse(
           { error: e instanceof Error ? e.message : "Invalid booking_id" },
           400,
-        );
+        req);
       }
     }
 
@@ -97,7 +97,7 @@ Deno.serve(async (req) => {
         .maybeSingle();
       const callerCoachId = (callerProfile as { coach_id?: string } | null)?.coach_id;
       if (callerCoachId !== body.coach_id) {
-        return jsonResponse({ error: "Permesso negato" }, 403);
+        return jsonResponse({ error: "Permesso negato" }, 403, req);
       }
     }
 
@@ -108,14 +108,14 @@ Deno.serve(async (req) => {
     // --------------------------------------------------------------------
     if (eventType === "booking.rescheduled") {
       if (!body.old_scheduled_at) {
-        return jsonResponse({ error: "Missing old_scheduled_at" }, 400);
+        return jsonResponse({ error: "Missing old_scheduled_at" }, 400, req);
       }
       if (!body.booking_id) {
-        return jsonResponse({ error: "Missing booking_id" }, 400);
+        return jsonResponse({ error: "Missing booking_id" }, 400, req);
       }
       const oldTime = new Date(body.old_scheduled_at).getTime();
       if (!Number.isFinite(oldTime)) {
-        return jsonResponse({ error: "Invalid old_scheduled_at" }, 400);
+        return jsonResponse({ error: "Invalid old_scheduled_at" }, 400, req);
       }
       // Same semantic as the DB trigger: cutoff against OLD, not NEW.
       // A client who tries to "save" a slot by repeatedly bumping it
@@ -125,7 +125,7 @@ Deno.serve(async (req) => {
         return jsonResponse(
           { error: "Non è possibile spostare un appuntamento a meno di 24 ore dall'inizio." },
           403,
-        );
+        req);
       }
       // Verify the booking exists and the caller owns it (client side)
       // or coaches it. Prevents a malicious client from forging a
@@ -136,7 +136,7 @@ Deno.serve(async (req) => {
         .eq("id", body.booking_id)
         .maybeSingle();
       if (!booking) {
-        return jsonResponse({ error: "Booking inesistente" }, 404);
+        return jsonResponse({ error: "Booking inesistente" }, 404, req);
       }
       const b = booking as { client_id: string | null; coach_id: string };
       if (
@@ -144,13 +144,13 @@ Deno.serve(async (req) => {
         b.coach_id !== auth.userId &&
         auth.role !== "admin"
       ) {
-        return jsonResponse({ error: "Permesso negato" }, 403);
+        return jsonResponse({ error: "Permesso negato" }, 403, req);
       }
       if (b.coach_id !== body.coach_id) {
         // The booking's coach must match the notification's coach_id —
         // otherwise the caller could redirect a notification to an
         // unrelated coach.
-        return jsonResponse({ error: "coach_id non coerente" }, 400);
+        return jsonResponse({ error: "coach_id non coerente" }, 400, req);
       }
     }
 
@@ -332,9 +332,9 @@ Deno.serve(async (req) => {
       results.gcal = { skipped: true };
     }
 
-    return jsonResponse({ ok: true, results });
+    return jsonResponse({ ok: true, results }, 200, req);
   } catch (e) {
     console.error("booking-notifications error", e);
-    return jsonResponse({ error: String(e) }, 500);
+    return jsonResponse({ error: String(e) }, 500, req);
   }
 });

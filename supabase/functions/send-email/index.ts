@@ -10,7 +10,7 @@ interface Payload {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders(req) });
-  if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
+  if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405, req);
 
   // Auth: only coach/admin may send transactional emails
   const auth = await requireAuth(req, ["coach", "admin"]);
@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
 
   try {
     const apiKey = Deno.env.get("RESEND_API_KEY");
-    if (!apiKey) return jsonResponse({ error: "RESEND_API_KEY non configurata" }, 500);
+    if (!apiKey) return jsonResponse({ error: "RESEND_API_KEY non configurata" }, 500, req);
 
     // M6 (FULL_APP_AUDIT.md): per-caller sliding-window cap (default 20/min).
     // The RPC prunes its own history as it goes, so the table never grows
@@ -30,23 +30,23 @@ Deno.serve(async (req) => {
     );
     if (rlErr) {
       console.error("[send-email] rate-limit RPC failed", rlErr);
-      return jsonResponse({ error: "Errore controllo limite invio." }, 500);
+      return jsonResponse({ error: "Errore controllo limite invio." }, 500, req);
     }
     if (!allowed) {
       console.warn("[send-email] rate-limit exceeded for user", auth.userId);
       return jsonResponse(
         { error: "Troppe email inviate. Riprova tra un minuto." },
         429,
-      );
+      req);
     }
 
     const { to, subject, html } = (await req.json()) as Payload;
     if (!to || !subject || !html) {
-      return jsonResponse({ error: "Parametri mancanti: to, subject, html" }, 400);
+      return jsonResponse({ error: "Parametri mancanti: to, subject, html" }, 400, req);
     }
     // Basic email format check
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
-      return jsonResponse({ error: "Indirizzo email non valido" }, 400);
+      return jsonResponse({ error: "Indirizzo email non valido" }, 400, req);
     }
 
     const resend = new Resend(apiKey);
@@ -59,13 +59,13 @@ Deno.serve(async (req) => {
 
     if (error) {
       console.error("[send-email] Resend error:", error);
-      return jsonResponse({ error: error.message ?? "Errore Resend" }, 502);
+      return jsonResponse({ error: error.message ?? "Errore Resend" }, 502, req);
     }
 
-    return jsonResponse({ ok: true, id: data?.id });
+    return jsonResponse({ ok: true, id: data?.id }, 200, req);
   } catch (err) {
     console.error("[send-email] error", err);
     const message = err instanceof Error ? err.message : "Errore sconosciuto";
-    return jsonResponse({ error: message }, 500);
+    return jsonResponse({ error: message }, 500, req);
   }
 });

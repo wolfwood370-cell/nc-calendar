@@ -19,7 +19,7 @@ interface Payload {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders(req) });
-  if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
+  if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405, req);
 
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
     });
     const { data: userData, error: userErr } = await userClient.auth.getUser();
     if (userErr || !userData.user) {
-      return jsonResponse({ error: "Non autenticato" }, 401);
+      return jsonResponse({ error: "Non autenticato" }, 401, req);
     }
     const coachId = userData.user.id;
 
@@ -49,12 +49,12 @@ Deno.serve(async (req) => {
       .maybeSingle();
     const role = (roleRow as { role?: string } | null)?.role;
     if (role !== "coach" && role !== "admin") {
-      return jsonResponse({ error: "Permesso negato" }, 403);
+      return jsonResponse({ error: "Permesso negato" }, 403, req);
     }
 
     const { email, password, first_name, last_name } = (await req.json()) as Payload;
     if (!email || !password || !first_name || !last_name) {
-      return jsonResponse({ error: "Campi mancanti" }, 400);
+      return jsonResponse({ error: "Campi mancanti" }, 400, req);
     }
     // Audit 2026-05-22 M2: defensive UUID format check on the caller id —
     // here it comes from getUser() so it's already a real UUID, but
@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
     try {
       assertUuid(coachId, "coach_id");
     } catch (e) {
-      return jsonResponse({ error: e instanceof Error ? e.message : "Invalid id" }, 400);
+      return jsonResponse({ error: e instanceof Error ? e.message : "Invalid id" }, 400, req);
     }
 
     const fullName = `${first_name.trim()} ${last_name.trim()}`.trim();
@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
       status: "pending",
     });
     if (invErr && !String(invErr.message).toLowerCase().includes("duplicate")) {
-      return jsonResponse({ error: invErr.message }, 400);
+      return jsonResponse({ error: invErr.message }, 400, req);
     }
 
     // Crea l'utente con email già confermata
@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
       user_metadata: { full_name: fullName },
     });
     if (createErr || !created.user) {
-      return jsonResponse({ error: createErr?.message ?? "Creazione fallita" }, 400);
+      return jsonResponse({ error: createErr?.message ?? "Creazione fallita" }, 400, req);
     }
 
     // Safety net: assicura che il profilo esista e sia collegato al coach
@@ -103,10 +103,10 @@ Deno.serve(async (req) => {
       { onConflict: "id" },
     );
 
-    return jsonResponse({ ok: true, user_id: created.user.id }, 200);
+    return jsonResponse({ ok: true, user_id: created.user.id }, 200, req);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Errore sconosciuto";
     console.error("admin-create-user: unexpected error", { message: msg });
-    return jsonResponse({ error: msg }, 500);
+    return jsonResponse({ error: msg }, 500, req);
   }
 });
