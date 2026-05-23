@@ -482,6 +482,11 @@ Deno.serve(async (req) => {
     const sameWeek = list.find((a) => matchPool(a) && a.week_number === wn);
     const target = sameWeek ?? list.find(matchPool);
     if (!target) return null;
+    // Guard: non incrementare oltre quantity_assigned. Senza questo check
+    // un'allocation piena (booked == assigned) finiva a booked > assigned,
+    // corrompendo gli aggregati DB. Salta silenziosamente: il booking
+    // resta tracciato ma senza consumare credito (analogo a !block).
+    if (target.quantity_booked >= (target.quantity_assigned ?? 0)) return null;
 
     await supabase
       .from("block_allocations")
