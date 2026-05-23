@@ -131,8 +131,7 @@ function ClientSettings() {
         if (sub) {
           await sub.unsubscribe();
           await supabase
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .from("push_subscriptions" as any)
+            .from("push_subscriptions")
             .delete()
             .eq("profile_id", user.id)
             .eq("endpoint", sub.endpoint);
