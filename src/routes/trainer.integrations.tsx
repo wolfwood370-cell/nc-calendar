@@ -456,6 +456,43 @@ function formatRelativeIt(d: Date | null): string {
   return `${diffD} g fa`;
 }
 
+// Match logic mirroring the edge function's matchEvent (priority 1: email
+// attendee == client email; priority 2: "nome cognome" substring in
+// summary/description). Used by handleImportOrphans below for client-side
+// import that bypasses the broken server flow.
+function matchClientFromEvent(
+  summary: string,
+  description: string,
+  attendees: Array<{ email?: string }>,
+  clients: Array<{ id: string; full_name: string | null; email: string | null }>,
+  coachEmail: string | null,
+): { id: string } | null {
+  const lower = `${summary} ${description}`.toLowerCase();
+  const lowerCoach = (coachEmail ?? "").toLowerCase();
+  const emails = new Set(
+    attendees
+      .map((a) => (a.email ?? "").toLowerCase())
+      .filter((e) => e && e !== lowerCoach),
+  );
+  for (const c of clients) {
+    const ce = (c.email ?? "").toLowerCase();
+    if (ce && ce !== lowerCoach && emails.has(ce)) return { id: c.id };
+  }
+  for (const c of clients) {
+    const fn = (c.full_name ?? "").trim();
+    if (!fn) continue;
+    const parts = fn.split(/\s+/);
+    const firstRaw = parts[0];
+    if (!firstRaw || parts.length < 2) continue;
+    const first = firstRaw.toLowerCase();
+    const last = parts.slice(1).join(" ").toLowerCase();
+    if (!first || !last) continue;
+    if (lower.includes(`${first} ${last}`) || lower.includes(`${last} ${first}`))
+      return { id: c.id };
+  }
+  return null;
+}
+
 function CalendarManageSheet({
   open,
   onOpenChange,
@@ -467,7 +504,168 @@ function CalendarManageSheet({
   const [isSyncing, setIsSyncing] = useState(false);
   const [isDebugging, setIsDebugging] = useState(false);
   const [debugOutput, setDebugOutput] = useState<string | null>(null);
+  const [isImportingOrphans, setIsImportingOrphans] = useState(false);
   const qc = useQueryClient();
+
+  // Client-side recovery for bookings rejected by the edge function due
+  // to the validate_booking_block_allocation trigger (alloc full →
+  // INSERT raises P0001 → counter `imported` never increments).
+  //
+  // We replicate the edge function's matchEvent logic but INSERT with
+  // block_id=NULL, which skips the trigger. The coach sees the events
+  // in /trainer/calendar as "out of quota" rows they can later promote
+  // by increasing the allocation or marking is_personal.
+  //
+  // Idempotent: skips events already in DB (by google_event_id).
+  const handleImportOrphans = async () => {
+    if (!coachId) return;
+    setIsImportingOrphans(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const providerToken = sessionData?.session?.provider_token;
+      if (!providerToken) {
+        toast.error("Token Google scaduto", {
+          description: "Disconnetti e ricollega Google, poi riprova subito.",
+        });
+        return;
+      }
+
+      const coachEmail = sessionData?.session?.user?.email ?? null;
+
+      // Fetch clienti del coach (per match cliente da attendees / nome)
+      const { data: clients, error: clientsErr } = await supabase
+        .from("profiles")
+        .select("id, full_name, email")
+        .eq("coach_id", coachId)
+        .is("deleted_at", null);
+      if (clientsErr) throw clientsErr;
+
+      // Fetch google_event_id già presenti (per dedup)
+      const { data: existingBookings, error: existingErr } = await supabase
+        .from("bookings")
+        .select("google_event_id")
+        .eq("coach_id", coachId)
+        .not("google_event_id", "is", null);
+      if (existingErr) throw existingErr;
+      const existingIds = new Set(
+        (existingBookings ?? [])
+          .map((b) => b.google_event_id as string | null)
+          .filter((id): id is string => !!id),
+      );
+
+      // Fetch tutti gli eventi Google nel range (1 Jan anno corrente → +2 anni)
+      const yearStart = new Date(new Date().getFullYear(), 0, 1).toISOString();
+      const twoYearsAhead = new Date();
+      twoYearsAhead.setFullYear(twoYearsAhead.getFullYear() + 2);
+      type GcalEvent = {
+        id?: string;
+        summary?: string;
+        description?: string;
+        status?: string;
+        start?: { dateTime?: string; date?: string };
+        attendees?: Array<{ email?: string }>;
+      };
+      const allItems: GcalEvent[] = [];
+      let pageToken = "";
+      do {
+        const url = new URL(
+          "https://www.googleapis.com/calendar/v3/calendars/primary/events",
+        );
+        url.searchParams.set("timeMin", yearStart);
+        url.searchParams.set("timeMax", twoYearsAhead.toISOString());
+        url.searchParams.set("singleEvents", "true");
+        url.searchParams.set("orderBy", "startTime");
+        url.searchParams.set("maxResults", "250");
+        if (pageToken) url.searchParams.set("pageToken", pageToken);
+        const r = await fetch(url.toString(), {
+          headers: { Authorization: `Bearer ${providerToken}` },
+        });
+        if (!r.ok) {
+          throw new Error(`Google API: ${r.status} ${await r.text().catch(() => "")}`);
+        }
+        const data = (await r.json()) as { items?: GcalEvent[]; nextPageToken?: string };
+        allItems.push(...(data.items ?? []));
+        pageToken = data.nextPageToken ?? "";
+      } while (pageToken);
+
+      // Filtra orfani: not cancelled, not in DB, valid start
+      const orphans = allItems.filter((ev) => {
+        if (!ev.id) return false;
+        if (existingIds.has(ev.id)) return false;
+        if (ev.status === "cancelled") return false;
+        const s = ev.start?.dateTime ?? ev.start?.date;
+        return !!s;
+      });
+
+      // INSERT one by one (no batch to keep error attribution clean)
+      const now = Date.now();
+      let inserted = 0;
+      let failed = 0;
+      for (const ev of orphans) {
+        const summary = ev.summary ?? "Evento";
+        const description = ev.description ?? "";
+        const attendees = ev.attendees ?? [];
+        const start =
+          ev.start?.dateTime ?? (ev.start?.date ? `${ev.start.date}T00:00:00Z` : null);
+        if (!start) continue;
+
+        const matched = matchClientFromEvent(
+          summary,
+          description,
+          attendees,
+          clients ?? [],
+          coachEmail,
+        );
+        const status = new Date(start).getTime() < now ? "completed" : "scheduled";
+
+        // end_at: required NOT NULL column (added by Lovable migration).
+        // A trigger recomputes the value from duration_min when missing,
+        // but we still need to satisfy the NOT NULL — set to start+60min
+        // as placeholder; the trigger will overwrite if needed.
+        const endAt = new Date(new Date(start).getTime() + 60 * 60 * 1000).toISOString();
+        const { error: insErr } = await supabase.from("bookings").insert({
+          coach_id: coachId,
+          client_id: matched?.id ?? null,
+          scheduled_at: start,
+          end_at: endAt,
+          session_type: "PT Session",
+          event_type_id: null,
+          status,
+          block_id: null, // ← bypassa trigger validate_booking_block_allocation
+          notes: `Importato da Google Calendar (orfano): ${summary}`,
+          title: summary,
+          google_event_id: ev.id as string,
+        });
+        if (insErr) {
+          console.error("Import orphan failed", ev.id, insErr);
+          failed++;
+        } else {
+          inserted++;
+        }
+      }
+
+      qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(coachId) });
+      qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(coachId) });
+
+      if (inserted === 0 && failed === 0) {
+        toast.info("Nessun evento orfano trovato. Tutto già sincronizzato.");
+      } else {
+        toast.success(`Importati ${inserted} eventi orfani`, {
+          description:
+            failed > 0
+              ? `${failed} non importati (vedi console). Causa probabile: RLS o trigger.`
+              : "Visibili ora nel calendario. Senza credito scalato (block_id=null).",
+        });
+      }
+    } catch (e) {
+      console.error("handleImportOrphans error", e);
+      toast.error("Importazione orfani fallita", {
+        description: e instanceof Error ? e.message : String(e),
+      });
+    } finally {
+      setIsImportingOrphans(false);
+    }
+  };
 
   const handleSyncNow = async () => {
     if (!coachId) return;
@@ -599,6 +797,27 @@ function CalendarManageSheet({
                 <>
                   <RefreshCw className="size-4 mr-2" /> Sincronizza ora
                 </>
+              )}
+            </Button>
+
+            {/* Recovery button: imports Google events that the edge
+                function couldn't insert (typically because the booking
+                trigger validate_booking_block_allocation rejected the
+                INSERT when the client's allocation was already full).
+                Bookings are inserted with block_id=null so they bypass
+                the trigger; the coach sees them as "out of quota" rows. */}
+            <Button
+              onClick={handleImportOrphans}
+              disabled={isImportingOrphans || isSyncing || isDebugging}
+              variant="outline"
+              className="w-full rounded-full border-primary text-primary h-11"
+            >
+              {isImportingOrphans ? (
+                <>
+                  <Loader2 className="size-4 animate-spin mr-2" /> Importazione orfani...
+                </>
+              ) : (
+                "Importa eventi orfani da Google"
               )}
             </Button>
 
