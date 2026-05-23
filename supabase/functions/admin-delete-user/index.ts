@@ -15,8 +15,8 @@ interface Payload {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders(req) });
+  if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405, req);
 
   try {
     const auth = await requireAuth(req, ["coach", "admin"]);
@@ -24,11 +24,11 @@ Deno.serve(async (req) => {
     const { userId: callerId, role, admin } = auth;
 
     const { client_id } = (await req.json()) as Payload;
-    if (!client_id) return jsonResponse({ error: "client_id mancante" }, 400);
+    if (!client_id) return jsonResponse({ error: "client_id mancante" }, 400, req);
     try {
       assertUuid(client_id, "client_id");
     } catch (e) {
-      return jsonResponse({ error: e instanceof Error ? e.message : "Invalid client_id" }, 400);
+      return jsonResponse({ error: e instanceof Error ? e.message : "Invalid client_id" }, 400, req);
     }
 
     // Verifica ownership: il cliente deve appartenere al coach (admin bypassa).
@@ -37,9 +37,9 @@ Deno.serve(async (req) => {
       .select("id, coach_id")
       .eq("id", client_id)
       .maybeSingle();
-    if (!profile) return jsonResponse({ error: "Cliente non trovato" }, 404);
+    if (!profile) return jsonResponse({ error: "Cliente non trovato" }, 404, req);
     if (role !== "admin" && profile.coach_id !== callerId) {
-      return jsonResponse({ error: "Permesso negato su questo cliente" }, 403);
+      return jsonResponse({ error: "Permesso negato su questo cliente" }, 403, req);
     }
 
     // Atomic cascade in a single transaction. The RPC deletes:
@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
     });
     if (rpcErr) {
       console.error("admin-delete-user: admin_delete_client RPC failed", rpcErr);
-      return jsonResponse({ error: rpcErr.message ?? "Cancellazione dati fallita" }, 500);
+      return jsonResponse({ error: rpcErr.message ?? "Cancellazione dati fallita" }, 500, req);
     }
 
     // auth.users deletion is outside the SQL transaction by necessity
@@ -71,13 +71,13 @@ Deno.serve(async (req) => {
           error: `Dati eliminati ma utente auth non rimosso: ${delErr.message}`,
         },
         500,
-      );
+      req);
     }
 
-    return jsonResponse({ ok: true });
+    return jsonResponse({ ok: true }, 200, req);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Errore sconosciuto";
     console.error("admin-delete-user: unexpected error", e);
-    return jsonResponse({ error: msg }, 500);
+    return jsonResponse({ error: msg }, 500, req);
   }
 });

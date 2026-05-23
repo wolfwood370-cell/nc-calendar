@@ -199,7 +199,7 @@ async function gcalFetch(
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders(req) });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   const auth = await requireAuth(req);
@@ -1182,7 +1182,7 @@ Deno.serve(async (req) => {
 function json(payload: unknown, status: number) {
   return new Response(JSON.stringify(payload), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...corsHeaders(req), "Content-Type": "application/json" },
   });
 }
 
