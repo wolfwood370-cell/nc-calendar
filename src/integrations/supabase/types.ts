@@ -1073,6 +1073,19 @@ export type Database = {
     }
     Functions: {
       admin_delete_client: { Args: { p_client_id: string }; Returns: undefined }
+      audit_misaligned_blocks: {
+        Args: { p_coach_id: string }
+        Returns: {
+          actual_block1_start: string
+          client_id: string
+          client_name: string
+          contiguous: boolean
+          drift_days: number
+          expected_block1_start: string
+          path_start_date: string
+          total_blocks: number
+        }[]
+      }
       cancel_booking: {
         Args: { p_booking_id: string }
         Returns: {
@@ -1125,6 +1138,18 @@ export type Database = {
         Returns: undefined
       }
       mark_notification_read: { Args: { p_id: string }; Returns: undefined }
+      repair_blocks_alignment: {
+        Args: { p_client_id: string }
+        Returns: {
+          action: string
+          block_id: string
+          new_end: string
+          new_start: string
+          old_end: string
+          old_start: string
+          sequence_order: number
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "coach" | "client"
