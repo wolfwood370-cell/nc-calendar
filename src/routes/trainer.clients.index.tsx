@@ -23,37 +23,15 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import {
   Plus,
   Search,
   Loader2,
   Mail,
   X,
-  Archive,
   UserPlus,
   Copy,
   Check,
-  Trash2,
-  MoreVertical,
   MessageCircle,
-  ArchiveRestore,
   Sparkles,
 } from "lucide-react";
 import {
@@ -87,6 +65,7 @@ import {
 } from "@/components/create-client-dialog";
 import { InviteClientDialog } from "@/components/invite-client-dialog";
 import { CredentialsDialog } from "@/components/credentials-dialog";
+import { ClientCardMenu } from "@/components/client-card-menu";
 
 export const Route = createFileRoute("/trainer/clients/")({
   component: ClientsPage,
@@ -1308,96 +1287,3 @@ function ClientsPage() {
   );
 }
 
-function ClientCardMenu({
-  client,
-  isArchived,
-  onArchive,
-  onRestore,
-  onDelete,
-}: {
-  client: ClientRow;
-  isArchived: boolean;
-  onArchive: () => void;
-  onRestore: () => void;
-  onDelete: () => void;
-}) {
-  const [confirmArchive, setConfirmArchive] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-
-  return (
-    <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            className="w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container transition-colors"
-            aria-label="Altre azioni"
-          >
-            <MoreVertical className="size-4" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem asChild>
-            <Link to="/trainer/clients/$id" params={{ id: client.id }}>
-              Modifica dettagli
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          {isArchived ? (
-            <DropdownMenuItem onClick={onRestore}>
-              <ArchiveRestore className="size-4" /> Ripristina
-            </DropdownMenuItem>
-          ) : (
-            <DropdownMenuItem onClick={() => setConfirmArchive(true)}>
-              <Archive className="size-4" /> Archivia
-            </DropdownMenuItem>
-          )}
-          <DropdownMenuItem
-            onClick={() => setConfirmDelete(true)}
-            className="text-destructive focus:text-destructive"
-          >
-            <Trash2 className="size-4" /> Elimina
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      <AlertDialog open={confirmArchive} onOpenChange={setConfirmArchive}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Archiviare questo cliente?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {client.full_name ?? client.email} verrà archiviato. I dati storici (blocchi,
-              prenotazioni) restano conservati.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Annulla</AlertDialogCancel>
-            <AlertDialogAction onClick={onArchive}>Archivia</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              Eliminare definitivamente {client.full_name ?? client.email}?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              Questa azione è <strong>irreversibile</strong>. Verranno eliminati account, profilo,
-              prenotazioni, blocchi e allocazioni.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Annulla</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={onDelete}
-            >
-              Elimina definitivamente
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
-  );
-}
