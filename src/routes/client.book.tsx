@@ -27,6 +27,7 @@ import { syncCalendar } from "@/lib/sync-calendar";
 import { generateGoogleCalendarLink } from "@/lib/calendar-utils";
 import { getUserTimezoneLabel } from "@/lib/datetime";
 import { useAuth } from "@/lib/auth";
+import { useCurrentBlock } from "@/hooks/use-current-block";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { invalidateBookingScope } from "@/lib/query-keys";
 import {
@@ -89,7 +90,14 @@ function BookFlow() {
   // call immediately, before any DB round-trip.
   const confirmingRef = useRef(false);
 
-  const block = (blocksQ.data ?? []).find((b) => b.status === "active");
+  // ensure_client_block_state RPC closes expired blocks past their 7-day
+  // grace, and auto-creates the next one when profiles.auto_renew_blocks
+  // is true. On the first load for a client whose previous block expired,
+  // this hook is what physically materializes the new block in the DB.
+  const currentBlockQ = useCurrentBlock(meId);
+  const block =
+    (blocksQ.data ?? []).find((b) => b.id === currentBlockQ.data?.currentBlockId) ??
+    (blocksQ.data ?? []).find((b) => b.status === "active");
   const coachIdForAvail = profileQ.data?.coach_id ?? null;
   const availQ = useCoachAvailability(coachIdForAvail);
   const exceptionsQ = useCoachAvailabilityExceptions(coachIdForAvail);
