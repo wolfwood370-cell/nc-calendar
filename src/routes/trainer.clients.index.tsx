@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import {
   Table,
   TableBody,
@@ -94,7 +95,11 @@ interface ClientRow {
   path_type: "fixed" | "recurring";
   next_billing_date: string | null;
   pack_label: string | null;
-  auto_renew: boolean;
+  // Canonical auto-renew flag for monthly blocks (per migration
+  // 20260524110000_block_auto_renew.sql). The legacy `auto_renew`
+  // column is left in the schema for back-compat with onboarding form
+  // serialization but is no longer the source of truth.
+  auto_renew_blocks: boolean;
 }
 interface InvitationRow {
   id: string;
@@ -224,7 +229,7 @@ function ClientsPage() {
     let cq = supabase
       .from("profiles")
       .select(
-        "id, full_name, email, phone, status, path_type, next_billing_date, pack_label, auto_renew",
+        "id, full_name, email, phone, status, path_type, next_billing_date, pack_label, auto_renew_blocks",
       )
       .is("deleted_at", null);
     if (!isAdmin && user) cq = cq.eq("coach_id", user.id);
@@ -350,9 +355,39 @@ function ClientsPage() {
 
 
   useEffect(() => {
-    if (user) load();
+    if (!user) return;
+    // On mount, ask the server to reconcile every recurring client's
+    // block state in a single round-trip (closes expired blocks past
+    // their grace + auto-creates successors). The RPC is idempotent
+    // and silently skips clients with auto_renew_blocks=false, so
+    // running it for every coach mount is safe and cheap.
+    //
+    // Wrapped in IIFE so load() runs once the RPC settles — that
+    // guarantees the immediately-following SELECT picks up the rows
+    // just inserted. Admin role skips the call because they don't
+    // have a single coach scope; their dashboard shows everyone.
+    void (async () => {
+      if (!isAdmin) {
+        try {
+          await (
+            supabase as unknown as {
+              rpc: (
+                fn: "ensure_all_recurring_for_coach",
+                args: { p_coach_id: string },
+              ) => Promise<{ data: number | null; error: { message: string } | null }>;
+            }
+          ).rpc("ensure_all_recurring_for_coach", { p_coach_id: user.id });
+        } catch (e) {
+          // Non-fatal — the per-client lazy ensure in client.book.tsx
+          // still covers the case. We log so failures show up in
+          // error capture without breaking the dashboard.
+          console.error("ensure_all_recurring_for_coach failed", e);
+        }
+      }
+      load();
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [user?.id, isAdmin]);
 
   const cardData = useMemo<ClientCardData[]>(() => {
     const blockToClient = new Map<string, string>();
@@ -637,6 +672,7 @@ function ClientsPage() {
           .update({
             path_type: "free",
             auto_renew: false,
+            auto_renew_blocks: false,
             pack_label: data.packLabel,
             next_billing_date: null,
           })
@@ -708,6 +744,11 @@ function ClientsPage() {
           .update({
             path_type: data.pathType,
             auto_renew: data.autoRenew,
+            // auto_renew_blocks is the canonical flag read by
+            // ensure_client_block_state / useCurrentBlock; write it
+            // in parallel with the legacy `auto_renew` column so
+            // recurring clients created today behave correctly.
+            auto_renew_blocks: data.autoRenew,
             pack_label: data.packLabel,
             next_billing_date:
               data.pathType === "recurring" ? nextBilling.toISOString().slice(0, 10) : null,
@@ -1178,12 +1219,15 @@ function ClientsPage() {
                                 {row.used} / {row.total}
                               </span>
                             </div>
-                            <div className="mt-1 w-full h-1 bg-surface-variant rounded-full overflow-hidden">
-                              <div
-                                className="h-full bg-aura-primary rounded-full transition-all"
-                                style={{ width: `${pct}%` }}
-                              />
-                            </div>
+                            {/* Aura-themed shadcn Progress — h-1 keeps the
+                                bar compact inside the card, and the
+                                arbitrary child selector overrides the
+                                default primary color to match the rest
+                                of the dashboard. */}
+                            <Progress
+                              value={pct}
+                              className="mt-1 h-1 bg-surface-variant [&>div]:bg-aura-primary"
+                            />
                           </div>
                         );
                       })}

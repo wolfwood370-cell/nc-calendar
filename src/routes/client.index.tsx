@@ -11,6 +11,7 @@ import {
   useCoachEventTypes,
   useClientExtraCredits,
 } from "@/lib/queries";
+import { useCurrentBlock } from "@/hooks/use-current-block";
 import { sessionLabel } from "@/lib/mock-data";
 // Auto-merge resolution: union of both import lists. Drop the legacy
 // <Skeleton> (no remaining callers), keep both Aura variants used by
@@ -41,7 +42,7 @@ function ClientHome() {
     queryFn: async () => {
       const { data } = await supabase
         .from("profiles")
-        .select("id, full_name, email, coach_id")
+        .select("id, full_name, email, coach_id, path_type, auto_renew_blocks")
         .eq("id", meId!)
         .maybeSingle();
       return data;
@@ -51,19 +52,42 @@ function ClientHome() {
   const fullName = profileQ.data?.full_name ?? user?.email ?? "Cliente";
   const firstName = fullName.split(" ")[0] ?? fullName;
   const coachId = profileQ.data?.coach_id ?? null;
+  // path_type discriminates the counter semantics: "recurring" → only the
+  // current 4-week block is counted (resets every block); "fixed" (or
+  // anything else) → aggregate across the whole path (e.g. 4/24 progress
+  // toward a fixed-term goal).
+  const isRecurring = (profileQ.data?.path_type ?? "fixed") === "recurring";
 
   const blocksQ = useClientBlocks(meId);
   const bookingsQ = useClientBookings(meId);
   const eventTypesQ = useCoachEventTypes(coachId);
   const extraCreditsQ = useClientExtraCredits(meId);
+  // For recurring clients only: this RPC closes expired blocks past their
+  // grace and auto-creates the next one when auto_renew_blocks=true. The
+  // hook is called unconditionally for shape stability; the result is
+  // simply ignored when isRecurring=false.
+  const currentBlockQ = useCurrentBlock(meId);
 
-  // Aggregate ALL allocations across all blocks, grouped by event_type (or session_type fallback)
+  const currentBlock = useMemo(() => {
+    if (!isRecurring) return null;
+    const id = currentBlockQ.data?.currentBlockId ?? null;
+    if (!id) return null;
+    return (blocksQ.data ?? []).find((b) => b.id === id) ?? null;
+  }, [isRecurring, currentBlockQ.data, blocksQ.data]);
+
+  // Aggregate allocations. For "recurring" clients the counter is scoped
+  // to the current block only (so it resets every 4 weeks). For "fixed"
+  // clients we keep the historical behavior (sum across all blocks =
+  // progress toward the fixed-term goal, e.g. 4/24).
   const summary = useMemo(() => {
-    const blocks = blocksQ.data ?? [];
+    const allBlocks = blocksQ.data ?? [];
+    const blocks =
+      isRecurring && currentBlock ? [currentBlock] : allBlocks;
     const ets = eventTypesQ.data ?? [];
     const extraCredits = extraCreditsQ.data ?? [];
     const map = new Map<string, { name: string; color: string; used: number; total: number }>();
-    // 1. Inizializza i totali (assigned) dai block.allocations di tutti i blocchi
+
+    // 1. Totali (assigned) dai block.allocations dei blocchi rilevanti.
     for (const b of blocks) {
       for (const a of b.allocations) {
         const et = a.event_type_id ? ets.find((e) => e.id === a.event_type_id) : null;
@@ -79,7 +103,8 @@ function ClientHome() {
       }
     }
 
-    // 1.5. Aggiungi i totali dagli extra credits attivi
+    // 1.5. Extra credits sono sempre inclusi (pool separato, non legato
+    //      al blocco mensile — il cliente li ha pagati come pack a sé).
     for (const ec of extraCredits) {
       const et = ets.find((e) => e.id === ec.event_type_id);
       const key = ec.event_type_id;
@@ -93,8 +118,20 @@ function ClientHome() {
       map.set(key, cur);
     }
 
-    // 2. Calcola i completati in modo dinamico dai bookings
-    const completedBookings = (bookingsQ.data ?? []).filter((b) => b.status === "completed");
+    // 2. Bookings completati. Per "recurring" filtriamo alla finestra
+    //    [current_block.start_date, current_block.end_date + grace] così
+    //    il counter "used" combacia col "total" del blocco corrente.
+    let completedBookings = (bookingsQ.data ?? []).filter((b) => b.status === "completed");
+    if (isRecurring && currentBlock) {
+      const startMs = new Date(currentBlock.start_date).getTime();
+      // End is inclusive of the day so we add 24h - 1ms.
+      const endMs =
+        new Date(currentBlock.end_date).getTime() + 24 * 60 * 60 * 1000 - 1;
+      completedBookings = completedBookings.filter((b) => {
+        const t = new Date(b.scheduled_at).getTime();
+        return t >= startMs && t <= endMs;
+      });
+    }
     for (const b of completedBookings) {
       const key = b.event_type_id ?? b.session_type;
       const cur = map.get(key);
@@ -104,7 +141,37 @@ function ClientHome() {
     }
 
     return [...map.entries()].map(([key, v]) => ({ key, ...v })).sort((a, b) => b.total - a.total);
-  }, [blocksQ.data, eventTypesQ.data, bookingsQ.data, extraCreditsQ.data]);
+  }, [
+    blocksQ.data,
+    eventTypesQ.data,
+    bookingsQ.data,
+    extraCreditsQ.data,
+    isRecurring,
+    currentBlock,
+  ]);
+
+  // "Settimana X/4" label for recurring clients showing how far we are
+  // into the current block (1-indexed, clamped to [1, 4]).
+  const currentWeekLabel = useMemo(() => {
+    if (!isRecurring || !currentBlock) return null;
+    const startMs = new Date(currentBlock.start_date).getTime();
+    const diffDays = Math.floor((Date.now() - startMs) / (24 * 60 * 60 * 1000));
+    const week = Math.min(4, Math.max(1, Math.floor(diffDays / 7) + 1));
+    return `Settimana ${week}/4`;
+  }, [isRecurring, currentBlock]);
+
+  // Grace banner: residuals from previous block, valid for a few more
+  // days. Only relevant when the client is recurring + actually in grace.
+  const graceBanner = useMemo(() => {
+    if (!isRecurring) return null;
+    const state = currentBlockQ.data;
+    if (!state?.inGracePeriod) return null;
+    if ((state.residualsFromPrevious ?? 0) <= 0) return null;
+    return {
+      residuals: state.residualsFromPrevious,
+      until: state.nextRenewalDate,
+    };
+  }, [isRecurring, currentBlockQ.data]);
 
   const nextBooking = useMemo(() => {
     const now = Date.now();
@@ -151,7 +218,32 @@ function ClientHome() {
         {/* Il Tuo Percorso */}
         <section className="bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-stack-lg border border-outline-variant/30 relative overflow-hidden">
           <div className="absolute -top-10 -right-10 w-32 h-32 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
-          <h2 className="text-xl font-semibold text-on-surface mb-6">Il Tuo Percorso</h2>
+          <div className="flex items-baseline justify-between mb-6 gap-2">
+            <h2 className="text-xl font-semibold text-on-surface">
+              {isRecurring ? "Il Tuo Mese" : "Il Tuo Percorso"}
+            </h2>
+            {currentWeekLabel && (
+              <span className="text-xs font-semibold text-on-surface-variant tabular-nums">
+                {currentWeekLabel}
+              </span>
+            )}
+          </div>
+
+          {graceBanner && (
+            <div className="mb-4 rounded-[20px] bg-tertiary-container/30 border border-tertiary-container/40 px-4 py-3">
+              <p className="text-xs font-semibold text-on-tertiary-container">
+                Sessioni del mese precedente: {graceBanner.residuals}
+              </p>
+              {graceBanner.until && (
+                <p className="text-[11px] text-on-tertiary-container/80 mt-0.5">
+                  Valide fino al {new Date(graceBanner.until).toLocaleDateString("it-IT", {
+                    day: "numeric",
+                    month: "long",
+                  })}
+                </p>
+              )}
+            </div>
+          )}
 
           {isLoading ? (
             // Auto-merge resolution: kept the richer HEAD version — it
