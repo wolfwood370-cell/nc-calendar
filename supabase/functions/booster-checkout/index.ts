@@ -9,7 +9,7 @@ const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return jsonResponse("ok");
+    return jsonResponse("ok", 200, req);
   }
 
   try {
@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
     try {
       assertUuid(targetClientId, "client_id");
     } catch (e) {
-      return jsonResponse({ error: e instanceof Error ? e.message : "Invalid client_id" }, 400);
+      return jsonResponse({ error: e instanceof Error ? e.message : "Invalid client_id" }, 400, req);
     }
 
     // C2 (FULL_APP_AUDIT.md): when the caller is buying for someone else
@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
           caller_role: callerRole,
           target_coach: targetCoachId,
         });
-        return jsonResponse({ error: "Permesso negato" }, 403);
+        return jsonResponse({ error: "Permesso negato" }, 403, req);
       }
     }
 
@@ -78,10 +78,10 @@ Deno.serve(async (req) => {
 
     if (packErr) {
       console.error("booster-checkout: booster_packs lookup failed", packErr);
-      return jsonResponse({ error: "Errore lettura pacchetto." }, 500);
+      return jsonResponse({ error: "Errore lettura pacchetto." }, 500, req);
     }
     if (!pack) {
-      return jsonResponse({ error: "Pacchetto non valido." }, 400);
+      return jsonResponse({ error: "Pacchetto non valido." }, 400, req);
     }
 
     const amount_cents = pack.amount_cents as number;
@@ -115,7 +115,7 @@ Deno.serve(async (req) => {
             "Nessun percorso attivo trovato. Devi avere un abbonamento in corso per acquistare i Booster.",
         },
         400,
-      );
+      req);
     }
 
     let expiresAt = new Date(allocation.valid_until);
@@ -170,9 +170,9 @@ Deno.serve(async (req) => {
       },
     });
 
-    return jsonResponse({ checkout_url: session.url });
+    return jsonResponse({ checkout_url: session.url }, 200, req);
   } catch (error: any) {
     console.error("Stripe Checkout Error:", error);
-    return jsonResponse({ error: error.message || "Errore interno del server" }, 500);
+    return jsonResponse({ error: error.message || "Errore interno del server" }, 500, req);
   }
 });
