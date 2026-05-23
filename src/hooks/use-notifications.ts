@@ -51,30 +51,6 @@ export interface NotificationRow {
   created_at: string;
 }
 
-// ----- Relaxed client shim ----------------------------------------------
-// supabase.from() / supabase.rpc() are type-checked against the
-// generated Database type in src/integrations/supabase/types.ts. The
-// notifications table + RPCs land in that file only after Lovable
-// regenerates the types post-migration. Until then we relax the client
-// for these specific keys so the rest of the codebase stays strict.
-// Remove the cast once `notifications` appears in the generated types.
-interface NotificationsQueryBuilder {
-  select: (cols: string) => NotificationsQueryBuilder;
-  eq: (col: string, val: string) => NotificationsQueryBuilder;
-  order: (col: string, opts: { ascending: boolean }) => NotificationsQueryBuilder;
-  limit: (
-    n: number,
-  ) => Promise<{ data: NotificationRow[] | null; error: { message: string } | null }>;
-}
-interface RelaxedClient {
-  from: (table: "notifications") => NotificationsQueryBuilder;
-  rpc: (
-    fn: "mark_notification_read" | "mark_all_notifications_read",
-    args?: Record<string, unknown>,
-  ) => Promise<{ error: { message: string } | null }>;
-}
-const sb = supabase as unknown as RelaxedClient;
-
 // ----- Query / realtime / mutations -------------------------------------
 
 const PAGE_SIZE = 30;
@@ -91,14 +67,24 @@ export function useNotifications(userId: string | null | undefined) {
     queryKey: notificationsKey(userId ?? ""),
     queryFn: async (): Promise<NotificationRow[]> => {
       if (!userId) return [];
-      const { data, error } = await sb
+      const { data, error } = await supabase
         .from("notifications")
         .select("id, recipient_id, type, payload, read_at, created_at")
         .eq("recipient_id", userId)
         .order("created_at", { ascending: false })
         .limit(PAGE_SIZE);
       if (error) throw new Error(error.message);
-      return data ?? [];
+      // payload is typed as Supabase Json (which includes null / array /
+      // primitives). The producers (booking-notifications edge function)
+      // always write an object, but a malformed historical row should
+      // degrade to {} rather than crash the consumer.
+      return (data ?? []).map((row) => ({
+        ...row,
+        payload:
+          typeof row.payload === "object" && row.payload !== null && !Array.isArray(row.payload)
+            ? (row.payload as Record<string, unknown>)
+            : {},
+      }));
     },
     enabled: !!userId,
   });
@@ -143,7 +129,7 @@ export function useMarkNotificationRead() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await sb.rpc("mark_notification_read", { p_id: id });
+      const { error } = await supabase.rpc("mark_notification_read", { p_id: id });
       if (error) throw new Error(error.message);
     },
     onSuccess: () => {
@@ -156,7 +142,7 @@ export function useMarkAllNotificationsRead() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      const { error } = await sb.rpc("mark_all_notifications_read");
+      const { error } = await supabase.rpc("mark_all_notifications_read");
       if (error) throw new Error(error.message);
     },
     onSuccess: () => {
