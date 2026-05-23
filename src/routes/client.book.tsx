@@ -473,6 +473,13 @@ function BookFlow() {
           session_type: type,
           event_type_id: eventType?.id ?? null,
           scheduled_at: iso,
+          // end_at is required by the schema; the
+          // a_trg_set_booking_duration_defaults trigger recomputes it
+          // server-side from duration_min + buffer_min, so this client
+          // value is just a placeholder to satisfy the NOT NULL constraint.
+          end_at: new Date(
+            new Date(iso).getTime() + (eventType?.duration ?? 60) * 60_000,
+          ).toISOString(),
           status: "scheduled",
           meeting_link: null,
         })

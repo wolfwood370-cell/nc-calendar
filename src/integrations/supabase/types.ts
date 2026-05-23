@@ -403,6 +403,36 @@ export type Database = {
           },
         ]
       }
+      gcal_sync_signals: {
+        Row: {
+          coach_id: string
+          last_notification_at: string
+        }
+        Insert: {
+          coach_id: string
+          last_notification_at?: string
+        }
+        Update: {
+          coach_id?: string
+          last_notification_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gcal_sync_signals_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: true
+            referencedRelation: "client_exhaustion_forecast"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "gcal_sync_signals_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       integration_settings: {
         Row: {
           calendar_optimization_enabled: boolean
@@ -488,6 +518,48 @@ export type Database = {
             foreignKeyName: "integration_settings_coach_id_fkey"
             columns: ["coach_id"]
             isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          payload: Json
+          read_at: string | null
+          recipient_id: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          payload?: Json
+          read_at?: string | null
+          recipient_id: string
+          type: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          payload?: Json
+          read_at?: string | null
+          recipient_id?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "client_exhaustion_forecast"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "notifications_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -877,10 +949,12 @@ export type Database = {
         }
         Returns: boolean
       }
+      mark_all_notifications_read: { Args: never; Returns: undefined }
       mark_booking_special: {
         Args: { p_booking_id: string; p_category?: string }
         Returns: undefined
       }
+      mark_notification_read: { Args: { p_id: string }; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "coach" | "client"
