@@ -131,9 +131,7 @@ export function ReviewBookingDialog({ bookingId, onClose }: ReviewBookingDialogP
       return category;
     },
     onSuccess: (category) => {
-      toast.success(
-        category === "consulenza" ? "Consulenza segnata" : "Impegno personale segnato",
-      );
+      toast.success(category === "consulenza" ? "Consulenza segnata" : "Impegno personale segnato");
       invalidateScope(null);
       onClose();
     },

@@ -958,8 +958,6 @@ function CalendarPage() {
     };
   }, [user, qc]);
 
-
-
   // ----- Render helpers -----
   const renderEvent = (b: BookingRow, placement: EventPlacement | undefined) => {
     // Safety net: timedByDay already excludes all-day events, but a
@@ -1043,8 +1041,7 @@ function CalendarPage() {
     }
 
     if (isExternal) {
-      const title =
-        (b.notes ?? "").replace(IMPORT_PREFIX, "") || "Evento esterno";
+      const title = (b.notes ?? "").replace(IMPORT_PREFIX, "") || "Evento esterno";
       return (
         <button
           key={b.id}
@@ -1241,7 +1238,9 @@ function CalendarPage() {
               aria-label="Eventi giornalieri"
             >
               <div className="w-16 shrink-0 border-r border-surface-container flex items-center justify-center">
-                <span className="text-[10px] uppercase tracking-wider text-outline">Tutto il dì</span>
+                <span className="text-[10px] uppercase tracking-wider text-outline">
+                  Tutto il dì
+                </span>
               </div>
               <div className="flex-1 grid grid-cols-7">
                 {weekDays.map((_, i) => {
@@ -1294,9 +1293,7 @@ function CalendarPage() {
                           className="absolute left-0 right-0 border-b border-surface-container"
                         />
                       ))}
-                      {(timedByDay[i] ?? []).map((b) =>
-                        renderEvent(b, layoutByDay[i]?.get(b.id)),
-                      )}
+                      {(timedByDay[i] ?? []).map((b) => renderEvent(b, layoutByDay[i]?.get(b.id)))}
                     </div>
                   );
                 })}

@@ -37,7 +37,11 @@ Deno.serve(async (req) => {
     try {
       assertUuid(profile_id, "profile_id");
     } catch (e) {
-      return jsonResponse({ error: e instanceof Error ? e.message : "Invalid profile_id" }, 400, req);
+      return jsonResponse(
+        { error: e instanceof Error ? e.message : "Invalid profile_id" },
+        400,
+        req,
+      );
     }
     if (!VAPID_PUBLIC || !VAPID_PRIVATE) {
       return jsonResponse({ error: "VAPID keys not configured" }, 500, req);

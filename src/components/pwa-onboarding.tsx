@@ -63,7 +63,7 @@ export function PwaOnboarding() {
 
   const iosSteps: Step[] = [
     { icon: Share, text: "Tocca l'icona Condividi in basso nella barra di Safari." },
-    { icon: Plus, text: "Scorri e seleziona \"Aggiungi alla schermata Home\"." },
+    { icon: Plus, text: 'Scorri e seleziona "Aggiungi alla schermata Home".' },
     { icon: Smartphone, text: "Apri l'app dall'icona sul tuo telefono per un'esperienza nativa." },
   ];
 

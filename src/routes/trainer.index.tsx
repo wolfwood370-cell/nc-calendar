@@ -20,13 +20,7 @@ import {
 } from "@/components/ui/aura-skeleton";
 import { SwipeableCard } from "@/components/ui/swipeable-card";
 import { Button } from "@/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { TrainerNotificationsBell } from "@/components/trainer-notifications-bell";
 import { toast } from "sonner";
 import {
@@ -700,335 +694,335 @@ function Overview() {
           UNCHANGED below this divider.
           ============================================================ */}
       <div className="hidden md:block bg-surface text-on-background -m-6 p-6 md:p-10 min-h-[calc(100vh-3.5rem)]">
-      {/* Header */}
-      <header className="mb-10">
-        <h1 className="font-display text-4xl md:text-5xl font-bold text-on-background tracking-tight">
-          Bentornato, {userName.split(" ")[0]}
-        </h1>
-        <p className="text-on-surface-variant mt-2 text-lg">
-          Oggi è <span className="capitalize">{todayLabel}</span>. Hai {todayItems.length}{" "}
-          {todayItems.length === 1 ? "sessione programmata" : "sessioni programmate"}.
-        </p>
-      </header>
+        {/* Header */}
+        <header className="mb-10">
+          <h1 className="font-display text-4xl md:text-5xl font-bold text-on-background tracking-tight">
+            Bentornato, {userName.split(" ")[0]}
+          </h1>
+          <p className="text-on-surface-variant mt-2 text-lg">
+            Oggi è <span className="capitalize">{todayLabel}</span>. Hai {todayItems.length}{" "}
+            {todayItems.length === 1 ? "sessione programmata" : "sessioni programmate"}.
+          </p>
+        </header>
 
-      {/* 2-column grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
-        {/* LEFT */}
-        <div className="lg:col-span-7 flex flex-col gap-6">
-          {/* Centro Revisione */}
-          {(reviewItems.length > 0 || ignoredItems.length > 0) && (
-            <section
-              className={`${GLASS} rounded-[32px] p-6 shadow-soft-card border border-warning-border/40`}
-            >
-              <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-                <div className="flex items-center gap-3">
-                  <AlertTriangle className="size-6 text-tertiary-container" />
-                  <h2 className="text-2xl font-manrope font-semibold">Centro Revisione</h2>
-                </div>
-                <div className="inline-flex rounded-full bg-surface-container-low p-1">
-                  <button
-                    type="button"
-                    onClick={() => setReviewTab("todo")}
-                    className={`px-4 py-1.5 text-sm font-semibold rounded-full transition-colors ${
-                      reviewTab === "todo"
-                        ? "bg-aura-primary text-white"
-                        : "text-on-surface-variant hover:bg-surface-container"
-                    }`}
-                  >
-                    Da Assegnare ({reviewItems.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setReviewTab("ignored")}
-                    className={`px-4 py-1.5 text-sm font-semibold rounded-full transition-colors ${
-                      reviewTab === "ignored"
-                        ? "bg-aura-primary text-white"
-                        : "text-on-surface-variant hover:bg-surface-container"
-                    }`}
-                  >
-                    Ignorati ({ignoredItems.length})
-                  </button>
-                </div>
-              </div>
-              <div className="flex flex-col gap-3">
-                {(reviewTab === "todo" ? reviewItems : ignoredItems).slice(0, 5).map((r) => {
-                  const start = new Date(r.scheduled_at);
-                  const dateLabel = start.toLocaleDateString("it-IT", {
-                    weekday: "long",
-                    day: "2-digit",
-                    month: "long",
-                    year: "numeric",
-                  });
-                  const timeLabel = start.toLocaleTimeString("it-IT", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  });
-                  const et = r.event_type_id ? eventTypeById.get(r.event_type_id) : null;
-                  const importedTitle =
-                    typeof r.notes === "string"
-                      ? r.notes.match(/^Importato da Google Calendar:\s*(.+)$/)?.[1]?.trim()
-                      : null;
-                  const googleTitle = r.title?.trim() || importedTitle || null;
-                  const eventName =
-                    googleTitle ||
-                    et?.name ||
-                    sessionLabel(r.session_type) ||
-                    "Evento Google Calendar";
-                  const typeLabel = et?.name ?? sessionLabel(r.session_type);
-                  const isIgnored = reviewTab === "ignored";
-                  return (
-                    <div
-                      key={r.id}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-surface-container-low p-4 rounded-2xl"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p
-                          className={`text-xs font-semibold uppercase tracking-wider mb-1 ${
-                            isIgnored ? "text-on-surface-variant" : "text-error"
-                          }`}
-                        >
-                          {isIgnored ? "Ignorato" : "Cliente non assegnato"}
-                        </p>
-                        <p className="font-semibold text-on-background truncate">{eventName}</p>
-                        <p className="text-sm text-on-surface-variant capitalize">
-                          {dateLabel} · {timeLabel}
-                        </p>
-                        <p className="text-xs text-on-surface-variant mt-0.5">
-                          Tipologia: {typeLabel} · Origine: Google Calendar
-                        </p>
-                      </div>
-                      <div className="flex gap-2 shrink-0">
-                        {isIgnored ? (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            className="rounded-full bg-surface-variant text-on-surface-variant hover:bg-surface-container-high"
-                            onClick={() => restoreBooking.mutate(r.id)}
-                            disabled={restoreBooking.isPending}
-                          >
-                            Ripristina
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            className="rounded-full bg-surface-variant text-on-surface-variant hover:bg-surface-container-high"
-                            onClick={() => ignoreBooking.mutate(r.id)}
-                            disabled={ignoreBooking.isPending}
-                          >
-                            Ignora
-                          </Button>
-                        )}
-                        <Button
-                          size="sm"
-                          className="rounded-full bg-aura-primary text-white hover:bg-aura-primary/90"
-                          onClick={() => openReview(r.id)}
-                        >
-                          Assegna
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-                {(reviewTab === "todo" ? reviewItems : ignoredItems).length === 0 && (
-                  <p className="text-sm text-on-surface-variant italic px-2 py-4 text-center">
-                    {reviewTab === "todo"
-                      ? "Nessun evento da revisionare."
-                      : "Nessun evento ignorato."}
-                  </p>
-                )}
-              </div>
-            </section>
-          )}
-
-          {/* Oggi */}
-          <section className={`${GLASS} rounded-[32px] p-6 shadow-soft-card`}>
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-2xl font-manrope font-semibold">Oggi</h2>
-              <Link
-                to="/trainer/calendar"
-                className="text-sm font-semibold text-aura-primary hover:underline"
+        {/* 2-column grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
+          {/* LEFT */}
+          <div className="lg:col-span-7 flex flex-col gap-6">
+            {/* Centro Revisione */}
+            {(reviewItems.length > 0 || ignoredItems.length > 0) && (
+              <section
+                className={`${GLASS} rounded-[32px] p-6 shadow-soft-card border border-warning-border/40`}
               >
-                Vedi tutto
-              </Link>
-            </div>
-            {loading ? (
-              <div className="space-y-3">
-                <Skeleton className="h-16 w-full" />
-                <Skeleton className="h-16 w-full" />
-              </div>
-            ) : todayItems.length === 0 ? (
-              <p className="text-sm text-on-surface-variant py-6 text-center">
-                Nessun appuntamento previsto per oggi. Goditi la giornata!
-              </p>
-            ) : (
-              <div className="flex flex-col">
-                {todayItems.map((b) => {
-                  const c = clientById.get(b.client_id!);
-                  const name = c?.full_name ?? c?.email ?? "Cliente";
-                  const et = b.event_type_id ? eventTypeById.get(b.event_type_id) : null;
-                  const label = et?.name ?? sessionLabel(b.session_type);
-                  const Icon = iconForType(label);
-                  const start = new Date(b.scheduled_at);
-                  // H3: per-booking snapshot so changing the event type
-                  // duration today doesn't relabel sessions already on
-                  // the agenda.
-                  const dur = b.duration_min ?? et?.duration ?? 60;
-                  const time = start.toLocaleTimeString("it-IT", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  });
-                  return (
-                    <div
-                      key={b.id}
-                      className="group flex items-center justify-between py-3 border-b border-surface-variant/60 last:border-0"
+                <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+                  <div className="flex items-center gap-3">
+                    <AlertTriangle className="size-6 text-tertiary-container" />
+                    <h2 className="text-2xl font-manrope font-semibold">Centro Revisione</h2>
+                  </div>
+                  <div className="inline-flex rounded-full bg-surface-container-low p-1">
+                    <button
+                      type="button"
+                      onClick={() => setReviewTab("todo")}
+                      className={`px-4 py-1.5 text-sm font-semibold rounded-full transition-colors ${
+                        reviewTab === "todo"
+                          ? "bg-aura-primary text-white"
+                          : "text-on-surface-variant hover:bg-surface-container"
+                      }`}
                     >
-                      <div className="flex items-center gap-4 min-w-0">
-                        <div className="w-16 text-center shrink-0">
-                          <p className="font-semibold text-on-background">{time}</p>
-                          <p className="text-xs text-on-surface-variant">
-                            {dur >= 60
-                              ? `${Math.floor(dur / 60)}h${dur % 60 ? ` ${dur % 60}m` : ""}`
-                              : `${dur}m`}
+                      Da Assegnare ({reviewItems.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setReviewTab("ignored")}
+                      className={`px-4 py-1.5 text-sm font-semibold rounded-full transition-colors ${
+                        reviewTab === "ignored"
+                          ? "bg-aura-primary text-white"
+                          : "text-on-surface-variant hover:bg-surface-container"
+                      }`}
+                    >
+                      Ignorati ({ignoredItems.length})
+                    </button>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-3">
+                  {(reviewTab === "todo" ? reviewItems : ignoredItems).slice(0, 5).map((r) => {
+                    const start = new Date(r.scheduled_at);
+                    const dateLabel = start.toLocaleDateString("it-IT", {
+                      weekday: "long",
+                      day: "2-digit",
+                      month: "long",
+                      year: "numeric",
+                    });
+                    const timeLabel = start.toLocaleTimeString("it-IT", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    });
+                    const et = r.event_type_id ? eventTypeById.get(r.event_type_id) : null;
+                    const importedTitle =
+                      typeof r.notes === "string"
+                        ? r.notes.match(/^Importato da Google Calendar:\s*(.+)$/)?.[1]?.trim()
+                        : null;
+                    const googleTitle = r.title?.trim() || importedTitle || null;
+                    const eventName =
+                      googleTitle ||
+                      et?.name ||
+                      sessionLabel(r.session_type) ||
+                      "Evento Google Calendar";
+                    const typeLabel = et?.name ?? sessionLabel(r.session_type);
+                    const isIgnored = reviewTab === "ignored";
+                    return (
+                      <div
+                        key={r.id}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-surface-container-low p-4 rounded-2xl"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className={`text-xs font-semibold uppercase tracking-wider mb-1 ${
+                              isIgnored ? "text-on-surface-variant" : "text-error"
+                            }`}
+                          >
+                            {isIgnored ? "Ignorato" : "Cliente non assegnato"}
+                          </p>
+                          <p className="font-semibold text-on-background truncate">{eventName}</p>
+                          <p className="text-sm text-on-surface-variant capitalize">
+                            {dateLabel} · {timeLabel}
+                          </p>
+                          <p className="text-xs text-on-surface-variant mt-0.5">
+                            Tipologia: {typeLabel} · Origine: Google Calendar
                           </p>
                         </div>
-                        <div className="w-1 h-12 bg-aura-primary rounded-full shrink-0" />
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center shrink-0">
-                            <span className="font-bold text-on-secondary-container text-sm">
-                              {initials(name)}
-                            </span>
+                        <div className="flex gap-2 shrink-0">
+                          {isIgnored ? (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              className="rounded-full bg-surface-variant text-on-surface-variant hover:bg-surface-container-high"
+                              onClick={() => restoreBooking.mutate(r.id)}
+                              disabled={restoreBooking.isPending}
+                            >
+                              Ripristina
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              className="rounded-full bg-surface-variant text-on-surface-variant hover:bg-surface-container-high"
+                              onClick={() => ignoreBooking.mutate(r.id)}
+                              disabled={ignoreBooking.isPending}
+                            >
+                              Ignora
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            className="rounded-full bg-aura-primary text-white hover:bg-aura-primary/90"
+                            onClick={() => openReview(r.id)}
+                          >
+                            Assegna
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {(reviewTab === "todo" ? reviewItems : ignoredItems).length === 0 && (
+                    <p className="text-sm text-on-surface-variant italic px-2 py-4 text-center">
+                      {reviewTab === "todo"
+                        ? "Nessun evento da revisionare."
+                        : "Nessun evento ignorato."}
+                    </p>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {/* Oggi */}
+            <section className={`${GLASS} rounded-[32px] p-6 shadow-soft-card`}>
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="text-2xl font-manrope font-semibold">Oggi</h2>
+                <Link
+                  to="/trainer/calendar"
+                  className="text-sm font-semibold text-aura-primary hover:underline"
+                >
+                  Vedi tutto
+                </Link>
+              </div>
+              {loading ? (
+                <div className="space-y-3">
+                  <Skeleton className="h-16 w-full" />
+                  <Skeleton className="h-16 w-full" />
+                </div>
+              ) : todayItems.length === 0 ? (
+                <p className="text-sm text-on-surface-variant py-6 text-center">
+                  Nessun appuntamento previsto per oggi. Goditi la giornata!
+                </p>
+              ) : (
+                <div className="flex flex-col">
+                  {todayItems.map((b) => {
+                    const c = clientById.get(b.client_id!);
+                    const name = c?.full_name ?? c?.email ?? "Cliente";
+                    const et = b.event_type_id ? eventTypeById.get(b.event_type_id) : null;
+                    const label = et?.name ?? sessionLabel(b.session_type);
+                    const Icon = iconForType(label);
+                    const start = new Date(b.scheduled_at);
+                    // H3: per-booking snapshot so changing the event type
+                    // duration today doesn't relabel sessions already on
+                    // the agenda.
+                    const dur = b.duration_min ?? et?.duration ?? 60;
+                    const time = start.toLocaleTimeString("it-IT", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    });
+                    return (
+                      <div
+                        key={b.id}
+                        className="group flex items-center justify-between py-3 border-b border-surface-variant/60 last:border-0"
+                      >
+                        <div className="flex items-center gap-4 min-w-0">
+                          <div className="w-16 text-center shrink-0">
+                            <p className="font-semibold text-on-background">{time}</p>
+                            <p className="text-xs text-on-surface-variant">
+                              {dur >= 60
+                                ? `${Math.floor(dur / 60)}h${dur % 60 ? ` ${dur % 60}m` : ""}`
+                                : `${dur}m`}
+                            </p>
                           </div>
-                          <div className="min-w-0">
-                            <p className="font-semibold text-on-background truncate">{name}</p>
-                            <div className="flex items-center gap-1 text-on-surface-variant">
-                              <Icon className="size-4" />
-                              <span className="text-xs">{label}</span>
+                          <div className="w-1 h-12 bg-aura-primary rounded-full shrink-0" />
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center shrink-0">
+                              <span className="font-bold text-on-secondary-container text-sm">
+                                {initials(name)}
+                              </span>
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-semibold text-on-background truncate">{name}</p>
+                              <div className="flex items-center gap-1 text-on-surface-variant">
+                                <Icon className="size-4" />
+                                <span className="text-xs">{label}</span>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                      <Button
-                        size="sm"
-                        className="rounded-full bg-primary-container text-on-primary-container hover:bg-primary-container/85 ml-2 shrink-0"
-                        onClick={() => checkIn.mutate(b.id)}
-                        disabled={checkIn.isPending}
-                      >
-                        <CheckCircle2 className="size-4" /> Check-in
-                      </Button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-        </div>
-
-        {/* RIGHT */}
-        <div className="lg:col-span-5 flex flex-col gap-6">
-          {/* Crediti in Scadenza */}
-          <section className={`${GLASS} rounded-[32px] p-6 shadow-soft-card`}>
-            <div className="flex items-center gap-2 mb-5">
-              <Hourglass className="size-5 text-aura-primary" />
-              <h2 className="text-2xl font-manrope font-semibold">Crediti in Scadenza</h2>
-            </div>
-            {loading ? (
-              <Skeleton className="h-12 w-full" />
-            ) : expiring.length === 0 ? (
-              <p className="text-sm text-on-surface-variant py-2">
-                Nessun pacchetto in scadenza imminente.
-              </p>
-            ) : (
-              <ul className="flex flex-col gap-2">
-                {expiring.map((c) => {
-                  const isZero = c.remaining === 0;
-                  const isOne = c.remaining === 1;
-                  const rowBg = isZero
-                    ? "bg-error-container/30"
-                    : isOne
-                      ? "bg-tertiary-container/10"
-                      : "bg-surface-container-low";
-                  const badgeBg = isZero
-                    ? "bg-error-container text-on-error-container"
-                    : isOne
-                      ? "bg-warning-container text-tertiary-container"
-                      : "bg-surface-variant text-on-surface-variant";
-                  const avatarBg = isZero
-                    ? "bg-error text-white"
-                    : isOne
-                      ? "bg-tertiary text-white"
-                      : "bg-surface-variant text-on-surface-variant";
-                  return (
-                    <li
-                      key={c.clientId}
-                      className={`flex items-center justify-between p-3 rounded-2xl ${rowBg}`}
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div
-                          className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs ${avatarBg}`}
+                        <Button
+                          size="sm"
+                          className="rounded-full bg-primary-container text-on-primary-container hover:bg-primary-container/85 ml-2 shrink-0"
+                          onClick={() => checkIn.mutate(b.id)}
+                          disabled={checkIn.isPending}
                         >
-                          {initials(c.name)}
+                          <CheckCircle2 className="size-4" /> Check-in
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          </div>
+
+          {/* RIGHT */}
+          <div className="lg:col-span-5 flex flex-col gap-6">
+            {/* Crediti in Scadenza */}
+            <section className={`${GLASS} rounded-[32px] p-6 shadow-soft-card`}>
+              <div className="flex items-center gap-2 mb-5">
+                <Hourglass className="size-5 text-aura-primary" />
+                <h2 className="text-2xl font-manrope font-semibold">Crediti in Scadenza</h2>
+              </div>
+              {loading ? (
+                <Skeleton className="h-12 w-full" />
+              ) : expiring.length === 0 ? (
+                <p className="text-sm text-on-surface-variant py-2">
+                  Nessun pacchetto in scadenza imminente.
+                </p>
+              ) : (
+                <ul className="flex flex-col gap-2">
+                  {expiring.map((c) => {
+                    const isZero = c.remaining === 0;
+                    const isOne = c.remaining === 1;
+                    const rowBg = isZero
+                      ? "bg-error-container/30"
+                      : isOne
+                        ? "bg-tertiary-container/10"
+                        : "bg-surface-container-low";
+                    const badgeBg = isZero
+                      ? "bg-error-container text-on-error-container"
+                      : isOne
+                        ? "bg-warning-container text-tertiary-container"
+                        : "bg-surface-variant text-on-surface-variant";
+                    const avatarBg = isZero
+                      ? "bg-error text-white"
+                      : isOne
+                        ? "bg-tertiary text-white"
+                        : "bg-surface-variant text-on-surface-variant";
+                    return (
+                      <li
+                        key={c.clientId}
+                        className={`flex items-center justify-between p-3 rounded-2xl ${rowBg}`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div
+                            className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs ${avatarBg}`}
+                          >
+                            {initials(c.name)}
+                          </div>
+                          <Link
+                            to="/trainer/clients/$id"
+                            params={{ id: c.clientId }}
+                            className="font-semibold truncate hover:underline"
+                          >
+                            {c.name}
+                          </Link>
                         </div>
-                        <Link
-                          to="/trainer/clients/$id"
-                          params={{ id: c.clientId }}
-                          className="font-semibold truncate hover:underline"
+                        <span
+                          className={`text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap ${badgeBg}`}
                         >
-                          {c.name}
-                        </Link>
+                          {c.remaining} {c.remaining === 1 ? "rimanente" : "rimanenti"}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
+
+            {/* Distribuzione Servizi */}
+            <section className={`${GLASS} rounded-[32px] p-6 shadow-soft-card`}>
+              <h2 className="text-2xl font-manrope font-semibold mb-5">Distribuzione Servizi</h2>
+              {loading ? (
+                <Skeleton className="h-20 w-full" />
+              ) : distribution.items.length === 0 ? (
+                <p className="text-sm text-on-surface-variant">
+                  Nessuna sessione registrata questo mese.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  {distribution.items.map((d) => (
+                    <div key={d.key}>
+                      <div className="flex justify-between text-sm font-semibold mb-1.5">
+                        <span className="text-on-background">{d.label}</span>
+                        <span style={{ color: d.color }}>{d.pct}%</span>
                       </div>
-                      <span
-                        className={`text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap ${badgeBg}`}
-                      >
-                        {c.remaining} {c.remaining === 1 ? "rimanente" : "rimanenti"}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </section>
-
-          {/* Distribuzione Servizi */}
-          <section className={`${GLASS} rounded-[32px] p-6 shadow-soft-card`}>
-            <h2 className="text-2xl font-manrope font-semibold mb-5">Distribuzione Servizi</h2>
-            {loading ? (
-              <Skeleton className="h-20 w-full" />
-            ) : distribution.items.length === 0 ? (
-              <p className="text-sm text-on-surface-variant">
-                Nessuna sessione registrata questo mese.
-              </p>
-            ) : (
-              <div className="flex flex-col gap-4">
-                {distribution.items.map((d) => (
-                  <div key={d.key}>
-                    <div className="flex justify-between text-sm font-semibold mb-1.5">
-                      <span className="text-on-background">{d.label}</span>
-                      <span style={{ color: d.color }}>{d.pct}%</span>
+                      <div className="w-full h-2 bg-surface-variant rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full"
+                          style={{ width: `${d.pct}%`, backgroundColor: d.color }}
+                        />
+                      </div>
                     </div>
-                    <div className="w-full h-2 bg-surface-variant rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full"
-                        style={{ width: `${d.pct}%`, backgroundColor: d.color }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
         </div>
-      </div>
 
-      {/* Quick Stats */}
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <QuickStat icon={Users} label="Clienti Attivi" value={stats.activeClients} />
-        <QuickStat icon={CalendarCheck2} label="Sessioni Mese" value={stats.sessionsMonth} />
-        <QuickStat icon={Wallet} label="Crediti Emessi" value={stats.creditsIssued} />
-        <QuickStat icon={UserPlus} label="Nuovi (30gg)" value={stats.newClients} />
-      </section>
+        {/* Quick Stats */}
+        <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <QuickStat icon={Users} label="Clienti Attivi" value={stats.activeClients} />
+          <QuickStat icon={CalendarCheck2} label="Sessioni Mese" value={stats.sessionsMonth} />
+          <QuickStat icon={Wallet} label="Crediti Emessi" value={stats.creditsIssued} />
+          <QuickStat icon={UserPlus} label="Nuovi (30gg)" value={stats.newClients} />
+        </section>
 
-      {/* The Assign / Personal / Consulenza dialog is now mounted globally
+        {/* The Assign / Personal / Consulenza dialog is now mounted globally
           at the /trainer layout (src/routes/trainer.tsx) and driven by
           ?reviewEventId. openReview() just navigates. */}
       </div>

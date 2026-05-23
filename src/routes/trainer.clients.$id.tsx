@@ -198,9 +198,7 @@ function ClientPathPage() {
     const parts = (profile.full_name ?? "").trim().split(/\s+/);
     setFirstName(parts[0] ?? "");
     setLastName(parts.slice(1).join(" "));
-    setPathStart(
-      profile.path_start_date ? parseISO(profile.path_start_date as string) : undefined,
-    );
+    setPathStart(profile.path_start_date ? parseISO(profile.path_start_date as string) : undefined);
 
     // Fetch auto_renew_blocks via cast — column added by
     // 20260524110000_block_auto_renew.sql, may not be in generated types yet.

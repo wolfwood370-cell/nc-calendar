@@ -79,10 +79,7 @@ function TrainerLayout() {
           {/* Global review modal — reachable from any /trainer/* page via
               navigate({ search: { reviewEventId: bookingId } }). One
               component, one mount point, consistent UX. */}
-          <ReviewBookingDialog
-            bookingId={reviewEventId ?? null}
-            onClose={closeReviewDialog}
-          />
+          <ReviewBookingDialog bookingId={reviewEventId ?? null} onClose={closeReviewDialog} />
         </SidebarInset>
         {/* Mobile bottom navigation. Hidden on md+ by the component itself. */}
         <TrainerBottomNav />

@@ -262,9 +262,7 @@ export function ClientRescheduleSheet({
 
         {withinCutoff ? (
           <div className="px-6 py-10 text-center">
-            <p className="text-sm font-semibold text-on-surface mb-2">
-              Non puoi più riprogrammare
-            </p>
+            <p className="text-sm font-semibold text-on-surface mb-2">Non puoi più riprogrammare</p>
             <p className="text-xs text-on-surface-variant">
               Manca meno di 24 ore all'inizio della sessione. Contatta il coach per concordare un
               nuovo orario.

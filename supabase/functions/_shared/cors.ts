@@ -21,7 +21,9 @@ const ALLOWED_ORIGIN_ENV = Deno.env.get("ALLOWED_ORIGIN");
 
 // Env-configured allowlist (comma-separated). Empty list = no extra origins.
 const ENV_ALLOWLIST: string[] = ALLOWED_ORIGIN_ENV
-  ? ALLOWED_ORIGIN_ENV.split(",").map((s) => s.trim()).filter(Boolean)
+  ? ALLOWED_ORIGIN_ENV.split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
   : [];
 
 function isAllowedOrigin(origin: string | null): boolean {

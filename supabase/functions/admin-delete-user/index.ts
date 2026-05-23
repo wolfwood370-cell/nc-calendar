@@ -28,7 +28,11 @@ Deno.serve(async (req) => {
     try {
       assertUuid(client_id, "client_id");
     } catch (e) {
-      return jsonResponse({ error: e instanceof Error ? e.message : "Invalid client_id" }, 400, req);
+      return jsonResponse(
+        { error: e instanceof Error ? e.message : "Invalid client_id" },
+        400,
+        req,
+      );
     }
 
     // Verifica ownership: il cliente deve appartenere al coach (admin bypassa).
@@ -71,7 +75,8 @@ Deno.serve(async (req) => {
           error: `Dati eliminati ma utente auth non rimosso: ${delErr.message}`,
         },
         500,
-      req);
+        req,
+      );
     }
 
     return jsonResponse({ ok: true }, 200, req);

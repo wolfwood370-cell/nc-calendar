@@ -353,7 +353,6 @@ function ClientsPage() {
     setLoading(false);
   }
 
-
   useEffect(() => {
     if (!user) return;
     // On mount, ask the server to reconcile every recurring client's
@@ -444,10 +443,7 @@ function ClientsPage() {
           if (todayMs > end && todayMs <= graceEnd) {
             for (const a of cAllocsAll) {
               if (a.block_id !== b.id) continue;
-              previousBlockResiduals += Math.max(
-                0,
-                a.quantity_assigned - a.quantity_booked,
-              );
+              previousBlockResiduals += Math.max(0, a.quantity_assigned - a.quantity_booked);
             }
           }
         }
@@ -846,10 +842,7 @@ function ClientsPage() {
           {loading ? (
             <div className="flex flex-col gap-3">
               {Array.from({ length: 4 }).map((_, i) => (
-                <AuraCardSkeleton
-                  key={i}
-                  className="p-4 flex items-center gap-4 h-24"
-                >
+                <AuraCardSkeleton key={i} className="p-4 flex items-center gap-4 h-24">
                   <AuraAvatarSkeleton size="lg" />
                   <div className="flex-1 flex flex-col gap-2">
                     <AuraLineSkeleton className="w-2/3 h-5" />
@@ -938,393 +931,390 @@ function ClientsPage() {
           DESKTOP LAYOUT (hidden md:block) — unchanged below.
           ============================================================ */}
       <div className="hidden md:block -m-6 p-6 md:p-10 bg-surface min-h-[calc(100vh-3.5rem)]">
-      {/* Header */}
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-8">
-        <div>
-          <h1 className="font-display text-3xl md:text-4xl font-bold text-aura-primary tracking-tight">
-            I tuoi Clienti
-          </h1>
-          <p className="text-sm text-on-surface-variant mt-1">
-            Invita nuovi clienti e gestisci il roster.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-            <DialogTrigger asChild>
-              <Button className="rounded-full px-6 py-3 h-auto bg-aura-primary hover:bg-primary-container text-white shadow-soft-blue">
-                <UserPlus className="size-4" /> Aggiungi Cliente
-              </Button>
-            </DialogTrigger>
-            {/* Forward `open` so the child can detect the open→closed
+        {/* Header */}
+        <div className="flex flex-wrap items-end justify-between gap-3 mb-8">
+          <div>
+            <h1 className="font-display text-3xl md:text-4xl font-bold text-aura-primary tracking-tight">
+              I tuoi Clienti
+            </h1>
+            <p className="text-sm text-on-surface-variant mt-1">
+              Invita nuovi clienti e gestisci il roster.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+              <DialogTrigger asChild>
+                <Button className="rounded-full px-6 py-3 h-auto bg-aura-primary hover:bg-primary-container text-white shadow-soft-blue">
+                  <UserPlus className="size-4" /> Aggiungi Cliente
+                </Button>
+              </DialogTrigger>
+              {/* Forward `open` so the child can detect the open→closed
                 transition and reset its multi-step state. Without this
                 the child keeps step=3 + previous form values from one
                 open to the next (the React subtree persists between
                 opens; Radix only animates the DOM in/out). */}
-            <CreateClientDialog open={createOpen} onSubmit={createClientAccount} />
-          </Dialog>
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button variant="secondary" className="rounded-full px-5 py-3 h-auto">
-                <Plus className="size-4" /> Invita
-              </Button>
-            </DialogTrigger>
-            <InviteClientDialog onSubmit={inviteClient} />
-          </Dialog>
+              <CreateClientDialog open={createOpen} onSubmit={createClientAccount} />
+            </Dialog>
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger asChild>
+                <Button variant="secondary" className="rounded-full px-5 py-3 h-auto">
+                  <Plus className="size-4" /> Invita
+                </Button>
+              </DialogTrigger>
+              <InviteClientDialog onSubmit={inviteClient} />
+            </Dialog>
+          </div>
         </div>
-      </div>
 
-      <CredentialsDialog creds={credentials} onClose={() => setCredentials(null)} />
+        <CredentialsDialog creds={credentials} onClose={() => setCredentials(null)} />
 
-      {/* Search */}
-      <div className="mb-6 relative w-full md:w-96">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-outline" />
-        <Input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Cerca per nome o email…"
-          className="pl-12 pr-4 py-3 h-auto bg-surface-container-low border-none rounded-full focus-visible:ring-2 focus-visible:ring-aura-primary focus-visible:bg-white"
-        />
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-2 mb-8 overflow-x-auto pb-1">
-        {tabs.map((t) => {
-          const isActive = activeTab === t.key;
-          return (
-            <button
-              key={t.key}
-              onClick={() => setActiveTab(t.key)}
-              className={`px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-colors ${
-                isActive
-                  ? "bg-primary-fixed text-on-primary-fixed-variant"
-                  : "bg-surface-container text-on-surface-variant hover:bg-surface-variant"
-              }`}
-            >
-              {t.label} ({t.count})
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Pending invitations */}
-      {pending.length > 0 && (
-        <Card className="mb-6 rounded-[32px] border border-white/40 bg-white/60 backdrop-blur-xl shadow-[0_8px_30px_rgba(0,0,0,0.04)]">
-          <CardHeader>
-            <CardTitle className="text-base font-manrope font-semibold flex items-center gap-2">
-              <Mail className="size-4" /> Inviti in attesa ({pending.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <Table className="border-separate border-spacing-0 [&_tr]:border-0">
-              <TableHeader className="[&_tr]:border-0">
-                <TableRow className="border-0 hover:bg-transparent">
-                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-outline">
-                    Nome
-                  </TableHead>
-                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-outline">
-                    Email
-                  </TableHead>
-                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-outline">
-                    Telefono
-                  </TableHead>
-                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-outline">
-                    Stato
-                  </TableHead>
-                  <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-outline text-right">
-                    Azioni
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody className="divide-y divide-outline-variant/10">
-                {pending.map((i) => (
-                  <TableRow key={i.id} className="border-0 hover:bg-white/40 transition-colors">
-                    <TableCell className="font-medium">{i.full_name ?? "—"}</TableCell>
-                    <TableCell className="text-muted-foreground">{i.email}</TableCell>
-                    <TableCell className="text-muted-foreground">{i.phone ?? "—"}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="rounded-full">
-                        In attesa
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="rounded-full"
-                        onClick={() => cancelInvite(i.id)}
-                      >
-                        <X className="size-4" /> Annulla
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Cards */}
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div
-              key={i}
-              className="bg-white rounded-[32px] p-6 shadow-[0px_4px_20px_rgba(0,86,133,0.05)] flex flex-col"
-            >
-              <div className="flex justify-between items-start mb-6">
-                <div className="flex items-center gap-4 min-w-0 flex-1">
-                  <Skeleton className="w-12 h-12 rounded-full shrink-0" />
-                  <div className="space-y-2 flex-1">
-                    <Skeleton className="h-4 w-3/4" />
-                    <Skeleton className="h-3 w-1/2" />
-                  </div>
-                </div>
-                <Skeleton className="h-6 w-16 rounded-full" />
-              </div>
-              <div className="mb-6 flex-1 space-y-2">
-                <Skeleton className="h-3 w-2/3" />
-                <Skeleton className="h-2 w-full rounded-full" />
-              </div>
-              <div className="pt-4 border-t border-surface-variant flex items-center gap-2">
-                <Skeleton className="h-10 flex-1 rounded-full" />
-                <Skeleton className="h-10 w-10 rounded-full" />
-                <Skeleton className="h-10 w-10 rounded-full" />
-              </div>
-            </div>
-          ))}
+        {/* Search */}
+        <div className="mb-6 relative w-full md:w-96">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-outline" />
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Cerca per nome o email…"
+            className="pl-12 pr-4 py-3 h-auto bg-surface-container-low border-none rounded-full focus-visible:ring-2 focus-visible:ring-aura-primary focus-visible:bg-white"
+          />
         </div>
-      ) : visibleCards.length === 0 ? (
-        <div className="bg-white rounded-[32px] p-12 text-center shadow-[0px_4px_20px_rgba(0,86,133,0.05)]">
-          {clients.length === 0 ? (
-            <div className="space-y-4">
-              <UserPlus className="size-10 mx-auto text-outline-variant" />
-              <p className="text-on-surface-variant font-semibold">
-                Nessun cliente ancora. Aggiungi il primo per iniziare.
-              </p>
-              <Button
-                onClick={() => setCreateOpen(true)}
-                className="rounded-full bg-aura-primary hover:bg-primary-container text-white"
+
+        {/* Tabs */}
+        <div className="flex gap-2 mb-8 overflow-x-auto pb-1">
+          {tabs.map((t) => {
+            const isActive = activeTab === t.key;
+            return (
+              <button
+                key={t.key}
+                onClick={() => setActiveTab(t.key)}
+                className={`px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-colors ${
+                  isActive
+                    ? "bg-primary-fixed text-on-primary-fixed-variant"
+                    : "bg-surface-container text-on-surface-variant hover:bg-surface-variant"
+                }`}
               >
-                <UserPlus className="size-4" /> Aggiungi Cliente
-              </Button>
-            </div>
-          ) : (
-            <p className="text-outline">Nessun cliente in questa categoria.</p>
-          )}
+                {t.label} ({t.count})
+              </button>
+            );
+          })}
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {visibleCards.map((d) => {
-            const c = d.client;
-            const isExpiring = d.status === "expiring";
-            const isArchived = d.status === "archived";
-            const isCompleted = d.status === "completed";
-            const phoneDigits = (c.phone ?? "").replace(/\D/g, "");
 
-            // Predictive exhaustion analytics (computed server-side via
-            // client_exhaustion_forecast view).
-            const fc = forecasts.get(c.id);
-            const showForecast =
-              !isArchived &&
-              !isCompleted &&
-              fc &&
-              fc.daysLeft !== null &&
-              fc.daysLeft <= 14 &&
-              fc.daysLeft >= 0;
-            const isCritical = !!fc && fc.daysLeft !== null && fc.daysLeft < 7;
-            const formattedExhaustion =
-              fc?.date
+        {/* Pending invitations */}
+        {pending.length > 0 && (
+          <Card className="mb-6 rounded-[32px] border border-white/40 bg-white/60 backdrop-blur-xl shadow-[0_8px_30px_rgba(0,0,0,0.04)]">
+            <CardHeader>
+              <CardTitle className="text-base font-manrope font-semibold flex items-center gap-2">
+                <Mail className="size-4" /> Inviti in attesa ({pending.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table className="border-separate border-spacing-0 [&_tr]:border-0">
+                <TableHeader className="[&_tr]:border-0">
+                  <TableRow className="border-0 hover:bg-transparent">
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-outline">
+                      Nome
+                    </TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-outline">
+                      Email
+                    </TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-outline">
+                      Telefono
+                    </TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-outline">
+                      Stato
+                    </TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-outline text-right">
+                      Azioni
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="divide-y divide-outline-variant/10">
+                  {pending.map((i) => (
+                    <TableRow key={i.id} className="border-0 hover:bg-white/40 transition-colors">
+                      <TableCell className="font-medium">{i.full_name ?? "—"}</TableCell>
+                      <TableCell className="text-muted-foreground">{i.email}</TableCell>
+                      <TableCell className="text-muted-foreground">{i.phone ?? "—"}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="rounded-full">
+                          In attesa
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="rounded-full"
+                          onClick={() => cancelInvite(i.id)}
+                        >
+                          <X className="size-4" /> Annulla
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Cards */}
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="bg-white rounded-[32px] p-6 shadow-[0px_4px_20px_rgba(0,86,133,0.05)] flex flex-col"
+              >
+                <div className="flex justify-between items-start mb-6">
+                  <div className="flex items-center gap-4 min-w-0 flex-1">
+                    <Skeleton className="w-12 h-12 rounded-full shrink-0" />
+                    <div className="space-y-2 flex-1">
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-3 w-1/2" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-6 w-16 rounded-full" />
+                </div>
+                <div className="mb-6 flex-1 space-y-2">
+                  <Skeleton className="h-3 w-2/3" />
+                  <Skeleton className="h-2 w-full rounded-full" />
+                </div>
+                <div className="pt-4 border-t border-surface-variant flex items-center gap-2">
+                  <Skeleton className="h-10 flex-1 rounded-full" />
+                  <Skeleton className="h-10 w-10 rounded-full" />
+                  <Skeleton className="h-10 w-10 rounded-full" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : visibleCards.length === 0 ? (
+          <div className="bg-white rounded-[32px] p-12 text-center shadow-[0px_4px_20px_rgba(0,86,133,0.05)]">
+            {clients.length === 0 ? (
+              <div className="space-y-4">
+                <UserPlus className="size-10 mx-auto text-outline-variant" />
+                <p className="text-on-surface-variant font-semibold">
+                  Nessun cliente ancora. Aggiungi il primo per iniziare.
+                </p>
+                <Button
+                  onClick={() => setCreateOpen(true)}
+                  className="rounded-full bg-aura-primary hover:bg-primary-container text-white"
+                >
+                  <UserPlus className="size-4" /> Aggiungi Cliente
+                </Button>
+              </div>
+            ) : (
+              <p className="text-outline">Nessun cliente in questa categoria.</p>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {visibleCards.map((d) => {
+              const c = d.client;
+              const isExpiring = d.status === "expiring";
+              const isArchived = d.status === "archived";
+              const isCompleted = d.status === "completed";
+              const phoneDigits = (c.phone ?? "").replace(/\D/g, "");
+
+              // Predictive exhaustion analytics (computed server-side via
+              // client_exhaustion_forecast view).
+              const fc = forecasts.get(c.id);
+              const showForecast =
+                !isArchived &&
+                !isCompleted &&
+                fc &&
+                fc.daysLeft !== null &&
+                fc.daysLeft <= 14 &&
+                fc.daysLeft >= 0;
+              const isCritical = !!fc && fc.daysLeft !== null && fc.daysLeft < 7;
+              const formattedExhaustion = fc?.date
                 ? new Intl.DateTimeFormat("it-IT", {
                     day: "2-digit",
                     month: "short",
                     year: "numeric",
                   }).format(new Date(fc.date + "T00:00:00"))
                 : null;
-            const reminderText = encodeURIComponent(
-              `Ciao ${(c.full_name ?? "").split(" ")[0] || ""}! Sto pianificando le prossime sessioni — vedo che i tuoi crediti stanno per esaurirsi. Vuoi rinnovare?`,
-            );
+              const reminderText = encodeURIComponent(
+                `Ciao ${(c.full_name ?? "").split(" ")[0] || ""}! Sto pianificando le prossime sessioni — vedo che i tuoi crediti stanno per esaurirsi. Vuoi rinnovare?`,
+              );
 
-
-            const badgeClass = isArchived
-              ? "bg-surface-container text-on-surface-variant"
-              : isCompleted
+              const badgeClass = isArchived
                 ? "bg-surface-container text-on-surface-variant"
-                : isExpiring
-                  ? "bg-orange-50 text-orange-600"
-                  : "bg-emerald-50 text-emerald-600";
-            const badgeLabel = isArchived
-              ? "Archiviato"
-              : isCompleted
-                ? "Completato"
-                : isExpiring
-                  ? "In Scadenza"
-                  : "Attivo";
+                : isCompleted
+                  ? "bg-surface-container text-on-surface-variant"
+                  : isExpiring
+                    ? "bg-orange-50 text-orange-600"
+                    : "bg-emerald-50 text-emerald-600";
+              const badgeLabel = isArchived
+                ? "Archiviato"
+                : isCompleted
+                  ? "Completato"
+                  : isExpiring
+                    ? "In Scadenza"
+                    : "Attivo";
 
-            return (
-              <div
-                key={c.id}
-                className="bg-white rounded-[32px] p-6 shadow-[0px_4px_20px_rgba(0,86,133,0.05)] hover:shadow-[0px_8px_30px_rgba(0,86,133,0.08)] transition-all flex flex-col"
-              >
-                <div className="flex justify-between items-start mb-6">
-                  <div className="flex items-center gap-4 min-w-0">
-                    <div className="w-12 h-12 shrink-0 rounded-full bg-avatar-placeholder text-on-avatar-placeholder flex items-center justify-center text-base font-bold">
-                      {initials(c.full_name, c.email)}
+              return (
+                <div
+                  key={c.id}
+                  className="bg-white rounded-[32px] p-6 shadow-[0px_4px_20px_rgba(0,86,133,0.05)] hover:shadow-[0px_8px_30px_rgba(0,86,133,0.08)] transition-all flex flex-col"
+                >
+                  <div className="flex justify-between items-start mb-6">
+                    <div className="flex items-center gap-4 min-w-0">
+                      <div className="w-12 h-12 shrink-0 rounded-full bg-avatar-placeholder text-on-avatar-placeholder flex items-center justify-center text-base font-bold">
+                        {initials(c.full_name, c.email)}
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="text-lg leading-6 font-bold text-on-surface truncate">
+                          {c.full_name ?? "Senza nome"}
+                        </h3>
+                        <p className="text-sm text-outline truncate">
+                          {c.pack_label
+                            ? "PT Pack"
+                            : c.path_type === "recurring"
+                              ? "Abbonamento Mensile"
+                              : d.totalBlocks > 0
+                                ? `Percorso ${d.totalBlocks} ${d.totalBlocks === 1 ? "Blocco" : "Blocchi"}`
+                                : (c.email ?? "—")}
+                        </p>
+                        {c.pack_label && (
+                          <span className="inline-flex items-center mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-aura-primary/10 text-aura-primary">
+                            {c.pack_label}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <h3 className="text-lg leading-6 font-bold text-on-surface truncate">
-                        {c.full_name ?? "Senza nome"}
-                      </h3>
-                      <p className="text-sm text-outline truncate">
-                        {c.pack_label
-                          ? "PT Pack"
-                          : c.path_type === "recurring"
-                            ? "Abbonamento Mensile"
-                            : d.totalBlocks > 0
-                              ? `Percorso ${d.totalBlocks} ${d.totalBlocks === 1 ? "Blocco" : "Blocchi"}`
-                              : (c.email ?? "—")}
-                      </p>
-                      {c.pack_label && (
-                        <span className="inline-flex items-center mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-aura-primary/10 text-aura-primary">
-                          {c.pack_label}
-                        </span>
-                      )}
-                    </div>
+                    <span
+                      className={`shrink-0 ml-2 px-3 py-1 rounded-full text-xs font-semibold ${badgeClass}`}
+                    >
+                      {badgeLabel}
+                    </span>
                   </div>
-                  <span
-                    className={`shrink-0 ml-2 px-3 py-1 rounded-full text-xs font-semibold ${badgeClass}`}
-                  >
-                    {badgeLabel}
-                  </span>
-                </div>
 
-                <div className="mb-6 flex-1">
-                  {d.summary.length > 0 ? (
-                    <div className="space-y-3">
-                      <p className="text-[11px] uppercase tracking-wide font-semibold text-outline">
-                        Riepilogo Sessioni
-                      </p>
-                      {d.summary.map((row) => {
-                        const pct =
-                          row.total > 0
-                            ? Math.min(100, Math.round((row.used / row.total) * 100))
-                            : 0;
-                        return (
-                          <div key={row.type}>
-                            <div className="flex items-baseline justify-between gap-2">
-                              <span className="text-xs font-medium text-on-surface-variant truncate">
-                                {row.type}
-                              </span>
-                              <span className="text-sm font-bold text-aura-primary tabular-nums shrink-0">
-                                {row.used} / {row.total}
-                              </span>
-                            </div>
-                            {/* Aura-themed shadcn Progress — h-1 keeps the
+                  <div className="mb-6 flex-1">
+                    {d.summary.length > 0 ? (
+                      <div className="space-y-3">
+                        <p className="text-[11px] uppercase tracking-wide font-semibold text-outline">
+                          Riepilogo Sessioni
+                        </p>
+                        {d.summary.map((row) => {
+                          const pct =
+                            row.total > 0
+                              ? Math.min(100, Math.round((row.used / row.total) * 100))
+                              : 0;
+                          return (
+                            <div key={row.type}>
+                              <div className="flex items-baseline justify-between gap-2">
+                                <span className="text-xs font-medium text-on-surface-variant truncate">
+                                  {row.type}
+                                </span>
+                                <span className="text-sm font-bold text-aura-primary tabular-nums shrink-0">
+                                  {row.used} / {row.total}
+                                </span>
+                              </div>
+                              {/* Aura-themed shadcn Progress — h-1 keeps the
                                 bar compact inside the card, and the
                                 arbitrary child selector overrides the
                                 default primary color to match the rest
                                 of the dashboard. */}
-                            <Progress
-                              value={pct}
-                              className="mt-1 h-1 bg-surface-variant [&>div]:bg-aura-primary"
-                            />
-                          </div>
-                        );
-                      })}
-                      {c.path_type === "recurring" && d.daysToBilling !== null && (
-                        <p className="text-[11px] text-outline pt-1">
-                          {d.daysToBilling >= 0
-                            ? `Rinnovo tra ${d.daysToBilling} ${d.daysToBilling === 1 ? "giorno" : "giorni"}`
-                            : "Rinnovo scaduto"}
-                        </p>
-                      )}
-                      {d.previousBlockResiduals > 0 && (
-                        <p className="text-[11px] text-warning pt-1">
-                          +{d.previousBlockResiduals}{" "}
-                          {d.previousBlockResiduals === 1 ? "sessione" : "sessioni"} dal blocco
-                          precedente (scadenza in pochi giorni)
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-outline italic">Nessun pacchetto assegnato.</p>
-                  )}
-                </div>
-
-                {showForecast && formattedExhaustion && (
-                  // Discreet exhaustion forecast line — replaces the
-                  // earlier tertiary/error container card per UX
-                  // feedback. The information stays (date + critical
-                  // accent + WhatsApp shortcut when <7 days) but the
-                  // visual weight is dropped so it doesn't compete with
-                  // the session counter above.
-                  <div className="mb-4 -mt-2 flex items-center gap-2 text-[11px] text-on-surface-variant">
-                    <span
-                      aria-hidden
-                      className={`inline-block w-1.5 h-1.5 rounded-full ${
-                        isCritical ? "bg-destructive" : "bg-outline"
-                      }`}
-                    />
-                    <span className={isCritical ? "font-semibold text-destructive" : ""}>
-                      Esaurimento previsto: {formattedExhaustion}
-                    </span>
-                    {isCritical && phoneDigits && (
-                      <a
-                        href={`https://wa.me/${phoneDigits}?text=${reminderText}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="ml-auto text-[11px] font-semibold text-destructive underline-offset-2 hover:underline"
-                      >
-                        Promemoria
-                      </a>
+                              <Progress
+                                value={pct}
+                                className="mt-1 h-1 bg-surface-variant [&>div]:bg-aura-primary"
+                              />
+                            </div>
+                          );
+                        })}
+                        {c.path_type === "recurring" && d.daysToBilling !== null && (
+                          <p className="text-[11px] text-outline pt-1">
+                            {d.daysToBilling >= 0
+                              ? `Rinnovo tra ${d.daysToBilling} ${d.daysToBilling === 1 ? "giorno" : "giorni"}`
+                              : "Rinnovo scaduto"}
+                          </p>
+                        )}
+                        {d.previousBlockResiduals > 0 && (
+                          <p className="text-[11px] text-warning pt-1">
+                            +{d.previousBlockResiduals}{" "}
+                            {d.previousBlockResiduals === 1 ? "sessione" : "sessioni"} dal blocco
+                            precedente (scadenza in pochi giorni)
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-outline italic">Nessun pacchetto assegnato.</p>
                     )}
                   </div>
-                )}
 
-                <div className="pt-4 border-t border-surface-variant flex items-center gap-2">
-
-                  <Button
-                    asChild
-                    className="flex-1 rounded-full bg-aura-primary/10 text-aura-primary hover:bg-aura-primary/20 shadow-none"
-                  >
-                    <Link to="/trainer/clients/$id" params={{ id: c.id }}>
-                      {isExpiring ? "Rinnova" : "Pianifica"}
-                    </Link>
-                  </Button>
-
-                  {phoneDigits ? (
-                    <a
-                      href={`https://wa.me/${phoneDigits}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      title="Apri WhatsApp"
-                      className="w-10 h-10 flex items-center justify-center rounded-full border border-outline-variant text-on-surface-variant hover:bg-surface-container transition-colors"
-                    >
-                      <MessageCircle className="size-4" />
-                    </a>
-                  ) : (
-                    <button
-                      disabled
-                      title="Telefono non disponibile"
-                      className="w-10 h-10 flex items-center justify-center rounded-full border border-surface-variant text-outline-variant cursor-not-allowed"
-                    >
-                      <MessageCircle className="size-4" />
-                    </button>
+                  {showForecast && formattedExhaustion && (
+                    // Discreet exhaustion forecast line — replaces the
+                    // earlier tertiary/error container card per UX
+                    // feedback. The information stays (date + critical
+                    // accent + WhatsApp shortcut when <7 days) but the
+                    // visual weight is dropped so it doesn't compete with
+                    // the session counter above.
+                    <div className="mb-4 -mt-2 flex items-center gap-2 text-[11px] text-on-surface-variant">
+                      <span
+                        aria-hidden
+                        className={`inline-block w-1.5 h-1.5 rounded-full ${
+                          isCritical ? "bg-destructive" : "bg-outline"
+                        }`}
+                      />
+                      <span className={isCritical ? "font-semibold text-destructive" : ""}>
+                        Esaurimento previsto: {formattedExhaustion}
+                      </span>
+                      {isCritical && phoneDigits && (
+                        <a
+                          href={`https://wa.me/${phoneDigits}?text=${reminderText}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="ml-auto text-[11px] font-semibold text-destructive underline-offset-2 hover:underline"
+                        >
+                          Promemoria
+                        </a>
+                      )}
+                    </div>
                   )}
 
-                  <ClientCardMenu
-                    client={c}
-                    isArchived={isArchived}
-                    onArchive={() => setClientStatus(c.id, "archived")}
-                    onRestore={() => setClientStatus(c.id, "active")}
-                    onDelete={() => deleteClient(c.id, c.full_name ?? c.email ?? "Cliente")}
-                  />
+                  <div className="pt-4 border-t border-surface-variant flex items-center gap-2">
+                    <Button
+                      asChild
+                      className="flex-1 rounded-full bg-aura-primary/10 text-aura-primary hover:bg-aura-primary/20 shadow-none"
+                    >
+                      <Link to="/trainer/clients/$id" params={{ id: c.id }}>
+                        {isExpiring ? "Rinnova" : "Pianifica"}
+                      </Link>
+                    </Button>
+
+                    {phoneDigits ? (
+                      <a
+                        href={`https://wa.me/${phoneDigits}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        title="Apri WhatsApp"
+                        className="w-10 h-10 flex items-center justify-center rounded-full border border-outline-variant text-on-surface-variant hover:bg-surface-container transition-colors"
+                      >
+                        <MessageCircle className="size-4" />
+                      </a>
+                    ) : (
+                      <button
+                        disabled
+                        title="Telefono non disponibile"
+                        className="w-10 h-10 flex items-center justify-center rounded-full border border-surface-variant text-outline-variant cursor-not-allowed"
+                      >
+                        <MessageCircle className="size-4" />
+                      </button>
+                    )}
+
+                    <ClientCardMenu
+                      client={c}
+                      isArchived={isArchived}
+                      onArchive={() => setClientStatus(c.id, "archived")}
+                      onRestore={() => setClientStatus(c.id, "active")}
+                      onDelete={() => deleteClient(c.id, c.full_name ?? c.email ?? "Cliente")}
+                    />
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        )}
       </div>
     </>
   );

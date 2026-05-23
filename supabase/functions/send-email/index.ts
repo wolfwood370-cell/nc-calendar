@@ -24,20 +24,16 @@ Deno.serve(async (req) => {
     // The RPC prunes its own history as it goes, so the table never grows
     // unbounded. Fail-closed on RPC errors — better to surface a transient
     // 500 than to silently un-rate-limit on infra hiccups.
-    const { data: allowed, error: rlErr } = await auth.admin.rpc(
-      "check_email_rate_limit",
-      { p_user_id: auth.userId },
-    );
+    const { data: allowed, error: rlErr } = await auth.admin.rpc("check_email_rate_limit", {
+      p_user_id: auth.userId,
+    });
     if (rlErr) {
       console.error("[send-email] rate-limit RPC failed", rlErr);
       return jsonResponse({ error: "Errore controllo limite invio." }, 500, req);
     }
     if (!allowed) {
       console.warn("[send-email] rate-limit exceeded for user", auth.userId);
-      return jsonResponse(
-        { error: "Troppe email inviate. Riprova tra un minuto." },
-        429,
-      req);
+      return jsonResponse({ error: "Troppe email inviate. Riprova tra un minuto." }, 429, req);
     }
 
     const { to, subject, html } = (await req.json()) as Payload;

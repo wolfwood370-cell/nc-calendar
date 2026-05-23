@@ -33,10 +33,7 @@ import { cn } from "@/lib/utils";
 
 const BASE = "animate-pulse bg-surface-container-high/40";
 
-export function AuraSkeleton({
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLDivElement>) {
+export function AuraSkeleton({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return <div className={cn(BASE, className)} {...props} />;
 }
 
@@ -45,12 +42,7 @@ interface AuraCardSkeletonProps extends React.HTMLAttributes<HTMLDivElement> {
   height?: string;
 }
 
-export function AuraCardSkeleton({
-  className,
-  height,
-  children,
-  ...props
-}: AuraCardSkeletonProps) {
+export function AuraCardSkeleton({ className, height, children, ...props }: AuraCardSkeletonProps) {
   return (
     <div
       className={cn(
@@ -92,22 +84,12 @@ interface AuraAvatarSkeletonProps extends React.HTMLAttributes<HTMLDivElement> {
   size?: AvatarSize;
 }
 
-export function AuraAvatarSkeleton({
-  className,
-  size = "md",
-  ...props
-}: AuraAvatarSkeletonProps) {
+export function AuraAvatarSkeleton({ className, size = "md", ...props }: AuraAvatarSkeletonProps) {
   return (
-    <div
-      className={cn(BASE, "rounded-full shrink-0", AVATAR_SIZE[size], className)}
-      {...props}
-    />
+    <div className={cn(BASE, "rounded-full shrink-0", AVATAR_SIZE[size], className)} {...props} />
   );
 }
 
-export function AuraLineSkeleton({
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLDivElement>) {
+export function AuraLineSkeleton({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return <div className={cn(BASE, "rounded-full h-4 w-full", className)} {...props} />;
 }

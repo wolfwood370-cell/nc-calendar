@@ -78,7 +78,8 @@ Deno.serve(async (req) => {
         return jsonResponse(
           { error: e instanceof Error ? e.message : "Invalid booking_id" },
           400,
-        req);
+          req,
+        );
       }
     }
 
@@ -125,7 +126,8 @@ Deno.serve(async (req) => {
         return jsonResponse(
           { error: "Non è possibile spostare un appuntamento a meno di 24 ore dall'inizio." },
           403,
-        req);
+          req,
+        );
       }
       // Verify the booking exists and the caller owns it (client side)
       // or coaches it. Prevents a malicious client from forging a
@@ -139,11 +141,7 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: "Booking inesistente" }, 404, req);
       }
       const b = booking as { client_id: string | null; coach_id: string };
-      if (
-        b.client_id !== auth.userId &&
-        b.coach_id !== auth.userId &&
-        auth.role !== "admin"
-      ) {
+      if (b.client_id !== auth.userId && b.coach_id !== auth.userId && auth.role !== "admin") {
         return jsonResponse({ error: "Permesso negato" }, 403, req);
       }
       if (b.coach_id !== body.coach_id) {
@@ -226,10 +224,7 @@ Deno.serve(async (req) => {
         const pushResults = await Promise.all(
           (subs ?? []).map(async (row: { id: string; subscription: unknown }) => {
             try {
-              await webpush.sendNotification(
-                row.subscription as PushSubscriptionJSON,
-                pushPayload,
-              );
+              await webpush.sendNotification(row.subscription as PushSubscriptionJSON, pushPayload);
               return { id: row.id, ok: true };
             } catch (e) {
               const status = (e as { statusCode?: number }).statusCode;

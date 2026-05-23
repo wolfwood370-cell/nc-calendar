@@ -30,7 +30,11 @@ Deno.serve(async (req) => {
     try {
       assertUuid(targetClientId, "client_id");
     } catch (e) {
-      return jsonResponse({ error: e instanceof Error ? e.message : "Invalid client_id" }, 400, req);
+      return jsonResponse(
+        { error: e instanceof Error ? e.message : "Invalid client_id" },
+        400,
+        req,
+      );
     }
 
     // C2 (FULL_APP_AUDIT.md): when the caller is buying for someone else
@@ -115,10 +119,11 @@ Deno.serve(async (req) => {
             "Nessun percorso attivo trovato. Devi avere un abbonamento in corso per acquistare i Booster.",
         },
         400,
-      req);
+        req,
+      );
     }
 
-    let expiresAt = new Date(allocation.valid_until);
+    const expiresAt = new Date(allocation.valid_until);
     const now = new Date();
     const diffTime = expiresAt.getTime() - now.getTime();
     const diffDays = diffTime / (1000 * 60 * 60 * 24);

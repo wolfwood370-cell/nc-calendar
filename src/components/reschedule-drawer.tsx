@@ -226,7 +226,14 @@ export function RescheduleDrawer({
         busyRanges,
         excludeBookingStart,
       ),
-    [selectedDay, durationMin, availabilityQ.data, exceptionsQ.data, busyRanges, excludeBookingStart],
+    [
+      selectedDay,
+      durationMin,
+      availabilityQ.data,
+      exceptionsQ.data,
+      busyRanges,
+      excludeBookingStart,
+    ],
   );
 
   const rescheduleMut = useRescheduleBooking();
@@ -259,8 +266,7 @@ export function RescheduleDrawer({
           const e = err as { code?: string; message?: string };
           if (e.code === "23P01") {
             toast.error("Slot già occupato", {
-              description:
-                "Qualcun altro ha appena prenotato questo orario. Scegli un altro slot.",
+              description: "Qualcun altro ha appena prenotato questo orario. Scegli un altro slot.",
             });
           } else if (e.code === "P0001") {
             // The trigger raises P0001 with a localized message for
@@ -279,8 +285,7 @@ export function RescheduleDrawer({
     );
   };
 
-  const isLoadingPickers =
-    availabilityQ.isLoading || exceptionsQ.isLoading || busyQ.isLoading;
+  const isLoadingPickers = availabilityQ.isLoading || exceptionsQ.isLoading || busyQ.isLoading;
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -290,8 +295,7 @@ export function RescheduleDrawer({
             Riprogramma sessione
           </DrawerTitle>
           <DrawerDescription className="text-sm text-on-surface-variant">
-            Scegli un nuovo giorno e orario. La modifica è permessa fino a 24 ore
-            prima dell'inizio.
+            Scegli un nuovo giorno e orario. La modifica è permessa fino a 24 ore prima dell'inizio.
           </DrawerDescription>
         </DrawerHeader>
 
@@ -340,7 +344,11 @@ export function RescheduleDrawer({
                 Nessuno slot disponibile per questo giorno.
               </p>
             ) : (
-              <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Orari disponibili">
+              <div
+                className="grid grid-cols-3 gap-2"
+                role="radiogroup"
+                aria-label="Orari disponibili"
+              >
                 {slots.map((s) => {
                   const isSelected = s.iso === selectedISO;
                   return (

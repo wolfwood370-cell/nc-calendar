@@ -174,8 +174,7 @@ async function loadBookingsWithFallback(
       const base = await build(BOOKINGS_BASE_COLS);
       if (base.error) throw base.error;
       return ((base.data as Record<string, unknown>[] | null) ?? []).map(
-        (b) =>
-          ({ ...b, is_personal: false, category: "client_session" }) as unknown as BookingRow,
+        (b) => ({ ...b, is_personal: false, category: "client_session" }) as unknown as BookingRow,
       );
     }
     throw wide.error;
@@ -425,9 +424,10 @@ export function useCancelBooking() {
         p_booking_id: input.id,
       });
       if (error) throw error;
-      const result = (Array.isArray(data) ? data[0] : data) as
-        | { status: BookingStatus; was_late: boolean }
-        | null;
+      const result = (Array.isArray(data) ? data[0] : data) as {
+        status: BookingStatus;
+        was_late: boolean;
+      } | null;
       if (!result) throw new Error("Cancellazione non riuscita.");
       const wasLate = result.was_late;
 
@@ -534,12 +534,10 @@ export function useRescheduleBooking() {
       const snapshots = qc.getQueriesData<BookingRow[]>({
         predicate: (q) => q.queryKey[0] === "bookings",
       });
-      qc.setQueriesData<BookingRow[]>(
-        { predicate: (q) => q.queryKey[0] === "bookings" },
-        (old) =>
-          (old ?? []).map((b) =>
-            b.id === vars.bookingId ? { ...b, scheduled_at: vars.newScheduledISO } : b,
-          ),
+      qc.setQueriesData<BookingRow[]>({ predicate: (q) => q.queryKey[0] === "bookings" }, (old) =>
+        (old ?? []).map((b) =>
+          b.id === vars.bookingId ? { ...b, scheduled_at: vars.newScheduledISO } : b,
+        ),
       );
       return { snapshots };
     },

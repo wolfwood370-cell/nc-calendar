@@ -46,9 +46,7 @@ export const Route = createFileRoute("/api/public/webhooks/gcal-watch")({
         try {
           const { data: row, error } = await supabaseAdmin
             .from("integration_settings")
-            .select(
-              "coach_id, gcal_channel_token, gcal_resource_id, gcal_enabled",
-            )
+            .select("coach_id, gcal_channel_token, gcal_resource_id, gcal_enabled")
             .eq("gcal_channel_id", channelId)
             .maybeSingle();
 
@@ -63,11 +61,7 @@ export const Route = createFileRoute("/api/public/webhooks/gcal-watch")({
             console.warn("[gcal-watch] token mismatch", { channelId });
             return ok;
           }
-          if (
-            row.gcal_resource_id &&
-            resourceId &&
-            row.gcal_resource_id !== resourceId
-          ) {
+          if (row.gcal_resource_id && resourceId && row.gcal_resource_id !== resourceId) {
             console.warn("[gcal-watch] resource_id mismatch", { channelId });
             return ok;
           }
@@ -88,15 +82,13 @@ export const Route = createFileRoute("/api/public/webhooks/gcal-watch")({
           // import_history sync on UPDATE. UPSERT (vs UPDATE) covers the
           // first-ever notification per coach where the row doesn't
           // exist yet.
-          await supabaseAdmin
-            .from("gcal_sync_signals")
-            .upsert(
-              {
-                coach_id: row.coach_id,
-                last_notification_at: new Date().toISOString(),
-              },
-              { onConflict: "coach_id" },
-            );
+          await supabaseAdmin.from("gcal_sync_signals").upsert(
+            {
+              coach_id: row.coach_id,
+              last_notification_at: new Date().toISOString(),
+            },
+            { onConflict: "coach_id" },
+          );
         } catch (err) {
           // Never surface 5xx to Google.
           console.error("[gcal-watch] handler error", err);

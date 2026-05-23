@@ -81,8 +81,7 @@ function ClientHome() {
   // progress toward the fixed-term goal, e.g. 4/24).
   const summary = useMemo(() => {
     const allBlocks = blocksQ.data ?? [];
-    const blocks =
-      isRecurring && currentBlock ? [currentBlock] : allBlocks;
+    const blocks = isRecurring && currentBlock ? [currentBlock] : allBlocks;
     const ets = eventTypesQ.data ?? [];
     const extraCredits = extraCreditsQ.data ?? [];
     const map = new Map<string, { name: string; color: string; used: number; total: number }>();
@@ -125,8 +124,7 @@ function ClientHome() {
     if (isRecurring && currentBlock) {
       const startMs = new Date(currentBlock.start_date).getTime();
       // End is inclusive of the day so we add 24h - 1ms.
-      const endMs =
-        new Date(currentBlock.end_date).getTime() + 24 * 60 * 60 * 1000 - 1;
+      const endMs = new Date(currentBlock.end_date).getTime() + 24 * 60 * 60 * 1000 - 1;
       completedBookings = completedBookings.filter((b) => {
         const t = new Date(b.scheduled_at).getTime();
         return t >= startMs && t <= endMs;
@@ -236,7 +234,8 @@ function ClientHome() {
               </p>
               {graceBanner.until && (
                 <p className="text-[11px] text-on-tertiary-container/80 mt-0.5">
-                  Valide fino al {new Date(graceBanner.until).toLocaleDateString("it-IT", {
+                  Valide fino al{" "}
+                  {new Date(graceBanner.until).toLocaleDateString("it-IT", {
                     day: "numeric",
                     month: "long",
                   })}
@@ -438,11 +437,7 @@ function LiveBookingCard({
         }
       >
         {/* Top row: avatar / day + time / type chip */}
-        <Link
-          to="/client/bookings/$bookingId"
-          params={{ bookingId: booking.id }}
-          className="block"
-        >
+        <Link to="/client/bookings/$bookingId" params={{ bookingId: booking.id }} className="block">
           <div className="flex justify-between items-start gap-2">
             <div className="flex gap-4 items-center min-w-0">
               <div
@@ -529,9 +524,7 @@ function LiveBookingCard({
               disabled={!canReschedule}
               aria-disabled={!canReschedule}
               title={
-                canReschedule
-                  ? undefined
-                  : "Le modifiche si bloccano 24 ore prima dell'inizio."
+                canReschedule ? undefined : "Le modifiche si bloccano 24 ore prima dell'inizio."
               }
               className="w-full py-3 rounded-full bg-white/10 text-on-primary-container text-sm font-semibold border border-white/30 active:scale-[0.99] transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -554,18 +547,14 @@ function LiveBookingCard({
               disabled={!canReschedule}
               aria-disabled={!canReschedule}
               title={
-                canReschedule
-                  ? undefined
-                  : "Le modifiche si bloccano 24 ore prima dell'inizio."
+                canReschedule ? undefined : "Le modifiche si bloccano 24 ore prima dell'inizio."
               }
               className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-surface-container-low text-on-surface text-xs font-semibold border border-outline-variant/30 active:scale-95 transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Riprogramma
             </button>
             {!canReschedule && (
-              <span className="text-[11px] text-on-surface-variant">
-                Bloccata 24h prima
-              </span>
+              <span className="text-[11px] text-on-surface-variant">Bloccata 24h prima</span>
             )}
             {meetingLink && <JoinVideoCallButton url={meetingLink} size="sm" variant="outline" />}
           </div>

@@ -7,13 +7,7 @@ import { requireAuth } from "../_shared/auth.ts";
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 
 interface SyncPayload {
-  action:
-    | "create"
-    | "cancel"
-    | "update"
-    | "import_history"
-    | "mirror_check"
-    | "register_watch";
+  action: "create" | "cancel" | "update" | "import_history" | "mirror_check" | "register_watch";
   coach_id: string;
   client_name?: string;
   session_label?: string;
@@ -578,8 +572,7 @@ Deno.serve(async (req) => {
       if (wantsMeet) {
         meetUrl =
           res.data.hangoutLink ??
-          res.data.conferenceData?.entryPoints?.find((e) => e.entryPointType === "video")
-            ?.uri ??
+          res.data.conferenceData?.entryPoints?.find((e) => e.entryPointType === "video")?.uri ??
           null;
         if (meetUrl && body.booking_id) {
           const { error: updErr } = await supabase
@@ -1365,25 +1358,42 @@ function matchEvent(
 
   if (!eventType) {
     const STOPWORDS = new Set([
-      "pt", "di", "del", "della", "dei", "delle", "da", "il", "la", "lo",
-      "le", "gli", "un", "una", "uno", "con", "per", "the", "and", "or",
-      "session", "sessione", "evento", "event", "call", "meeting",
+      "pt",
+      "di",
+      "del",
+      "della",
+      "dei",
+      "delle",
+      "da",
+      "il",
+      "la",
+      "lo",
+      "le",
+      "gli",
+      "un",
+      "una",
+      "uno",
+      "con",
+      "per",
+      "the",
+      "and",
+      "or",
+      "session",
+      "sessione",
+      "evento",
+      "event",
+      "call",
+      "meeting",
     ]);
-    const summaryWords = lower
-      .split(/[^a-zàèéìòù0-9]+/i)
-      .filter((w) => w.length >= 3);
-    const summaryStems = new Set(
-      summaryWords.map((w) => (w.length > 5 ? w.slice(0, 5) : w)),
-    );
+    const summaryWords = lower.split(/[^a-zàèéìòù0-9]+/i).filter((w) => w.length >= 3);
+    const summaryStems = new Set(summaryWords.map((w) => (w.length > 5 ? w.slice(0, 5) : w)));
 
     let bestScore = 0;
     let bestNameLen = 0;
     for (const et of ctx.eventTypes) {
       const n = (et.name ?? "").trim().toLowerCase();
       if (n.length < 2) continue;
-      const words = n
-        .split(/[^a-zàèéìòù0-9]+/i)
-        .filter((w) => w.length >= 3 && !STOPWORDS.has(w));
+      const words = n.split(/[^a-zàèéìòù0-9]+/i).filter((w) => w.length >= 3 && !STOPWORDS.has(w));
       if (words.length === 0) continue;
       let score = 0;
       for (const w of words) {

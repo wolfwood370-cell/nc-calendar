@@ -161,10 +161,7 @@ export function SwipeableCard({
   }, [offset, dragging]);
 
   return (
-    <div
-      data-swipeable-card
-      className={cn("relative isolate overflow-hidden", className)}
-    >
+    <div data-swipeable-card className={cn("relative isolate overflow-hidden", className)}>
       {/* Right action layer — visible when card is dragged right (positive offset). */}
       {rightAction && (
         <div

@@ -3,11 +3,7 @@ import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import {
-  syncCalendarAwait,
-  clearAutoSyncThrottle,
-  markAutoSyncDone,
-} from "@/lib/sync-calendar";
+import { syncCalendarAwait, clearAutoSyncThrottle, markAutoSyncDone } from "@/lib/sync-calendar";
 import { useGcalWatchRenewal } from "@/hooks/use-gcal-watch-renewal";
 import { queryKeys } from "@/lib/query-keys";
 import { Button } from "@/components/ui/button";
@@ -204,9 +200,7 @@ function IntegrationsPage() {
         settings?.gcal_token_expires_at ? new Date(settings.gcal_token_expires_at) : null,
       );
       setLastSyncAt(
-        settings?.gcal_last_notification_at
-          ? new Date(settings.gcal_last_notification_at)
-          : null,
+        settings?.gcal_last_notification_at ? new Date(settings.gcal_last_notification_at) : null,
       );
       // Stripe: any non-null stripe_account_id flips the badge to
       // "Connesso". When the migration hasn't shipped settings.stripe_
@@ -470,9 +464,7 @@ function matchClientFromEvent(
   const lower = `${summary} ${description}`.toLowerCase();
   const lowerCoach = (coachEmail ?? "").toLowerCase();
   const emails = new Set(
-    attendees
-      .map((a) => (a.email ?? "").toLowerCase())
-      .filter((e) => e && e !== lowerCoach),
+    attendees.map((a) => (a.email ?? "").toLowerCase()).filter((e) => e && e !== lowerCoach),
   );
   for (const c of clients) {
     const ce = (c.email ?? "").toLowerCase();
@@ -568,9 +560,7 @@ function CalendarManageSheet({
       const allItems: GcalEvent[] = [];
       let pageToken = "";
       do {
-        const url = new URL(
-          "https://www.googleapis.com/calendar/v3/calendars/primary/events",
-        );
+        const url = new URL("https://www.googleapis.com/calendar/v3/calendars/primary/events");
         url.searchParams.set("timeMin", yearStart);
         url.searchParams.set("timeMax", twoYearsAhead.toISOString());
         url.searchParams.set("singleEvents", "true");
@@ -605,8 +595,7 @@ function CalendarManageSheet({
         const summary = ev.summary ?? "Evento";
         const description = ev.description ?? "";
         const attendees = ev.attendees ?? [];
-        const start =
-          ev.start?.dateTime ?? (ev.start?.date ? `${ev.start.date}T00:00:00Z` : null);
+        const start = ev.start?.dateTime ?? (ev.start?.date ? `${ev.start.date}T00:00:00Z` : null);
         if (!start) continue;
 
         const matched = matchClientFromEvent(
@@ -765,7 +754,8 @@ function CalendarManageSheet({
                   </p>
                 </div>
                 <p className="text-xs text-outline mt-0.5 flex items-center gap-1">
-                  <Clock className="size-3" /> Ultima sincronizzazione: {formatRelativeIt(lastSyncAt)}
+                  <Clock className="size-3" /> Ultima sincronizzazione:{" "}
+                  {formatRelativeIt(lastSyncAt)}
                 </p>
               </div>
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 px-2.5 py-1 text-xs font-medium">
