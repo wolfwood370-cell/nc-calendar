@@ -33,6 +33,8 @@ import {
 import { useCancelBooking } from "@/lib/queries";
 import { errorMessage } from "@/lib/utils";
 import { toast } from "sonner";
+import { useAuth } from "@/lib/auth";
+import { ClientRescheduleSheet } from "@/components/client-reschedule-sheet";
 
 export const Route = createFileRoute("/client/bookings/$bookingId")({
   component: BookingDetailPage,
@@ -46,8 +48,10 @@ interface BookingDetail {
   trainer_notes: string | null;
   meeting_link: string | null;
   coach_id: string;
+  client_id: string | null;
   block_id: string | null;
   event_type_id: string | null;
+  google_event_id: string | null;
   // H3: per-booking snapshot, see queries.ts BookingRow.
   duration_min: number;
   event_type: {
@@ -108,7 +112,7 @@ function BookingDetailPage() {
       const { data: booking, error } = await supabase
         .from("bookings")
         .select(
-          "id, scheduled_at, status, session_type, trainer_notes, meeting_link, coach_id, event_type_id, block_id, duration_min",
+          "id, scheduled_at, status, session_type, trainer_notes, meeting_link, coach_id, client_id, event_type_id, block_id, duration_min, google_event_id",
         )
         .eq("id", bookingId)
         .maybeSingle();
@@ -184,9 +188,11 @@ function BookingDetailPage() {
 
 function BookingDetailView({ booking }: { booking: BookingDetail }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const cancelMut = useCancelBooking();
   const [confirmFreeOpen, setConfirmFreeOpen] = useState(false);
   const [confirmLateOpen, setConfirmLateOpen] = useState(false);
+  const [rescheduleOpen, setRescheduleOpen] = useState(false);
 
   const start = new Date(booking.scheduled_at);
   // H3: prefer the per-booking snapshot — the event_type join is the
@@ -381,31 +387,7 @@ function BookingDetailView({ booking }: { booking: BookingDetail }) {
           <>
             <button
               type="button"
-              onClick={() => {
-                // riprogramma = annulla con rimborso e vai a prenotazione.
-                // The RPC computes late vs free on the server; we only show
-                // the success path if it confirms the refund happened.
-                cancelMut.mutate(
-                  { id: booking.id },
-                  {
-                    onSuccess: (result) => {
-                      if (result.wasLate) {
-                        // Server clock saw < 24h. No refund happened, so
-                        // route them back to /client instead of to booking.
-                        showCancelToast(true);
-                        navigate({ to: "/client" });
-                      } else {
-                        toast.success("Credito rimborsato", {
-                          description: "Scegli un nuovo orario.",
-                        });
-                        navigate({ to: "/client/book" });
-                      }
-                    },
-                    onError: (e: unknown) =>
-                      toast.error("Errore", { description: errorMessage(e) }),
-                  },
-                );
-              }}
+              onClick={() => setRescheduleOpen(true)}
               className="block w-full py-4 rounded-full border border-outline-variant text-primary font-semibold bg-transparent hover:bg-surface-container-low transition-colors text-center"
             >
               Riprogramma
@@ -480,6 +462,24 @@ function BookingDetailView({ booking }: { booking: BookingDetail }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Reschedule sheet (athlete-driven UPDATE flow; coach is notified). */}
+      <ClientRescheduleSheet
+        open={rescheduleOpen}
+        onOpenChange={setRescheduleOpen}
+        booking={{
+          id: booking.id,
+          scheduled_at: booking.scheduled_at,
+          coach_id: booking.coach_id,
+          client_id: booking.client_id,
+          duration_min: duration,
+          google_event_id: booking.google_event_id,
+          session_label: title,
+        }}
+        clientName={
+          (user?.user_metadata?.full_name as string | undefined) ?? user?.email ?? "Cliente"
+        }
+      />
     </>
   );
 }

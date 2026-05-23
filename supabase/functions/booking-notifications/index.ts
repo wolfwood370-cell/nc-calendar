@@ -1,16 +1,53 @@
-// Edge function: invia notifiche WhatsApp e sincronizza Google Calendar per una prenotazione.
-// Invocata dal frontend dopo la creazione di una booking.
+// Edge function: notifica il coach quando un cliente prenota o riprogramma
+// una sessione. Canali attivati per ogni invocazione:
+//   - in-app:  INSERT in `notifications` (sempre)
+//   - Web Push: webpush.sendNotification al coach (sempre, se subscriber)
+//   - WhatsApp: messaggio al cliente (opt-in via integration_settings.wa_*,
+//               solo per booking.created — non spammiamo i clienti quando
+//               riprogrammano essi stessi)
+//   - Webhook esterno: POST a integration_settings.gcal_webhook_url (opt-in,
+//               per entrambi gli event_type, con il discriminator nel body)
+// Invocata dal frontend:
+//   - client.book.tsx       → event_type="booking.created" (default)
+//   - client-reschedule-sheet → event_type="booking.rescheduled"
 
+import webpush from "npm:web-push@3.6.7";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
-import { requireAuth } from "../_shared/auth.ts";
+import { requireAuth, assertUuid } from "../_shared/auth.ts";
+
+type EventType = "booking.created" | "booking.rescheduled";
 
 interface Payload {
+  // Optional for back-compat: legacy callers (without the field) are
+  // treated as "booking.created".
+  event_type?: EventType;
   coach_id: string;
   client_name: string;
   client_phone?: string | null;
-  scheduled_at: string; // ISO
+  // For created → the new booking time. For rescheduled → the new time.
+  scheduled_at: string;
+  // For rescheduled only: the previous time (NEW.scheduled_at vs OLD.
+  // scheduled_at in the bookings table). The DB trigger
+  // validate_client_booking_update enforces a 24h cutoff on OLD; we
+  // re-check here as defense-in-depth.
+  old_scheduled_at?: string | null;
   session_label: string;
   meeting_link?: string | null;
+  booking_id?: string | null;
+}
+
+interface PushSubscriptionJSON {
+  endpoint: string;
+  expirationTime?: number | null;
+  keys: { p256dh: string; auth: string };
+}
+
+const VAPID_PUBLIC = Deno.env.get("VAPID_PUBLIC_KEY") ?? "";
+const VAPID_PRIVATE = Deno.env.get("VAPID_PRIVATE_KEY") ?? "";
+const VAPID_SUBJECT = Deno.env.get("VAPID_SUBJECT") ?? "mailto:nctrainingsystems@gmail.com";
+
+if (VAPID_PUBLIC && VAPID_PRIVATE) {
+  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
 }
 
 Deno.serve(async (req) => {
@@ -22,36 +59,211 @@ Deno.serve(async (req) => {
 
   try {
     const body = (await req.json()) as Payload;
+    const eventType: EventType = body.event_type ?? "booking.created";
+    if (eventType !== "booking.created" && eventType !== "booking.rescheduled") {
+      return jsonResponse({ error: "Unknown event_type" }, 400);
+    }
     if (!body.coach_id || !body.scheduled_at) {
       return jsonResponse({ error: "Missing fields" }, 400);
     }
-
-    // Caller must be the coach itself or an admin
-    if (body.coach_id !== auth.userId && auth.role !== "admin") {
-      return jsonResponse({ error: "Permesso negato" }, 403);
+    try {
+      assertUuid(body.coach_id, "coach_id");
+    } catch (e) {
+      return jsonResponse({ error: e instanceof Error ? e.message : "Invalid coach_id" }, 400);
+    }
+    if (body.booking_id) {
+      try {
+        assertUuid(body.booking_id, "booking_id");
+      } catch (e) {
+        return jsonResponse(
+          { error: e instanceof Error ? e.message : "Invalid booking_id" },
+          400,
+        );
+      }
     }
 
     const supabase = auth.admin;
 
-    const { data: settings, error } = await supabase
+    // Authorization: caller must be the coach themselves, an admin, or a
+    // client whose profile points at this coach. The historical check
+    // accepted only "coach or admin" — which meant the only legitimate
+    // call site (client.book.tsx, where auth.userId is the client) was
+    // failing 403 silently behind the frontend's fire-and-forget .catch.
+    if (body.coach_id !== auth.userId && auth.role !== "admin") {
+      const { data: callerProfile } = await supabase
+        .from("profiles")
+        .select("coach_id")
+        .eq("id", auth.userId)
+        .maybeSingle();
+      const callerCoachId = (callerProfile as { coach_id?: string } | null)?.coach_id;
+      if (callerCoachId !== body.coach_id) {
+        return jsonResponse({ error: "Permesso negato" }, 403);
+      }
+    }
+
+    // --------------------------------------------------------------------
+    // Reschedule-specific validation (defense in depth on top of the DB
+    // trigger validate_client_booking_update — see
+    // supabase/migrations/20260522100000_client_booking_update_guards.sql).
+    // --------------------------------------------------------------------
+    if (eventType === "booking.rescheduled") {
+      if (!body.old_scheduled_at) {
+        return jsonResponse({ error: "Missing old_scheduled_at" }, 400);
+      }
+      if (!body.booking_id) {
+        return jsonResponse({ error: "Missing booking_id" }, 400);
+      }
+      const oldTime = new Date(body.old_scheduled_at).getTime();
+      if (!Number.isFinite(oldTime)) {
+        return jsonResponse({ error: "Invalid old_scheduled_at" }, 400);
+      }
+      // Same semantic as the DB trigger: cutoff against OLD, not NEW.
+      // A client who tries to "save" a slot by repeatedly bumping it
+      // forward is blocked because OLD < now+24h fails before NEW is
+      // considered.
+      if (oldTime - Date.now() < 24 * 60 * 60 * 1000) {
+        return jsonResponse(
+          { error: "Non è possibile spostare un appuntamento a meno di 24 ore dall'inizio." },
+          403,
+        );
+      }
+      // Verify the booking exists and the caller owns it (client side)
+      // or coaches it. Prevents a malicious client from forging a
+      // notification about someone else's booking.
+      const { data: booking } = await supabase
+        .from("bookings")
+        .select("id, client_id, coach_id")
+        .eq("id", body.booking_id)
+        .maybeSingle();
+      if (!booking) {
+        return jsonResponse({ error: "Booking inesistente" }, 404);
+      }
+      const b = booking as { client_id: string | null; coach_id: string };
+      if (
+        b.client_id !== auth.userId &&
+        b.coach_id !== auth.userId &&
+        auth.role !== "admin"
+      ) {
+        return jsonResponse({ error: "Permesso negato" }, 403);
+      }
+      if (b.coach_id !== body.coach_id) {
+        // The booking's coach must match the notification's coach_id —
+        // otherwise the caller could redirect a notification to an
+        // unrelated coach.
+        return jsonResponse({ error: "coach_id non coerente" }, 400);
+      }
+    }
+
+    const { data: settings } = await supabase
       .from("integration_settings")
       .select("wa_phone_id, wa_access_token, wa_enabled, gcal_webhook_url, gcal_enabled")
       .eq("coach_id", body.coach_id)
       .maybeSingle();
 
-    if (error) throw error;
-    if (!settings) {
-      return new Response(JSON.stringify({ skipped: true, reason: "no_settings" }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const results: Record<string, unknown> = {};
 
-    // WhatsApp
+    // ---- 1. In-app notification (always) -------------------------------
+    const notifPayload: Record<string, unknown> = {
+      client_name: body.client_name,
+      session_label: body.session_label,
+    };
+    if (body.booking_id) notifPayload.booking_id = body.booking_id;
+    if (body.meeting_link) notifPayload.meeting_link = body.meeting_link;
+    if (eventType === "booking.rescheduled") {
+      notifPayload.old_scheduled_at = body.old_scheduled_at;
+      notifPayload.new_scheduled_at = body.scheduled_at;
+    } else {
+      notifPayload.scheduled_at = body.scheduled_at;
+    }
+    try {
+      const { error: notifErr } = await supabase.from("notifications").insert({
+        recipient_id: body.coach_id,
+        type: eventType,
+        payload: notifPayload,
+      });
+      if (notifErr) throw notifErr;
+      results.in_app = { ok: true };
+    } catch (e) {
+      console.error("notification insert failed", e);
+      results.in_app = { error: String(e) };
+    }
+
+    // ---- 2. Web Push to coach (always, if subscribed) ------------------
+    // Duplicates send-push's webpush.sendNotification flow because that
+    // handler enforces caller=coach|admin authz and would reject a
+    // client→coach push. Refactor into _shared/push.ts deferred to keep
+    // this commit focused; the duplication is ~30 lines.
+    if (VAPID_PUBLIC && VAPID_PRIVATE) {
+      try {
+        const { data: subs } = await supabase
+          .from("push_subscriptions")
+          .select("id, subscription")
+          .eq("profile_id", body.coach_id);
+        const newDateLabel = new Date(body.scheduled_at).toLocaleString("it-IT", {
+          dateStyle: "medium",
+          timeStyle: "short",
+          timeZone: "Europe/Rome",
+        });
+        let pushTitle: string;
+        let pushBody: string;
+        if (eventType === "booking.rescheduled" && body.old_scheduled_at) {
+          const oldDateLabel = new Date(body.old_scheduled_at).toLocaleString("it-IT", {
+            dateStyle: "medium",
+            timeStyle: "short",
+            timeZone: "Europe/Rome",
+          });
+          pushTitle = "Sessione spostata";
+          pushBody = `${body.client_name}: ${oldDateLabel} → ${newDateLabel}`;
+        } else {
+          pushTitle = "Nuova prenotazione";
+          pushBody = `${body.client_name} · ${body.session_label} · ${newDateLabel}`;
+        }
+        const pushPayload = JSON.stringify({
+          title: pushTitle,
+          body: pushBody,
+          url: "/trainer/calendar",
+        });
+        const pushResults = await Promise.all(
+          (subs ?? []).map(async (row: { id: string; subscription: unknown }) => {
+            try {
+              await webpush.sendNotification(
+                row.subscription as PushSubscriptionJSON,
+                pushPayload,
+              );
+              return { id: row.id, ok: true };
+            } catch (e) {
+              const status = (e as { statusCode?: number }).statusCode;
+              if (status === 404 || status === 410) {
+                await supabase.from("push_subscriptions").delete().eq("id", row.id);
+              }
+              // L6: log only the message — web-push errors can echo
+              // subscription endpoint URLs which are browser-specific tokens.
+              console.error("coach push failed", {
+                id: row.id,
+                status,
+                message: e instanceof Error ? e.message : String(e),
+              });
+              return { id: row.id, ok: false, status };
+            }
+          }),
+        );
+        results.push = { sent: pushResults.length };
+      } catch (e) {
+        console.error("coach push failed", e);
+        results.push = { error: String(e) };
+      }
+    } else {
+      results.push = { skipped: "no_vapid" };
+    }
+
+    // ---- 3. WhatsApp (opt-in, to client, only on first creation) -------
+    // We deliberately don't WhatsApp the client on reschedule: the
+    // client just performed the reschedule themselves, so a
+    // confirmation message would be redundant. Coach is informed via
+    // in-app + Web Push above.
     if (
-      settings.wa_enabled &&
+      eventType === "booking.created" &&
+      settings?.wa_enabled &&
       settings.wa_phone_id &&
       settings.wa_access_token &&
       body.client_phone
@@ -83,8 +295,7 @@ Deno.serve(async (req) => {
         );
         results.whatsapp = { status: waRes.status, ok: waRes.ok };
         if (!waRes.ok) {
-          const errBody = await waRes.text();
-          console.error("WhatsApp API error", waRes.status, errBody);
+          console.error("WhatsApp API error", waRes.status, await waRes.text());
         }
       } catch (e) {
         console.error("WhatsApp send failed", e);
@@ -94,16 +305,17 @@ Deno.serve(async (req) => {
       results.whatsapp = { skipped: true };
     }
 
-    // Google Calendar webhook
-    if (settings.gcal_enabled && settings.gcal_webhook_url) {
+    // ---- 4. Webhook esterno (opt-in) -----------------------------------
+    if (settings?.gcal_enabled && settings.gcal_webhook_url) {
       try {
         const gcalRes = await fetch(settings.gcal_webhook_url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            type: "booking.created",
+            type: eventType,
             client_name: body.client_name,
             scheduled_at: body.scheduled_at,
+            old_scheduled_at: body.old_scheduled_at ?? null,
             session_label: body.session_label,
             meeting_link: body.meeting_link ?? null,
           }),
@@ -120,15 +332,9 @@ Deno.serve(async (req) => {
       results.gcal = { skipped: true };
     }
 
-    return new Response(JSON.stringify({ ok: true, results }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ ok: true, results });
   } catch (e) {
     console.error("booking-notifications error", e);
-    return new Response(JSON.stringify({ error: String(e) }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ error: String(e) }, 500);
   }
 });
