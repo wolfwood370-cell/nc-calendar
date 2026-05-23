@@ -20,9 +20,10 @@ Deno.serve(async (req) => {
 
     try {
       event = await stripe.webhooks.constructEventAsync(body, signature, endpointSecret);
-    } catch (err: any) {
-      console.error(`Webhook signature verification failed: ${err.message}`);
-      return new Response(`Webhook Error: ${err.message}`, { status: 400 });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`Webhook signature verification failed: ${message}`);
+      return new Response(`Webhook Error: ${message}`, { status: 400 });
     }
 
     if (event.type === "checkout.session.completed") {
@@ -101,7 +102,7 @@ Deno.serve(async (req) => {
 
       if (insertError) {
         // Postgres unique_violation = 23505 → duplicate Stripe event, already processed.
-        if ((insertError as any).code === "23505") {
+        if (insertError.code === "23505") {
           console.log("Payment already processed", { stripe_payment_id: session.id });
           return new Response(JSON.stringify({ received: true, duplicate: true }), {
             status: 200,
@@ -119,7 +120,7 @@ Deno.serve(async (req) => {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
-  } catch (err: any) {
+  } catch (err) {
     console.error("Webhook processing failed:", err);
     return new Response("Webhook processing failed", { status: 500 });
   }
