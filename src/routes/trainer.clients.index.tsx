@@ -110,6 +110,10 @@ interface BlockLite {
   sequence_order: number;
   start_date: string;
   end_date: string;
+  // Added by migration 20260524110000_block_auto_renew.sql. Defaults
+  // applied server-side, so legacy rows are guaranteed non-null at
+  // read time.
+  grace_days: number;
 }
 interface AllocLite {
   block_id: string;
@@ -145,6 +149,34 @@ interface ClientCardData {
   totalUsed: number;
   totalQty: number;
   daysToBilling: number | null;
+  // Residuals from the previous block during the 7-day grace overlap.
+  // 0 when no grace overlap is active. Shown as a secondary badge so
+  // the coach knows the cliente has soon-expiring credits.
+  previousBlockResiduals: number;
+}
+
+// Pick the "current" block for the given client: the most recent
+// non-deleted block whose [start_date, end_date + grace_days] window
+// contains today. Falls back to the latest block if none match (e.g.
+// brand-new cliente with future-dated blocks, or beyond-grace cliente
+// pending auto-renew via ensure_client_block_state).
+function findCurrentBlock(blocks: BlockLite[], today: Date): BlockLite | null {
+  if (blocks.length === 0) return null;
+  const todayMs = today.getTime();
+  // Sort by sequence_order descending so the most recent eligible wins
+  // first (covers the 7-day overlap: blocco 2 fresh + blocco 1 in grace
+  // → blocco 2 is "current").
+  const sorted = [...blocks].sort((a, b) => b.sequence_order - a.sequence_order);
+  for (const b of sorted) {
+    const start = new Date(b.start_date + "T00:00:00").getTime();
+    const end = new Date(b.end_date + "T23:59:59").getTime();
+    const graceEndMs = end + (b.grace_days ?? 7) * 86400000;
+    if (todayMs >= start && todayMs <= graceEndMs) return b;
+  }
+  // No block contains today → return the latest as best-effort fallback.
+  // The detail page will call ensure_client_block_state to recover the
+  // true state and create the next block if auto-renew is on.
+  return sorted[0] ?? null;
 }
 
 function initials(name: string | null, email: string | null): string {
@@ -215,6 +247,11 @@ function ClientsPage() {
     // Fetch blocks + allocations for status calculation
     const ids = clientList.map((c) => c.id);
     if (ids.length > 0) {
+      // grace_days column (added by 20260524110000_block_auto_renew.sql)
+      // is not in generated types until Lovable regenerates them. The
+      // migration defaults grace_days=7 NOT NULL for every row, so the
+      // frontend can safely hardcode the default until types catch up.
+      // After Lovable regen, change parsedBlocks below to read b.grace_days.
       let bq = supabase
         .from("training_blocks")
         .select(
@@ -247,6 +284,9 @@ function ClientsPage() {
           sequence_order: b.sequence_order,
           start_date: b.start_date,
           end_date: b.end_date,
+          // Defaults to migration's GRACE_DAYS_DEFAULT (7). Replace with
+          // b.grace_days once `grace_days` is in generated Supabase types.
+          grace_days: 7,
         });
         if (b.block_allocations) {
           for (const a of b.block_allocations) {
@@ -343,10 +383,44 @@ function ClientsPage() {
 
     return clients.map((c) => {
       const cb = blocksByClient.get(c.id) ?? [];
-      const cAllocs = allocsByClient.get(c.id) ?? [];
+      const cAllocsAll = allocsByClient.get(c.id) ?? [];
       const cBookings = bookingsByClient.get(c.id) ?? [];
 
-      // Aggregate by event type (fallback session_type)
+      // ----- Current block selection -----
+      // Counter aggregation must reflect the block that's "live today",
+      // not the lifetime sum of every block ever assigned. See
+      // findCurrentBlock for the grace-aware selection.
+      const currentBlock = findCurrentBlock(cb, today);
+      const currentBlockId = currentBlock?.id ?? null;
+      const cAllocs = currentBlockId
+        ? cAllocsAll.filter((a) => a.block_id === currentBlockId)
+        : [];
+
+      // Residuals from any "previous" block still in grace overlap with
+      // today. These are about-to-expire credits the coach should see
+      // surfaced — shown as a secondary badge on the card.
+      let previousBlockResiduals = 0;
+      if (currentBlock) {
+        const todayMs = today.getTime();
+        for (const b of cb) {
+          if (b.id === currentBlock.id) continue;
+          const end = new Date(b.end_date + "T23:59:59").getTime();
+          const graceEnd = end + (b.grace_days ?? 7) * 86400000;
+          // Past end_date but still within grace tail → counts as residual.
+          if (todayMs > end && todayMs <= graceEnd) {
+            for (const a of cAllocsAll) {
+              if (a.block_id !== b.id) continue;
+              previousBlockResiduals += Math.max(
+                0,
+                a.quantity_assigned - a.quantity_booked,
+              );
+            }
+          }
+        }
+      }
+
+      // Aggregate by event type (fallback session_type) — only the
+      // current block's allocations contribute to the visible counter.
       type Agg = { type: string; used: number; total: number };
       const aggMap = new Map<string, Agg>();
       const keyOf = (etId: string | null, st: string) => etId ?? `st:${st}`;
@@ -361,7 +435,7 @@ function ClientsPage() {
         aggMap.set(k, cur);
       }
 
-      // Live used from bookings
+      // Live used from bookings — only those tied to the current block.
       for (const bk of cBookings) {
         if (
           bk.status !== "completed" &&
@@ -369,9 +443,10 @@ function ClientsPage() {
           bk.status !== "scheduled"
         )
           continue;
+        if (currentBlockId && bk.block_id !== currentBlockId) continue;
         const k = keyOf(bk.event_type_id ?? null, bk.session_type);
         const cur = aggMap.get(k);
-        if (!cur) continue; // ignore bookings without a matching allocation bucket
+        if (!cur) continue;
         cur.used += 1;
       }
 
@@ -408,6 +483,7 @@ function ClientsPage() {
         totalUsed,
         totalQty,
         daysToBilling,
+        previousBlockResiduals,
       };
     });
   }, [clients, blocks, allocs, bookings, eventTypeById]);
@@ -1116,6 +1192,13 @@ function ClientsPage() {
                           {d.daysToBilling >= 0
                             ? `Rinnovo tra ${d.daysToBilling} ${d.daysToBilling === 1 ? "giorno" : "giorni"}`
                             : "Rinnovo scaduto"}
+                        </p>
+                      )}
+                      {d.previousBlockResiduals > 0 && (
+                        <p className="text-[11px] text-warning pt-1">
+                          +{d.previousBlockResiduals}{" "}
+                          {d.previousBlockResiduals === 1 ? "sessione" : "sessioni"} dal blocco
+                          precedente (scadenza in pochi giorni)
                         </p>
                       )}
                     </div>

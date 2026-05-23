@@ -16,6 +16,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Switch } from "@/components/ui/switch";
 
 import {
   Dialog,
@@ -154,6 +155,12 @@ function ClientPathPage() {
   const [orphans, setOrphans] = useState<OrphanBooking[]>([]);
   const [clientBookings, setClientBookings] = useState<ClientBooking[]>([]);
   const [editingBooking, setEditingBooking] = useState<ClientBooking | null>(null);
+  // Block auto-renew toggle (profiles.auto_renew_blocks, added by
+  // 20260524110000_block_auto_renew.sql). Loaded lazily so we don't
+  // block the rest of the page if the column hasn't been regenerated
+  // in the Supabase types yet.
+  const [autoRenewBlocks, setAutoRenewBlocks] = useState<boolean | null>(null);
+  const [autoRenewSaving, setAutoRenewSaving] = useState(false);
 
   const totalBlocks = blocks.length;
   const totalWeeks = totalBlocks * WEEKS_PER_BLOCK;
@@ -194,6 +201,30 @@ function ClientPathPage() {
     setPathStart(
       profile.path_start_date ? parseISO(profile.path_start_date as string) : undefined,
     );
+
+    // Fetch auto_renew_blocks via cast — column added by
+    // 20260524110000_block_auto_renew.sql, may not be in generated types yet.
+    const sb = supabase as unknown as {
+      from: (t: "profiles") => {
+        select: (cols: string) => {
+          eq: (
+            col: string,
+            val: string,
+          ) => {
+            maybeSingle: () => Promise<{
+              data: { auto_renew_blocks: boolean | null } | null;
+              error: { message: string } | null;
+            }>;
+          };
+        };
+      };
+    };
+    const { data: arRow } = await sb
+      .from("profiles")
+      .select("auto_renew_blocks")
+      .eq("id", clientId)
+      .maybeSingle();
+    setAutoRenewBlocks(arRow?.auto_renew_blocks ?? true);
 
     const { data: bls } = await supabase
       .from("training_blocks")
@@ -678,6 +709,32 @@ function ClientPathPage() {
     toast.success("Calendario ricalcolato dalla data di inizio");
   }
 
+  async function toggleAutoRenew(next: boolean) {
+    if (autoRenewSaving) return;
+    setAutoRenewSaving(true);
+    // Optimistic update — revert on error so the Switch reflects truth.
+    const prev = autoRenewBlocks;
+    setAutoRenewBlocks(next);
+    const sb = supabase as unknown as {
+      from: (t: "profiles") => {
+        update: (vals: { auto_renew_blocks: boolean }) => {
+          eq: (col: string, val: string) => Promise<{ error: { message: string } | null }>;
+        };
+      };
+    };
+    const { error } = await sb
+      .from("profiles")
+      .update({ auto_renew_blocks: next })
+      .eq("id", clientId);
+    if (error) {
+      setAutoRenewBlocks(prev);
+      toast.error("Errore aggiornamento", { description: error.message });
+    } else {
+      toast.success(next ? "Rinnovo automatico attivato" : "Rinnovo automatico disattivato");
+    }
+    setAutoRenewSaving(false);
+  }
+
   async function saveSchedule() {
     if (!user) return;
     if (!pathStart) {
@@ -835,6 +892,32 @@ function ClientPathPage() {
           </Button>
         </div>
       </div>
+
+      {/* Auto-renew toggle for monthly blocks. Default ON for new clients.
+          When OFF, the ensure_client_block_state RPC stops creating new
+          blocks once the current one expires past its grace period —
+          the cliente will see the empty state until the coach manually
+          intervenes. */}
+      {autoRenewBlocks !== null && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Rinnovo automatico blocchi mensili</CardTitle>
+          </CardHeader>
+          <CardContent className="flex items-center justify-between gap-4">
+            <div className="text-sm text-muted-foreground">
+              {autoRenewBlocks
+                ? "Quando il blocco corrente termina, ne verrà creato uno nuovo automaticamente con lo stesso template (4 settimane + 7 giorni di tolleranza per consumare i residui)."
+                : "I blocchi non si rinnoveranno automaticamente. Alla fine del blocco corrente dovrai crearne uno nuovo manualmente."}
+            </div>
+            <Switch
+              checked={autoRenewBlocks}
+              disabled={autoRenewSaving}
+              onCheckedChange={toggleAutoRenew}
+              aria-label="Rinnovo automatico blocchi mensili"
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {orphans.length > 0 && (
         <Card className="border-primary/40">
