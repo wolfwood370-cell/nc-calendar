@@ -421,19 +421,18 @@ function ClientsPage() {
       const cAllocsAll = allocsByClient.get(c.id) ?? [];
       const cBookings = bookingsByClient.get(c.id) ?? [];
 
-      // ----- Current block selection -----
-      // Counter aggregation must reflect the block that's "live today",
-      // not the lifetime sum of every block ever assigned. See
-      // findCurrentBlock for the grace-aware selection.
+      // ----- Current block (only used for residuals banner + billing) -----
+      // The card counter aggregates the WHOLE path (every non-deleted
+      // block) so the coach sees lifetime progress vs total assigned —
+      // e.g. "4/24 sessions" for a 6-month plan or "8/12" after three
+      // monthly renewals. `currentBlock` is still computed for the
+      // grace-period residuals banner and the "Rinnovo tra X giorni"
+      // line, but no longer narrows the counter itself.
       const currentBlock = findCurrentBlock(cb, today);
-      const currentBlockId = currentBlock?.id ?? null;
-      const cAllocs = currentBlockId
-        ? cAllocsAll.filter((a) => a.block_id === currentBlockId)
-        : [];
 
       // Residuals from any "previous" block still in grace overlap with
       // today. These are about-to-expire credits the coach should see
-      // surfaced — shown as a secondary badge on the card.
+      // surfaced — shown as a secondary line on the card.
       let previousBlockResiduals = 0;
       if (currentBlock) {
         const todayMs = today.getTime();
@@ -454,13 +453,13 @@ function ClientsPage() {
         }
       }
 
-      // Aggregate by event type (fallback session_type) — only the
-      // current block's allocations contribute to the visible counter.
+      // Aggregate by event type (fallback session_type) across ALL
+      // non-deleted blocks of this client.
       type Agg = { type: string; used: number; total: number };
       const aggMap = new Map<string, Agg>();
       const keyOf = (etId: string | null, st: string) => etId ?? `st:${st}`;
 
-      for (const a of cAllocs) {
+      for (const a of cAllocsAll) {
         const k = keyOf(a.event_type_id, a.session_type);
         const name =
           (a.event_type_id && eventTypeById.get(a.event_type_id)) ||
@@ -470,7 +469,9 @@ function ClientsPage() {
         aggMap.set(k, cur);
       }
 
-      // Live used from bookings — only those tied to the current block.
+      // Live used from bookings — every completed/scheduled/late_cancelled
+      // session across any block of this client contributes to the
+      // lifetime counter.
       for (const bk of cBookings) {
         if (
           bk.status !== "completed" &&
@@ -478,7 +479,6 @@ function ClientsPage() {
           bk.status !== "scheduled"
         )
           continue;
-        if (currentBlockId && bk.block_id !== currentBlockId) continue;
         const k = keyOf(bk.event_type_id ?? null, bk.session_type);
         const cur = aggMap.get(k);
         if (!cur) continue;
@@ -1252,32 +1252,28 @@ function ClientsPage() {
                 </div>
 
                 {showForecast && formattedExhaustion && (
-                  <div
-                    className={`mb-4 -mt-2 rounded-2xl px-3 py-2.5 flex items-center gap-2.5 ${
-                      isCritical
-                        ? "bg-error-container/60 text-on-error-container"
-                        : "bg-tertiary-container/70 text-on-tertiary-container"
-                    }`}
-                  >
-                    <Sparkles
-                      className={`size-4 shrink-0 ${isCritical ? "text-error" : "text-on-tertiary-container"}`}
+                  // Discreet exhaustion forecast line — replaces the
+                  // earlier tertiary/error container card per UX
+                  // feedback. The information stays (date + critical
+                  // accent + WhatsApp shortcut when <7 days) but the
+                  // visual weight is dropped so it doesn't compete with
+                  // the session counter above.
+                  <div className="mb-4 -mt-2 flex items-center gap-2 text-[11px] text-on-surface-variant">
+                    <span
+                      aria-hidden
+                      className={`inline-block w-1.5 h-1.5 rounded-full ${
+                        isCritical ? "bg-destructive" : "bg-outline"
+                      }`}
                     />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[11px] font-semibold leading-tight truncate">
-                        Esaurimento crediti previsto il: {formattedExhaustion}
-                      </p>
-                      {isCritical && (
-                        <p className="text-[10px] opacity-80 leading-tight mt-0.5">
-                          Meno di 7 giorni · suggerisci un rinnovo
-                        </p>
-                      )}
-                    </div>
+                    <span className={isCritical ? "font-semibold text-destructive" : ""}>
+                      Esaurimento previsto: {formattedExhaustion}
+                    </span>
                     {isCritical && phoneDigits && (
                       <a
                         href={`https://wa.me/${phoneDigits}?text=${reminderText}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="shrink-0 px-3 py-1 rounded-full text-[11px] font-semibold bg-white/80 text-error hover:bg-white transition-colors"
+                        className="ml-auto text-[11px] font-semibold text-destructive underline-offset-2 hover:underline"
                       >
                         Promemoria
                       </a>
