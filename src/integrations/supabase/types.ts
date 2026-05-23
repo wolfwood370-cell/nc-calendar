@@ -1084,6 +1084,10 @@ export type Database = {
         Args: { p_limit?: number; p_user_id: string }
         Returns: boolean
       }
+      ensure_all_recurring_for_coach: {
+        Args: { p_coach_id: string }
+        Returns: number
+      }
       ensure_client_block_state: {
         Args: { p_client_id: string }
         Returns: {
