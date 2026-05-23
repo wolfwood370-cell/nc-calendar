@@ -8,6 +8,7 @@ import {
   clearAutoSyncThrottle,
   markAutoSyncDone,
 } from "@/lib/sync-calendar";
+import { useGcalWatchRenewal } from "@/hooks/use-gcal-watch-renewal";
 import { queryKeys } from "@/lib/query-keys";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -50,7 +51,11 @@ export const Route = createFileRoute("/trainer/integrations")({
 
 function IntegrationsPage() {
   const { user } = useAuth();
+  // BUG-7 fix: keep the Google push notification channel alive. The
+  // hook checks gcal_channel_expires_at and renews if < 48h to expiry.
+  useGcalWatchRenewal(user?.id ?? null);
   const [isCalendarConnected, setIsCalendarConnected] = useState(false);
+  const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null);
   const [isCalendarSyncEnabled, setIsCalendarSyncEnabled] = useState(true);
   const [isCalendarLoading, setIsCalendarLoading] = useState(false);
   const [connectedEmail, setConnectedEmail] = useState<string | null>(null);
@@ -152,10 +157,11 @@ function IntegrationsPage() {
         gcal_account_email: string | null;
         gcal_refresh_token: string | null;
         gcal_token_expires_at: string | null;
+        gcal_last_notification_at: string | null;
         stripe_account_id?: string | null;
       };
       const baseCols =
-        "gcal_enabled, gcal_account_email, gcal_refresh_token, gcal_token_expires_at";
+        "gcal_enabled, gcal_account_email, gcal_refresh_token, gcal_token_expires_at, gcal_last_notification_at";
       let settingsRow: IntegrationSettingsRow | null = null;
       const primaryResp = await supabase
         .from("integration_settings")
@@ -196,6 +202,11 @@ function IntegrationsPage() {
       setConnectedEmail(settings?.gcal_account_email ?? emailFromIdentity ?? user.email ?? null);
       setTokenExpiresAt(
         settings?.gcal_token_expires_at ? new Date(settings.gcal_token_expires_at) : null,
+      );
+      setLastSyncAt(
+        settings?.gcal_last_notification_at
+          ? new Date(settings.gcal_last_notification_at)
+          : null,
       );
       // Stripe: any non-null stripe_account_id flips the badge to
       // "Connesso". When the migration hasn't shipped settings.stripe_
@@ -396,6 +407,8 @@ function IntegrationsPage() {
         open={calendarSheetOpen}
         onOpenChange={setCalendarSheetOpen}
         coachId={user?.id ?? null}
+        connectedEmail={connectedEmail}
+        lastSyncAt={lastSyncAt}
         onDisconnect={async () => {
           if (user) {
             const { error } = await supabase
@@ -427,13 +440,28 @@ interface CalendarManageSheetProps {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   coachId: string | null;
+  connectedEmail: string | null;
+  lastSyncAt: Date | null;
   onDisconnect: () => void;
+}
+
+function formatRelativeIt(d: Date | null): string {
+  if (!d) return "mai";
+  const diffMin = Math.round((Date.now() - d.getTime()) / 60_000);
+  if (diffMin < 1) return "ora";
+  if (diffMin < 60) return `${diffMin} min fa`;
+  const diffH = Math.round(diffMin / 60);
+  if (diffH < 24) return `${diffH} h fa`;
+  const diffD = Math.round(diffH / 24);
+  return `${diffD} g fa`;
 }
 
 function CalendarManageSheet({
   open,
   onOpenChange,
   coachId,
+  connectedEmail,
+  lastSyncAt,
   onDisconnect,
 }: CalendarManageSheetProps) {
   const [isSyncing, setIsSyncing] = useState(false);
@@ -507,12 +535,6 @@ function CalendarManageSheet({
     }
   };
 
-  const logs = [
-    { when: "Oggi, 09:15", text: "Nessun nuovo evento" },
-    { when: "Ieri, 18:30", text: "Importati 3 eventi PT" },
-    { when: "Ieri, 08:00", text: "Sincronizzazione automatica completata" },
-  ];
-
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -539,11 +561,11 @@ function CalendarManageSheet({
                 <div className="flex items-center gap-1.5">
                   <Mail className="size-3.5 text-outline" />
                   <p className="text-sm font-medium text-aura-primary truncate">
-                    coach@nccalendar.it
+                    {connectedEmail ?? "—"}
                   </p>
                 </div>
                 <p className="text-xs text-outline mt-0.5 flex items-center gap-1">
-                  <Clock className="size-3" /> Ultima sincronizzazione automatica: 5 min fa
+                  <Clock className="size-3" /> Ultima sincronizzazione: {formatRelativeIt(lastSyncAt)}
                 </p>
               </div>
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 px-2.5 py-1 text-xs font-medium">
@@ -577,24 +599,6 @@ function CalendarManageSheet({
                 </>
               )}
             </Button>
-          </div>
-
-          {/* Sync Logs */}
-          <div className="rounded-[24px] bg-white p-5 shadow-[0px_4px_20px_rgba(0,86,133,0.05)] space-y-3">
-            <h3 className="font-display text-base font-semibold text-aura-primary">
-              Attività recente
-            </h3>
-            <ul className="space-y-2">
-              {logs.map((l, i) => (
-                <li key={i} className="flex items-start gap-3 rounded-2xl bg-surface px-4 py-3">
-                  <div className="size-2 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-aura-primary">{l.text}</p>
-                    <p className="text-xs text-outline mt-0.5">{l.when}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
           </div>
 
           {/* Danger Zone */}

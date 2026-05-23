@@ -4,6 +4,7 @@ import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useIsBelowXl } from "@/hooks/use-mobile";
+import { useGcalWatchRenewal } from "@/hooks/use-gcal-watch-renewal";
 import {
   Loader2,
   ChevronLeft,
@@ -650,6 +651,10 @@ function FocusClientPanel({
 
 function CalendarPage() {
   const { user } = useAuth();
+  // BUG-7 fix: ensure the Google push notification channel doesn't
+  // silently die after its ~7-day TTL. The hook is a no-op when
+  // channel is fresh + when Google isn't connected.
+  useGcalWatchRenewal(user?.id ?? null);
   const qc = useQueryClient();
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()));
   const [mirroring, setMirroring] = useState(false);
