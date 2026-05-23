@@ -66,6 +66,7 @@ import {
 import { InviteClientDialog } from "@/components/invite-client-dialog";
 import { CredentialsDialog } from "@/components/credentials-dialog";
 import { ClientCardMenu } from "@/components/client-card-menu";
+import { initials } from "@/lib/initials";
 
 export const Route = createFileRoute("/trainer/clients/")({
   component: ClientsPage,
@@ -167,18 +168,6 @@ function findCurrentBlock(blocks: BlockLite[], today: Date): BlockLite | null {
   // The detail page will call ensure_client_block_state to recover the
   // true state and create the next block if auto-renew is on.
   return sorted[0] ?? null;
-}
-
-function initials(name: string | null, email: string | null): string {
-  const src = (name && name.trim()) || (email ?? "?");
-  return (
-    src
-      .split(/[\s@.]+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((s) => s[0]?.toUpperCase() ?? "")
-      .join("") || "?"
-  );
 }
 
 function ClientsPage() {

@@ -11,6 +11,7 @@ import {
 } from "@/lib/queries";
 import { queryKeys } from "@/lib/query-keys";
 import { sessionLabel, type SessionType } from "@/lib/mock-data";
+import { initials } from "@/lib/initials";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AuraCardSkeleton,
@@ -73,17 +74,6 @@ function thirtyDaysAgo() {
   const d = new Date();
   d.setDate(d.getDate() - 30);
   return d;
-}
-
-function initials(name: string) {
-  return (
-    name
-      .split(" ")
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((s) => s[0]?.toUpperCase() ?? "")
-      .join("") || "?"
-  );
 }
 
 function iconForType(name: string | undefined) {
