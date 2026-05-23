@@ -200,7 +200,7 @@ async function gcalFetch(
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders(req) });
-  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
+  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405, req);
 
   const auth = await requireAuth(req);
   if (auth instanceof Response) return auth;
@@ -209,9 +209,9 @@ Deno.serve(async (req) => {
   try {
     body = await req.json();
   } catch {
-    return json({ error: "Invalid JSON body" }, 400);
+    return json({ error: "Invalid JSON body" }, 400, req);
   }
-  if (!body.coach_id || !body.action) return json({ error: "Missing required fields" }, 400);
+  if (!body.coach_id || !body.action) return json({ error: "Missing required fields" }, 400, req);
 
   const supabase = auth.admin;
 
@@ -248,7 +248,7 @@ Deno.serve(async (req) => {
         caller_role: callerRole,
         caller_coach: callerCoachId,
       });
-      return json({ error: "Permesso negato" }, 403);
+      return json({ error: "Permesso negato" }, 403, req);
     }
   }
 
@@ -263,11 +263,11 @@ Deno.serve(async (req) => {
 
   if (settingsErr) {
     console.error("sync-calendar: settings lookup failed", settingsErr);
-    return json({ skipped: true, reason: "settings_error" }, 200);
+    return json({ skipped: true, reason: "settings_error" }, 200, req);
   }
-  if (!settings) return json({ skipped: true, reason: "no_settings" }, 200);
+  if (!settings) return json({ skipped: true, reason: "no_settings" }, 200, req);
   if (!settings.gcal_enabled || !settings.gcal_access_token) {
-    return json({ skipped: true, reason: "not_configured" }, 200);
+    return json({ skipped: true, reason: "not_configured" }, 200, req);
   }
 
   const calendarId = body.calendar_id ?? settings.gcal_calendar_id ?? "primary";
@@ -534,7 +534,7 @@ Deno.serve(async (req) => {
   try {
     if (body.action === "create") {
       if (!body.start_iso || !body.client_name)
-        return json({ error: "Missing create fields" }, 400);
+        return json({ error: "Missing create fields" }, 400, req);
       const startISO = body.start_iso;
       const endISO =
         body.end_iso ?? new Date(new Date(startISO).getTime() + 60 * 60 * 1000).toISOString();
@@ -605,41 +605,47 @@ Deno.serve(async (req) => {
           .eq("id", body.booking_id);
       }
 
-      return json({ ok: true, event_id: res.data.id, meet_url: meetUrl }, 200);
+      return json({ ok: true, event_id: res.data.id, meet_url: meetUrl }, 200, req);
     }
 
     if (body.action === "cancel") {
       if (!body.google_event_id)
-        return json({ ok: true, skipped: true, reason: "no_event_id" }, 200);
+        return json({ ok: true, skipped: true, reason: "no_event_id" }, 200, req);
       if (body.late) {
         // Cancellazione tardiva: NON elimina l'evento, lo marca come CANCELLATA in grigio.
+        // BUG-5 fix: only swallow 404/410 (event already gone on Google's
+        // side — manual deletion, prior cancel). Real errors propagate to
+        // the outer catch → 502 → user-visible toast.
+        const baseSummary =
+          `${body.session_label ?? "Sessione"} — ${body.client_name ?? ""}`.trim();
+        const newSummary = baseSummary.startsWith("🚫 CANCELLATA")
+          ? baseSummary
+          : `🚫 CANCELLATA - ${baseSummary}`;
         try {
-          const baseSummary =
-            `${body.session_label ?? "Sessione"} — ${body.client_name ?? ""}`.trim();
-          const newSummary = baseSummary.startsWith("🚫 CANCELLATA")
-            ? baseSummary
-            : `🚫 CANCELLATA - ${baseSummary}`;
           await calendar.events.patch({
             calendarId,
             eventId: body.google_event_id,
             requestBody: { summary: newSummary, colorId: "8" },
           });
         } catch (e) {
-          console.error("sync-calendar: late-cancel patch failed", e);
+          const msg = String(e);
+          if (!msg.includes("404") && !msg.includes("410")) throw e;
+          console.warn("sync-calendar: late-cancel target already gone on Google", {
+            eventId: body.google_event_id,
+          });
         }
-        return json({ ok: true, late: true }, 200);
+        return json({ ok: true, late: true }, 200, req);
       }
-      try {
-        await calendar.events.delete({ calendarId, eventId: body.google_event_id });
-      } catch (e) {
-        console.error("sync-calendar: delete failed", e);
-      }
-      return json({ ok: true }, 200);
+      // calendar.events.delete is already idempotent against 404/410 (see
+      // wrapper at the top of the file), so no try/catch needed here.
+      // Real failures (auth, network, 5xx) bubble to the outer catch.
+      await calendar.events.delete({ calendarId, eventId: body.google_event_id });
+      return json({ ok: true }, 200, req);
     }
 
     if (body.action === "update") {
       if (!body.google_event_id || !body.start_iso) {
-        return json({ ok: true, skipped: true, reason: "missing_fields" }, 200);
+        return json({ ok: true, skipped: true, reason: "missing_fields" }, 200, req);
       }
       const startISO = body.start_iso;
       const endISO =
@@ -653,6 +659,8 @@ Deno.serve(async (req) => {
       }
       const colorId = hexToGoogleColorId(body.color);
       if (colorId) patch.colorId = colorId;
+      // BUG-5 fix: idempotent skip only on 404/410 (event already gone
+      // on Google). Real failures propagate so the user sees the toast.
       try {
         await calendar.events.patch({
           calendarId,
@@ -660,9 +668,13 @@ Deno.serve(async (req) => {
           requestBody: patch,
         });
       } catch (e) {
-        console.error("sync-calendar: update patch failed", e);
+        const msg = String(e);
+        if (!msg.includes("404") && !msg.includes("410")) throw e;
+        console.warn("sync-calendar: update target already gone on Google", {
+          eventId: body.google_event_id,
+        });
       }
-      return json({ ok: true }, 200);
+      return json({ ok: true }, 200, req);
     }
 
     if (body.action === "import_history") {
@@ -862,6 +874,7 @@ Deno.serve(async (req) => {
       return json(
         { ok: true, imported, updated, matched, creditsBooked, total: items.length },
         200,
+        req,
       );
     }
 
@@ -1090,6 +1103,7 @@ Deno.serve(async (req) => {
           checked: locals?.length ?? 0,
         },
         200,
+        req,
       );
     }
 
@@ -1138,6 +1152,7 @@ Deno.serve(async (req) => {
         return json(
           { ok: false, error: `gcal watch ${res.status}: ${JSON.stringify(watchData)}` },
           200,
+          req,
         );
       }
 
@@ -1158,7 +1173,7 @@ Deno.serve(async (req) => {
         .eq("coach_id", body.coach_id);
       if (persistErr) {
         console.error("sync-calendar: persist watch channel failed", persistErr);
-        return json({ ok: false, error: "persist_failed" }, 200);
+        return json({ ok: false, error: "persist_failed" }, 200, req);
       }
 
       return json(
@@ -1169,17 +1184,30 @@ Deno.serve(async (req) => {
           expires_at: expiresAt,
         },
         200,
+        req,
       );
     }
 
-    return json({ error: "Unknown action" }, 400);
+    return json({ error: "Unknown action" }, 400, req);
   } catch (e) {
+    // BUG-4 fix: surface upstream failures as a real non-2xx so the
+    // frontend's notifySyncFailure toast triggers. Previously this
+    // returned `{ok:false}` with 200, silently hiding Google rejections
+    // (token expired, quota exhausted, event already gone, etc) — coaches
+    // were told the sync had succeeded when it hadn't. Status 502 = the
+    // upstream Google call failed; the original error message lands in
+    // parseEdgeError so the toast describes what actually went wrong.
     console.error("sync-calendar: Google API error", e);
-    return json({ ok: false, error: String(e) }, 200);
+    return json({ error: String(e) }, 502, req);
   }
 });
 
-function json(payload: unknown, status: number) {
+// BUG-1 fix: `req` was referenced from the parent Deno.serve closure,
+// which fails with `ReferenceError: req is not defined` because this
+// helper is declared at module scope (outside the handler). Accepting
+// `req` explicitly threads the Origin through corsHeaders() so every
+// 32 call site preserves correct CORS headers on the response.
+function json(payload: unknown, status: number, req: Request) {
   return new Response(JSON.stringify(payload), {
     status,
     headers: { ...corsHeaders(req), "Content-Type": "application/json" },
