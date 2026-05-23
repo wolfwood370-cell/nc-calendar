@@ -36,7 +36,6 @@ import {
   Loader2,
   Check,
   RefreshCw,
-  ShieldCheck,
   Mail,
   Clock,
   LogOut,
