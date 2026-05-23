@@ -686,6 +686,21 @@ Deno.serve(async (req) => {
       const twoYearsAhead = new Date();
       twoYearsAhead.setFullYear(twoYearsAhead.getFullYear() + 2);
       const timeMax = body.range_end_iso ?? twoYearsAhead.toISOString();
+      // Debug mode: when body.debug === true, accumulate per-event
+      // tracing into the response so the coach can see exactly what
+      // Google returned + what the function did with each event.
+      const debugMode = body.debug === true;
+      type DebugEntry = {
+        gcal_event_id: string;
+        gcal_summary: string;
+        gcal_start: string;
+        gcal_status: string;
+        action: "imported" | "updated" | "skipped_personal" | "skipped_invalid" | "insert_failed";
+        matched_client: string | null;
+        error?: string;
+      };
+      const debugEvents: DebugEntry[] = [];
+      let debugPagesFetched = 0;
       const items: Array<Record<string, unknown>> = [];
       let pageToken: string | undefined = undefined;
       do {
@@ -701,6 +716,7 @@ Deno.serve(async (req) => {
           });
         items.push(...((res.data.items ?? []) as Array<Record<string, unknown>>));
         pageToken = res.data.nextPageToken as string | undefined;
+        if (debugMode) debugPagesFetched++;
       } while (pageToken);
 
       let imported = 0,
@@ -712,7 +728,19 @@ Deno.serve(async (req) => {
         const id = ev.id as string;
         const start = ev.start as { dateTime?: string; date?: string } | undefined;
         const startIso = start?.dateTime ?? (start?.date ? `${start.date}T00:00:00Z` : null);
-        if (!id || !startIso) continue;
+        if (!id || !startIso) {
+          if (debugMode) {
+            debugEvents.push({
+              gcal_event_id: id ?? "(missing)",
+              gcal_summary: (ev.summary as string) ?? "(no summary)",
+              gcal_start: startIso ?? "(no start)",
+              gcal_status: (ev.status as string) ?? "(no status)",
+              action: "skipped_invalid",
+              matched_client: null,
+            });
+          }
+          continue;
+        }
         const summary = (ev.summary as string) ?? "Evento";
         const description = (ev.description as string) ?? "";
         const attendees = (ev.attendees ?? []) as Array<{ email?: string }>;
@@ -806,6 +834,16 @@ Deno.serve(async (req) => {
         // bailing on the whole sync — we just leave the personal row
         // untouched and move on to the next Google event.
         if (existing && existing.is_personal === true) {
+          if (debugMode) {
+            debugEvents.push({
+              gcal_event_id: id,
+              gcal_summary: summary,
+              gcal_start: startIso,
+              gcal_status: status,
+              action: "skipped_personal",
+              matched_client: clientId,
+            });
+          }
           continue;
         }
 
@@ -846,6 +884,16 @@ Deno.serve(async (req) => {
           }
           await supabase.from("bookings").update(patch).eq("id", existing.id);
           updated++;
+          if (debugMode) {
+            debugEvents.push({
+              gcal_event_id: id,
+              gcal_summary: summary,
+              gcal_start: startIso,
+              gcal_status: status,
+              action: "updated",
+              matched_client: clientId,
+            });
+          }
           continue;
         }
 
@@ -868,14 +916,51 @@ Deno.serve(async (req) => {
           title: summary,
           google_event_id: id,
         });
-        if (!insErr) imported++;
-        else console.error("sync-calendar: import insert failed", insErr);
+        if (!insErr) {
+          imported++;
+          if (debugMode) {
+            debugEvents.push({
+              gcal_event_id: id,
+              gcal_summary: summary,
+              gcal_start: startIso,
+              gcal_status: status,
+              action: "imported",
+              matched_client: clientId,
+            });
+          }
+        } else {
+          console.error("sync-calendar: import insert failed", insErr);
+          if (debugMode) {
+            debugEvents.push({
+              gcal_event_id: id,
+              gcal_summary: summary,
+              gcal_start: startIso,
+              gcal_status: status,
+              action: "insert_failed",
+              matched_client: clientId,
+              error: (insErr as { message?: string })?.message ?? String(insErr),
+            });
+          }
+        }
       }
-      return json(
-        { ok: true, imported, updated, matched, creditsBooked, total: items.length },
-        200,
-        req,
-      );
+      const baseRes: Record<string, unknown> = {
+        ok: true,
+        imported,
+        updated,
+        matched,
+        creditsBooked,
+        total: items.length,
+      };
+      if (debugMode) {
+        baseRes.debug = {
+          pages_fetched: debugPagesFetched,
+          time_min: timeMin,
+          time_max: timeMax,
+          calendar_id: calendarId,
+          events: debugEvents,
+        };
+      }
+      return json(baseRes, 200, req);
     }
 
     if (body.action === "mirror_check") {

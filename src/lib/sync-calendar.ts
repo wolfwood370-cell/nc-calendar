@@ -126,6 +126,10 @@ interface ImportHistoryInput {
   coachId: string;
   rangeStartISO?: string;
   rangeEndISO?: string;
+  /** When true the edge function returns a `debug` object with the full
+   *  Google event list + per-event action. Used by the integrations
+   *  page "Diagnostica sync" button. */
+  debug?: boolean;
 }
 interface MirrorCheckInput {
   action: "mirror_check";
@@ -192,6 +196,7 @@ function buildBody(input: SyncInput): Record<string, unknown> {
     ...base,
     range_start_iso: input.rangeStartISO,
     range_end_iso: input.rangeEndISO,
+    ...(input.action === "import_history" && input.debug ? { debug: true } : {}),
   };
 }
 

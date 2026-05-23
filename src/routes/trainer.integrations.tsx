@@ -465,6 +465,8 @@ function CalendarManageSheet({
   onDisconnect,
 }: CalendarManageSheetProps) {
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isDebugging, setIsDebugging] = useState(false);
+  const [debugOutput, setDebugOutput] = useState<string | null>(null);
   const qc = useQueryClient();
 
   const handleSyncNow = async () => {
@@ -599,6 +601,73 @@ function CalendarManageSheet({
                 </>
               )}
             </Button>
+
+            {/* Diagnostic button — invokes the same import_history action
+                but with debug=true, then dumps the full per-event tracing
+                into a textarea so the coach can identify why specific
+                events aren't being imported (missing match, paging, etc). */}
+            <Button
+              onClick={async () => {
+                if (!coachId) return;
+                setIsDebugging(true);
+                setDebugOutput("Sincronizzazione diagnostica in corso...");
+                try {
+                  clearAutoSyncThrottle();
+                  const yearStart = new Date(new Date().getFullYear(), 0, 1).toISOString();
+                  const twoYearsAhead = new Date();
+                  twoYearsAhead.setFullYear(twoYearsAhead.getFullYear() + 2);
+                  const { data, error } = await syncCalendarAwait({
+                    action: "import_history",
+                    coachId,
+                    rangeStartISO: yearStart,
+                    rangeEndISO: twoYearsAhead.toISOString(),
+                    debug: true,
+                  });
+                  if (error) {
+                    setDebugOutput(
+                      `ERRORE: ${error instanceof Error ? error.message : JSON.stringify(error)}`,
+                    );
+                  } else {
+                    setDebugOutput(JSON.stringify(data, null, 2));
+                  }
+                } catch (e) {
+                  setDebugOutput(`ERRORE: ${e instanceof Error ? e.message : String(e)}`);
+                } finally {
+                  setIsDebugging(false);
+                }
+              }}
+              disabled={isDebugging || isSyncing}
+              variant="outline"
+              className="w-full rounded-full border-outline-variant text-on-surface-variant h-10"
+            >
+              {isDebugging ? (
+                <>
+                  <Loader2 className="size-4 animate-spin mr-2" /> Diagnostica in corso...
+                </>
+              ) : (
+                "Diagnostica sync (per debug)"
+              )}
+            </Button>
+            {debugOutput && (
+              <div className="space-y-2">
+                <textarea
+                  readOnly
+                  value={debugOutput}
+                  className="w-full h-64 text-[10px] font-mono p-2 rounded-xl border border-outline-variant bg-surface-container-low"
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(debugOutput);
+                    toast.success("Output copiato negli appunti");
+                  }}
+                  className="text-xs"
+                >
+                  Copia output
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Danger Zone */}
