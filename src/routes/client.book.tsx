@@ -13,7 +13,6 @@ import {
   useCoachOptimizationEnabled,
   type AvailabilityRow,
   type AvailabilityExceptionRow,
-  type AllocationRow,
   type EventTypeRow,
 } from "@/lib/queries";
 // generateMockMeetLink was deprecated: the real Google Meet URL is now
@@ -35,6 +34,7 @@ import { EmptyStateCard } from "@/components/empty-state-card";
 import { generateSlots, type Slot, type BlockedRange } from "@/lib/booking-slots";
 import { BookCalendarGrid } from "@/components/book-calendar-grid";
 import { BookSlotsGrid } from "@/components/book-slots-grid";
+import { allocKey, findAllocationForWeek, findExtraCredit } from "@/lib/booking-allocation";
 
 export const Route = createFileRoute("/client/book")({
   component: BookFlow,
@@ -183,9 +183,6 @@ function BookFlow() {
     return m;
   }, [slots]);
 
-  // Chiave del pool di credito: event_type_id se presente, altrimenti session_type (legacy).
-  const allocKey = (eventTypeId: string | null, type: SessionType) => eventTypeId ?? `__${type}`;
-
   // Pools list (one entry per credit pool: block allocation OR extra credit pack).
   interface Pool {
     key: string;
@@ -325,49 +322,6 @@ function BookFlow() {
     );
   }
 
-  // Cerca un'allocation con credito disponibile, prima per event_type_id+settimana, poi qualunque.
-  const findAllocationForWeek = (
-    type: SessionType,
-    eventTypeId: string | null,
-    isoDate: string,
-  ): { id: string; remaining: number } | null => {
-    if (!block) return null;
-    const slotDate = new Date(isoDate);
-    const weeksFromStart = Math.floor(
-      (slotDate.getTime() - new Date(block.start_date).getTime()) / (1000 * 60 * 60 * 24 * 7),
-    );
-    const wn = Math.min(4, Math.max(1, weeksFromStart + 1));
-    const matchPool = (a: AllocationRow) =>
-      eventTypeId
-        ? a.event_type_id === eventTypeId
-        : a.event_type_id === null && a.session_type === type;
-    const sameWeek = block.allocations.find(
-      (a) => matchPool(a) && a.week_number === wn && a.quantity_assigned - a.quantity_booked > 0,
-    );
-    if (sameWeek)
-      return { id: sameWeek.id, remaining: sameWeek.quantity_assigned - sameWeek.quantity_booked };
-    const fallback = block.allocations.find(
-      (a) => matchPool(a) && a.quantity_assigned - a.quantity_booked > 0,
-    );
-    return fallback
-      ? { id: fallback.id, remaining: fallback.quantity_assigned - fallback.quantity_booked }
-      : null;
-  };
-
-  // Cerca un extra_credit con quantità residua per il dato event_type, ordinato per scadenza.
-  const findExtraCredit = (
-    eventTypeId: string | null,
-  ): { id: string; quantity: number; quantity_booked: number } | null => {
-    if (!eventTypeId) return null;
-    const candidates = (extraCreditsQ.data ?? [])
-      .filter((c) => c.event_type_id === eventTypeId && c.quantity - c.quantity_booked > 0)
-      .sort((a, b) => new Date(a.expires_at).getTime() - new Date(b.expires_at).getTime());
-    const first = candidates[0];
-    return first
-      ? { id: first.id, quantity: first.quantity, quantity_booked: first.quantity_booked }
-      : null;
-  };
-
   const profile = profileQ.data;
   const meName = profile?.full_name ?? user?.email ?? "Cliente";
   const meEmail = profile?.email ?? user?.email ?? "";
@@ -423,15 +377,15 @@ function BookFlow() {
       let allocId: string | null = null;
       let extraId: string | null = null;
       if (pool.source === "block") {
-        const a = findAllocationForWeek(type, eventType?.id ?? null, iso);
+        const a = findAllocationForWeek(block, type, eventType?.id ?? null, iso);
         if (a) {
           allocId = a.id;
         } else {
-          const ec = findExtraCredit(eventType?.id ?? null);
+          const ec = findExtraCredit(extraCreditsQ.data, eventType?.id ?? null);
           if (ec) extraId = ec.id;
         }
       } else {
-        const ec = findExtraCredit(eventType?.id ?? null);
+        const ec = findExtraCredit(extraCreditsQ.data, eventType?.id ?? null);
         if (ec) extraId = ec.id;
       }
 
