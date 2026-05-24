@@ -67,6 +67,7 @@ import { InviteClientDialog } from "@/components/invite-client-dialog";
 import { CredentialsDialog } from "@/components/credentials-dialog";
 import { ClientCardMenu } from "@/components/client-card-menu";
 import { ClientStatusTabs } from "@/components/client-status-tabs";
+import { PendingInvitationsCard } from "@/components/pending-invitations-card";
 import { initials } from "@/lib/initials";
 
 export const Route = createFileRoute("/trainer/clients/")({
@@ -929,62 +930,7 @@ function ClientsPage() {
         <ClientStatusTabs tabs={tabs} activeKey={activeTab} onSelect={setActiveTab} />
 
         {/* Pending invitations */}
-        {pending.length > 0 && (
-          <Card className="mb-6 rounded-[32px] border border-white/40 bg-white/60 backdrop-blur-xl shadow-[0_8px_30px_rgba(0,0,0,0.04)]">
-            <CardHeader>
-              <CardTitle className="text-base font-manrope font-semibold flex items-center gap-2">
-                <Mail className="size-4" /> Inviti in attesa ({pending.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Table className="border-separate border-spacing-0 [&_tr]:border-0">
-                <TableHeader className="[&_tr]:border-0">
-                  <TableRow className="border-0 hover:bg-transparent">
-                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-outline">
-                      Nome
-                    </TableHead>
-                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-outline">
-                      Email
-                    </TableHead>
-                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-outline">
-                      Telefono
-                    </TableHead>
-                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-outline">
-                      Stato
-                    </TableHead>
-                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-outline text-right">
-                      Azioni
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody className="divide-y divide-outline-variant/10">
-                  {pending.map((i) => (
-                    <TableRow key={i.id} className="border-0 hover:bg-white/40 transition-colors">
-                      <TableCell className="font-medium">{i.full_name ?? "—"}</TableCell>
-                      <TableCell className="text-muted-foreground">{i.email}</TableCell>
-                      <TableCell className="text-muted-foreground">{i.phone ?? "—"}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="rounded-full">
-                          In attesa
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="rounded-full"
-                          onClick={() => cancelInvite(i.id)}
-                        >
-                          <X className="size-4" /> Annulla
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        )}
+        <PendingInvitationsCard invitations={pending} onCancel={cancelInvite} />
 
         {/* Cards */}
         {loading ? (
