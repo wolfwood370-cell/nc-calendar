@@ -6,6 +6,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { useIsBelowXl } from "@/hooks/use-mobile";
 import { useGcalWatchRenewal } from "@/hooks/use-gcal-watch-renewal";
 import { FocusClientPanel } from "@/components/focus-client-panel";
+import { FilterChip } from "@/components/filter-chip";
+import { layoutDay, type EventPlacement } from "@/lib/calendar-layout";
 import {
   Loader2,
   ChevronLeft,
@@ -75,63 +77,6 @@ function fmtRange(start: Date, end: Date): string {
     return `${start.getDate()} - ${end.getDate()} ${start.toLocaleDateString("it-IT", { month: "long" })}`;
   }
   return `${start.toLocaleDateString("it-IT", opts)} - ${end.toLocaleDateString("it-IT", opts)}`;
-}
-
-interface EventPlacement {
-  col: number;
-  cols: number;
-}
-
-// Lane assignment for overlapping events (Google Calendar style):
-// 1. Sort events by start time.
-// 2. Walk events; flush a "cluster" whenever the next event starts after the
-//    cluster's running end. Within a cluster, every event shares a lane count.
-// 3. Greedily place each event in the lowest column whose previous event ended
-//    on or before this event's start.
-// The result lets renderEvent compute left/width via CSS calc so overlapping
-// events sit side-by-side instead of stacking invisibly (audit finding H7).
-function layoutDay(
-  events: BookingRow[],
-  durationMin: (b: BookingRow) => number,
-): Map<string, EventPlacement> {
-  const result = new Map<string, EventPlacement>();
-  const withTimes = events
-    .map((b) => {
-      const start = new Date(b.scheduled_at).getTime();
-      return { b, start, end: start + durationMin(b) * 60_000 };
-    })
-    .sort((a, b) => a.start - b.start || a.end - b.end);
-
-  let cluster: typeof withTimes = [];
-  let clusterEnd = -Infinity;
-
-  const flush = () => {
-    if (cluster.length === 0) return;
-    const laneEnds: number[] = [];
-    const placements: Array<{ id: string; col: number }> = [];
-    for (const ev of cluster) {
-      let col = laneEnds.findIndex((e) => e <= ev.start);
-      if (col === -1) {
-        col = laneEnds.length;
-        laneEnds.push(ev.end);
-      } else {
-        laneEnds[col] = ev.end;
-      }
-      placements.push({ id: ev.b.id, col });
-    }
-    const cols = laneEnds.length;
-    for (const p of placements) result.set(p.id, { col: p.col, cols });
-    cluster = [];
-    clusterEnd = -Infinity;
-  };
-
-  for (const ev of withTimes) {
-    if (ev.start >= clusterEnd) flush();
-    cluster.push(ev);
-    clusterEnd = Math.max(clusterEnd, ev.end);
-  }
-  flush();
-  return result;
 }
 
 function CalendarPage() {
@@ -845,25 +790,3 @@ function CalendarPage() {
   );
 }
 
-function FilterChip({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
-        active
-          ? "bg-aura-primary text-white border-aura-primary"
-          : "bg-white text-on-surface-variant border-surface-variant hover:bg-surface-container"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
