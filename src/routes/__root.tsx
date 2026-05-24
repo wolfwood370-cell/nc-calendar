@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -12,6 +13,7 @@ import appCss from "../styles.css?url";
 import { AuthProvider } from "@/lib/auth";
 import { Toaster } from "@/components/ui/sonner";
 import { PwaRegister } from "@/components/pwa-register";
+import { initSentry } from "@/lib/sentry";
 
 function NotFoundComponent() {
   return (
@@ -113,6 +115,11 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  // Init Sentry una sola volta lato client. No-op se VITE_SENTRY_DSN
+  // non è settato (dev locale, staging senza quota).
+  useEffect(() => {
+    initSentry();
+  }, []);
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
