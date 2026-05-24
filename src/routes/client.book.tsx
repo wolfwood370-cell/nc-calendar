@@ -28,6 +28,7 @@ import { EmptyStateCard } from "@/components/empty-state-card";
 import { generateSlots, type Slot, type BlockedRange } from "@/lib/booking-slots";
 import { BookCalendarGrid } from "@/components/book-calendar-grid";
 import { BookSlotsGrid } from "@/components/book-slots-grid";
+import { BookPoolPicker } from "@/components/book-pool-picker";
 import { allocKey } from "@/lib/booking-allocation";
 import { useBookConfirm } from "@/hooks/use-book-confirm";
 
@@ -354,40 +355,11 @@ function BookFlow() {
 
       <main className="max-w-3xl mx-auto px-margin-mobile flex flex-col gap-stack-lg mt-stack-md">
         {/* Selection Type */}
-        <section>
-          <h2 className="font-semibold text-lg text-on-surface mb-stack-sm">
-            Seleziona la tipologia
-          </h2>
-          {pools.length === 0 ? (
-            <p className="text-sm text-on-surface-variant">
-              Nessun credito residuo nel blocco attivo.
-            </p>
-          ) : (
-            <div className="flex overflow-x-auto gap-3 pb-2 -mx-margin-mobile px-margin-mobile [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-              {pools.map((p) => {
-                const active = p.key === selectedPoolKey;
-                return (
-                  <button
-                    key={p.key}
-                    onClick={() => setSelectedPoolKey(p.key)}
-                    className={`flex-shrink-0 rounded-full px-6 py-3 text-sm font-semibold whitespace-nowrap transition-transform active:scale-95 ${
-                      active
-                        ? "bg-primary-container text-on-primary"
-                        : "bg-transparent border border-outline-variant text-on-surface"
-                    }`}
-                  >
-                    {p.label}
-                    <span
-                      className={`ml-2 text-xs ${active ? "text-on-primary/80" : "text-on-surface-variant"}`}
-                    >
-                      {p.remaining}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </section>
+        <BookPoolPicker
+          pools={pools}
+          selectedPoolKey={selectedPoolKey}
+          onSelectPoolKey={setSelectedPoolKey}
+        />
 
         {/* Date Selector Card */}
         <BookCalendarGrid
