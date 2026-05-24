@@ -9,6 +9,7 @@ import {
 import { OrphanBookingsCard } from "@/components/orphan-bookings-card";
 import { PathStartDateCard } from "@/components/path-start-date-card";
 import { AutoRenewToggleCard } from "@/components/auto-renew-toggle-card";
+import { TimelineBookingCard } from "@/components/timeline-booking-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,9 +42,6 @@ import {
   Unlink,
   Edit3,
   CalendarDays,
-  Dumbbell,
-  Stethoscope,
-  Ban,
   CheckCircle2,
   Clock,
 } from "lucide-react";
@@ -855,11 +853,6 @@ function ClientPathPage() {
     return map;
   }, [clientBookings, rows]);
 
-  function iconForSession(st: SessionType) {
-    if ((st as string).toLowerCase().includes("triage")) return Stethoscope;
-    return Dumbbell;
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1040,81 +1033,14 @@ function ClientPathPage() {
                             </div>
                           ) : (
                             <div className="flex flex-col gap-2">
-                              {weekBookings.map((bk) => {
-                                const at = parseISO(bk.scheduled_at);
-                                const et = eventTypes.find((e) => e.id === bk.event_type_id);
-                                const Icon = iconForSession(bk.session_type);
-                                const isCancelled =
-                                  bk.status === "cancelled" ||
-                                  bk.status === "late_cancelled" ||
-                                  bk.status === "no_show";
-                                const isCompleted = bk.status === "completed";
-                                // H3: per-booking snapshot first; the
-                                // event_types lookup is a legacy fallback
-                                // for rows inserted before the trigger
-                                // (migration 20260518120000) shipped.
-                                const durationMin = bk.duration_min ?? et?.duration ?? 60;
-                                const end = addDays(at, 0);
-                                end.setMinutes(end.getMinutes() + durationMin);
-                                const dayLabel = format(at, "EEE d MMM", { locale: it }).replace(
-                                  /^./,
-                                  (c) => c.toUpperCase(),
-                                );
-                                const timeRange = `${dayLabel}, ${format(at, "HH:mm")} - ${format(end, "HH:mm")}`;
-                                const label = et?.name ?? bk.title ?? bk.session_type;
-
-                                if (isCancelled) {
-                                  return (
-                                    <div
-                                      key={bk.id}
-                                      onClick={() => setEditingBooking(bk)}
-                                      className="cursor-pointer bg-surface-container-high rounded-2xl p-3 flex items-start gap-3 shadow-sm hover:scale-[1.02] transition-transform border border-border"
-                                    >
-                                      <div className="bg-muted text-muted-foreground p-2 rounded-full flex-shrink-0">
-                                        <Ban className="size-4" />
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <p className="text-xs text-foreground/70 mb-1 line-through">
-                                          {timeRange}
-                                        </p>
-                                        <p className="text-sm text-foreground font-medium line-through truncate">
-                                          {label}
-                                        </p>
-                                      </div>
-                                    </div>
-                                  );
-                                }
-
-                                return (
-                                  <div
-                                    key={bk.id}
-                                    onClick={() => setEditingBooking(bk)}
-                                    className={cn(
-                                      "cursor-pointer rounded-2xl p-3 flex items-start gap-3 shadow-sm bg-white border-l-4 hover:scale-[1.02] transition-transform",
-                                      isCompleted ? "border-emerald-500" : "border-primary",
-                                    )}
-                                  >
-                                    <div
-                                      className={cn(
-                                        "p-2 rounded-full flex-shrink-0",
-                                        isCompleted
-                                          ? "bg-emerald-50 text-emerald-600"
-                                          : "bg-primary/10 text-primary",
-                                      )}
-                                    >
-                                      <Icon className="size-4" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-xs text-foreground/70 mb-1 font-medium">
-                                        {timeRange}
-                                      </p>
-                                      <p className="text-sm text-foreground font-semibold truncate">
-                                        {label}
-                                      </p>
-                                    </div>
-                                  </div>
-                                );
-                              })}
+                              {weekBookings.map((bk) => (
+                                <TimelineBookingCard
+                                  key={bk.id}
+                                  booking={bk}
+                                  eventType={eventTypes.find((e) => e.id === bk.event_type_id)}
+                                  onClick={() => setEditingBooking(bk)}
+                                />
+                              ))}
                             </div>
                           )}
                         </div>
