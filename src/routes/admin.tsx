@@ -32,6 +32,8 @@ import {
 } from "@/components/ui/select";
 import { Loader2, Shield, Users, UserCog, LogOut, Dumbbell } from "lucide-react";
 import { toast } from "sonner";
+import { AdminStatCard } from "@/components/admin-stat-card";
+import { AdminRoleEditor } from "@/components/admin-role-editor";
 
 export const Route = createFileRoute("/admin")({
   // M2 (FULL_APP_AUDIT.md): server-side route guard. The previous
@@ -178,9 +180,9 @@ function AdminPage() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-3">
-          <StatCard icon={Shield} label="Admin" value={admins.length} />
-          <StatCard icon={UserCog} label="Coach" value={coaches.length} />
-          <StatCard icon={Users} label="Clienti" value={clients.length} />
+          <AdminStatCard icon={Shield} label="Admin" value={admins.length} />
+          <AdminStatCard icon={UserCog} label="Coach" value={coaches.length} />
+          <AdminStatCard icon={Users} label="Clienti" value={clients.length} />
         </div>
 
         <Card>
@@ -254,7 +256,7 @@ function AdminPage() {
                             <DialogHeader>
                               <DialogTitle>Cambia ruolo: {p.full_name ?? p.email}</DialogTitle>
                             </DialogHeader>
-                            <RoleEditor current={r} onSubmit={(nr) => changeRole(p.id, nr)} />
+                            <AdminRoleEditor current={r} onSubmit={(nr) => changeRole(p.id, nr)} />
                           </DialogContent>
                         </Dialog>
                       </TableCell>
@@ -270,62 +272,3 @@ function AdminPage() {
   );
 }
 
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: typeof Shield;
-  label: string;
-  value: number;
-}) {
-  return (
-    <Card>
-      <CardContent className="p-5 flex items-center justify-between">
-        <div>
-          <p className="text-sm text-muted-foreground">{label}</p>
-          <p className="font-display text-3xl font-semibold mt-1">{value}</p>
-        </div>
-        <div className="size-10 rounded-full bg-primary/10 text-primary grid place-items-center">
-          <Icon className="size-5" />
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function RoleEditor({
-  current,
-  onSubmit,
-}: {
-  current: "admin" | "coach" | "client";
-  onSubmit: (r: "admin" | "coach" | "client") => void;
-}) {
-  const [r, setR] = useState(current);
-  return (
-    <form
-      className="space-y-4"
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSubmit(r);
-      }}
-    >
-      <div className="space-y-2">
-        <Label>Nuovo ruolo</Label>
-        <Select value={r} onValueChange={(v) => setR(v as "admin" | "coach" | "client")}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="admin">Admin</SelectItem>
-            <SelectItem value="coach">Coach</SelectItem>
-            <SelectItem value="client">Client</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <DialogFooter>
-        <Button type="submit">Salva</Button>
-      </DialogFooter>
-    </form>
-  );
-}
