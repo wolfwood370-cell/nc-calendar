@@ -1072,6 +1072,7 @@ export type Database = {
       }
     }
     Functions: {
+      _auto_renew_cron_run: { Args: never; Returns: number }
       admin_delete_client: { Args: { p_client_id: string }; Returns: undefined }
       audit_misaligned_blocks: {
         Args: { p_coach_id: string }
