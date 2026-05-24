@@ -9,10 +9,10 @@ import { FocusClientPanel } from "@/components/focus-client-panel";
 import { CalendarHeader } from "@/components/calendar-header";
 import { CalendarDaysHeader } from "@/components/calendar-days-header";
 import { CalendarAllDayStrip } from "@/components/calendar-all-day-strip";
-import { layoutDay, type EventPlacement } from "@/lib/calendar-layout";
-import { UserSearch, MessageCircle, HelpCircle } from "lucide-react";
+import { CalendarEventTile } from "@/components/calendar-event-tile";
+import { layoutDay } from "@/lib/calendar-layout";
+import { UserSearch, MessageCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { sessionLabel } from "@/lib/mock-data";
 import { supabase } from "@/integrations/supabase/client";
 import {
   useCoachBookings,
@@ -34,8 +34,6 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
   isAllDayEvent,
-  IMPORT_PREFIX,
-  personalBlockTitle,
   sameDay,
   MobileAgendaView,
 } from "@/components/mobile-calendar-agenda";
@@ -380,136 +378,6 @@ function CalendarPage() {
   }, [user, qc]);
 
   // ----- Render helpers -----
-  const renderEvent = (b: BookingRow, placement: EventPlacement | undefined) => {
-    // Safety net: timedByDay already excludes all-day events, but a
-    // pre-existing booking with a midnight scheduled_at that's also
-    // outside Google's start.date marker could slip in. Bail before
-    // the hour-grid math so it never renders at the top edge.
-    if (isAllDayEvent(b)) return null;
-    const d = new Date(b.scheduled_at);
-    const hour = d.getHours() + d.getMinutes() / 60;
-    if (hour < START_HOUR || hour >= END_HOUR) return null;
-
-    const et = b.event_type_id ? eventTypesMap.get(b.event_type_id) : undefined;
-    // H3: same snapshot-wins rule for the grid; otherwise the height of a
-    // past session would change when the coach edits the event type.
-    const duration = b.duration_min ?? et?.duration ?? 60;
-    const top = (hour - START_HOUR) * HOUR_HEIGHT;
-    const height = Math.max(28, (duration / 60) * HOUR_HEIGHT - 4);
-
-    // Overlap-lane positioning: events that share a time range get split into
-    // side-by-side columns instead of stacking on top of each other.
-    const cols = placement?.cols ?? 1;
-    const col = placement?.col ?? 0;
-    const widthPct = 100 / cols;
-    const leftPct = col * widthPct;
-    const laneStyle = {
-      top,
-      height,
-      left: `calc(${leftPct}% + 4px)`,
-      width: `calc(${widthPct}% - 8px)`,
-    } as const;
-
-    // Personal Block first: an is_personal=true row should not be
-    // re-classified as unassigned/external even if old data has
-    // client_id=coach_id from before the migration.
-    const isPersonal = !!b.is_personal;
-    const isUnassigned = !isPersonal && !b.client_id; // To Review
-    const isExternal = !isPersonal && !!b.client_id && b.client_id === b.coach_id; // Sync senza match
-    const client =
-      !isPersonal && b.client_id && !isExternal ? clientsMap.get(b.client_id) : undefined;
-    const typeLabel = et?.name ?? (b.session_type ? sessionLabel(b.session_type) : "Sessione");
-    const safeDuration = duration > 0 ? duration : 60;
-    const timeLabel = `${d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })} - ${new Date(d.getTime() + safeDuration * 60000).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}`;
-
-    if (isPersonal) {
-      // personalBlockTitle (top of file) prefers the original Google event
-      // title (b.title), then falls back to notes — never produces an
-      // empty string, so the heading is always readable.
-      const title = personalBlockTitle(b);
-      return (
-        <div
-          key={b.id}
-          style={laneStyle}
-          // Aura neutral container — muted enough to read as "blocked
-          // time" while still distinct from the surface-container-low
-          // used for external Google events.
-          className="absolute z-10 bg-surface-container-high border border-outline-variant/40 rounded-2xl p-2 cursor-default"
-          aria-label={`Impegno personale: ${title}`}
-        >
-          <h4 className="text-[12px] leading-tight font-semibold text-on-surface truncate">
-            {title}
-          </h4>
-          <p className="text-[10px] text-outline mt-0.5">Personale · {timeLabel}</p>
-        </div>
-      );
-    }
-
-    if (isUnassigned) {
-      return (
-        <button
-          key={b.id}
-          onClick={() => openReview(b.id)}
-          style={laneStyle}
-          className="absolute z-10 border-2 border-dashed border-warning-border bg-warning-container/40 rounded-2xl p-2 flex flex-col items-center justify-center gap-1 text-tertiary hover:bg-warning-container/70 hover:scale-[1.02] transition-all cursor-pointer"
-        >
-          <div className="flex items-center gap-1.5 text-xs font-semibold">
-            <HelpCircle className="size-3.5 animate-pulse" /> Assegna
-          </div>
-          <div className="text-[10px] opacity-80">{timeLabel}</div>
-        </button>
-      );
-    }
-
-    if (isExternal) {
-      const title = (b.notes ?? "").replace(IMPORT_PREFIX, "") || "Evento esterno";
-      return (
-        <button
-          key={b.id}
-          onClick={() => openReview(b.id)}
-          style={laneStyle}
-          className="absolute z-10 bg-surface-container-low border border-outline-variant/40 rounded-2xl p-2 text-left hover:bg-surface-container transition-colors cursor-pointer"
-          aria-label={`Evento esterno: ${title} — assegna o segna come impegno personale`}
-        >
-          <h4 className="text-[12px] leading-tight font-medium text-on-surface-variant truncate">
-            {title}
-          </h4>
-          <p className="text-[10px] text-outline mt-0.5">{timeLabel}</p>
-        </button>
-      );
-    }
-
-    // Certified — colora l'evento secondo il tipo di evento
-    const eventColor = et?.color || "#003e62";
-    return (
-      <button
-        key={b.id}
-        onClick={() => setFocusClientId(b.client_id)}
-        style={{
-          ...laneStyle,
-          backgroundColor: `color-mix(in oklab, ${eventColor} 18%, white)`,
-          borderLeft: `4px solid ${eventColor}`,
-        }}
-        className="absolute z-10 rounded-2xl p-2 flex flex-col justify-between text-left shadow-sm hover:shadow-md hover:scale-[1.02] hover:z-20 transition-all cursor-pointer"
-      >
-        <div>
-          <h4
-            className="text-[12px] leading-tight font-semibold truncate"
-            style={{ color: `color-mix(in oklab, ${eventColor} 75%, black)` }}
-          >
-            {client?.full_name || "Cliente"} — {typeLabel || "Evento senza titolo"}
-          </h4>
-          <p
-            className="text-[10px] mt-0.5"
-            style={{ color: `color-mix(in oklab, ${eventColor} 65%, black)` }}
-          >
-            {timeLabel}
-          </p>
-        </div>
-      </button>
-    );
-  };
-
   const today = new Date();
 
   return (
@@ -597,7 +465,30 @@ function CalendarPage() {
                           className="absolute left-0 right-0 border-b border-surface-container"
                         />
                       ))}
-                      {(timedByDay[i] ?? []).map((b) => renderEvent(b, layoutByDay[i]?.get(b.id)))}
+                      {(timedByDay[i] ?? []).map((b) => {
+                        const et = b.event_type_id ? eventTypesMap.get(b.event_type_id) : undefined;
+                        const isPersonal = !!b.is_personal;
+                        const isExternal =
+                          !isPersonal && !!b.client_id && b.client_id === b.coach_id;
+                        const client =
+                          !isPersonal && b.client_id && !isExternal
+                            ? clientsMap.get(b.client_id)
+                            : undefined;
+                        return (
+                          <CalendarEventTile
+                            key={b.id}
+                            booking={b}
+                            placement={layoutByDay[i]?.get(b.id)}
+                            eventType={et}
+                            client={client}
+                            hourHeight={HOUR_HEIGHT}
+                            startHour={START_HOUR}
+                            endHour={END_HOUR}
+                            onOpenReview={openReview}
+                            onFocusClient={setFocusClientId}
+                          />
+                        );
+                      })}
                     </div>
                   );
                 })}
