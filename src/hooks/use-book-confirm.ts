@@ -53,7 +53,7 @@ export interface UseBookConfirmInput {
   meName: string;
   meEmail: string;
   mePhone: string | null;
-  coachId: string | undefined;
+  coachId: string | null | undefined;
   coachName: string;
   emailNotificationsEnabled: boolean;
   selectedISO: string | null;

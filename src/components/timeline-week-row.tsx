@@ -17,7 +17,7 @@ export interface TimelineWeekRowData {
   shifted: boolean;
 }
 
-export interface TimelineWeekRowProps {
+export interface TimelineWeekRowProps<TBooking extends TimelineBookingItem = TimelineBookingItem> {
   /** Dati struttura della settimana (week_number, monday_date, shifted). */
   row: TimelineWeekRowData;
   /** Index della riga dentro il blocco — passato a onWeekDateChange. */
@@ -25,13 +25,13 @@ export interface TimelineWeekRowProps {
   /** Data "now" usata per evidenziare past/current. */
   today: Date;
   /** Bookings effettivi associati a questa settimana (filtrati upstream). */
-  weekBookings: readonly TimelineBookingItem[];
+  weekBookings: readonly TBooking[];
   /** Catalogo event_types per lookup (passato a ogni TimelineBookingCard). */
   eventTypes: readonly TimelineBookingEventType[];
   /** Chiamato quando il coach cambia la data della settimana dal Calendar popup. */
   onWeekDateChange: (idx: number, newDate: Date) => void;
   /** Chiamato quando il coach clicca un booking card per aprire EditBookingDialog. */
-  onBookingClick: (booking: TimelineBookingItem) => void;
+  onBookingClick: (booking: TBooking) => void;
 }
 
 /**
@@ -41,7 +41,7 @@ export interface TimelineWeekRowProps {
  * (oggi cade dentro) o se è "shifted" (data spostata manualmente dal coach).
  * Opacity ridotta se la settimana è passata.
  */
-export function TimelineWeekRow({
+export function TimelineWeekRow<TBooking extends TimelineBookingItem = TimelineBookingItem>({
   row,
   idx,
   today,
@@ -49,7 +49,7 @@ export function TimelineWeekRow({
   eventTypes,
   onWeekDateChange,
   onBookingClick,
-}: TimelineWeekRowProps) {
+}: TimelineWeekRowProps<TBooking>) {
   const date = row.monday_date ? parseISO(row.monday_date) : null;
   const weekEnd = date ? addDays(date, 7) : null;
   const isPast = weekEnd ? isBefore(weekEnd, today) : false;
