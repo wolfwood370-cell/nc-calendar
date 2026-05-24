@@ -22,6 +22,7 @@ import {
   getCurrentPushSubscription,
 } from "@/lib/push";
 import { toast } from "sonner";
+import { SettingsRow, SettingsDivider } from "@/components/settings-row";
 
 export const Route = createFileRoute("/client/settings")({
   component: ClientSettings,
@@ -237,7 +238,7 @@ function ClientSettings() {
             Notifiche
           </h3>
           <div className="bg-surface-container-lowest rounded-[1.5rem] shadow-soft-card border border-outline-variant/30 overflow-hidden">
-            <Row
+            <SettingsRow
               icon={<Bell className="size-5" />}
               title="Notifiche Push"
               subtitle={
@@ -261,8 +262,8 @@ function ClientSettings() {
                 )
               }
             />
-            <Divider />
-            <Row
+            <SettingsDivider />
+            <SettingsRow
               icon={<Mail className="size-5" />}
               title="Email di conferma"
               subtitle="Ricevi email per ogni prenotazione"
@@ -411,31 +412,3 @@ function ClientSettings() {
   );
 }
 
-function Row({
-  icon,
-  title,
-  subtitle,
-  control,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  subtitle?: string;
-  control: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-center gap-4 px-5 py-4">
-      <span className="size-10 rounded-full bg-primary-container/10 text-primary-container grid place-items-center">
-        {icon}
-      </span>
-      <div className="flex-1 min-w-0">
-        <p className="text-base font-medium text-on-surface">{title}</p>
-        {subtitle && <p className="text-sm text-on-surface-variant">{subtitle}</p>}
-      </div>
-      {control}
-    </div>
-  );
-}
-
-function Divider() {
-  return <div className="h-px bg-outline-variant/40 mx-5" />;
-}
