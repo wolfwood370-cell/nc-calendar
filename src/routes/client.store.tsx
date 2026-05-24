@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { BoosterCard } from "@/components/booster-card";
-import { AuraProgressRing } from "@/components/ui/aura-progress-ring";
+import { OwnedBoosterCard } from "@/components/owned-booster-card";
 import { useClientExtraCredits } from "@/lib/queries";
 
 export const Route = createFileRoute("/client/store")({
@@ -193,57 +193,17 @@ function StorePage() {
               I tuoi Booster attivi
             </h2>
             <div className="grid gap-4 sm:grid-cols-2">
-              {ownedCredits.map((c) => {
-                const total = c.quantity;
-                const used = c.quantity_booked;
-                const remaining = c.remaining;
-                const isLow = total > 0 && remaining > 0 && remaining <= 2;
-                return (
-                  <article
-                    key={c.id}
-                    className="bg-surface-container-lowest rounded-[32px] border border-outline-variant/20 shadow-[0_12px_32px_rgba(0,0,0,0.04)] p-5 flex items-center gap-4"
-                    aria-label={`Booster ${c.eventName}: ${remaining} di ${total} crediti rimanenti`}
-                  >
-                    <AuraProgressRing
-                      used={used}
-                      total={total}
-                      size={84}
-                      strokeWidth={8}
-                      // Center label reads as the user's question: "how many
-                      // credits do I still have?" → remaining / total.
-                      label={`${remaining} / ${total}`}
-                    />
-                    <div className="flex-1 min-w-0 flex flex-col gap-1">
-                      <h3 className="text-base font-semibold text-on-surface truncate">
-                        {c.eventName}
-                      </h3>
-                      <p className="text-xs text-on-surface-variant">
-                        Scade il{" "}
-                        {new Date(c.expires_at).toLocaleDateString("it-IT", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </p>
-                      {isLow && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            // Default to the single-session top-up; the
-                            // pricing table seeds 'single' for everyone.
-                            handlePurchase("single");
-                          }}
-                          disabled={!canPurchaseAddons || loadingPkg !== null}
-                          className="mt-1 inline-flex self-start items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-tertiary-container/20 text-tertiary disabled:opacity-50"
-                        >
-                          <Sparkles className="size-3.5" />
-                          Ricarica Crediti
-                        </button>
-                      )}
-                    </div>
-                  </article>
-                );
-              })}
+              {ownedCredits.map((c) => (
+                <OwnedBoosterCard
+                  key={c.id}
+                  credit={c}
+                  canPurchaseAddons={canPurchaseAddons}
+                  isPurchaseLoading={loadingPkg !== null}
+                  // Default to the single-session top-up; the pricing
+                  // table seeds 'single' for everyone.
+                  onRecharge={() => handlePurchase("single")}
+                />
+              ))}
             </div>
           </div>
         )}
