@@ -58,6 +58,12 @@ export function initSentry(): void {
       return event;
     },
   });
+
+  // Esponi Sentry su window per testing rapido da DevTools console:
+  //   Sentry.captureException(new Error("test"))
+  if (typeof window !== "undefined") {
+    (window as unknown as { Sentry: typeof Sentry }).Sentry = Sentry;
+  }
 }
 
 /** Re-export comune per uso esterno (es. catch block manuale). */
