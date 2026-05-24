@@ -2,16 +2,15 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useIsBelowXl } from "@/hooks/use-mobile";
 import { useGcalWatchRenewal } from "@/hooks/use-gcal-watch-renewal";
-import { FocusClientPanel } from "@/components/focus-client-panel";
 import { CalendarHeader } from "@/components/calendar-header";
 import { CalendarDaysHeader } from "@/components/calendar-days-header";
 import { CalendarAllDayStrip } from "@/components/calendar-all-day-strip";
 import { CalendarEventTile } from "@/components/calendar-event-tile";
+import { CalendarContextPanel } from "@/components/calendar-context-panel";
 import { layoutDay } from "@/lib/calendar-layout";
-import { UserSearch, MessageCircle } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -498,54 +497,15 @@ function CalendarPage() {
         </div>
       </section>
 
-      {/* CONTEXT PANEL — desktop only (xl+); the same content renders inside
-          a Sheet below xl, see <Sheet> further down. */}
-      <aside className="hidden xl:flex flex-col w-80 border-l border-surface-variant bg-surface sticky top-0 h-screen">
-        <div className="p-6 border-b border-surface-variant bg-white/50 backdrop-blur-md">
-          <h3 className="text-lg font-bold text-aura-primary flex items-center gap-2">
-            <UserSearch className="size-5" /> Focus Cliente
-          </h3>
-        </div>
-        <div className="p-6 overflow-y-auto flex-1 space-y-4">
-          <FocusClientPanel
-            focusClient={focusClient}
-            focusClientId={focusClientId}
-            isLoading={clientsQ.isLoading}
-            lastNote={lastNoteQ.data ?? null}
-            isLoadingNote={lastNoteQ.isLoading}
-          />
-        </div>
-      </aside>
-
-      {/* MOBILE SHEET — only active below xl. Shows the same focus-client
-          content as the desktop aside; closing the Sheet clears
-          focusClientId so reopening starts clean. */}
-      <Sheet
-        open={isBelowXl && !!focusClientId}
-        onOpenChange={(open) => {
-          if (!open) setFocusClientId(null);
-        }}
-      >
-        <SheetContent
-          side="right"
-          className="bg-surface-container-lowest w-full sm:max-w-md rounded-l-[32px] border-l-0 p-0 flex flex-col gap-0"
-        >
-          <SheetHeader className="p-6 border-b border-outline-variant/30 bg-surface-container-lowest/80 backdrop-blur-md text-left space-y-0">
-            <SheetTitle className="text-lg font-bold text-aura-primary flex items-center gap-2">
-              <UserSearch className="size-5" /> Focus Cliente
-            </SheetTitle>
-          </SheetHeader>
-          <div className="p-6 overflow-y-auto flex-1 space-y-4">
-            <FocusClientPanel
-              focusClient={focusClient}
-              focusClientId={focusClientId}
-              isLoading={clientsQ.isLoading}
-              lastNote={lastNoteQ.data ?? null}
-              isLoadingNote={lastNoteQ.isLoading}
-            />
-          </div>
-        </SheetContent>
-      </Sheet>
+      <CalendarContextPanel
+        focusClient={focusClient}
+        focusClientId={focusClientId}
+        isClientsLoading={clientsQ.isLoading}
+        lastNote={lastNoteQ.data ?? null}
+        isNoteLoading={lastNoteQ.isLoading}
+        isBelowXl={isBelowXl}
+        onCloseFocus={() => setFocusClientId(null)}
+      />
 
       {/* The Assign / Personal / Consulenza dialog is now mounted globally
           in the /trainer layout (src/routes/trainer.tsx) and driven by the
