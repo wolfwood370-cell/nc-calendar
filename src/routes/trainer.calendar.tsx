@@ -7,6 +7,8 @@ import { useIsBelowXl } from "@/hooks/use-mobile";
 import { useGcalWatchRenewal } from "@/hooks/use-gcal-watch-renewal";
 import { FocusClientPanel } from "@/components/focus-client-panel";
 import { CalendarHeader } from "@/components/calendar-header";
+import { CalendarDaysHeader } from "@/components/calendar-days-header";
+import { CalendarAllDayStrip } from "@/components/calendar-all-day-strip";
 import { layoutDay, type EventPlacement } from "@/lib/calendar-layout";
 import { UserSearch, MessageCircle, HelpCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -31,10 +33,8 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
-  DAY_LABELS,
   isAllDayEvent,
   IMPORT_PREFIX,
-  AllDayPill,
   personalBlockTitle,
   sameDay,
   MobileAgendaView,
@@ -559,64 +559,10 @@ function CalendarPage() {
           className={`hidden md:flex flex-1 bg-white rounded-[32px] shadow-soft-blue border border-surface-container overflow-hidden md:flex-col`}
         >
           {/* Days header */}
-          <div className="flex border-b border-surface-container bg-surface sticky top-0 z-20">
-            <div className="w-16 shrink-0 border-r border-surface-container" />
-            <div className="flex-1 grid grid-cols-7">
-              {weekDays.map((d, i) => {
-                const isToday = sameDay(d, today);
-                return (
-                  <div
-                    key={i}
-                    className={`p-3 text-center border-r border-surface-container last:border-r-0 ${isToday ? "bg-primary-fixed/30" : ""}`}
-                  >
-                    <div
-                      className={`text-[11px] uppercase tracking-wider ${isToday ? "text-aura-primary font-bold" : "text-outline"}`}
-                    >
-                      {DAY_LABELS[i]}
-                    </div>
-                    <div
-                      className={`text-xl mt-1 ${isToday ? "text-aura-primary font-bold" : "font-semibold"}`}
-                    >
-                      {d.getDate()}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          <CalendarDaysHeader weekDays={weekDays} today={today} />
 
-          {/* All-day strip — only renders when at least one day in the
-              week has all-day events. Sits between the day header and
-              the hour grid so Google birthdays/anniversaries are always
-              visible without competing for vertical space against timed
-              sessions in the lanes below. */}
-          {allDayByDay.some((d) => d.length > 0) && (
-            <div
-              className="flex border-b border-surface-container bg-surface/60"
-              aria-label="Eventi giornalieri"
-            >
-              <div className="w-16 shrink-0 border-r border-surface-container flex items-center justify-center">
-                <span className="text-[10px] uppercase tracking-wider text-outline">
-                  Tutto il dì
-                </span>
-              </div>
-              <div className="flex-1 grid grid-cols-7">
-                {weekDays.map((_, i) => {
-                  const items = allDayByDay[i] ?? [];
-                  return (
-                    <div
-                      key={i}
-                      className="border-r border-surface-container last:border-r-0 px-1.5 py-1.5 flex flex-col gap-1 min-h-[36px]"
-                    >
-                      {items.map((b) => (
-                        <AllDayPill key={b.id} booking={b} compact />
-                      ))}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          {/* All-day strip — Google birthdays/anniversaries sopra il time grid. */}
+          <CalendarAllDayStrip weekDays={weekDays} allDayByDay={allDayByDay} />
 
           {/* Time grid */}
           <div className="flex-1 overflow-y-auto">
