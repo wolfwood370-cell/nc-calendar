@@ -6,18 +6,11 @@ import {
   EditBookingDialog,
   type EditableBooking,
 } from "@/components/edit-booking-dialog";
+import { OrphanBookingsCard } from "@/components/orphan-bookings-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -44,9 +37,6 @@ import {
   Loader2,
   Save,
   RotateCcw,
-  Sparkles,
-  Check,
-  X as XIcon,
   Plus,
   Trash2,
   Unlink,
@@ -922,52 +912,11 @@ function ClientPathPage() {
         </Card>
       )}
 
-      {orphans.length > 0 && (
-        <Card className="border-primary/40">
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Sparkles className="size-4 text-primary" /> Sessioni da Revisionare ({orphans.length}
-              )
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Titolo</TableHead>
-                  <TableHead className="text-right">Azioni</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {orphans.map((o) => (
-                  <TableRow key={o.id}>
-                    <TableCell className="text-sm">
-                      {format(parseISO(o.scheduled_at), "EEE dd MMM yyyy HH:mm", { locale: it })}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      <div className="font-medium">{o.title ?? "(senza titolo)"}</div>
-                      {o.notes && (
-                        <div className="text-xs text-muted-foreground line-clamp-1">{o.notes}</div>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button size="sm" variant="default" onClick={() => confirmOrphan(o)}>
-                          <Check className="size-4" /> Conferma
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => discardOrphan(o)}>
-                          <XIcon className="size-4" /> Scarta
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
+      <OrphanBookingsCard
+        orphans={orphans}
+        onConfirm={confirmOrphan}
+        onDiscard={discardOrphan}
+      />
 
       <Card>
         <CardHeader>
