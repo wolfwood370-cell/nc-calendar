@@ -7,8 +7,12 @@
 // call it on dashboard mount so the same logic handles both runtime
 // state and historical cleanup (single source of truth).
 //
-// See supabase/migrations/20260524110000_block_auto_renew.sql for the
-// RPC + grace + FIFO semantics.
+// See supabase/migrations/20260525120000_ensure_immediate_successor.sql
+// for the current RPC body and grace/FIFO semantics, and
+// 20260525130000_path_start_anchored_blocks.sql for the v2 wrapper
+// that auto-repairs alignment before the expiry check. A pg_cron
+// nightly job (20260524140000_pg_cron_auto_renew.sql) provides
+// proactive renewal independent of this lazy path.
 // ----------------------------------------------------------------------------
 
 import { useQuery } from "@tanstack/react-query";
