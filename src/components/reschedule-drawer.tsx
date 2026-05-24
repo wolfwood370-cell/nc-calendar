@@ -58,95 +58,12 @@ interface RescheduleDrawerProps {
 
 // 14-day rolling window starting today. The drawer prevents picking a
 // past slot via the "before now" filter below.
-const WINDOW_DAYS = 14;
-const SLOT_STEP_MIN = 30;
-
-function startOfDay(d: Date): Date {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
-function addDays(d: Date, n: number): Date {
-  const x = new Date(d);
-  x.setDate(x.getDate() + n);
-  return x;
-}
-function toIsoDate(d: Date): string {
-  return d.toLocaleDateString("sv-SE"); // YYYY-MM-DD, no UTC shift
-}
-function jsDowToIso(d: number): number {
-  return d === 0 ? 7 : d;
-}
-
-// Parse "HH:MM" or "HH:MM:SS" into minutes from midnight.
-function parseTimeMin(s: string | null): number | null {
-  if (!s) return null;
-  const [h, m] = s.split(":");
-  if (!h || !m) return null;
-  return Number(h) * 60 + Number(m);
-}
-
-interface Slot {
-  iso: string;
-  date: Date;
-}
-
-function buildSlots(
-  day: Date,
-  durationMin: number,
-  availability: AvailabilityRow[],
-  exceptions: AvailabilityExceptionRow[],
-  busyRanges: Array<{ start: number; end: number }>,
-  excludeBookingStart: number | null,
-): Slot[] {
-  const dow = jsDowToIso(day.getDay());
-  const rules = availability.filter((a) => a.day_of_week === dow);
-  if (rules.length === 0) return [];
-
-  const dateOnly = toIsoDate(day);
-  const exForDay = exceptions.filter((e) => e.date === dateOnly);
-  // Full-day block exception (no start/end) → no slots that day.
-  if (exForDay.some((e) => !e.start_time && !e.end_time)) return [];
-
-  const slots: Slot[] = [];
-  const now = Date.now();
-  for (const rule of rules) {
-    const ruleStart = parseTimeMin(rule.start_time);
-    const ruleEnd = parseTimeMin(rule.end_time);
-    if (ruleStart === null || ruleEnd === null) continue;
-    for (let m = ruleStart; m + durationMin <= ruleEnd; m += SLOT_STEP_MIN) {
-      // Block by partial exceptions on the same day
-      const blockedByException = exForDay.some((e) => {
-        const exStart = parseTimeMin(e.start_time);
-        const exEnd = parseTimeMin(e.end_time);
-        if (exStart === null || exEnd === null) return false;
-        return m < exEnd && m + durationMin > exStart;
-      });
-      if (blockedByException) continue;
-
-      const slotStart = new Date(day);
-      slotStart.setHours(0, 0, 0, 0);
-      slotStart.setMinutes(m);
-      const slotStartMs = slotStart.getTime();
-      const slotEndMs = slotStartMs + durationMin * 60_000;
-      if (slotStartMs < now) continue;
-
-      // Skip slots overlapping busy coach ranges, EXCEPT the current
-      // booking's own window — we're about to cancel it so it shouldn't
-      // block its own rescheduling.
-      const blockedByBusy = busyRanges.some(
-        (r) =>
-          slotStartMs < r.end &&
-          slotEndMs > r.start &&
-          !(excludeBookingStart !== null && r.start === excludeBookingStart),
-      );
-      if (blockedByBusy) continue;
-
-      slots.push({ iso: slotStart.toISOString(), date: slotStart });
-    }
-  }
-  return slots;
-}
+import {
+  RESCHEDULE_WINDOW_DAYS as WINDOW_DAYS,
+  startOfDay,
+  addDays,
+  buildSlots,
+} from "@/lib/reschedule-slots";
 
 const DAY_SHORT = ["Dom", "Lun", "Mar", "Mer", "Gio", "Ven", "Sab"];
 
