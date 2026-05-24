@@ -12,6 +12,16 @@ import {
 import { queryKeys } from "@/lib/query-keys";
 import { sessionLabel, type SessionType } from "@/lib/mock-data";
 import { initials } from "@/lib/initials";
+import {
+  startOfToday,
+  endOfToday,
+  startOfMonth,
+  endOfMonth,
+  sevenDaysAgo,
+  thirtyDaysAgo,
+} from "@/lib/date-windows";
+import { iconForType } from "@/lib/session-type-icon";
+import { QuickStat } from "@/components/quick-stat";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AuraCardSkeleton,
@@ -31,8 +41,6 @@ import {
   UserPlus,
   AlertTriangle,
   Hourglass,
-  Dumbbell,
-  Stethoscope,
   Sparkles,
   CheckCircle2,
   Clock,
@@ -45,43 +53,6 @@ export const Route = createFileRoute("/trainer/")({
 });
 
 const GLASS = "bg-white/60 backdrop-blur-xl border border-white/40";
-
-function startOfToday() {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-function endOfToday() {
-  const d = new Date();
-  d.setHours(23, 59, 59, 999);
-  return d;
-}
-function startOfMonth() {
-  const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), 1);
-}
-function endOfMonth() {
-  const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
-}
-function sevenDaysAgo() {
-  const d = new Date();
-  d.setDate(d.getDate() - 7);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-function thirtyDaysAgo() {
-  const d = new Date();
-  d.setDate(d.getDate() - 30);
-  return d;
-}
-
-function iconForType(name: string | undefined) {
-  const n = (name ?? "").toLowerCase();
-  if (n.includes("triage") || n.includes("bia") || n.includes("test")) return Stethoscope;
-  if (n.includes("massa") || n.includes("spa")) return Sparkles;
-  return Dumbbell;
-}
 
 function Overview() {
   const { user } = useAuth();
@@ -1020,24 +991,3 @@ function Overview() {
   );
 }
 
-function QuickStat({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: number;
-}) {
-  return (
-    <div
-      className={`${GLASS} p-6 rounded-[32px] shadow-soft-card flex flex-col items-center justify-center text-center`}
-    >
-      <Icon className="size-7 text-aura-primary mb-2" />
-      <p className="text-xs uppercase tracking-wider text-on-surface-variant mb-1 font-semibold">
-        {label}
-      </p>
-      <p className="font-display text-4xl font-bold text-on-background tabular-nums">{value}</p>
-    </div>
-  );
-}
