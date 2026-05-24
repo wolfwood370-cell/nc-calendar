@@ -66,6 +66,7 @@ import {
 import { InviteClientDialog } from "@/components/invite-client-dialog";
 import { CredentialsDialog } from "@/components/credentials-dialog";
 import { ClientCardMenu } from "@/components/client-card-menu";
+import { ClientStatusTabs } from "@/components/client-status-tabs";
 import { initials } from "@/lib/initials";
 
 export const Route = createFileRoute("/trainer/clients/")({
@@ -773,24 +774,13 @@ function ClientsPage() {
           </div>
 
           {/* Tabs as scrollable pills */}
-          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-            {tabs.map((t) => {
-              const isActive = activeTab === t.key;
-              return (
-                <button
-                  key={`m-${t.key}`}
-                  onClick={() => setActiveTab(t.key)}
-                  className={`shrink-0 px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-colors ${
-                    isActive
-                      ? "bg-primary-fixed text-on-primary-fixed-variant"
-                      : "bg-surface-container text-on-surface-variant"
-                  }`}
-                >
-                  {t.label} ({t.count})
-                </button>
-              );
-            })}
-          </div>
+          <ClientStatusTabs
+            tabs={tabs}
+            activeKey={activeTab}
+            onSelect={setActiveTab}
+            variant="compact"
+            keyPrefix="m-"
+          />
 
           {/* Client cards — AuraCardSkeletons during first load, with
               circular avatar + name + pill chip placeholders that match
@@ -936,24 +926,7 @@ function ClientsPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-8 overflow-x-auto pb-1">
-          {tabs.map((t) => {
-            const isActive = activeTab === t.key;
-            return (
-              <button
-                key={t.key}
-                onClick={() => setActiveTab(t.key)}
-                className={`px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-colors ${
-                  isActive
-                    ? "bg-primary-fixed text-on-primary-fixed-variant"
-                    : "bg-surface-container text-on-surface-variant hover:bg-surface-variant"
-                }`}
-              >
-                {t.label} ({t.count})
-              </button>
-            );
-          })}
-        </div>
+        <ClientStatusTabs tabs={tabs} activeKey={activeTab} onSelect={setActiveTab} />
 
         {/* Pending invitations */}
         {pending.length > 0 && (
