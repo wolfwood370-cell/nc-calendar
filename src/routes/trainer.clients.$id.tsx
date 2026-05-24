@@ -7,6 +7,7 @@ import {
   type EditableBooking,
 } from "@/components/edit-booking-dialog";
 import { OrphanBookingsCard } from "@/components/orphan-bookings-card";
+import { PathStartDateCard } from "@/components/path-start-date-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,7 +34,6 @@ import {
 } from "@/components/ui/select";
 import {
   ArrowLeft,
-  CalendarIcon,
   Loader2,
   Save,
   RotateCcw,
@@ -918,43 +918,13 @@ function ClientPathPage() {
         onDiscard={discardOrphan}
       />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Data Inizio Percorso</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-wrap items-center gap-4">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  "w-64 justify-start text-left font-normal",
-                  !pathStart && "text-muted-foreground",
-                )}
-              >
-                <CalendarIcon className="size-4" />
-                {pathStart
-                  ? format(pathStart, "EEEE dd MMMM yyyy", { locale: it })
-                  : "Seleziona un lunedì"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={pathStart}
-                onSelect={handleStartChange}
-                weekStartsOn={1}
-                initialFocus
-                className={cn("p-3 pointer-events-auto")}
-              />
-            </PopoverContent>
-          </Popover>
-          <p className="text-sm text-muted-foreground">
-            Solo i lunedì sono validi. Settimane totali: <strong>{totalWeeks}</strong> (
-            {totalBlocks} blocchi × {WEEKS_PER_BLOCK})
-          </p>
-        </CardContent>
-      </Card>
+      <PathStartDateCard
+        pathStart={pathStart}
+        onSelectStart={handleStartChange}
+        totalWeeks={totalWeeks}
+        totalBlocks={totalBlocks}
+        weeksPerBlock={WEEKS_PER_BLOCK}
+      />
 
       {/* Timeline del Percorso */}
       <div>
