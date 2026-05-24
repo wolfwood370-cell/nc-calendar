@@ -9,13 +9,11 @@ import {
 import { OrphanBookingsCard } from "@/components/orphan-bookings-card";
 import { PathStartDateCard } from "@/components/path-start-date-card";
 import { AutoRenewToggleCard } from "@/components/auto-renew-toggle-card";
-import { TimelineBookingCard } from "@/components/timeline-booking-card";
+import { TimelineWeekRow } from "@/components/timeline-week-row";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 
 import {
   Dialog,
@@ -41,7 +39,6 @@ import {
   Trash2,
   Unlink,
   Edit3,
-  CalendarDays,
   CheckCircle2,
   Clock,
 } from "lucide-react";
@@ -52,7 +49,7 @@ import { useCoachEventTypes } from "@/lib/queries";
 import { queryKeys } from "@/lib/query-keys";
 import type { SessionType } from "@/lib/mock-data";
 import { toast } from "sonner";
-import { format, addDays, startOfDay, isBefore, parseISO } from "date-fns";
+import { format, addDays, startOfDay, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import { cn, errorMessage } from "@/lib/utils";
 
@@ -978,74 +975,18 @@ function ClientPathPage() {
 
                   {/* 4-week grid */}
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                    {blockRows.map(({ row, idx }) => {
-                      const date = row.monday_date ? parseISO(row.monday_date) : null;
-                      const weekEnd = date ? addDays(date, 7) : null;
-                      const isPast = weekEnd ? isBefore(weekEnd, today) : false;
-                      const isCurrent =
-                        date && weekEnd
-                          ? !isBefore(today, date) && isBefore(today, weekEnd)
-                          : false;
-                      const weekBookings = bookingsByRowIdx[idx] ?? [];
-                      return (
-                        <div
-                          key={row.week_number}
-                          className={cn("space-y-3", isPast && "opacity-70")}
-                        >
-                          {/* Pill date header */}
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <button
-                                className={cn(
-                                  "w-full bg-surface-container hover:bg-surface-container-high transition-colors rounded-full px-4 py-2 flex items-center justify-between border-2",
-                                  isCurrent
-                                    ? "border-primary ring-2 ring-primary/30 shadow-[0_0_16px_rgba(0,86,133,0.25)]"
-                                    : row.shifted
-                                      ? "border-primary"
-                                      : "border-transparent",
-                                )}
-                                title={row.shifted ? "Settimana spostata" : "Modifica data"}
-                              >
-                                <span className="text-sm font-bold text-on-surface px-2">
-                                  {date ? format(date, "EEEE d MMM", { locale: it }) : "—"}
-                                </span>
-                                <CalendarDays className="size-4 text-on-surface" />
-                              </button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                              <Calendar
-                                mode="single"
-                                selected={date ?? undefined}
-                                onSelect={(d) => d && handleWeekDateChange(idx, d)}
-                                weekStartsOn={1}
-                                initialFocus
-                                className={cn("p-3 pointer-events-auto")}
-                              />
-                            </PopoverContent>
-                          </Popover>
-
-                          {/* Bookings */}
-                          {weekBookings.length === 0 ? (
-                            <div className="border border-dashed border-border rounded-2xl p-4 flex items-center justify-center text-center bg-background/50 h-24">
-                              <span className="text-sm text-muted-foreground italic">
-                                Nessun appuntamento previsto
-                              </span>
-                            </div>
-                          ) : (
-                            <div className="flex flex-col gap-2">
-                              {weekBookings.map((bk) => (
-                                <TimelineBookingCard
-                                  key={bk.id}
-                                  booking={bk}
-                                  eventType={eventTypes.find((e) => e.id === bk.event_type_id)}
-                                  onClick={() => setEditingBooking(bk)}
-                                />
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                    {blockRows.map(({ row, idx }) => (
+                      <TimelineWeekRow
+                        key={row.week_number}
+                        row={row}
+                        idx={idx}
+                        today={today}
+                        weekBookings={bookingsByRowIdx[idx] ?? []}
+                        eventTypes={eventTypes}
+                        onWeekDateChange={handleWeekDateChange}
+                        onBookingClick={setEditingBooking}
+                      />
+                    ))}
                   </div>
                 </section>
               );
