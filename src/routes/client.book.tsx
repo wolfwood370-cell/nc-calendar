@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useRef, useState, useEffect } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import { sessionLabel, type SessionType } from "@/lib/mock-data";
 import {
   useClientBlocks,
@@ -30,23 +30,11 @@ import { useAuth } from "@/lib/auth";
 import { useCurrentBlock } from "@/hooks/use-current-block";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { invalidateBookingScope } from "@/lib/query-keys";
-import {
-  format,
-  startOfMonth,
-  endOfMonth,
-  startOfWeek,
-  endOfWeek,
-  addDays,
-  addMonths,
-  isSameDay,
-  isSameMonth,
-  isBefore,
-  startOfDay,
-  parseISO,
-} from "date-fns";
+import { format, startOfMonth, addDays, startOfDay, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import { EmptyStateCard } from "@/components/empty-state-card";
 import { generateSlots, type Slot, type BlockedRange } from "@/lib/booking-slots";
+import { BookCalendarGrid } from "@/components/book-calendar-grid";
 
 export const Route = createFileRoute("/client/book")({
   component: BookFlow,
@@ -597,17 +585,9 @@ function BookFlow() {
     }
   };
 
-  const monthStart = startOfMonth(calendarMonth);
-  const monthEnd = endOfMonth(calendarMonth);
-  const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 });
-  const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
-  const calendarDays: Date[] = [];
-  for (let d = gridStart; d <= gridEnd; d = addDays(d, 1)) calendarDays.push(d);
-
   const selectedSlot = selectedISO ? (slots.find((s) => s.iso === selectedISO) ?? null) : null;
-
-  const goPrevMonth = () => setCalendarMonth((m) => addMonths(m, -1));
-  const goNextMonth = () => setCalendarMonth((m) => addMonths(m, 1));
+  const selectedPoolValidUntil =
+    pools.find((p) => p.key === selectedPoolKey)?.validUntil ?? null;
 
   return (
     <div className="bg-surface min-h-screen pb-32">
@@ -664,77 +644,18 @@ function BookFlow() {
         </section>
 
         {/* Date Selector Card */}
-        <section className="bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-6">
-          <div className="flex justify-between items-center mb-6">
-            <button
-              onClick={goPrevMonth}
-              className="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-colors"
-              aria-label="Mese precedente"
-            >
-              <ChevronLeft className="size-5" />
-            </button>
-            <span className="font-display font-semibold text-xl text-on-surface capitalize">
-              {format(calendarMonth, "MMMM yyyy", { locale: it })}
-            </span>
-            <button
-              onClick={goNextMonth}
-              className="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-colors"
-              aria-label="Mese successivo"
-            >
-              <ChevronRight className="size-5" />
-            </button>
-          </div>
-          <div className="grid grid-cols-7 gap-y-2 text-center">
-            {["L", "M", "M", "G", "V", "S", "D"].map((d, i) => (
-              <div key={i} className="text-xs font-semibold text-outline mb-2">
-                {d}
-              </div>
-            ))}
-            {calendarDays.map((day) => {
-              const inMonth = isSameMonth(day, calendarMonth);
-              const past = isBefore(day, todayStart);
-              const dayKey = format(day, "yyyy-MM-dd");
-              const hasSlots = daysWithSlots.has(dayKey);
-              const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
-              const selectedPool = pools.find((p) => p.key === selectedPoolKey) ?? null;
-              const expired = !!(
-                selectedPool?.validUntil && isBefore(selectedPool.validUntil, day)
-              );
-              const disabled = past || !hasSlots || expired;
-              return (
-                <div key={dayKey} className="flex justify-center items-center py-1">
-                  <button
-                    type="button"
-                    disabled={disabled}
-                    onClick={() => {
-                      setSelectedDate(day);
-                      setSelectedISO(null);
-                    }}
-                    className={`w-10 h-10 rounded-full flex items-center justify-center text-sm transition-colors ${
-                      isSelected
-                        ? "bg-primary-container text-on-primary font-semibold shadow-sm"
-                        : !inMonth || disabled
-                          ? "text-outline-variant cursor-not-allowed"
-                          : "text-on-surface hover:bg-surface-container-low cursor-pointer"
-                    }`}
-                  >
-                    {format(day, "d")}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-          {(() => {
-            const selectedPool = pools.find((p) => p.key === selectedPoolKey) ?? null;
-            if (!selectedPool?.validUntil) return null;
-            return (
-              <p className="mt-stack-md text-xs text-on-surface-variant text-center">
-                I crediti per questa tipologia scadono il{" "}
-                {format(selectedPool.validUntil, "d MMMM yyyy", { locale: it })}.
-              </p>
-            );
-          })()}
-        </section>
+        <BookCalendarGrid
+          calendarMonth={calendarMonth}
+          onMonthChange={setCalendarMonth}
+          selectedDate={selectedDate}
+          onSelectDate={(day) => {
+            setSelectedDate(day);
+            setSelectedISO(null);
+          }}
+          daysWithSlots={daysWithSlots}
+          todayStart={todayStart}
+          selectedPoolValidUntil={selectedPoolValidUntil}
+        />
 
         {/* Available Times */}
         <section>
