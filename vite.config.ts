@@ -14,6 +14,34 @@ export default defineConfig({
     server: { entry: "server" },
   },
   vite: {
+    build: {
+      // Pre-extraction baseline: router-*.js = 1051 KB, server-*.js = 727 KB
+      // (both above Vite's 500 KB warning threshold). Splitting heavy
+      // vendor groups into their own chunks reduces the initial parse
+      // cost for first-paint, and keeps the router chunk reusable
+      // across pages so per-route caching stays effective.
+      rollupOptions: {
+        output: {
+          manualChunks: (id) => {
+            if (!id.includes("node_modules")) return undefined;
+            // Lucide ships ~1000 SVG components — keeping them in a
+            // dedicated chunk avoids re-bundling the whole icon set
+            // into every route file.
+            if (id.includes("lucide-react")) return "vendor-lucide";
+            // Radix UI primitives are split across many tiny packages,
+            // but they all rev together — grouping them avoids the
+            // long-tail of micro-chunks.
+            if (id.includes("@radix-ui/")) return "vendor-radix";
+            // date-fns + its locales sit at ~80 KB combined.
+            if (id.includes("date-fns")) return "vendor-datefns";
+            // Supabase auth + postgrest + realtime — heavy on the
+            // initial JS payload but rarely changes.
+            if (id.includes("@supabase/")) return "vendor-supabase";
+            return undefined;
+          },
+        },
+      },
+    },
     plugins: [
       VitePWA({
         registerType: "autoUpdate",
