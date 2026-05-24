@@ -8,14 +8,13 @@ import {
 } from "@/components/edit-booking-dialog";
 import { OrphanBookingsCard } from "@/components/orphan-bookings-card";
 import { PathStartDateCard } from "@/components/path-start-date-card";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AutoRenewToggleCard } from "@/components/auto-renew-toggle-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Switch } from "@/components/ui/switch";
 
 import {
   Dialog,
@@ -891,26 +890,11 @@ function ClientPathPage() {
           blocks once the current one expires past its grace period —
           the cliente will see the empty state until the coach manually
           intervenes. */}
-      {autoRenewBlocks !== null && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Rinnovo automatico blocchi mensili</CardTitle>
-          </CardHeader>
-          <CardContent className="flex items-center justify-between gap-4">
-            <div className="text-sm text-muted-foreground">
-              {autoRenewBlocks
-                ? "Quando il blocco corrente termina, ne verrà creato uno nuovo automaticamente con lo stesso template (4 settimane + 7 giorni di tolleranza per consumare i residui)."
-                : "I blocchi non si rinnoveranno automaticamente. Alla fine del blocco corrente dovrai crearne uno nuovo manualmente."}
-            </div>
-            <Switch
-              checked={autoRenewBlocks}
-              disabled={autoRenewSaving}
-              onCheckedChange={toggleAutoRenew}
-              aria-label="Rinnovo automatico blocchi mensili"
-            />
-          </CardContent>
-        </Card>
-      )}
+      <AutoRenewToggleCard
+        value={autoRenewBlocks}
+        saving={autoRenewSaving}
+        onChange={toggleAutoRenew}
+      />
 
       <OrphanBookingsCard
         orphans={orphans}
