@@ -6,18 +6,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { useIsBelowXl } from "@/hooks/use-mobile";
 import { useGcalWatchRenewal } from "@/hooks/use-gcal-watch-renewal";
 import { FocusClientPanel } from "@/components/focus-client-panel";
-import { FilterChip } from "@/components/filter-chip";
+import { CalendarHeader } from "@/components/calendar-header";
 import { layoutDay, type EventPlacement } from "@/lib/calendar-layout";
-import {
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
-  UserSearch,
-  MessageCircle,
-  HelpCircle,
-  RefreshCw,
-  AlertCircle,
-} from "lucide-react";
+import { UserSearch, MessageCircle, HelpCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { sessionLabel } from "@/lib/mock-data";
 import { supabase } from "@/integrations/supabase/client";
@@ -526,92 +517,29 @@ function CalendarPage() {
       {/* MAIN */}
       <section className="flex-1 flex flex-col min-w-0 p-6">
         {/* Header */}
-        <header className="flex flex-col gap-4 mb-4">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <h1 className="font-display text-2xl font-bold text-aura-primary">Calendario Master</h1>
-            {mirroring && (
-              <div className="flex items-center gap-2 text-xs text-outline rounded-full border border-outline-variant px-3 py-1.5 bg-white">
-                <Loader2 className="size-3.5 animate-spin" /> Sincronizzazione…
-              </div>
-            )}
-          </div>
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-3">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setWeekStart(startOfWeek(new Date()))}
-                className="rounded-full bg-white border-surface-variant"
-              >
-                Oggi
-              </Button>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setWeekStart(addDays(weekStart, -7))}
-                  className="size-8 rounded-full hover:bg-surface-container flex items-center justify-center text-on-surface-variant"
-                  aria-label="Settimana precedente"
-                >
-                  <ChevronLeft className="size-4" />
-                </button>
-                <span className="text-sm font-semibold min-w-40 text-center capitalize">
-                  {fmtRange(weekStart, weekEnd)}
-                </span>
-                <button
-                  onClick={() => setWeekStart(addDays(weekStart, 7))}
-                  className="size-8 rounded-full hover:bg-surface-container flex items-center justify-center text-on-surface-variant"
-                  aria-label="Settimana successiva"
-                >
-                  <ChevronRight className="size-4" />
-                </button>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <FilterChip active={showAvailability} onClick={() => setShowAvailability((v) => !v)}>
-                Mostra Disponibilità
-              </FilterChip>
-              <FilterChip active={onlyPT} onClick={() => setOnlyPT((v) => !v)}>
-                Solo Sessioni PT
-              </FilterChip>
-              <FilterChip active={onlyToAssign} onClick={() => setOnlyToAssign((v) => !v)}>
-                Eventi da Assegnare
-              </FilterChip>
-              <button
-                onClick={() => {
-                  qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(user?.id) });
-                  qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(user?.id) });
-                  qc.invalidateQueries({ queryKey: queryKeys.clients.coach(user?.id) });
-                  toast.success("Calendario aggiornato");
-                }}
-                className="size-8 rounded-full hover:bg-surface-container flex items-center justify-center text-on-surface-variant"
-                aria-label="Aggiorna"
-                title="Aggiorna calendario"
-              >
-                <RefreshCw className="size-4" />
-              </button>
-            </div>
-          </div>
-          {bookingsQ.isError && (
-            <div className="flex items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="size-4" />
-                Errore nel caricamento del calendario.
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => bookingsQ.refetch()}
-                className="rounded-full bg-white"
-              >
-                Riprova
-              </Button>
-            </div>
-          )}
-          {!bookingsQ.isError && filtersActive && totalVisible === 0 && (
-            <div className="rounded-2xl border border-surface-variant bg-white px-4 py-3 text-sm text-outline">
-              Nessun evento corrisponde ai filtri attivi.
-            </div>
-          )}
-        </header>
+        <CalendarHeader
+          mirroring={mirroring}
+          weekRangeLabel={fmtRange(weekStart, weekEnd)}
+          onToday={() => setWeekStart(startOfWeek(new Date()))}
+          onPrevWeek={() => setWeekStart(addDays(weekStart, -7))}
+          onNextWeek={() => setWeekStart(addDays(weekStart, 7))}
+          showAvailability={showAvailability}
+          onToggleAvailability={() => setShowAvailability((v) => !v)}
+          onlyPT={onlyPT}
+          onToggleOnlyPT={() => setOnlyPT((v) => !v)}
+          onlyToAssign={onlyToAssign}
+          onToggleOnlyToAssign={() => setOnlyToAssign((v) => !v)}
+          onRefresh={() => {
+            qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(user?.id) });
+            qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(user?.id) });
+            qc.invalidateQueries({ queryKey: queryKeys.clients.coach(user?.id) });
+            toast.success("Calendario aggiornato");
+          }}
+          hasBookingsError={bookingsQ.isError}
+          onRetryBookings={() => bookingsQ.refetch()}
+          filtersActive={filtersActive}
+          totalVisible={totalVisible}
+        />
 
         {/* Mobile agenda view (audit H5) — replaces the 7-column grid below md */}
         <MobileAgendaView
