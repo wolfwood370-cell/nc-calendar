@@ -210,13 +210,27 @@ export function CalendarManageSheet({
         const start = ev.start?.dateTime ?? (ev.start?.date ? `${ev.start.date}T00:00:00Z` : null);
         if (!start) continue;
 
-        const matched = matchClientFromEvent(
+        // Importa SEMPRE come orfano non assegnato (client_id: null) per
+        // bypassare il trigger validate_booking_extra_credits che richiede
+        // event_type_id non-null quando client_id è settato. Il match
+        // automatico via matchClientFromEvent causava errori P0001
+        // "Credito esaurito: nessun tipo sessione specificato" su tutti
+        // gli eventi dove un cliente veniva trovato negli attendees.
+        // Il coach assegnerà i client manualmente dalla pagina /trainer/
+        // calendar (badge giallo "Assegna" sugli orfani).
+        //
+        // Lasciato matchClientFromEvent + matched importati per chiarezza
+        // della scelta — quando il trigger sarà rilassato o esisterà un
+        // event_type default per il coach, basta ripristinare il match
+        // attivo cambiando client_id: matched?.id ?? null.
+        const _matched = matchClientFromEvent(
           summary,
           description,
           attendees,
           clients ?? [],
           coachEmail,
         );
+        void _matched;
         const status = new Date(start).getTime() < now ? "completed" : "scheduled";
 
         // end_at: required NOT NULL column (added by Lovable migration).
@@ -226,7 +240,7 @@ export function CalendarManageSheet({
         const endAt = new Date(new Date(start).getTime() + 60 * 60 * 1000).toISOString();
         const { error: insErr } = await supabase.from("bookings").insert({
           coach_id: coachId,
-          client_id: matched?.id ?? null,
+          client_id: null, // ← always orphan; manual assignment via calendar UI
           scheduled_at: start,
           end_at: endAt,
           session_type: "PT Session",
