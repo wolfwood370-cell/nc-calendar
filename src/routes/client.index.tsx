@@ -277,7 +277,7 @@ function ClientHome() {
       <main className="px-margin-mobile pt-stack-md flex flex-col gap-stack-lg">
         {/* Card 1: Blocco corrente — segment visual + KPI + secondary row */}
         <section className="bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-stack-lg border border-outline-variant/30 relative overflow-hidden">
-          <div className="absolute -top-10 -right-10 w-32 h-32 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -top-10 -right-10 w-32 h-32 bg-aura-primary/5 rounded-full blur-3xl pointer-events-none" />
 
           <div className="flex flex-col gap-6 relative z-10">
             {/* Header: BLOCCO N DI M + titolo (+ "Settimana X/4" per recurring) */}
@@ -358,14 +358,14 @@ function ClientHome() {
                         <div key={i} className="relative flex justify-center">
                           {slot.state === "completed" && (
                             <Check
-                              className="size-4 text-primary absolute -top-6"
+                              className="size-4 text-aura-primary absolute -top-6"
                               aria-hidden
                             />
                           )}
                           <div
                             className={cn(
                               "w-full h-3 rounded-full",
-                              slot.state === "completed" && "bg-primary",
+                              slot.state === "completed" && "bg-aura-primary",
                               slot.state === "booked" && "bg-primary-fixed-dim",
                               slot.state === "open" &&
                                 "bg-surface-container-high border border-dashed border-outline-variant",
@@ -385,7 +385,7 @@ function ClientHome() {
                     {/* Legend */}
                     <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center mt-2">
                       <span className="flex items-center gap-1 text-[11px] text-on-surface-variant">
-                        <span className="text-primary leading-none">●</span>
+                        <span className="text-aura-primary leading-none">●</span>
                         Completate
                       </span>
                       <span className="flex items-center gap-1 text-[11px] text-on-surface-variant">
@@ -403,7 +403,7 @@ function ClientHome() {
                   <div className="flex flex-col gap-2">
                     <div className="w-full h-3 bg-surface-container-high rounded-full overflow-hidden flex">
                       <div
-                        className="bg-primary h-full"
+                        className="bg-aura-primary h-full"
                         style={{
                           width: `${(currentBlockBreakdown.completed / currentBlockSlots.length) * 100}%`,
                         }}
@@ -422,7 +422,7 @@ function ClientHome() {
                 {currentBlockBreakdown.open > 0 ? (
                   <div className="bg-primary-container/10 rounded-[20px] p-4 flex flex-col gap-3">
                     <div className="flex items-end gap-2">
-                      <span className="text-5xl font-bold leading-none text-primary tabular-nums">
+                      <span className="text-5xl font-bold leading-none text-aura-primary tabular-nums">
                         {currentBlockBreakdown.open}
                       </span>
                       <span className="text-base text-on-surface pb-1">
@@ -439,7 +439,7 @@ function ClientHome() {
                       )}
                       <Link
                         to="/client/book"
-                        className="bg-primary text-on-primary px-4 py-2 rounded-full text-sm font-semibold inline-flex items-center gap-1 shrink-0 hover:opacity-90 transition active:scale-95"
+                        className="bg-aura-primary text-on-primary px-4 py-2 rounded-full text-sm font-semibold inline-flex items-center gap-1 shrink-0 hover:opacity-90 transition active:scale-95"
                       >
                         Prenota
                         <ArrowRight className="size-4" aria-hidden />
@@ -454,7 +454,7 @@ function ClientHome() {
                   </div>
                 ) : (
                   <div className="bg-primary-container/10 rounded-[20px] p-4 text-center">
-                    <p className="text-sm font-semibold text-primary">
+                    <p className="text-sm font-semibold text-aura-primary">
                       Tutte le sessioni del blocco sono prenotate.
                     </p>
                   </div>
@@ -463,7 +463,7 @@ function ClientHome() {
                 {/* Secondary Row: 3 colonne */}
                 <div className="grid grid-cols-3 divide-x divide-surface-container-high pt-2">
                   <div className="flex flex-col items-center gap-1 text-center px-2">
-                    <CheckCircle2 className="size-6 text-primary" aria-hidden />
+                    <CheckCircle2 className="size-6 text-aura-primary" aria-hidden />
                     <span className="text-sm font-semibold text-on-surface tabular-nums">
                       {currentBlockBreakdown.completed}{" "}
                       {currentBlockBreakdown.completed === 1 ? "fatta" : "fatte"}
@@ -508,7 +508,7 @@ function ClientHome() {
                   return (
                     <div
                       key={b.id}
-                      className="h-14 rounded-2xl bg-primary flex items-center justify-between px-4 text-on-primary"
+                      className="h-14 rounded-2xl bg-aura-primary flex items-center justify-between px-4 text-on-primary"
                     >
                       <span className="text-sm font-semibold">{b.name}</span>
                       <div className="flex items-center gap-1">
@@ -525,16 +525,16 @@ function ClientHome() {
                   return (
                     <div
                       key={b.id}
-                      className="h-14 rounded-2xl bg-surface-container-low border-2 border-primary flex items-center justify-between px-4 relative overflow-hidden"
+                      className="h-14 rounded-2xl bg-surface-container-low border-2 border-aura-primary flex items-center justify-between px-4 relative overflow-hidden"
                     >
                       <div
-                        className="absolute left-0 top-0 bottom-0 bg-primary/20 transition-[width] duration-500"
+                        className="absolute left-0 top-0 bottom-0 bg-aura-primary/20 transition-[width] duration-500"
                         style={{ width: `${pct}%` }}
                       />
                       <span className="text-sm font-semibold text-on-surface relative z-10">
                         {b.name} · {b.completed}/{b.total}
                       </span>
-                      <span className="bg-primary text-on-primary text-[10px] font-bold px-2 py-1 rounded-md tracking-wider relative z-10">
+                      <span className="bg-aura-primary text-on-primary text-[10px] font-bold px-2 py-1 rounded-md tracking-wider relative z-10">
                         ATTUALE
                       </span>
                     </div>
