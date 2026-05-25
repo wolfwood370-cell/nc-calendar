@@ -1,7 +1,14 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { Bell, Plus, Sparkles, CheckCircle2, Clock } from "lucide-react";
-import type { BookingRow } from "@/lib/queries";
+import {
+  Bell,
+  Plus,
+  Check,
+  CheckCircle2,
+  CalendarCheck,
+  Clock,
+  ArrowRight,
+} from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,16 +20,8 @@ import {
 } from "@/lib/queries";
 import { useCurrentBlock } from "@/hooks/use-current-block";
 import { sessionLabel } from "@/lib/mock-data";
-// Auto-merge resolution: union of both import lists. Drop the legacy
-// <Skeleton> (no remaining callers), keep both Aura variants used by
-// the loading state below.
+import { cn } from "@/lib/utils";
 import { AuraCardSkeleton, AuraLineSkeleton } from "@/components/ui/aura-skeleton";
-import { AuraProgressRing } from "@/components/ui/aura-progress-ring";
-// EmptyStateCard arrived from origin/main (PWA onboarding + empty
-// states pass). Reused in the "Il Tuo Percorso" zero-state branch
-// below — auto-merge applied that branch cleanly, only the import
-// list collided with mine. Progress wasn't kept because my pass
-// replaced the linear bars with AuraProgressRing entirely.
 import { EmptyStateCard } from "@/components/empty-state-card";
 import { ClientLiveBookingCard } from "@/components/client-live-booking-card";
 import { ClientSessionTimeline } from "@/components/client-session-timeline";
@@ -75,79 +74,6 @@ function ClientHome() {
     return (blocksQ.data ?? []).find((b) => b.id === id) ?? null;
   }, [isRecurring, currentBlockQ.data, blocksQ.data]);
 
-  // Aggregate allocations. For "recurring" clients the counter is scoped
-  // to the current block only (so it resets every 4 weeks). For "fixed"
-  // clients we keep the historical behavior (sum across all blocks =
-  // progress toward the fixed-term goal, e.g. 4/24).
-  const summary = useMemo(() => {
-    const allBlocks = blocksQ.data ?? [];
-    const blocks = isRecurring && currentBlock ? [currentBlock] : allBlocks;
-    const ets = eventTypesQ.data ?? [];
-    const extraCredits = extraCreditsQ.data ?? [];
-    const map = new Map<string, { name: string; color: string; used: number; total: number }>();
-
-    // 1. Totali (assigned) dai block.allocations dei blocchi rilevanti.
-    for (const b of blocks) {
-      for (const a of b.allocations) {
-        const et = a.event_type_id ? ets.find((e) => e.id === a.event_type_id) : null;
-        const key = a.event_type_id ?? a.session_type;
-        const cur = map.get(key) ?? {
-          name: et?.name ?? sessionLabel(a.session_type),
-          color: et?.color ?? "#003e62",
-          used: 0,
-          total: 0,
-        };
-        cur.total += a.quantity_assigned;
-        map.set(key, cur);
-      }
-    }
-
-    // 1.5. Extra credits sono sempre inclusi (pool separato, non legato
-    //      al blocco mensile — il cliente li ha pagati come pack a sé).
-    for (const ec of extraCredits) {
-      const et = ets.find((e) => e.id === ec.event_type_id);
-      const key = ec.event_type_id;
-      const cur = map.get(key) ?? {
-        name: et?.name ?? "Extra",
-        color: et?.color ?? "#003e62",
-        used: 0,
-        total: 0,
-      };
-      cur.total += ec.quantity;
-      map.set(key, cur);
-    }
-
-    // 2. Bookings completati. Per "recurring" filtriamo alla finestra
-    //    [current_block.start_date, current_block.end_date + grace] così
-    //    il counter "used" combacia col "total" del blocco corrente.
-    let completedBookings = (bookingsQ.data ?? []).filter((b) => b.status === "completed");
-    if (isRecurring && currentBlock) {
-      const startMs = new Date(currentBlock.start_date).getTime();
-      // End is inclusive of the day so we add 24h - 1ms.
-      const endMs = new Date(currentBlock.end_date).getTime() + 24 * 60 * 60 * 1000 - 1;
-      completedBookings = completedBookings.filter((b) => {
-        const t = new Date(b.scheduled_at).getTime();
-        return t >= startMs && t <= endMs;
-      });
-    }
-    for (const b of completedBookings) {
-      const key = b.event_type_id ?? b.session_type;
-      const cur = map.get(key);
-      if (cur) {
-        cur.used += 1;
-      }
-    }
-
-    return [...map.entries()].map(([key, v]) => ({ key, ...v })).sort((a, b) => b.total - a.total);
-  }, [
-    blocksQ.data,
-    eventTypesQ.data,
-    bookingsQ.data,
-    extraCreditsQ.data,
-    isRecurring,
-    currentBlock,
-  ]);
-
   // Block "corrente" resolution per il rendering hero:
   // - Recurring → arriva dall'RPC `useCurrentBlock` (state-aware)
   // - Fixed → cerca il blocco la cui finestra [start_date, end_date] contiene oggi;
@@ -169,24 +95,6 @@ function ClientHome() {
     const futureStart = sorted.find((b) => new Date(b.start_date).getTime() > now);
     return futureStart ?? sorted[sorted.length - 1] ?? null;
   }, [isRecurring, currentBlock, blocksQ.data]);
-
-  // Stats blocco corrente (totale tutte le tipologie del blocco).
-  // used = bookings completed scheduled_at dentro la finestra del blocco.
-  const currentBlockStats = useMemo(() => {
-    if (!resolvedCurrentBlock) return { completed: 0, total: 0, remaining: 0 };
-    const total = resolvedCurrentBlock.allocations.reduce(
-      (s, a) => s + a.quantity_assigned,
-      0,
-    );
-    const startMs = new Date(resolvedCurrentBlock.start_date).getTime();
-    const endMs = new Date(resolvedCurrentBlock.end_date).getTime() + 24 * 60 * 60 * 1000 - 1;
-    const completed = (bookingsQ.data ?? []).filter((b) => {
-      if (b.status !== "completed") return false;
-      const t = new Date(b.scheduled_at).getTime();
-      return t >= startMs && t <= endMs;
-    }).length;
-    return { completed, total, remaining: Math.max(0, total - completed) };
-  }, [resolvedCurrentBlock, bookingsQ.data]);
 
   // Stats intero percorso (cumulativo dall'inizio). Total include:
   //   - allocations di tutti i blocchi non-deleted
@@ -219,6 +127,95 @@ function ClientHome() {
       total: allBlocks.length,
     };
   }, [resolvedCurrentBlock, blocksQ.data]);
+
+  // Segment visual: 1 slot per ogni sessione assegnata del blocco corrente,
+  // marcato come 'completed' (verde primary), 'booked' (azzurro
+  // primary-fixed-dim) o 'open' (grigio tratteggiato). I booked riportano
+  // la propria data (dd/MM). Ordine fisso: completed → booked → open
+  // così la "rampa" cresce sempre da sinistra a destra.
+  const currentBlockSlots = useMemo(() => {
+    if (!resolvedCurrentBlock) return [] as Array<{ state: "completed" | "booked" | "open"; date?: Date }>;
+    const total = resolvedCurrentBlock.allocations.reduce(
+      (s, a) => s + a.quantity_assigned,
+      0,
+    );
+    if (total === 0) return [];
+    const startMs = new Date(resolvedCurrentBlock.start_date).getTime();
+    const endMs = new Date(resolvedCurrentBlock.end_date).getTime() + 24 * 60 * 60 * 1000 - 1;
+    const inBlock = (bookingsQ.data ?? []).filter((b) => {
+      const t = new Date(b.scheduled_at).getTime();
+      return t >= startMs && t <= endMs;
+    });
+    const completedCount = inBlock.filter((b) => b.status === "completed").length;
+    const scheduledList = inBlock
+      .filter((b) => b.status === "scheduled")
+      .sort((a, b) => +new Date(a.scheduled_at) - +new Date(b.scheduled_at));
+    const slots: Array<{ state: "completed" | "booked" | "open"; date?: Date }> = [];
+    for (let i = 0; i < completedCount && slots.length < total; i++) {
+      slots.push({ state: "completed" });
+    }
+    for (let i = 0; i < scheduledList.length && slots.length < total; i++) {
+      const item = scheduledList[i];
+      if (!item) break;
+      slots.push({ state: "booked", date: new Date(item.scheduled_at) });
+    }
+    while (slots.length < total) slots.push({ state: "open" });
+    return slots;
+  }, [resolvedCurrentBlock, bookingsQ.data]);
+
+  // Breakdown numerico del blocco (derivato dagli slot per coerenza UI).
+  const currentBlockBreakdown = useMemo(() => {
+    let completed = 0;
+    let booked = 0;
+    let open = 0;
+    for (const s of currentBlockSlots) {
+      if (s.state === "completed") completed++;
+      else if (s.state === "booked") booked++;
+      else open++;
+    }
+    return { completed, booked, open };
+  }, [currentBlockSlots]);
+
+  // Data di fine blocco corrente formattata it-IT (es. "30 giugno"),
+  // usata nel KPI box "...entro il 30 giugno".
+  const currentBlockEndLabel = useMemo(() => {
+    if (!resolvedCurrentBlock) return null;
+    return new Date(resolvedCurrentBlock.end_date).toLocaleDateString("it-IT", {
+      day: "numeric",
+      month: "long",
+    });
+  }, [resolvedCurrentBlock]);
+
+  // Lista blocchi del percorso, ognuno con stato past/current/future + counts.
+  // Per recurring rimuoviamo i "future" perché il path è infinito (i blocchi
+  // futuri non esistono finché auto_renew non li crea).
+  const pathBlocks = useMemo(() => {
+    const all = (blocksQ.data ?? []).slice().sort((a, b) => a.sequence_order - b.sequence_order);
+    const now = Date.now();
+    const rows = all.map((b) => {
+      const total = b.allocations.reduce((s, a) => s + a.quantity_assigned, 0);
+      const startMs = new Date(b.start_date).getTime();
+      const endMs = new Date(b.end_date).getTime() + 24 * 60 * 60 * 1000 - 1;
+      const completed = (bookingsQ.data ?? []).filter((bk) => {
+        if (bk.status !== "completed") return false;
+        const t = new Date(bk.scheduled_at).getTime();
+        return t >= startMs && t <= endMs;
+      }).length;
+      let state: "past" | "current" | "future" = "future";
+      if (resolvedCurrentBlock && b.id === resolvedCurrentBlock.id) state = "current";
+      else if (endMs < now) state = "past";
+      else if (startMs > now) state = "future";
+      return {
+        id: b.id,
+        sequence: b.sequence_order,
+        name: `Blocco ${b.sequence_order}`,
+        total,
+        completed,
+        state,
+      };
+    });
+    return isRecurring ? rows.filter((r) => r.state !== "future") : rows;
+  }, [blocksQ.data, bookingsQ.data, resolvedCurrentBlock, isRecurring]);
 
   // "Settimana X/4" label for recurring clients showing how far we are
   // into the current block (1-indexed, clamped to [1, 4]).
@@ -254,13 +251,6 @@ function ClientHome() {
     ? (eventTypesQ.data ?? []).find((e) => e.id === nextBooking.event_type_id)
     : null;
 
-  const recentCompleted = useMemo(() => {
-    return (bookingsQ.data ?? [])
-      .filter((b) => b.status === "completed")
-      .sort((a, b) => +new Date(b.scheduled_at) - +new Date(a.scheduled_at))
-      .slice(0, 3);
-  }, [bookingsQ.data]);
-
   const isLoading =
     blocksQ.isLoading || bookingsQ.isLoading || profileQ.isLoading || extraCreditsQ.isLoading;
 
@@ -285,188 +275,293 @@ function ClientHome() {
       </header>
 
       <main className="px-margin-mobile pt-stack-md flex flex-col gap-stack-lg">
-        {/* Il Tuo Percorso */}
+        {/* Card 1: Blocco corrente — segment visual + KPI + secondary row */}
         <section className="bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-stack-lg border border-outline-variant/30 relative overflow-hidden">
           <div className="absolute -top-10 -right-10 w-32 h-32 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
 
-          {/* Header: title + "BLOCCO N DI M" + opzionale settimana X/4 */}
-          <div className="flex flex-col gap-1 mb-stack-lg">
-            <div className="flex items-baseline justify-between gap-2">
-              <h2 className="text-xl font-semibold text-on-surface">
-                {isRecurring ? "Il Tuo Mese" : "Il Tuo Percorso"}
-              </h2>
-              {currentWeekLabel && (
-                <span className="text-xs font-semibold text-on-surface-variant tabular-nums">
-                  {currentWeekLabel}
-                </span>
-              )}
-            </div>
-            {blockProgress && (
-              <span className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
-                {isRecurring || blockProgress.total === 0
-                  ? `BLOCCO ${blockProgress.index}`
-                  : `BLOCCO ${blockProgress.index} DI ${blockProgress.total}`}
-              </span>
-            )}
-          </div>
-
-          {graceBanner && (
-            <div className="mb-4 rounded-[20px] bg-tertiary-container/30 border border-tertiary-container/40 px-4 py-3">
-              <p className="text-xs font-semibold text-on-tertiary-container">
-                Sessioni del mese precedente: {graceBanner.residuals}
-              </p>
-              {graceBanner.until && (
-                <p className="text-[11px] text-on-tertiary-container/80 mt-0.5">
-                  Valide fino al{" "}
-                  {new Date(graceBanner.until).toLocaleDateString("it-IT", {
-                    day: "numeric",
-                    month: "long",
-                  })}
-                </p>
-              )}
-            </div>
-          )}
-
-          {isLoading ? (
-            <div className="flex flex-col items-center gap-4">
-              <div className="size-[150px] rounded-full bg-surface-container-high/40" />
-              <AuraLineSkeleton className="w-40 h-6 rounded-full" />
-              <div className="grid grid-cols-2 gap-4 w-full mt-stack-sm">
-                <AuraCardSkeleton className="h-20" />
-                <AuraCardSkeleton className="h-20" />
-              </div>
-            </div>
-          ) : summary.length === 0 && pathStats.total === 0 ? (
-            <EmptyStateCard
-              title="Pronto a salire di livello?"
-              description="Non hai ancora un percorso attivo. Scegli un Booster o un NC Add-on per iniziare a prenotare le tue sessioni."
-              ctaLabel="Esplora gli Add-on"
-              ctaTo="/client/store"
-            />
-          ) : (
-            <div className="flex flex-col gap-stack-lg">
-              {/* Big ring blocco corrente — primary glance metric */}
-              {currentBlockStats.total > 0 && (
-                <div className="flex flex-col items-center gap-4">
-                  <AuraProgressRing
-                    used={currentBlockStats.completed}
-                    total={currentBlockStats.total}
-                    size={150}
-                    strokeWidth={6}
-                    label={`${currentBlockStats.completed}/${currentBlockStats.total}`}
-                  />
-                  <span className="text-xs font-semibold text-on-surface-variant -mt-2">
-                    Blocco corrente
+          <div className="flex flex-col gap-6 relative z-10">
+            {/* Header: BLOCCO N DI M + titolo (+ "Settimana X/4" per recurring) */}
+            <div className="flex flex-col gap-1">
+              {blockProgress && (
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
+                    {isRecurring || blockProgress.total === 0
+                      ? `BLOCCO ${blockProgress.index}`
+                      : `BLOCCO ${blockProgress.index} DI ${blockProgress.total}`}
                   </span>
-                  {currentBlockStats.remaining > 0 && (
-                    <div className="bg-primary/10 px-4 py-1.5 rounded-full">
-                      <span className="text-sm font-semibold text-primary">
-                        {currentBlockStats.remaining}{" "}
-                        {currentBlockStats.remaining === 1
-                          ? "sessione"
-                          : "sessioni"}{" "}
-                        alla fine del blocco
-                      </span>
-                    </div>
+                  {currentWeekLabel && (
+                    <span className="text-[11px] font-semibold text-on-surface-variant tabular-nums">
+                      {currentWeekLabel}
+                    </span>
                   )}
                 </div>
               )}
-
-              {/* Path-wide stats: totale completate + rimanenti dall'inizio.
-                  Per recurring i "rimanenti" rappresentano crediti
-                  attualmente disponibili (assigned − completed), non una
-                  fine path. Etichette adattate per chiarezza. */}
-              {pathStats.total > 0 && (
-                <div className="grid grid-cols-2 divide-x divide-surface-container-high">
-                  <div className="flex flex-col items-center gap-1 px-3">
-                    <CheckCircle2 className="size-6 text-primary" />
-                    <span className="text-3xl font-bold text-on-surface tabular-nums leading-none">
-                      {pathStats.completed}
-                    </span>
-                    <span className="text-xs text-on-surface-variant text-center">
-                      {isRecurring ? "Sessioni completate" : "Sessioni totali"}
-                    </span>
-                  </div>
-                  <div className="flex flex-col items-center gap-1 px-3">
-                    <Clock className="size-6 text-secondary" />
-                    <span className="text-3xl font-bold text-on-surface tabular-nums leading-none">
-                      {pathStats.remaining}
-                    </span>
-                    <span className="text-xs text-on-surface-variant text-center">
-                      {isRecurring ? "Crediti disponibili" : "Sessioni rimanenti"}
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {/* Progress bar percorso — solo per fixed paths (recurring è
-                  infinito, % non rappresenta un completamento). */}
-              {!isRecurring && pathStats.total > 0 && (
-                <div className="flex flex-col gap-2">
-                  <span className="text-xs text-on-surface-variant">
-                    Percorso completo al {pathStats.percent}%
-                  </span>
-                  <div className="w-full h-1.5 bg-surface-container-high rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-primary rounded-full transition-[width] duration-500"
-                      style={{ width: `${pathStats.percent}%` }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Dettaglio per tipo (existing summary) — compact, sotto
-                  i totali principali. Salta se è già implicito dal big ring. */}
-              {summary.length > 1 && (
-                <div className="flex flex-col gap-2 pt-stack-md border-t border-surface-container-high">
-                  <p className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider mb-1">
-                    Dettaglio per tipo
-                  </p>
-                  {summary.map((row) => {
-                    const remaining = Math.max(0, row.total - row.used);
-                    const isLow = row.total > 0 && remaining > 0 && remaining <= 2;
-                    return (
-                      <div
-                        key={row.key}
-                        className="flex items-center gap-3 rounded-[16px] bg-surface-container-low/50 px-3 py-2"
-                      >
-                        <AuraProgressRing
-                          used={row.used}
-                          total={row.total}
-                          size={44}
-                          strokeWidth={5}
-                          color={row.color}
-                          showLabel={false}
-                        />
-                        <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-                          <span className="text-sm font-semibold text-on-surface truncate">
-                            {row.name}
-                          </span>
-                          <span className="text-xs text-on-surface-variant tabular-nums">
-                            {row.used}/{row.total} ·{" "}
-                            <span className={isLow ? "text-tertiary font-semibold" : ""}>
-                              {remaining} rimanenti
-                            </span>
-                          </span>
-                        </div>
-                        {isLow && (
-                          <Link
-                            to="/client/store"
-                            aria-label="Ricarica crediti"
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-tertiary-container/20 text-tertiary shrink-0"
-                          >
-                            <Sparkles className="size-3" />
-                            Ricarica
-                          </Link>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+              <h2 className="text-xl font-semibold text-on-surface">
+                {isRecurring ? "Il tuo mese corrente" : "Il tuo blocco corrente"}
+              </h2>
             </div>
-          )}
+
+            {graceBanner && (
+              <div className="rounded-[20px] bg-tertiary-container/30 border border-tertiary-container/40 px-4 py-3">
+                <p className="text-xs font-semibold text-on-tertiary-container">
+                  Sessioni del mese precedente: {graceBanner.residuals}
+                </p>
+                {graceBanner.until && (
+                  <p className="text-[11px] text-on-tertiary-container/80 mt-0.5">
+                    Valide fino al{" "}
+                    {new Date(graceBanner.until).toLocaleDateString("it-IT", {
+                      day: "numeric",
+                      month: "long",
+                    })}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {isLoading ? (
+              <div className="flex flex-col gap-6">
+                <AuraLineSkeleton className="h-3 w-full rounded-full" />
+                <AuraCardSkeleton className="h-24 rounded-[20px]" />
+                <div className="grid grid-cols-3 gap-3">
+                  <AuraCardSkeleton className="h-16" />
+                  <AuraCardSkeleton className="h-16" />
+                  <AuraCardSkeleton className="h-16" />
+                </div>
+              </div>
+            ) : currentBlockSlots.length === 0 && pathStats.total === 0 ? (
+              <EmptyStateCard
+                title="Pronto a salire di livello?"
+                description="Non hai ancora un percorso attivo. Scegli un Booster o un NC Add-on per iniziare a prenotare le tue sessioni."
+                ctaLabel="Esplora gli Add-on"
+                ctaTo="/client/store"
+              />
+            ) : currentBlockSlots.length === 0 ? (
+              // Edge: percorso attivo ma blocco corrente vuoto (es. tra due blocchi)
+              <p className="text-sm text-on-surface-variant text-center py-4">
+                Nessuna sessione nel blocco corrente.
+              </p>
+            ) : (
+              <>
+                {/* Segment Visual */}
+                {currentBlockSlots.length <= 24 ? (
+                  <div className="flex flex-col">
+                    <div
+                      className="grid gap-2 items-center mt-6 mb-6"
+                      style={{
+                        gridTemplateColumns: `repeat(${Math.min(
+                          currentBlockSlots.length,
+                          8,
+                        )}, minmax(0, 1fr))`,
+                      }}
+                    >
+                      {currentBlockSlots.map((slot, i) => (
+                        <div key={i} className="relative flex justify-center">
+                          {slot.state === "completed" && (
+                            <Check
+                              className="size-4 text-primary absolute -top-6"
+                              aria-hidden
+                            />
+                          )}
+                          <div
+                            className={cn(
+                              "w-full h-3 rounded-full",
+                              slot.state === "completed" && "bg-primary",
+                              slot.state === "booked" && "bg-primary-fixed-dim",
+                              slot.state === "open" &&
+                                "bg-surface-container-high border border-dashed border-outline-variant",
+                            )}
+                          />
+                          {slot.state === "booked" && slot.date && (
+                            <span className="text-[10px] font-semibold text-on-surface-variant tabular-nums absolute -bottom-5">
+                              {slot.date.toLocaleDateString("it-IT", {
+                                day: "2-digit",
+                                month: "2-digit",
+                              })}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    {/* Legend */}
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center mt-2">
+                      <span className="flex items-center gap-1 text-[11px] text-on-surface-variant">
+                        <span className="text-primary leading-none">●</span>
+                        Completate
+                      </span>
+                      <span className="flex items-center gap-1 text-[11px] text-on-surface-variant">
+                        <span className="text-primary-fixed-dim leading-none">●</span>
+                        Prenotate
+                      </span>
+                      <span className="flex items-center gap-1 text-[11px] text-on-surface-variant">
+                        <span className="text-outline-variant leading-none">○</span>
+                        Da prenotare
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  // Fallback per blocchi grandi (>24 slot): stacked progress bar
+                  <div className="flex flex-col gap-2">
+                    <div className="w-full h-3 bg-surface-container-high rounded-full overflow-hidden flex">
+                      <div
+                        className="bg-primary h-full"
+                        style={{
+                          width: `${(currentBlockBreakdown.completed / currentBlockSlots.length) * 100}%`,
+                        }}
+                      />
+                      <div
+                        className="bg-primary-fixed-dim h-full"
+                        style={{
+                          width: `${(currentBlockBreakdown.booked / currentBlockSlots.length) * 100}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* KPI Highlight: sessioni da prenotare + CTA */}
+                {currentBlockBreakdown.open > 0 ? (
+                  <div className="bg-primary-container/10 rounded-[20px] p-4 flex flex-col gap-3">
+                    <div className="flex items-end gap-2">
+                      <span className="text-5xl font-bold leading-none text-primary tabular-nums">
+                        {currentBlockBreakdown.open}
+                      </span>
+                      <span className="text-base text-on-surface pb-1">
+                        {currentBlockBreakdown.open === 1
+                          ? "sessione da prenotare"
+                          : "sessioni da prenotare"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      {currentBlockEndLabel && (
+                        <p className="text-xs text-on-surface-variant flex-1">
+                          per completare il blocco entro il {currentBlockEndLabel}
+                        </p>
+                      )}
+                      <Link
+                        to="/client/book"
+                        className="bg-primary text-on-primary px-4 py-2 rounded-full text-sm font-semibold inline-flex items-center gap-1 shrink-0 hover:opacity-90 transition active:scale-95"
+                      >
+                        Prenota
+                        <ArrowRight className="size-4" aria-hidden />
+                      </Link>
+                    </div>
+                  </div>
+                ) : currentBlockBreakdown.completed === currentBlockSlots.length ? (
+                  <div className="bg-tertiary-container/20 rounded-[20px] p-4 text-center">
+                    <p className="text-sm font-semibold text-on-tertiary-container">
+                      Blocco completato. Ottimo lavoro!
+                    </p>
+                  </div>
+                ) : (
+                  <div className="bg-primary-container/10 rounded-[20px] p-4 text-center">
+                    <p className="text-sm font-semibold text-primary">
+                      Tutte le sessioni del blocco sono prenotate.
+                    </p>
+                  </div>
+                )}
+
+                {/* Secondary Row: 3 colonne */}
+                <div className="grid grid-cols-3 divide-x divide-surface-container-high pt-2">
+                  <div className="flex flex-col items-center gap-1 text-center px-2">
+                    <CheckCircle2 className="size-6 text-primary" aria-hidden />
+                    <span className="text-sm font-semibold text-on-surface tabular-nums">
+                      {currentBlockBreakdown.completed}{" "}
+                      {currentBlockBreakdown.completed === 1 ? "fatta" : "fatte"}
+                    </span>
+                  </div>
+                  <div className="flex flex-col items-center gap-1 text-center px-2">
+                    <CalendarCheck
+                      className="size-6 text-primary-fixed-dim"
+                      aria-hidden
+                    />
+                    <span className="text-sm font-semibold text-on-surface tabular-nums">
+                      {currentBlockBreakdown.booked}{" "}
+                      {currentBlockBreakdown.booked === 1 ? "prenotata" : "prenotate"}
+                    </span>
+                  </div>
+                  <div className="flex flex-col items-center gap-1 text-center px-2">
+                    <Clock className="size-6 text-outline" aria-hidden />
+                    <span className="text-sm font-semibold text-on-surface tabular-nums">
+                      {currentBlockBreakdown.open} da fare
+                    </span>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </section>
+
+        {/* Card 2: Percorso complessivo — lista blocchi (skip se < 2 blocchi
+            o se l'utente non ha ancora un percorso attivo) */}
+        {!isLoading && pathBlocks.length >= 2 && (
+          <section className="bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-stack-lg border border-outline-variant/30 flex flex-col gap-6">
+            <div className="flex justify-between items-end gap-3">
+              <h3 className="text-xl font-semibold text-on-surface">Il tuo percorso</h3>
+              <span className="text-xs font-semibold text-on-surface-variant tabular-nums shrink-0">
+                {pathStats.completed} di {pathStats.total} sessioni
+              </span>
+            </div>
+            <div className="flex flex-col gap-2">
+              {pathBlocks.map((b) => {
+                if (b.state === "past") {
+                  const full = b.completed >= b.total && b.total > 0;
+                  return (
+                    <div
+                      key={b.id}
+                      className="h-14 rounded-2xl bg-primary flex items-center justify-between px-4 text-on-primary"
+                    >
+                      <span className="text-sm font-semibold">{b.name}</span>
+                      <div className="flex items-center gap-1">
+                        {full && <Check className="size-4" aria-hidden />}
+                        <span className="text-sm font-semibold tabular-nums">
+                          {b.completed}/{b.total}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                }
+                if (b.state === "current") {
+                  const pct = b.total > 0 ? Math.round((b.completed / b.total) * 100) : 0;
+                  return (
+                    <div
+                      key={b.id}
+                      className="h-14 rounded-2xl bg-surface-container-low border-2 border-primary flex items-center justify-between px-4 relative overflow-hidden"
+                    >
+                      <div
+                        className="absolute left-0 top-0 bottom-0 bg-primary/20 transition-[width] duration-500"
+                        style={{ width: `${pct}%` }}
+                      />
+                      <span className="text-sm font-semibold text-on-surface relative z-10">
+                        {b.name} · {b.completed}/{b.total}
+                      </span>
+                      <span className="bg-primary text-on-primary text-[10px] font-bold px-2 py-1 rounded-md tracking-wider relative z-10">
+                        ATTUALE
+                      </span>
+                    </div>
+                  );
+                }
+                // future
+                return (
+                  <div
+                    key={b.id}
+                    className="h-14 rounded-2xl bg-surface-container-high border border-dashed border-outline-variant flex items-center justify-between px-4"
+                  >
+                    <span className="text-sm text-on-surface-variant">
+                      {b.name} · {b.total > 0 ? `0/${b.total}` : "—"}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex justify-center text-center">
+              <span className="text-[13px] text-on-surface-variant">
+                {isRecurring
+                  ? `${pathStats.completed} completate • ${pathStats.remaining} crediti disponibili`
+                  : `${pathStats.completed} completate • ${pathStats.remaining} rimanenti • ${pathStats.percent}% del percorso`}
+              </span>
+            </div>
+          </section>
+        )}
 
         {/* Prossimo Appuntamento */}
         <section>
