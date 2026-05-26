@@ -417,13 +417,14 @@ function BookFlow() {
 
         {/* No-slots fallback DIAGNOSTICO: identifica la causa specifica per
             cui slots è vuoto e la mostra all'utente — così sa esattamente
-            cosa va corretto invece di un generico "contatta il coach". */}
+            cosa va corretto invece di un generico "contatta il coach".
+            Include contatori tecnici (counts) per debug rapido. */}
         {selectedPoolKey && slots.length === 0 && (
-          <div className="bg-tertiary-container/20 border border-tertiary-container/30 rounded-2xl px-4 py-3">
+          <div className="bg-tertiary-container/20 border border-tertiary-container/30 rounded-2xl px-4 py-3 flex flex-col gap-2">
             <p className="text-sm font-semibold text-on-tertiary-container">
               Nessuno slot disponibile per questa tipologia.
             </p>
-            <p className="text-xs text-on-tertiary-container/80 mt-0.5">
+            <p className="text-xs text-on-tertiary-container/80">
               {!coachId
                 ? "Non hai ancora un coach assegnato. Contatta il supporto."
                 : (eventTypesQ.data ?? []).length === 0
@@ -434,6 +435,24 @@ function BookFlow() {
                       ? "Il blocco corrente è terminato. Contatta il coach per rinnovare."
                       : `Tutti gli slot del blocco sono già occupati o esclusi. Contatta ${coachName}.`}
             </p>
+            <details className="text-[11px] text-on-tertiary-container/70 mt-1">
+              <summary className="cursor-pointer font-semibold">Dettagli tecnici</summary>
+              <ul className="mt-1 space-y-0.5 list-disc list-inside tabular-nums">
+                <li>Fasce disponibilità coach: {(availQ.data ?? []).length}</li>
+                <li>Eccezioni disponibilità: {(exceptionsQ.data ?? []).length}</li>
+                <li>Tipologie evento: {(eventTypesQ.data ?? []).length}</li>
+                <li>Eventi che bloccano slot (coach busy): {(coachBusyQ.data ?? []).length}</li>
+                <li>
+                  Durata minima testata: {candidateMinutes} min
+                </li>
+                {block && (
+                  <>
+                    <li>Inizio blocco: {block.start_date}</li>
+                    <li>Fine blocco: {block.end_date}</li>
+                  </>
+                )}
+              </ul>
+            </details>
           </div>
         )}
 
