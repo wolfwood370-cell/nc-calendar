@@ -94,7 +94,7 @@ export function TimelineWeekRow<TBooking extends TimelineBookingItem = TimelineB
       {weekBookings.length === 0 ? (
         <div className="border border-dashed border-border rounded-2xl p-4 flex items-center justify-center text-center bg-background/50 h-24">
           <span className="text-sm text-muted-foreground italic">
-            Nessun appuntamento previsto
+            Nessuna sessione prevista
           </span>
         </div>
       ) : (

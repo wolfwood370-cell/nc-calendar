@@ -233,7 +233,7 @@ export function ClientRescheduleSheet({
       qc.invalidateQueries({ queryKey: ["booking-detail", booking.id] });
 
       const newWhen = format(new Date(selectedISO), "EEEE d MMMM · HH:mm", { locale: it });
-      toast.success("Appuntamento riprogrammato", {
+      toast.success("Sessione riprogrammata", {
         description: `Nuovo orario: ${newWhen}. Il coach è stato notificato.`,
       });
       onOpenChange(false);

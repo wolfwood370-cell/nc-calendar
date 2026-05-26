@@ -563,10 +563,10 @@ function ClientHome() {
           </section>
         )}
 
-        {/* Prossimo Appuntamento */}
+        {/* Prossima Sessione */}
         <section>
           <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-2 ml-2">
-            Prossimo Appuntamento
+            Prossima Sessione
           </h3>
           {isLoading ? (
             <AuraCardSkeleton className="h-32" />

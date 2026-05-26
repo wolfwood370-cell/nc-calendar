@@ -354,6 +354,17 @@ function BookFlow() {
     return selectedPool.validUntil;
   }, [selectedPool, block]);
 
+  // Data di inizio del blocco successivo (se esiste): la mostriamo sotto il
+  // calendario per spiegare quando si "apriranno" le prossime prenotazioni,
+  // così il cliente capisce che il limite temporale visibile non è un bug
+  // ma il design del path fixed (1 blocco alla volta).
+  const nextBlockStartDate = useMemo(() => {
+    if (!block) return null;
+    const all = blocksQ.data ?? [];
+    const next = all.find((b) => b.sequence_order === block.sequence_order + 1);
+    return next ? new Date(next.start_date) : null;
+  }, [block, blocksQ.data]);
+
   if (blocksQ.isLoading || bookingsQ.isLoading || availQ.isLoading || extraCreditsQ.isLoading) {
     // M6: skeleton mirrors the actual booking layout to reserve space and
     // prevent the layout shift (CLS) that the previous two generic rectangles
@@ -441,6 +452,7 @@ function BookFlow() {
           todayStart={todayStart}
           selectedPoolValidUntil={selectedPoolValidUntil}
           selectedPoolSource={selectedPool?.source ?? null}
+          nextBlockStartDate={nextBlockStartDate}
         />
 
         {/* No-slots fallback DIAGNOSTICO: stile aura, info-card pulita.
