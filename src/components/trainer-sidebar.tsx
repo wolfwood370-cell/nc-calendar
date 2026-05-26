@@ -11,7 +11,7 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, CalendarDays, Users, LogOut, Plug, Clock, Tag } from "lucide-react";
+import { LayoutDashboard, CalendarDays, Users, LogOut, Plug, Clock, Tag, Bug } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { InstallPwaButton } from "@/components/install-pwa-button";
@@ -24,6 +24,7 @@ const items = [
   { title: "Tipologie evento", url: "/trainer/event-types", icon: Tag },
   { title: "Disponibilità", url: "/trainer/availability", icon: Clock },
   { title: "Integrazioni", url: "/trainer/integrations", icon: Plug },
+  { title: "Segnalazioni", url: "/trainer/bug-reports", icon: Bug },
 ];
 
 export function TrainerSidebar() {

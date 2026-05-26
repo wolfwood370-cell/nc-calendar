@@ -11,9 +11,10 @@ import {
 } from "@tanstack/react-router";
 
 import appCss from "../styles.css?url";
-import { AuthProvider } from "@/lib/auth";
+import { AuthProvider, useAuth } from "@/lib/auth";
 import { Toaster } from "@/components/ui/sonner";
 import { PwaRegister } from "@/components/pwa-register";
+import { BugReportFAB } from "@/components/bug-report-fab";
 import { initSentry, setSentryRouteTag } from "@/lib/sentry";
 
 function NotFoundComponent() {
@@ -129,6 +130,20 @@ function RouteTracker() {
   return null;
 }
 
+/**
+ * Monta il FAB "Segnala problema" SOLO per utenti autenticati. Nascosto
+ * sulle pagine /auth e durante il loading iniziale per evitare di
+ * mostrare un button "Segnala" quando il database non risponderebbe
+ * comunque (RLS richiede auth.uid()).
+ */
+function AuthenticatedBugReportFAB() {
+  const { user, loading } = useAuth();
+  const path = useRouterState({ select: (s) => s.location.pathname });
+  if (loading || !user) return null;
+  if (path.startsWith("/auth")) return null;
+  return <BugReportFAB />;
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   // Init Sentry una sola volta lato client. No-op se VITE_SENTRY_DSN
@@ -141,6 +156,7 @@ function RootComponent() {
       <AuthProvider>
         <RouteTracker />
         <Outlet />
+        <AuthenticatedBugReportFAB />
         <Toaster richColors position="top-right" />
         <PwaRegister />
       </AuthProvider>
