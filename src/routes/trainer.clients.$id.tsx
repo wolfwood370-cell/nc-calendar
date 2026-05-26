@@ -157,6 +157,11 @@ function ClientPathPage() {
   useEffect(() => {
     if (!clientId || !user) return;
     void load();
+    // HIGH-6 (audit 2026-05-26): `load` è una funzione locale stabile per
+    // scopo — chiude solo su `user`, `clientId` (entrambi nei deps) e su
+    // setState refs (stabili in React). Includerla nei deps richiederebbe
+    // `useCallback` con cascading invalidations. Pattern intenzionale:
+    // l'effect rifà la fetch a ogni cambio cliente / sessione utente.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId, user?.id]);
 

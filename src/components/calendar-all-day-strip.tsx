@@ -1,7 +1,13 @@
-import { AllDayPill } from "@/components/mobile-calendar-agenda";
+import { AllDayPill, type AllDayPillBooking } from "@/components/mobile-calendar-agenda";
 
-/** Subset structural del booking richiesto dal pill all-day. */
-export interface AllDayStripBooking {
+/**
+ * Subset structural del booking richiesto dal pill all-day. Estende
+ * `AllDayPillBooking` (title + notes letti da AllDayPill) e aggiunge `id`
+ * per la prop `key` del .map. HIGH-7: prima l'interface aveva solo `id`
+ * e il pill veniva passato con `booking={b as any}`. Estendere il subset
+ * elimina il cast senza forzare BookingRow completo sul caller.
+ */
+export interface AllDayStripBooking extends AllDayPillBooking {
   id: string;
 }
 
@@ -42,8 +48,7 @@ export function CalendarAllDayStrip<T extends AllDayStripBooking>({
               className="border-r border-surface-container last:border-r-0 px-1.5 py-1.5 flex flex-col gap-1 min-h-[36px]"
             >
               {items.map((b) => (
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                <AllDayPill key={b.id} booking={b as any} compact />
+                <AllDayPill key={b.id} booking={b} compact />
               ))}
             </div>
           );
