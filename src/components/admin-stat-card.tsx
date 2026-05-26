@@ -22,7 +22,7 @@ export function AdminStatCard({ icon: Icon, label, value }: AdminStatCardProps) 
           <p className="text-sm text-muted-foreground">{label}</p>
           <p className="font-display text-3xl font-semibold mt-1">{value}</p>
         </div>
-        <div className="size-10 rounded-full bg-primary/10 text-primary grid place-items-center">
+        <div className="size-10 rounded-full bg-aura-primary/10 text-aura-primary grid place-items-center">
           <Icon className="size-5" />
         </div>
       </CardContent>

@@ -34,7 +34,7 @@ export function BoosterCard({
     <article
       aria-label={isOwned ? `Booster attivo: ${title}` : `Pacchetto: ${title}`}
       className={[
-        "relative h-full flex flex-col rounded-[24px] p-6 border transition",
+        "relative h-full flex flex-col rounded-[32px] p-6 border transition",
         "bg-white/60 backdrop-blur-xl border-white/40",
         "shadow-[0_8px_30px_rgba(0,0,0,0.04)]",
         isOwned ? "shadow-[inset_0_0_20px_rgba(0,62,98,0.05)]" : "",

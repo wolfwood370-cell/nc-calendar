@@ -65,7 +65,7 @@ export function TrainerSidebar() {
                       asChild
                       isActive={active}
                       tooltip={item.title}
-                      className="rounded-full data-[active=true]:bg-primary/10 data-[active=true]:text-primary hover:bg-white/60"
+                      className="rounded-full data-[active=true]:bg-aura-primary/10 data-[active=true]:text-aura-primary hover:bg-white/60"
                     >
                       <Link to={item.url}>
                         <item.icon className="size-4" />
