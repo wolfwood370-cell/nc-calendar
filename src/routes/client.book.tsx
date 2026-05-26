@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Info } from "lucide-react";
 import { sessionLabel, type SessionType } from "@/lib/mock-data";
 import {
   useClientBlocks,
@@ -69,9 +69,33 @@ function BookFlow() {
   // is true. On the first load for a client whose previous block expired,
   // this hook is what physically materializes the new block in the DB.
   const currentBlockQ = useCurrentBlock(meId);
-  const block =
-    (blocksQ.data ?? []).find((b) => b.id === currentBlockQ.data?.currentBlockId) ??
-    (blocksQ.data ?? []).find((b) => b.status === "active");
+  // Block resolver TIME-BASED (allineato a client.index.tsx). Il vecchio
+  // resolver basato su `status === "active"` falliva su path fixed perché
+  // tutti i blocchi futuri vengono creati upfront con status="active": il
+  // fallback random-pickava uno qualunque (spesso il blocco di Agosto
+  // anziché il blocco corrente), saturando rangeStart fuori dall'orizzonte
+  // di 28 giorni e generando 0 slot.
+  //
+  // Risoluzione robusta:
+  //   1. currentBlockQ.currentBlockId — autoritativo per recurring
+  //   2. fixed: blocco la cui finestra [start_date, end_date] contiene oggi
+  //   3. fallback: primo blocco futuro, o l'ultimo se path già terminato
+  const block = useMemo(() => {
+    const all = blocksQ.data ?? [];
+    if (all.length === 0) return null;
+    const fromRpc = all.find((b) => b.id === currentBlockQ.data?.currentBlockId);
+    if (fromRpc) return fromRpc;
+    const sorted = [...all].sort((a, b) => a.sequence_order - b.sequence_order);
+    const now = Date.now();
+    const inside = sorted.find((b) => {
+      const start = new Date(b.start_date).getTime();
+      const end = new Date(b.end_date).getTime() + 24 * 60 * 60 * 1000;
+      return now >= start && now <= end;
+    });
+    if (inside) return inside;
+    const futureStart = sorted.find((b) => new Date(b.start_date).getTime() > now);
+    return futureStart ?? sorted[sorted.length - 1] ?? null;
+  }, [blocksQ.data, currentBlockQ.data]);
   const coachIdForAvail = profileQ.data?.coach_id ?? null;
   const availQ = useCoachAvailability(coachIdForAvail);
   const exceptionsQ = useCoachAvailabilityExceptions(coachIdForAvail);
@@ -415,38 +439,44 @@ function BookFlow() {
           selectedPoolSource={selectedPool?.source ?? null}
         />
 
-        {/* No-slots fallback DIAGNOSTICO: identifica la causa specifica per
-            cui slots è vuoto e la mostra all'utente — così sa esattamente
-            cosa va corretto invece di un generico "contatta il coach".
-            Include contatori tecnici (counts) per debug rapido. */}
+        {/* No-slots fallback DIAGNOSTICO: stile aura, info-card pulita.
+            Identifica la causa specifica per cui slots è vuoto. */}
         {selectedPoolKey && slots.length === 0 && (
-          <div className="bg-tertiary-container/20 border border-tertiary-container/30 rounded-2xl px-4 py-3 flex flex-col gap-2">
-            <p className="text-sm font-semibold text-on-tertiary-container">
-              Nessuno slot disponibile per questa tipologia.
-            </p>
-            <p className="text-xs text-on-tertiary-container/80">
-              {!coachId
-                ? "Non hai ancora un coach assegnato. Contatta il supporto."
-                : (eventTypesQ.data ?? []).length === 0
-                  ? `${coachName} non ha configurato le tipologie di sessione.`
-                  : (availQ.data ?? []).length === 0
-                    ? `${coachName} non ha configurato gli orari di disponibilità settimanali.`
-                    : block && new Date(block.end_date).getTime() < Date.now()
-                      ? "Il blocco corrente è terminato. Contatta il coach per rinnovare."
-                      : `Tutti gli slot del blocco sono già occupati o esclusi. Contatta ${coachName}.`}
-            </p>
-            <details className="text-[11px] text-on-tertiary-container/70 mt-1">
-              <summary className="cursor-pointer font-semibold">Dettagli tecnici</summary>
-              <ul className="mt-1 space-y-0.5 list-disc list-inside tabular-nums">
+          <div className="bg-surface-container-lowest border border-outline-variant/40 rounded-[24px] px-5 py-4 shadow-[0_8px_30px_rgba(0,0,0,0.04)]">
+            <div className="flex items-start gap-3">
+              <div className="size-9 rounded-full bg-aura-primary/10 flex items-center justify-center shrink-0">
+                <Info className="size-4 text-aura-primary" aria-hidden />
+              </div>
+              <div className="flex-1 min-w-0 flex flex-col gap-1">
+                <p className="text-sm font-semibold text-on-surface">
+                  Nessuno slot disponibile per questa tipologia
+                </p>
+                <p className="text-xs text-on-surface-variant leading-relaxed">
+                  {!coachId
+                    ? "Non hai ancora un coach assegnato. Contatta il supporto."
+                    : (eventTypesQ.data ?? []).length === 0
+                      ? `${coachName} non ha configurato le tipologie di sessione.`
+                      : (availQ.data ?? []).length === 0
+                        ? `${coachName} non ha configurato gli orari di disponibilità settimanali.`
+                        : block && new Date(block.end_date).getTime() < Date.now()
+                          ? "Il blocco corrente è terminato. Contatta il coach per rinnovare."
+                          : `Tutti gli slot del blocco sono già occupati o esclusi. Contatta ${coachName}.`}
+                </p>
+              </div>
+            </div>
+            <details className="mt-3 pl-12 text-[11px] text-on-surface-variant">
+              <summary className="cursor-pointer font-semibold select-none hover:text-on-surface transition-colors">
+                Dettagli tecnici
+              </summary>
+              <ul className="mt-2 space-y-1 list-disc list-inside tabular-nums">
                 <li>Fasce disponibilità coach: {(availQ.data ?? []).length}</li>
                 <li>Eccezioni disponibilità: {(exceptionsQ.data ?? []).length}</li>
                 <li>Tipologie evento: {(eventTypesQ.data ?? []).length}</li>
                 <li>Eventi che bloccano slot (coach busy): {(coachBusyQ.data ?? []).length}</li>
-                <li>
-                  Durata minima testata: {candidateMinutes} min
-                </li>
+                <li>Durata minima testata: {candidateMinutes} min</li>
                 {block && (
                   <>
+                    <li>Blocco selezionato: #{block.sequence_order}</li>
                     <li>Inizio blocco: {block.start_date}</li>
                     <li>Fine blocco: {block.end_date}</li>
                   </>
