@@ -79,6 +79,15 @@ function ClientHome() {
   // - Fixed → cerca il blocco la cui finestra [start_date, end_date] contiene oggi;
   //   fallback al primo non ancora terminato; ultimo fallback = blocco con
   //   sequence_order minore (path appena iniziato)
+  //
+  // MED-C3 (audit 2026-05-26): il useMemo non lista `Date.now()` nei deps
+  // per scelta — la data corrente è usata SOLO come discriminante per
+  // categorizzare "passato/attuale/futuro", non come valore renderizzato.
+  // Il risultato cambia significativamente solo a midnight cross. React
+  // Query rifresca `blocksQ.data` periodicamente, garantendo che il
+  // useMemo recompute a ogni refetch con il `Date.now()` aggiornato.
+  // Pattern accettato per il caso "data-as-condition", da NON replicare
+  // dove il timestamp finisce direttamente in props/render output.
   const resolvedCurrentBlock = useMemo(() => {
     if (isRecurring) return currentBlock;
     const all = blocksQ.data ?? [];
