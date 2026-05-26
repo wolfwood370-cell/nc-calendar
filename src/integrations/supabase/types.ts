@@ -280,6 +280,76 @@ export type Database = {
         }
         Relationships: []
       }
+      bug_reports: {
+        Row: {
+          coach_id: string | null
+          created_at: string
+          description: string
+          id: string
+          page_url: string | null
+          reporter_id: string
+          reporter_role: string
+          resolved_at: string | null
+          sentry_event_id: string | null
+          severity: string
+          status: string
+          updated_at: string
+          user_agent: string | null
+        }
+        Insert: {
+          coach_id?: string | null
+          created_at?: string
+          description: string
+          id?: string
+          page_url?: string | null
+          reporter_id: string
+          reporter_role?: string
+          resolved_at?: string | null
+          sentry_event_id?: string | null
+          severity?: string
+          status?: string
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Update: {
+          coach_id?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          page_url?: string | null
+          reporter_id?: string
+          reporter_role?: string
+          resolved_at?: string | null
+          sentry_event_id?: string | null
+          severity?: string
+          status?: string
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bug_reports_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "client_block_status"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "bug_reports_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "client_exhaustion_forecast"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "bug_reports_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_invitations: {
         Row: {
           accepted_at: string | null
