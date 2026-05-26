@@ -259,6 +259,38 @@ function BookFlow() {
     return slots.filter((s) => format(s.date, "yyyy-MM-dd") === key);
   }, [slots, selectedDate]);
 
+  // ===== Derivazioni profile + useBookConfirm DEVONO stare prima degli
+  // early-return per non violare le rules of hooks (React error #310).
+  // Durante isLoading profileQ.data è undefined ma i fallback ?? sono
+  // safe; useBookConfirm gestisce internamente meId/coachId undefined. ====
+  const profile = profileQ.data;
+  const meName = profile?.full_name ?? user?.email ?? "Cliente";
+  const meEmail = profile?.email ?? user?.email ?? "";
+  const mePhone = profile?.phone ?? null;
+  const coachId = profile?.coach_id;
+  const coachName = coachProfileQ.data?.full_name ?? coachProfileQ.data?.email ?? "il tuo Coach";
+  const emailNotificationsEnabled = profile?.email_notifications ?? true;
+
+  const { confirm, confirming } = useBookConfirm({
+    meId,
+    meName,
+    meEmail,
+    mePhone,
+    coachId,
+    coachName,
+    emailNotificationsEnabled,
+    selectedISO,
+    selectedPoolKey,
+    pools,
+    block,
+    customTypes,
+    extraCredits: extraCreditsQ.data,
+  });
+
+  const selectedSlot = selectedISO ? (slots.find((s) => s.iso === selectedISO) ?? null) : null;
+  const selectedPoolValidUntil =
+    pools.find((p) => p.key === selectedPoolKey)?.validUntil ?? null;
+
   if (blocksQ.isLoading || bookingsQ.isLoading || availQ.isLoading || extraCreditsQ.isLoading) {
     // M6: skeleton mirrors the actual booking layout to reserve space and
     // prevent the layout shift (CLS) that the previous two generic rectangles
@@ -307,34 +339,6 @@ function BookFlow() {
       </div>
     );
   }
-
-  const profile = profileQ.data;
-  const meName = profile?.full_name ?? user?.email ?? "Cliente";
-  const meEmail = profile?.email ?? user?.email ?? "";
-  const mePhone = profile?.phone ?? null;
-  const coachId = profile?.coach_id;
-  const coachName = coachProfileQ.data?.full_name ?? coachProfileQ.data?.email ?? "il tuo Coach";
-  const emailNotificationsEnabled = profile?.email_notifications ?? true;
-
-  const { confirm, confirming } = useBookConfirm({
-    meId,
-    meName,
-    meEmail,
-    mePhone,
-    coachId,
-    coachName,
-    emailNotificationsEnabled,
-    selectedISO,
-    selectedPoolKey,
-    pools,
-    block,
-    customTypes,
-    extraCredits: extraCreditsQ.data,
-  });
-
-  const selectedSlot = selectedISO ? (slots.find((s) => s.iso === selectedISO) ?? null) : null;
-  const selectedPoolValidUntil =
-    pools.find((p) => p.key === selectedPoolKey)?.validUntil ?? null;
 
   return (
     <div className="bg-surface min-h-screen pb-32">
