@@ -200,7 +200,15 @@ function ClientsPage() {
     return m;
   }, [eventTypesQ.data]);
 
-  async function load() {
+  // HIGH-4 (audit 2026-05-26): `signal` è un piccolo flag mutevole passato
+  // dal useEffect chiamante. Se il componente unmount mid-fetch, l'effect
+  // cleanup setta signal.cancelled=true e tutti i setState successivi
+  // diventano no-op. Senza questo guard, una navigation rapida via questa
+  // route produrrebbe il warning React "setState on unmounted component"
+  // + potenziale memory leak (closure ancora viva).
+  // Default `{ cancelled: false }` per i caller manuali (refresh button,
+  // post-mutation reload) dove il rischio unmount è zero.
+  async function load(signal: { cancelled: boolean } = { cancelled: false }) {
     setLoading(true);
     let cq = supabase
       .from("profiles")
@@ -210,6 +218,7 @@ function ClientsPage() {
       .is("deleted_at", null);
     if (!isAdmin && user) cq = cq.eq("coach_id", user.id);
     const { data: cs } = await cq;
+    if (signal.cancelled) return;
     const clientList = ((cs as ClientRow[]) ?? [])
       .slice()
       .sort((a, b) =>
@@ -223,6 +232,7 @@ function ClientsPage() {
       .order("created_at", { ascending: false });
     if (!isAdmin && user) iq = iq.eq("coach_id", user.id);
     const { data: invs } = await iq;
+    if (signal.cancelled) return;
     setInvitations((invs as InvitationRow[]) ?? []);
 
     // Fetch blocks + allocations for status calculation
@@ -249,6 +259,7 @@ function ClientsPage() {
       if (!isAdmin && user) bq = bq.eq("coach_id", user.id);
 
       const { data: bs } = await bq;
+      if (signal.cancelled) return;
       // Supabase typed `.select(...)` returns the joined block_allocations as
       // a discriminated array on each row; the BlockLite/AllocLite shapes
       // below are a structural subset, so we project explicitly instead of
@@ -289,8 +300,10 @@ function ClientsPage() {
         .in("status", ["scheduled", "completed", "late_cancelled"]);
       if (!isAdmin && user) bookQ = bookQ.eq("coach_id", user.id);
       const { data: bks } = await bookQ;
+      if (signal.cancelled) return;
       setBookings((bks as unknown as BookingLite[]) ?? []);
     } else {
+      if (signal.cancelled) return;
       setBlocks([]);
       setAllocs([]);
       setBookings([]);
@@ -324,6 +337,7 @@ function ClientsPage() {
         weeklyAvg: Number(r.weekly_avg ?? 0),
       });
     }
+    if (signal.cancelled) return;
     setForecasts(fmap);
 
     setLoading(false);
@@ -341,6 +355,14 @@ function ClientsPage() {
     // guarantees the immediately-following SELECT picks up the rows
     // just inserted. Admin role skips the call because they don't
     // have a single coach scope; their dashboard shows everyone.
+    //
+    // HIGH-4 (audit 2026-05-26): cleanup pattern. Se l'utente naviga
+    // via questa route prima che `load()` finisca (es. unmount mid-fetch
+    // perché ha cliccato un Link), il flag `signal.cancelled` viene
+    // settato dal cleanup ritornato e i setState successivi diventano
+    // no-op. Previene il warning "setState on unmounted component" +
+    // memory leak della closure.
+    const signal = { cancelled: false };
     void (async () => {
       if (!isAdmin) {
         try {
@@ -359,8 +381,17 @@ function ClientsPage() {
           console.error("ensure_all_recurring_for_coach failed", e);
         }
       }
-      load();
+      if (signal.cancelled) return;
+      load(signal);
     })();
+    return () => {
+      signal.cancelled = true;
+    };
+    // HIGH-5: `load` è una funzione locale dichiarata dentro il componente
+    // ma stabile per scopo — chiude su `user`, `isAdmin` (entrambi nei
+    // deps) e su setState refs (per definizione stabili in React).
+    // Includerla nei deps obbligherebbe a `useCallback` cascade. Pattern
+    // accettato dato che il refresh manuale è esposto dal pulsante UI.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, isAdmin]);
 

@@ -56,12 +56,19 @@ Deno.serve(async (req) => {
         return new Response("Client has no coach", { status: 400 });
       }
 
-      // Lookup event_type_id by name (e.g. "PT" or "Triage")
+      // HIGH-3 (audit 2026-05-26): lookup event_type per nome ESATTO.
+      // Prima usavamo `.ilike("%${event_type_title}%")` che è case-insensitive
+      // substring → "PT" matchava sia "Sessione PT" che "PT-Pack" (i crediti
+      // potevano finire sulla event_type sbagliata se due tipologie del
+      // coach condividevano un substring). Con `.eq` il match deve essere
+      // letterale; in caso di mismatch (es. il coach ha rinominato la
+      // tipologia dopo il checkout Stripe) cade nel fallback "primo
+      // event_type del coach" che è la stessa rete di sicurezza di prima.
       let { data: eventType } = await adminClient
         .from("event_types")
         .select("id")
         .eq("coach_id", profile.coach_id)
-        .ilike("name", `%${event_type_title}%`)
+        .eq("name", event_type_title)
         .limit(1)
         .maybeSingle();
 

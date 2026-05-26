@@ -43,10 +43,26 @@ function allDayLabel(b: { title: string | null; notes: string | null }): string 
   return "Evento giornaliero";
 }
 
+// HIGH-7 (audit 2026-05-26): subset structural type al posto di BookingRow.
+// Sia `allDayLabel` che `allDayIcon` leggono solo `title` e `notes`, quindi
+// limitare il contract API a quel subset elimina la necessità del `as any`
+// nel chiamante (CalendarAllDayStrip è generico su `T extends
+// AllDayStripBooking`, che ora può estendere lo stesso shape esposto qui).
+export interface AllDayPillBooking {
+  title: string | null;
+  notes: string | null;
+}
+
 // Reusable pill for the desktop strip and the mobile pinned-top section.
 // `compact` collapses to a tighter footprint for the desktop weekly grid
 // where horizontal real estate per day is scarce.
-export function AllDayPill({ booking, compact = false }: { booking: BookingRow; compact?: boolean }) {
+export function AllDayPill({
+  booking,
+  compact = false,
+}: {
+  booking: AllDayPillBooking;
+  compact?: boolean;
+}) {
   const label = allDayLabel(booking);
   const icon = allDayIcon(booking);
   return (
