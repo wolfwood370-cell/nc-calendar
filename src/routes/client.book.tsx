@@ -518,8 +518,13 @@ function BookFlow() {
         />
       </main>
 
-      {/* Bottom Action Bar */}
-      <div className="fixed bottom-[88px] md:bottom-0 left-0 w-full z-50 bg-white/90 backdrop-blur-xl border-t border-white/20 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] px-margin-mobile py-4 pb-4 md:pb-8 flex justify-between items-center md:px-margin-desktop">
+      {/* Bottom Action Bar — MED-E1 (audit 2026-05-26): mobile bottom anchor
+          rispetta la bottom nav (88px) + l'eventuale safe-area-inset-bottom
+          dei dispositivi con notch (iPhone X+). Senza l'inset, su iPhone
+          notched la barra si sovrapponeva alla home indicator nascondendo
+          parzialmente il bottone Conferma. Desktop (md+) resta ancorato a 0
+          perché non c'è bottom nav. */}
+      <div className="fixed bottom-[calc(88px+env(safe-area-inset-bottom,0px))] md:bottom-0 left-0 w-full z-50 bg-white/90 backdrop-blur-xl border-t border-white/20 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] px-margin-mobile py-4 pb-4 md:pb-8 flex justify-between items-center md:px-margin-desktop">
         <div className="flex flex-col">
           <span className="text-sm text-outline">Selezionato:</span>
           <span className="font-display font-semibold text-xl text-primary-container">
