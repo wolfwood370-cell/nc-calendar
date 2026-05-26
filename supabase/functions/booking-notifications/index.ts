@@ -50,6 +50,22 @@ if (VAPID_PUBLIC && VAPID_PRIVATE) {
   webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
 }
 
+/**
+ * Validate a phone number in loose E.164 format prior to handing it to
+ * the WhatsApp Graph API. Without this guard, malformed inputs (empty
+ * strings, alphanumeric strings, ridiculously long values) reach
+ * Facebook's API which either 4xx-loops or — for crafted inputs —
+ * becomes an abuse vector. Accepts: optional leading "+", 8–15 digits,
+ * first digit non-zero. Whitespace in the input is stripped before
+ * matching so user-entered "+39 333 1234567" is accepted and normalized.
+ */
+function normalizeAndValidatePhoneE164(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.replace(/[\s\-().]/g, "");
+  if (!/^\+?[1-9]\d{7,14}$/.test(trimmed)) return null;
+  return trimmed;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders(req) });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405, req);
@@ -256,12 +272,21 @@ Deno.serve(async (req) => {
     // client just performed the reschedule themselves, so a
     // confirmation message would be redundant. Coach is informed via
     // in-app + Web Push above.
+    const waPhoneNormalized = normalizeAndValidatePhoneE164(body.client_phone);
+    if (body.client_phone && !waPhoneNormalized) {
+      // CRIT-2 fix: phone was provided but failed E.164 validation.
+      // Log so coaches can spot bad data in profiles.phone; do NOT crash
+      // and do NOT forward malformed input to Facebook (4xx loop / abuse).
+      console.warn("booking-notifications: skipping WhatsApp — invalid phone format", {
+        bookingId: body.booking_id,
+      });
+    }
     if (
       eventType === "booking.created" &&
       settings?.wa_enabled &&
       settings.wa_phone_id &&
       settings.wa_access_token &&
-      body.client_phone
+      waPhoneNormalized
     ) {
       try {
         const dateLabel = new Date(body.scheduled_at).toLocaleString("it-IT", {
@@ -282,7 +307,7 @@ Deno.serve(async (req) => {
             },
             body: JSON.stringify({
               messaging_product: "whatsapp",
-              to: body.client_phone,
+              to: waPhoneNormalized,
               type: "text",
               text: { body: text },
             }),
