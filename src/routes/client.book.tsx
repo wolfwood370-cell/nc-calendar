@@ -50,13 +50,19 @@ function BookFlow() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, email, phone, coach_id, email_notifications")
+        .select("id, full_name, email, phone, coach_id, email_notifications, path_type")
         .eq("id", meId!)
         .maybeSingle();
       if (error) throw error;
       return data;
     },
   });
+  // path_type discrimina la logica del block resolver: "recurring" si
+  // affida all'RPC ensure_client_block_state (gestisce grace + auto-renew),
+  // "fixed" usa risoluzione time-based perché l'RPC su fixed può ritornare
+  // un currentBlockId arbitrario tra quelli active (Marco Golinelli pesca
+  // Blocco 6 di Agosto invece di Blocco 3 di Maggio).
+  const isRecurring = (profileQ.data?.path_type ?? "fixed") === "recurring";
 
   // Single-pick state for the new Aura booking flow
   const [selectedPoolKey, setSelectedPoolKey] = useState<string | null>(null);
@@ -69,22 +75,20 @@ function BookFlow() {
   // is true. On the first load for a client whose previous block expired,
   // this hook is what physically materializes the new block in the DB.
   const currentBlockQ = useCurrentBlock(meId);
-  // Block resolver TIME-BASED (allineato a client.index.tsx). Il vecchio
-  // resolver basato su `status === "active"` falliva su path fixed perché
-  // tutti i blocchi futuri vengono creati upfront con status="active": il
-  // fallback random-pickava uno qualunque (spesso il blocco di Agosto
-  // anziché il blocco corrente), saturando rangeStart fuori dall'orizzonte
-  // di 28 giorni e generando 0 slot.
-  //
-  // Risoluzione robusta:
-  //   1. currentBlockQ.currentBlockId — autoritativo per recurring
-  //   2. fixed: blocco la cui finestra [start_date, end_date] contiene oggi
-  //   3. fallback: primo blocco futuro, o l'ultimo se path già terminato
+  // Block resolver gemello di client.index.tsx:
+  //   - recurring → trust the RPC (gestisce grace + auto-renewal)
+  //   - fixed → time-based perché l'RPC su path fixed può ritornare un
+  //     currentBlockId arbitrario tra quelli con status="active" (per
+  //     Marco Golinelli pescava Blocco 6 di Agosto invece di Blocco 3
+  //     di Maggio, saturando rangeStart fuori dall'orizzonte di 28 giorni
+  //     e generando 0 slot).
   const block = useMemo(() => {
     const all = blocksQ.data ?? [];
     if (all.length === 0) return null;
-    const fromRpc = all.find((b) => b.id === currentBlockQ.data?.currentBlockId);
-    if (fromRpc) return fromRpc;
+    if (isRecurring) {
+      const fromRpc = all.find((b) => b.id === currentBlockQ.data?.currentBlockId);
+      if (fromRpc) return fromRpc;
+    }
     const sorted = [...all].sort((a, b) => a.sequence_order - b.sequence_order);
     const now = Date.now();
     const inside = sorted.find((b) => {
@@ -95,7 +99,7 @@ function BookFlow() {
     if (inside) return inside;
     const futureStart = sorted.find((b) => new Date(b.start_date).getTime() > now);
     return futureStart ?? sorted[sorted.length - 1] ?? null;
-  }, [blocksQ.data, currentBlockQ.data]);
+  }, [isRecurring, blocksQ.data, currentBlockQ.data]);
   const coachIdForAvail = profileQ.data?.coach_id ?? null;
   const availQ = useCoachAvailability(coachIdForAvail);
   const exceptionsQ = useCoachAvailabilityExceptions(coachIdForAvail);
