@@ -78,13 +78,25 @@ export function useNotifications(userId: string | null | undefined) {
       // primitives). The producers (booking-notifications edge function)
       // always write an object, but a malformed historical row should
       // degrade to {} rather than crash the consumer.
-      return (data ?? []).map((row) => ({
-        ...row,
-        payload:
-          typeof row.payload === "object" && row.payload !== null && !Array.isArray(row.payload)
-            ? (row.payload as Record<string, unknown>)
-            : {},
-      }));
+      // MED-C2: il fallback {} nasconde silenziosamente schema corrotti.
+      // Aggiungo console.warn così uno schema invalido è almeno visibile
+      // nei logs (sarà catturato anche da Sentry se attivo). Non blocca
+      // il render — la UI continua a degradare gracefully.
+      return (data ?? []).map((row) => {
+        const isValidPayload =
+          typeof row.payload === "object" && row.payload !== null && !Array.isArray(row.payload);
+        if (!isValidPayload && row.payload !== null && row.payload !== undefined) {
+          console.warn("use-notifications: payload schema invalido", {
+            id: (row as { id?: string }).id,
+            payloadType: typeof row.payload,
+            isArray: Array.isArray(row.payload),
+          });
+        }
+        return {
+          ...row,
+          payload: isValidPayload ? (row.payload as Record<string, unknown>) : {},
+        };
+      });
     },
     enabled: !!userId,
   });

@@ -74,12 +74,24 @@ export function RescheduleDrawer({
   coachId,
   durationMin,
 }: RescheduleDrawerProps) {
-  const today = startOfDay(new Date());
+  // MED-C1: `today` è ora memoized sul key giorno-corrente (YYYY-M-D),
+  // così resta una REFERENZA stabile per tutta la giornata e cambia solo
+  // a mezzanotte. Questo permette al useMemo di `days` di avere deps
+  // pulite `[today]` senza eslint-disable, e di ricalcolare correttamente
+  // quando il drawer è aperto durante un midnight cross (bug latente del
+  // pattern precedente con deps `[open]`: array stale fino al prossimo
+  // open/close cycle).
+  const _now = new Date();
+  const todayKey = `${_now.getFullYear()}-${_now.getMonth()}-${_now.getDate()}`;
+  const today = React.useMemo(
+    () => startOfDay(new Date()),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `todayKey` is
+    // the stable proxy for today; including `new Date()` would loop.
+    [todayKey],
+  );
   const days = React.useMemo(
     () => Array.from({ length: WINDOW_DAYS }, (_, i) => addDays(today, i)),
-    // today changes only at midnight; rebuilding the array is cheap.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [open],
+    [today],
   );
 
   const [selectedDay, setSelectedDay] = React.useState<Date>(today);
@@ -87,13 +99,15 @@ export function RescheduleDrawer({
   const [submitting, setSubmitting] = React.useState(false);
 
   // Reset internal state on every open so re-opening starts clean.
+  // Deps deliberately limited to `[open]`: includere `today` farebbe sì
+  // che al midnight cross il drawer aperto perdesse la selezione del
+  // giorno scelto dall'utente. Il caso "drawer aperto a cavallo della
+  // mezzanotte" è raro e non vale il reset.
   React.useEffect(() => {
     if (open) {
       setSelectedDay(today);
       setSelectedISO(null);
     }
-    // today is recomputed each render but only differs across midnight;
-    // including it would loop. eslint-disable for the same reason as days.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
