@@ -1280,8 +1280,15 @@ Deno.serve(async (req) => {
     // were told the sync had succeeded when it hadn't. Status 502 = the
     // upstream Google call failed; the original error message lands in
     // parseEdgeError so the toast describes what actually went wrong.
+    //
+    // CRIT-1 fix (audit 2026-05-26): `String(e)` could leak OAuth tokens
+    // when Google's error body echoes the request payload (refresh_token,
+    // access_token, Bearer headers). The refresh flow already sanitizes
+    // at line ~87; this catch-all now routes through the same scrubber.
+    // The raw error is still logged server-side for debugging — Lovable
+    // logs are trusted (admin-only).
     console.error("sync-calendar: Google API error", e);
-    return json({ error: String(e) }, 502, req);
+    return json({ error: sanitizeUpstreamError(e) }, 502, req);
   }
 });
 
@@ -1295,6 +1302,38 @@ function json(payload: unknown, status: number, req: Request) {
     status,
     headers: { ...corsHeaders(req), "Content-Type": "application/json" },
   });
+}
+
+/**
+ * CRIT-1 (audit 2026-05-26): scrub thrown errors before exposing them
+ * to the client. Google's OAuth error responses can echo back the
+ * original request (refresh_token, access_token), and our catch-all
+ * previously returned the raw message via `String(e)`.
+ *
+ * Strategy:
+ *   1. If `e.message` parses as JSON with a typed `error` field
+ *      (Google's standard shape), return only the error code.
+ *   2. Otherwise, redact known secret patterns (refresh_token=...,
+ *      access_token=..., Bearer ...) and clip to 200 chars to bound
+ *      the response size.
+ *   3. Last resort: return a neutral sentinel.
+ */
+function sanitizeUpstreamError(e: unknown): string {
+  if (!(e instanceof Error)) return "unknown_error";
+  const raw = e.message ?? "unknown_error";
+  try {
+    const parsed = JSON.parse(raw) as { error?: unknown };
+    if (typeof parsed.error === "string") return parsed.error;
+  } catch {
+    /* not JSON — fall through to pattern redaction */
+  }
+  return raw
+    .replace(/refresh_token=[^&\s"']+/gi, "refresh_token=[REDACTED]")
+    .replace(/access_token=[^&\s"']+/gi, "access_token=[REDACTED]")
+    .replace(/"refresh_token"\s*:\s*"[^"]+"/g, '"refresh_token":"[REDACTED]"')
+    .replace(/"access_token"\s*:\s*"[^"]+"/g, '"access_token":"[REDACTED]"')
+    .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer [REDACTED]")
+    .slice(0, 200);
 }
 
 /**
