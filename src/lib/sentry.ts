@@ -70,3 +70,51 @@ export function initSentry(): void {
 export const captureException = Sentry.captureException;
 export const captureMessage = Sentry.captureMessage;
 export const setUser = Sentry.setUser;
+
+// ============================================================================
+// Context enrichment helpers (audit 2026-05-27)
+// ============================================================================
+// Ogni evento Sentry deve includere CHI ha causato il bug (user_id + role) e
+// DOVE stava (route). Senza questi tag il dashboard Sentry mostra solo lo
+// stack trace, costringendo a indovinare il context. Con questi tag posso
+// filtrare per "tutti i crash dei client su /client/book" in 1 click.
+//
+// I 3 helper sono no-op se Sentry non è inizializzato (VITE_SENTRY_DSN
+// mancante in dev locale). I call site possono chiamarli incondizionatamente.
+
+/**
+ * Imposta l'identità Sentry dell'utente loggato. `null` per signOut
+ * (Sentry resetta anche email + tag pregressi). Chiamato dall'AuthProvider
+ * a ogni cambio di sessione.
+ */
+export function setSentryUser(user: { id: string; email?: string | null } | null): void {
+  if (!initialized) return;
+  if (!user) {
+    Sentry.setUser(null);
+    return;
+  }
+  Sentry.setUser({
+    id: user.id,
+    email: user.email ?? undefined,
+  });
+}
+
+/**
+ * Tag `role` per filtrare bug per fascia utente (coach/client/admin).
+ * "anonymous" quando l'utente non è loggato. Risetta lo stesso tag a
+ * ogni cambio ruolo (es. login → fetch role → tag aggiornato).
+ */
+export function setSentryRoleTag(role: string | null): void {
+  if (!initialized) return;
+  Sentry.setTag("role", role ?? "anonymous");
+}
+
+/**
+ * Tag `route` per sapere su quale pagina è esploso il bug. Aggiornato
+ * a ogni navigazione (RootComponent hooka useRouterState). Esempio:
+ * "/client/book" → vedo subito che il crash è del flow di prenotazione.
+ */
+export function setSentryRouteTag(routePath: string): void {
+  if (!initialized) return;
+  Sentry.setTag("route", routePath);
+}

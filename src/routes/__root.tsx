@@ -5,6 +5,7 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
@@ -13,7 +14,7 @@ import appCss from "../styles.css?url";
 import { AuthProvider } from "@/lib/auth";
 import { Toaster } from "@/components/ui/sonner";
 import { PwaRegister } from "@/components/pwa-register";
-import { initSentry } from "@/lib/sentry";
+import { initSentry, setSentryRouteTag } from "@/lib/sentry";
 
 function NotFoundComponent() {
   return (
@@ -113,6 +114,21 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+/**
+ * Sub-componente isolato che hooka al location change e aggiorna il tag
+ * `route` su Sentry. Estratto fuori dal RootComponent per non causare
+ * re-render dell'intero albero ad ogni navigazione — `useRouterState`
+ * con select restringe la subscription al solo pathname, quindi
+ * RouteTracker re-render solo a vero cambio rotta.
+ */
+function RouteTracker() {
+  const path = useRouterState({ select: (s) => s.location.pathname });
+  useEffect(() => {
+    setSentryRouteTag(path);
+  }, [path]);
+  return null;
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   // Init Sentry una sola volta lato client. No-op se VITE_SENTRY_DSN
@@ -123,6 +139,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <RouteTracker />
         <Outlet />
         <Toaster richColors position="top-right" />
         <PwaRegister />
