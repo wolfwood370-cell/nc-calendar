@@ -415,17 +415,24 @@ function BookFlow() {
           selectedPoolSource={selectedPool?.source ?? null}
         />
 
-        {/* No-slots fallback: il pool è selezionato ma nessuno slot esiste
-            (availability vuota, finestra fuori horizon, ecc.). Senza questo
-            messaggio il cliente vedrebbe solo un calendario tutto grigio
-            senza capire perché. */}
+        {/* No-slots fallback DIAGNOSTICO: identifica la causa specifica per
+            cui slots è vuoto e la mostra all'utente — così sa esattamente
+            cosa va corretto invece di un generico "contatta il coach". */}
         {selectedPoolKey && slots.length === 0 && (
           <div className="bg-tertiary-container/20 border border-tertiary-container/30 rounded-2xl px-4 py-3">
             <p className="text-sm font-semibold text-on-tertiary-container">
               Nessuno slot disponibile per questa tipologia.
             </p>
             <p className="text-xs text-on-tertiary-container/80 mt-0.5">
-              Contatta {coachName} per maggiori informazioni.
+              {!coachId
+                ? "Non hai ancora un coach assegnato. Contatta il supporto."
+                : (eventTypesQ.data ?? []).length === 0
+                  ? `${coachName} non ha configurato le tipologie di sessione.`
+                  : (availQ.data ?? []).length === 0
+                    ? `${coachName} non ha configurato gli orari di disponibilità settimanali.`
+                    : block && new Date(block.end_date).getTime() < Date.now()
+                      ? "Il blocco corrente è terminato. Contatta il coach per rinnovare."
+                      : `Tutti gli slot del blocco sono già occupati o esclusi. Contatta ${coachName}.`}
             </p>
           </div>
         )}
