@@ -60,11 +60,11 @@ export function EventTypeServiceCard({ type: t, onEdit, onDelete }: EventTypeSer
               ) : (
                 <MapPin className="size-3" />
               )}
-              {t.location_type === "online" ? "Online" : "Fisico"}
+              {t.location_type === "online" ? "Online" : "In studio"}
             </span>
             {t.buffer_minutes > 0 && (
               <span className="inline-flex items-center gap-1 bg-muted px-3 py-1 rounded-full text-muted-foreground text-[12px] font-semibold">
-                +{t.buffer_minutes}m margine
+                +{t.buffer_minutes} min di pausa
               </span>
             )}
           </div>

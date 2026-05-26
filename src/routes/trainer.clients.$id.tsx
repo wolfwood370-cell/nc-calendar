@@ -905,7 +905,7 @@ function ClientPathPage() {
         <div className="mb-6">
           <h2 className="font-display text-3xl font-bold text-primary">Timeline del Percorso</h2>
           <p className="text-base text-muted-foreground mt-1">
-            Pianificazione e stato degli appuntamenti
+            Pianificazione e stato delle sessioni
           </p>
         </div>
 

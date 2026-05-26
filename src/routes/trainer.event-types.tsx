@@ -149,7 +149,7 @@ function EventTypesPage() {
             I tuoi Servizi
           </h1>
           <p className="text-base text-muted-foreground mt-2">
-            Gestisci le tipologie di appuntamento e la loro durata.
+            Gestisci le tipologie di sessione e la loro durata.
           </p>
         </div>
         <Dialog
@@ -201,7 +201,7 @@ function EventTypesPage() {
             <h3 className="text-xl font-bold text-foreground">Nessun servizio configurato</h3>
             <p className="text-sm text-muted-foreground max-w-md mx-auto">
               Non hai ancora configurato i tuoi servizi. Inizia creando una nuova tipologia di
-              appuntamento.
+              sessione.
             </p>
           </div>
           <Button
@@ -274,7 +274,7 @@ function EventTypeDialog({
   return (
     <DialogContent>
       <DialogHeader>
-        <DialogTitle>{initial ? "Modifica tipologia" : "Nuova tipologia evento"}</DialogTitle>
+        <DialogTitle>{initial ? "Modifica tipologia" : "Nuova tipologia di sessione"}</DialogTitle>
       </DialogHeader>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
@@ -326,7 +326,7 @@ function EventTypeDialog({
               className="flex items-center gap-2 rounded-[16px] border p-3 cursor-pointer hover:bg-accent/50"
             >
               <RadioGroupItem value="physical" id="loc-physical" />
-              <MapPin className="size-4" /> Fisico
+              <MapPin className="size-4" /> In studio
             </Label>
             <Label
               htmlFor="loc-online"

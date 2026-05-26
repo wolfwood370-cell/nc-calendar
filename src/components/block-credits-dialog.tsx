@@ -73,7 +73,7 @@ export function BlockCreditsDialog({
   function addRow() {
     const et = eventTypes[0];
     if (!et) {
-      toast.error("Crea prima una Tipologia Evento.");
+      toast.error("Crea prima una tipologia di sessione.");
       return;
     }
     setDraft((prev) => [

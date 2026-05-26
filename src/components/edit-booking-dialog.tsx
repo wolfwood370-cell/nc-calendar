@@ -142,7 +142,7 @@ export function EditBookingDialog({
             </div>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Tipologia Evento</Label>
+            <Label className="text-xs">Tipologia di sessione</Label>
             <Select value={eventTypeId} onValueChange={setEventTypeId}>
               <SelectTrigger>
                 <SelectValue placeholder="Seleziona" />

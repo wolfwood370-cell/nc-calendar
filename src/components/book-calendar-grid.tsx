@@ -31,6 +31,8 @@ export interface BookCalendarGridProps {
   selectedPoolValidUntil: Date | null;
   /** Origine del pool selezionato — determina il wording del messaggio sotto il calendario. */
   selectedPoolSource?: "block" | "extra" | null;
+  /** Inizio del blocco successivo (se esiste). Mostrato come hint sotto il calendario. */
+  nextBlockStartDate?: Date | null;
 }
 
 /**
@@ -48,6 +50,7 @@ export function BookCalendarGrid({
   todayStart,
   selectedPoolValidUntil,
   selectedPoolSource = null,
+  nextBlockStartDate = null,
 }: BookCalendarGridProps) {
   const calendarDays = useMemo(() => {
     const monthStart = startOfMonth(calendarMonth);
@@ -118,11 +121,19 @@ export function BookCalendarGrid({
         })}
       </div>
       {selectedPoolValidUntil && (
-        <p className="mt-stack-md text-xs text-on-surface-variant text-center">
-          {selectedPoolSource === "extra"
-            ? `I crediti extra scadono il ${format(selectedPoolValidUntil, "d MMMM yyyy", { locale: it })}.`
-            : `Da prenotare entro la fine del blocco corrente, il ${format(selectedPoolValidUntil, "d MMMM yyyy", { locale: it })}.`}
-        </p>
+        <div className="mt-stack-md text-xs text-on-surface-variant text-center space-y-1">
+          <p>
+            {selectedPoolSource === "extra"
+              ? `I crediti extra scadono il ${format(selectedPoolValidUntil, "d MMMM yyyy", { locale: it })}.`
+              : `Da prenotare entro il ${format(selectedPoolValidUntil, "d MMMM yyyy", { locale: it })} (fine del blocco corrente).`}
+          </p>
+          {selectedPoolSource === "block" && nextBlockStartDate && (
+            <p>
+              Il prossimo blocco si aprirà il{" "}
+              {format(nextBlockStartDate, "d MMMM yyyy", { locale: it })}.
+            </p>
+          )}
+        </div>
       )}
     </section>
   );

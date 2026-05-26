@@ -526,8 +526,8 @@ export function CalendarManageSheet({
                 <AlertDialogHeader>
                   <AlertDialogTitle>Disconnettere Google Calendar?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Sei sicuro di voler disconnettere Google Calendar? La sincronizzazione degli
-                    appuntamenti verrà interrotta.
+                    Sei sicuro di voler disconnettere Google Calendar? La sincronizzazione delle
+                    sessioni verrà interrotta.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
