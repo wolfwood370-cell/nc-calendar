@@ -18,7 +18,15 @@ Deno.serve(async (req) => {
 
     const { userId, admin } = authResult;
     const body = await req.json();
-    const package_type = body.package_type;
+    // MED-B4: type guard sul package_type prima di propagarlo a una query
+    // .eq() e a una stringa template HTML. Senza il check, un payload
+    // malformato (number, object, null) sarebbe accettato silenziosamente e
+    // matcherebbe 0 row, ritornando un 404 confuso invece di un 400 chiaro.
+    const package_type: string | null =
+      typeof body.package_type === "string" ? body.package_type : null;
+    if (!package_type) {
+      return jsonResponse({ error: "Invalid or missing package_type" }, 400, req);
+    }
     const requested_client_id = body.client_id;
 
     // Use requested client_id if provided (e.g. coach buying for client),

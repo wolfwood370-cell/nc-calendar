@@ -109,10 +109,14 @@ function BookFlow() {
     queryKey: ["coach-profile", coachIdForAvail],
     enabled: !!coachIdForAvail,
     queryFn: async () => {
+      // MED-B3: narrowing esplicito invece di `coachIdForAvail!`. `enabled`
+      // previene già la chiamata quando è null, ma il guard rende il tipo
+      // safe senza non-null assertion.
+      if (!coachIdForAvail) return null;
       const { data } = await supabase
         .from("profiles")
         .select("full_name, email")
-        .eq("id", coachIdForAvail!)
+        .eq("id", coachIdForAvail)
         .maybeSingle();
       return data;
     },
@@ -142,11 +146,14 @@ function BookFlow() {
     ],
     enabled: !!coachIdForAvail,
     queryFn: async () => {
+      // MED-B3: stesso pattern del profilo coach sopra — narrowing
+      // esplicito invece di `coachIdForAvail!`.
+      if (!coachIdForAvail) return [];
       const from = block ? new Date(block.start_date) : startOfDay(new Date());
       const to = block ? new Date(block.end_date) : addDays(startOfDay(new Date()), 60);
       to.setHours(23, 59, 59, 999);
       const { data, error } = await supabase.rpc("get_coach_busy", {
-        p_coach_id: coachIdForAvail!,
+        p_coach_id: coachIdForAvail,
         p_from: from.toISOString(),
         p_to: to.toISOString(),
       });

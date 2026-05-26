@@ -62,7 +62,13 @@ export function useGcalWatchRenewal(coachId: string | null | undefined) {
         // registered) → renew. Anything within RENEWAL_THRESHOLD = renew.
         const expiresAtRaw = data.gcal_channel_expires_at;
         if (expiresAtRaw) {
-          const expiresAtMs = new Date(expiresAtRaw as string).getTime();
+          // Defensive guard: gcal_channel_expires_at è typed `unknown` dal
+          // generated schema Supabase. Senza il typeof check, un valore non
+          // string/number scivolerebbe in new Date(...) → NaN → la condizione
+          // dopo (NaN > threshold) sarebbe false → renew sempre, anche quando
+          // il watch è ancora valido (chiamata API sprecata).
+          if (typeof expiresAtRaw !== "string" && typeof expiresAtRaw !== "number") return;
+          const expiresAtMs = new Date(expiresAtRaw).getTime();
           if (!Number.isFinite(expiresAtMs)) return;
           if (expiresAtMs - Date.now() > RENEWAL_THRESHOLD_MS) return;
         }
