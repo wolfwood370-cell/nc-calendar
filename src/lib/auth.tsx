@@ -3,6 +3,7 @@ import type { Session, User } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
+import { setSentryUser, setSentryRoleTag } from "@/lib/sentry";
 
 // M10: validate the role coming from the DB through a Zod enum instead of
 // blindly casting `as Role`. Stray DB values (case mismatch, typo, future
@@ -36,18 +37,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s);
       setUser(s?.user ?? null);
+      // Sentry user context — ogni bug futuro avrà l'id/email del
+      // soggetto loggato. setSentryUser(null) clear su signOut.
+      setSentryUser(s?.user ? { id: s.user.id, email: s.user.email } : null);
       if (s?.user) {
         setTimeout(() => fetchRole(s.user.id), 0);
       } else {
         setRole(null);
+        setSentryRoleTag(null);
       }
     });
 
     supabase.auth.getSession().then(({ data: { session: s } }) => {
       setSession(s);
       setUser(s?.user ?? null);
+      setSentryUser(s?.user ? { id: s.user.id, email: s.user.email } : null);
       if (s?.user) fetchRole(s.user.id).finally(() => setLoading(false));
-      else setLoading(false);
+      else {
+        setSentryRoleTag(null);
+        setLoading(false);
+      }
     });
 
     return () => sub.subscription.unsubscribe();
@@ -65,7 +74,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // silently downgrading the user.
       console.warn("auth: unrecognized role from DB, falling back to 'client'", data.role);
     }
-    setRole(parsed.success ? parsed.data : "client");
+    const resolvedRole = parsed.success ? parsed.data : "client";
+    setRole(resolvedRole);
+    setSentryRoleTag(resolvedRole);
   }
 
   const signOut = async () => {
@@ -73,6 +84,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
     setUser(null);
     setRole(null);
+    // Sentry: clear user + reset role tag così bug post-logout non
+    // vengono attribuiti all'utente precedente.
+    setSentryUser(null);
+    setSentryRoleTag(null);
     // Purge all cached user-scoped data so a subsequent login on the same
     // device cannot momentarily display the previous user's queries.
     queryClient.clear();
