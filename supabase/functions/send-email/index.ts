@@ -54,14 +54,22 @@ Deno.serve(async (req) => {
     });
 
     if (error) {
+      // MED-D1 (audit 2026-05-26): non propaghiamo `error.message` di Resend
+      // al client. Le risposte error di Resend possono contenere stringhe
+      // verbose con header API o frammenti di payload sensibili. Il dettaglio
+      // resta nei logs server-side (admin-only) per debug. Status 502 segnala
+      // upstream failure così il frontend mostra il toast di errore.
       console.error("[send-email] Resend error:", error);
-      return jsonResponse({ error: error.message ?? "Errore Resend" }, 502, req);
+      return jsonResponse({ error: "Invio email fallito." }, 502, req);
     }
 
     return jsonResponse({ ok: true, id: data?.id }, 200, req);
   } catch (err) {
+    // MED-D1: stesso ragionamento del catch sopra. Una eccezione non
+    // controllata (es. Resend SDK throw, JSON parsing) può portarsi
+    // dietro lo stack o variabili sensibili nel message. Generic public
+    // message, dettaglio nei logs.
     console.error("[send-email] error", err);
-    const message = err instanceof Error ? err.message : "Errore sconosciuto";
-    return jsonResponse({ error: message }, 500, req);
+    return jsonResponse({ error: "Errore interno del server." }, 500, req);
   }
 });
