@@ -120,7 +120,15 @@ Deno.serve(async (req) => {
         return new Response("Failed to insert extra credits", { status: 500 });
       }
 
-      console.log(`Successfully added ${quantity} booster credits for client ${client_id}`);
+      // LOW-1 (audit 2026-05-26): log strutturato invece di interpolazione
+      // libera. Allinea il formato a "Payment already processed" sopra e
+      // permette a un futuro log filter di mascherare il campo client_id
+      // in modo consistente (paid+client_id pairing è rumore in produzione).
+      console.log("stripe-webhook: booster credits granted", {
+        client_id,
+        quantity,
+        stripe_payment_id: session.id,
+      });
     }
 
     return new Response(JSON.stringify({ received: true }), {
