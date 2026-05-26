@@ -426,7 +426,7 @@ export function CalendarManageSheet({
               onClick={handleImportOrphans}
               disabled={isImportingOrphans || isSyncing || isDebugging}
               variant="outline"
-              className="w-full rounded-full border-primary text-primary h-11"
+              className="w-full rounded-full border-aura-primary text-aura-primary h-11"
             >
               {isImportingOrphans ? (
                 <>
