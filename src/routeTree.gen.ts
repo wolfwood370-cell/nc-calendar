@@ -21,6 +21,7 @@ import { Route as ClientIndexRouteImport } from './routes/client.index'
 import { Route as TrainerIntegrationsRouteImport } from './routes/trainer.integrations'
 import { Route as TrainerEventTypesRouteImport } from './routes/trainer.event-types'
 import { Route as TrainerCalendarRouteImport } from './routes/trainer.calendar'
+import { Route as TrainerBugReportsRouteImport } from './routes/trainer.bug-reports'
 import { Route as TrainerAvailabilityRouteImport } from './routes/trainer.availability'
 import { Route as ClientStoreRouteImport } from './routes/client.store'
 import { Route as ClientSettingsRouteImport } from './routes/client.settings'
@@ -90,6 +91,11 @@ const TrainerCalendarRoute = TrainerCalendarRouteImport.update({
   path: '/calendar',
   getParentRoute: () => TrainerRoute,
 } as any)
+const TrainerBugReportsRoute = TrainerBugReportsRouteImport.update({
+  id: '/bug-reports',
+  path: '/bug-reports',
+  getParentRoute: () => TrainerRoute,
+} as any)
 const TrainerAvailabilityRoute = TrainerAvailabilityRouteImport.update({
   id: '/availability',
   path: '/availability',
@@ -144,6 +150,7 @@ export interface FileRoutesByFullPath {
   '/client/settings': typeof ClientSettingsRoute
   '/client/store': typeof ClientStoreRoute
   '/trainer/availability': typeof TrainerAvailabilityRoute
+  '/trainer/bug-reports': typeof TrainerBugReportsRoute
   '/trainer/calendar': typeof TrainerCalendarRoute
   '/trainer/event-types': typeof TrainerEventTypesRoute
   '/trainer/integrations': typeof TrainerIntegrationsRoute
@@ -164,6 +171,7 @@ export interface FileRoutesByTo {
   '/client/settings': typeof ClientSettingsRoute
   '/client/store': typeof ClientStoreRoute
   '/trainer/availability': typeof TrainerAvailabilityRoute
+  '/trainer/bug-reports': typeof TrainerBugReportsRoute
   '/trainer/calendar': typeof TrainerCalendarRoute
   '/trainer/event-types': typeof TrainerEventTypesRoute
   '/trainer/integrations': typeof TrainerIntegrationsRoute
@@ -187,6 +195,7 @@ export interface FileRoutesById {
   '/client/settings': typeof ClientSettingsRoute
   '/client/store': typeof ClientStoreRoute
   '/trainer/availability': typeof TrainerAvailabilityRoute
+  '/trainer/bug-reports': typeof TrainerBugReportsRoute
   '/trainer/calendar': typeof TrainerCalendarRoute
   '/trainer/event-types': typeof TrainerEventTypesRoute
   '/trainer/integrations': typeof TrainerIntegrationsRoute
@@ -211,6 +220,7 @@ export interface FileRouteTypes {
     | '/client/settings'
     | '/client/store'
     | '/trainer/availability'
+    | '/trainer/bug-reports'
     | '/trainer/calendar'
     | '/trainer/event-types'
     | '/trainer/integrations'
@@ -231,6 +241,7 @@ export interface FileRouteTypes {
     | '/client/settings'
     | '/client/store'
     | '/trainer/availability'
+    | '/trainer/bug-reports'
     | '/trainer/calendar'
     | '/trainer/event-types'
     | '/trainer/integrations'
@@ -253,6 +264,7 @@ export interface FileRouteTypes {
     | '/client/settings'
     | '/client/store'
     | '/trainer/availability'
+    | '/trainer/bug-reports'
     | '/trainer/calendar'
     | '/trainer/event-types'
     | '/trainer/integrations'
@@ -361,6 +373,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TrainerCalendarRouteImport
       parentRoute: typeof TrainerRoute
     }
+    '/trainer/bug-reports': {
+      id: '/trainer/bug-reports'
+      path: '/bug-reports'
+      fullPath: '/trainer/bug-reports'
+      preLoaderRoute: typeof TrainerBugReportsRouteImport
+      parentRoute: typeof TrainerRoute
+    }
     '/trainer/availability': {
       id: '/trainer/availability'
       path: '/availability'
@@ -441,6 +460,7 @@ const ClientRouteWithChildren =
 
 interface TrainerRouteChildren {
   TrainerAvailabilityRoute: typeof TrainerAvailabilityRoute
+  TrainerBugReportsRoute: typeof TrainerBugReportsRoute
   TrainerCalendarRoute: typeof TrainerCalendarRoute
   TrainerEventTypesRoute: typeof TrainerEventTypesRoute
   TrainerIntegrationsRoute: typeof TrainerIntegrationsRoute
@@ -451,6 +471,7 @@ interface TrainerRouteChildren {
 
 const TrainerRouteChildren: TrainerRouteChildren = {
   TrainerAvailabilityRoute: TrainerAvailabilityRoute,
+  TrainerBugReportsRoute: TrainerBugReportsRoute,
   TrainerCalendarRoute: TrainerCalendarRoute,
   TrainerEventTypesRoute: TrainerEventTypesRoute,
   TrainerIntegrationsRoute: TrainerIntegrationsRoute,
