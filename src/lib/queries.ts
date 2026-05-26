@@ -205,6 +205,19 @@ async function loadBookingsWithFallback(
   return ((base.data as Record<string, unknown>[] | null) ?? []).map(withBookingDefaults);
 }
 
+// HIGH-2 (audit 2026-05-26): safety net contro fetch unbounded.
+// Senza cap, un coach con 5000+ bookings storici (o un cliente con
+// percorso pluri-annuale + booster) scaricherebbe l'intero set al mount,
+// causando layout shift e memoria elevata. Il limit a 1000 copre con
+// margine i casi reali (28 sessioni/blocco × 24 blocchi = 672 max
+// teorico per un cliente) e funge da circuit-breaker.
+//
+// Ordine DESC: con il limit servono i più RECENTI (i consumer fanno
+// filtering/sorting proprio downstream, quindi il cambio di default non
+// rompe nessuno — verificato grep dei call site su client.{index,book},
+// trainer.{index,calendar,clients.$id}, mobile-calendar-agenda).
+const BOOKINGS_FETCH_LIMIT = 1000;
+
 async function selectBookingsByCoach(coachId: string): Promise<BookingRow[]> {
   return loadBookingsWithFallback((cols) =>
     supabase
@@ -212,7 +225,8 @@ async function selectBookingsByCoach(coachId: string): Promise<BookingRow[]> {
       .select(cols)
       .eq("coach_id", coachId)
       .is("deleted_at", null)
-      .order("scheduled_at", { ascending: true }),
+      .order("scheduled_at", { ascending: false })
+      .limit(BOOKINGS_FETCH_LIMIT),
   );
 }
 
@@ -223,7 +237,8 @@ async function selectBookingsByClient(clientId: string): Promise<BookingRow[]> {
       .select(cols)
       .eq("client_id", clientId)
       .is("deleted_at", null)
-      .order("scheduled_at", { ascending: true }),
+      .order("scheduled_at", { ascending: false })
+      .limit(BOOKINGS_FETCH_LIMIT),
   );
 }
 
