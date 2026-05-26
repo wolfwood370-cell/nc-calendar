@@ -29,6 +29,8 @@ export interface BookCalendarGridProps {
   todayStart: Date;
   /** Scadenza dei crediti del pool corrente; oltre questa data i giorni sono disabled. */
   selectedPoolValidUntil: Date | null;
+  /** Origine del pool selezionato — determina il wording del messaggio sotto il calendario. */
+  selectedPoolSource?: "block" | "extra" | null;
 }
 
 /**
@@ -45,6 +47,7 @@ export function BookCalendarGrid({
   daysWithSlots,
   todayStart,
   selectedPoolValidUntil,
+  selectedPoolSource = null,
 }: BookCalendarGridProps) {
   const calendarDays = useMemo(() => {
     const monthStart = startOfMonth(calendarMonth);
@@ -116,8 +119,9 @@ export function BookCalendarGrid({
       </div>
       {selectedPoolValidUntil && (
         <p className="mt-stack-md text-xs text-on-surface-variant text-center">
-          I crediti per questa tipologia scadono il{" "}
-          {format(selectedPoolValidUntil, "d MMMM yyyy", { locale: it })}.
+          {selectedPoolSource === "extra"
+            ? `I crediti extra scadono il ${format(selectedPoolValidUntil, "d MMMM yyyy", { locale: it })}.`
+            : `Da prenotare entro la fine del blocco corrente, il ${format(selectedPoolValidUntil, "d MMMM yyyy", { locale: it })}.`}
         </p>
       )}
     </section>

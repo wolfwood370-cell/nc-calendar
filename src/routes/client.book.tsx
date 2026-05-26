@@ -259,6 +259,25 @@ function BookFlow() {
     return slots.filter((s) => format(s.date, "yyyy-MM-dd") === key);
   }, [slots, selectedDate]);
 
+  // Auto-navigate calendar al primo mese con slot disponibili. Una-tantum,
+  // così se l'utente naviga manualmente non viene riportato indietro.
+  // Necessario quando il blocco corrente parte in un mese futuro (es. il
+  // mese di oggi non ha alcuno slot): senza questo, il calendario mostrerebbe
+  // Maggio tutto grigio e l'utente non capirebbe che deve cliccare ">".
+  const [hasInitedCalendar, setHasInitedCalendar] = useState(false);
+  useEffect(() => {
+    if (hasInitedCalendar) return;
+    const first = slots[0];
+    if (!first) return;
+    let earliest = first.date;
+    for (const s of slots) if (s.date < earliest) earliest = s.date;
+    const firstMonth = startOfMonth(earliest);
+    if (firstMonth.getTime() > calendarMonth.getTime()) {
+      setCalendarMonth(firstMonth);
+    }
+    setHasInitedCalendar(true);
+  }, [slots, hasInitedCalendar, calendarMonth]);
+
   // ===== Derivazioni profile + useBookConfirm DEVONO stare prima degli
   // early-return per non violare le rules of hooks (React error #310).
   // Durante isLoading profileQ.data è undefined ma i fallback ?? sono
@@ -288,8 +307,24 @@ function BookFlow() {
   });
 
   const selectedSlot = selectedISO ? (slots.find((s) => s.iso === selectedISO) ?? null) : null;
-  const selectedPoolValidUntil =
-    pools.find((p) => p.key === selectedPoolKey)?.validUntil ?? null;
+  const selectedPool = pools.find((p) => p.key === selectedPoolKey) ?? null;
+  // Scadenza pool corrente, usata sia per filtrare i giorni del calendario
+  // sia per il messaggio testuale:
+  // - source="block"  → limite più stringente = fine del blocco corrente
+  //                     (il valid_until delle allocations include 2-3 mesi
+  //                     di grace dopo la fine blocco, ma il cliente DEVE
+  //                     prenotare le sessioni dentro la finestra del blocco)
+  // - source="extra"  → scadenza del pacchetto stesso (booster con orizzonte
+  //                     più lungo, indipendente dal blocco)
+  const selectedPoolValidUntil = useMemo(() => {
+    if (!selectedPool) return null;
+    if (selectedPool.source === "block" && block) {
+      const blockEnd = new Date(block.end_date);
+      blockEnd.setHours(23, 59, 59, 999);
+      return blockEnd;
+    }
+    return selectedPool.validUntil;
+  }, [selectedPool, block]);
 
   if (blocksQ.isLoading || bookingsQ.isLoading || availQ.isLoading || extraCreditsQ.isLoading) {
     // M6: skeleton mirrors the actual booking layout to reserve space and
@@ -377,7 +412,23 @@ function BookFlow() {
           daysWithSlots={daysWithSlots}
           todayStart={todayStart}
           selectedPoolValidUntil={selectedPoolValidUntil}
+          selectedPoolSource={selectedPool?.source ?? null}
         />
+
+        {/* No-slots fallback: il pool è selezionato ma nessuno slot esiste
+            (availability vuota, finestra fuori horizon, ecc.). Senza questo
+            messaggio il cliente vedrebbe solo un calendario tutto grigio
+            senza capire perché. */}
+        {selectedPoolKey && slots.length === 0 && (
+          <div className="bg-tertiary-container/20 border border-tertiary-container/30 rounded-2xl px-4 py-3">
+            <p className="text-sm font-semibold text-on-tertiary-container">
+              Nessuno slot disponibile per questa tipologia.
+            </p>
+            <p className="text-xs text-on-tertiary-container/80 mt-0.5">
+              Contatta {coachName} per maggiori informazioni.
+            </p>
+          </div>
+        )}
 
         {/* Available Times */}
         <BookSlotsGrid
