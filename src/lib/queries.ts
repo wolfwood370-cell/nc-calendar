@@ -153,6 +153,20 @@ function isMissingColumnError(
   return typeof err.message === "string" && err.message.includes(needle);
 }
 
+// Apply default values for columns that may be missing because the
+// migration hasn't shipped yet. Preserves any value already present on
+// the row (so the post-migration "wide" SELECT returns unchanged data),
+// while filling in safe defaults for the older shapes. Centralizing the
+// cast here lets the call sites drop the noisy `as unknown as BookingRow`.
+function withBookingDefaults(b: Record<string, unknown>): BookingRow {
+  const row = b as Partial<BookingRow>;
+  return {
+    ...b,
+    is_personal: row.is_personal ?? false,
+    category: row.category ?? "client_session",
+  } as BookingRow;
+}
+
 // Generic ladder: try wider → narrower SELECTs until one succeeds, then
 // fill in missing columns with safe defaults. The supabase-js typing
 // can't model the union of "all three columns" / "two columns" / "base"
@@ -173,9 +187,7 @@ async function loadBookingsWithFallback(
     if (isMissingColumnError(wide.error, "is_personal")) {
       const base = await build(BOOKINGS_BASE_COLS);
       if (base.error) throw base.error;
-      return ((base.data as Record<string, unknown>[] | null) ?? []).map(
-        (b) => ({ ...b, is_personal: false, category: "client_session" }) as unknown as BookingRow,
-      );
+      return ((base.data as Record<string, unknown>[] | null) ?? []).map(withBookingDefaults);
     }
     throw wide.error;
   }
@@ -183,18 +195,14 @@ async function loadBookingsWithFallback(
   // Attempt 2: category missing, is_personal present.
   const mid = await build(BOOKINGS_COLS_WITH_PERSONAL);
   if (!mid.error) {
-    return ((mid.data as Record<string, unknown>[] | null) ?? []).map(
-      (b) => ({ ...b, category: "client_session" }) as unknown as BookingRow,
-    );
+    return ((mid.data as Record<string, unknown>[] | null) ?? []).map(withBookingDefaults);
   }
   if (!isMissingColumnError(mid.error, "is_personal")) throw mid.error;
 
   // Attempt 3: pre-personal-blocks project.
   const base = await build(BOOKINGS_BASE_COLS);
   if (base.error) throw base.error;
-  return ((base.data as Record<string, unknown>[] | null) ?? []).map(
-    (b) => ({ ...b, is_personal: false, category: "client_session" }) as unknown as BookingRow,
-  );
+  return ((base.data as Record<string, unknown>[] | null) ?? []).map(withBookingDefaults);
 }
 
 async function selectBookingsByCoach(coachId: string): Promise<BookingRow[]> {
