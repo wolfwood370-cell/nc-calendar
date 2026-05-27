@@ -538,7 +538,12 @@ Deno.serve(async (req) => {
       const endISO =
         body.end_iso ?? new Date(new Date(startISO).getTime() + 60 * 60 * 1000).toISOString();
       const event: Record<string, unknown> = {
-        summary: `${body.session_label ?? "Sessione"} — ${body.client_name}`,
+        // Format titolo evento Google Calendar:
+        //   "[tipo di sessione] - [nome e cognome del cliente]"
+        // Esempio: "Sessione PT - Marco Golinelli". Trattino ASCII per
+        // consistency cross-platform (em-dash precedente non rendeva
+        // bene in alcune notification iOS/macOS).
+        summary: `${body.session_label ?? "Sessione"} - ${body.client_name}`,
         description: body.meeting_link ? `Videochiamata: ${body.meeting_link}` : undefined,
         start: { dateTime: startISO, timeZone: "Europe/Rome" },
         end: { dateTime: endISO, timeZone: "Europe/Rome" },
@@ -653,7 +658,8 @@ Deno.serve(async (req) => {
         end: { dateTime: endISO, timeZone: "Europe/Rome" },
       };
       if (body.client_name && body.session_label) {
-        patch.summary = `${body.session_label} — ${body.client_name}`;
+        // Stesso formato del CREATE branch sopra: "[tipo] - [cliente]"
+        patch.summary = `${body.session_label} - ${body.client_name}`;
       }
       const colorId = hexToGoogleColorId(body.color);
       if (colorId) patch.colorId = colorId;
