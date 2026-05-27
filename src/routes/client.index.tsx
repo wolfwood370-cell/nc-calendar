@@ -1,14 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
-import {
-  Bell,
-  Plus,
-  Check,
-  CheckCircle2,
-  CalendarCheck,
-  Clock,
-  ArrowRight,
-} from "lucide-react";
+import { Bell, Plus, Check, CheckCircle2, CalendarCheck, Clock } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,6 +17,10 @@ import { AuraCardSkeleton, AuraLineSkeleton } from "@/components/ui/aura-skeleto
 import { EmptyStateCard } from "@/components/empty-state-card";
 import { ClientLiveBookingCard } from "@/components/client-live-booking-card";
 import { ClientSessionTimeline } from "@/components/client-session-timeline";
+import {
+  ClientSessionsBreakdown,
+  type SessionTypeBreakdownRow,
+} from "@/components/client-sessions-breakdown";
 
 export const Route = createFileRoute("/client/")({
   component: ClientHome,
@@ -184,6 +180,50 @@ function ClientHome() {
     }
     return { completed, booked, open };
   }, [currentBlockSlots]);
+
+  // Breakdown per tipologia di sessione del blocco corrente. Sostituisce
+  // il vecchio KPI single-counter con un layout granulare a 3 colonne
+  // (icona+nome | progress bar | badge+CTA). Aggrega le allocations per
+  // event_type_id (o session_type fallback) + cross-referencia i bookings
+  // dentro la finestra del blocco per popolare completed/booked.
+  const currentBlockTypeBreakdown = useMemo<SessionTypeBreakdownRow[]>(() => {
+    if (!resolvedCurrentBlock) return [];
+    const ets = eventTypesQ.data ?? [];
+    const map = new Map<string, SessionTypeBreakdownRow>();
+
+    // 1. Inizializza dalle allocations (sourcetruth per total per type)
+    for (const a of resolvedCurrentBlock.allocations) {
+      const key = a.event_type_id ?? a.session_type;
+      const et = a.event_type_id ? ets.find((e) => e.id === a.event_type_id) : null;
+      const cur = map.get(key) ?? {
+        key,
+        name: et?.name ?? sessionLabel(a.session_type),
+        completed: 0,
+        booked: 0,
+        total: 0,
+      };
+      cur.total += a.quantity_assigned;
+      map.set(key, cur);
+    }
+
+    // 2. Cross-referencia bookings dentro la finestra del blocco
+    const startMs = new Date(resolvedCurrentBlock.start_date).getTime();
+    const endMs =
+      new Date(resolvedCurrentBlock.end_date).getTime() + 24 * 60 * 60 * 1000 - 1;
+    for (const b of bookingsQ.data ?? []) {
+      const t = new Date(b.scheduled_at).getTime();
+      if (t < startMs || t > endMs) continue;
+      if (b.status !== "completed" && b.status !== "scheduled") continue;
+      const key = b.event_type_id ?? b.session_type;
+      const cur = map.get(key);
+      if (!cur) continue; // booking di un tipo non allocato → ignora
+      if (b.status === "completed") cur.completed += 1;
+      else cur.booked += 1;
+    }
+
+    // 3. Ordina per total desc così le tipologie con più sessioni stanno in alto
+    return [...map.values()].sort((a, b) => b.total - a.total);
+  }, [resolvedCurrentBlock, eventTypesQ.data, bookingsQ.data]);
 
   // Data di fine blocco corrente formattata it-IT (es. "30 giugno"),
   // usata nel KPI box "...entro il 30 giugno".
@@ -427,47 +467,35 @@ function ClientHome() {
                   </div>
                 )}
 
-                {/* KPI Highlight: sessioni da prenotare + CTA */}
-                {currentBlockBreakdown.open > 0 ? (
-                  <div className="bg-primary-container/10 rounded-[20px] p-4 flex flex-col gap-3">
-                    <div className="flex items-end gap-2">
-                      <span className="text-5xl font-bold leading-none text-aura-primary tabular-nums">
-                        {currentBlockBreakdown.open}
-                      </span>
-                      <span className="text-base text-on-surface pb-1">
-                        {currentBlockBreakdown.open === 1
-                          ? "sessione da prenotare"
-                          : "sessioni da prenotare"}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      {currentBlockEndLabel && (
-                        <p className="text-xs text-on-surface-variant flex-1">
-                          per completare il blocco entro il {currentBlockEndLabel}
-                        </p>
-                      )}
-                      <Link
-                        to="/client/book"
-                        className="bg-aura-primary text-on-primary px-4 py-2 rounded-full text-sm font-semibold inline-flex items-center gap-1 shrink-0 hover:opacity-90 transition active:scale-95"
-                      >
-                        Prenota
-                        <ArrowRight className="size-4" aria-hidden />
-                      </Link>
-                    </div>
-                  </div>
-                ) : currentBlockBreakdown.completed === currentBlockSlots.length ? (
-                  <div className="bg-tertiary-container/20 rounded-[20px] p-4 text-center">
-                    <p className="text-sm font-semibold text-on-tertiary-container">
-                      Blocco completato. Ottimo lavoro!
-                    </p>
-                  </div>
-                ) : (
-                  <div className="bg-primary-container/10 rounded-[20px] p-4 text-center">
-                    <p className="text-sm font-semibold text-aura-primary">
-                      Tutte le sessioni del blocco sono prenotate.
-                    </p>
-                  </div>
+                {/* Breakdown per tipologia di sessione — nested card "Le tue
+                    Sessioni" con grid rigida 180px/1fr/auto (vedi
+                    ClientSessionsBreakdown). Sostituisce il vecchio KPI box
+                    single-counter "X sessioni da prenotare" con visibilità
+                    granulare per tipologia (PT, BIA, FMS, ...). */}
+                {currentBlockTypeBreakdown.length > 0 && (
+                  <ClientSessionsBreakdown
+                    rows={currentBlockTypeBreakdown}
+                    grandTotal={currentBlockSlots.length}
+                  />
                 )}
+
+                {/* Hint scadenza blocco (sostituisce il sub-testo del vecchio
+                    KPI box). Sempre visibile finché c'è almeno una sessione
+                    aperta — il messaggio di completamento è ridondante con
+                    la secondary row sotto + i badge dei pool. */}
+                {currentBlockBreakdown.open > 0 && currentBlockEndLabel && (
+                  <p className="text-xs text-on-surface-variant text-center">
+                    Da prenotare entro il <strong>{currentBlockEndLabel}</strong>.
+                  </p>
+                )}
+                {currentBlockBreakdown.open === 0 &&
+                  currentBlockBreakdown.completed === currentBlockSlots.length && (
+                    <div className="bg-tertiary-container/20 rounded-[20px] p-4 text-center">
+                      <p className="text-sm font-semibold text-on-tertiary-container">
+                        Blocco completato. Ottimo lavoro!
+                      </p>
+                    </div>
+                  )}
 
                 {/* Secondary Row: 3 colonne */}
                 <div className="grid grid-cols-3 divide-x divide-surface-container-high pt-2">
