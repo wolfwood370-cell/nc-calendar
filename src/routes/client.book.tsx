@@ -59,13 +59,28 @@ function BookFlow() {
     queryKey: ["profile", meId],
     enabled: !!meId,
     queryFn: async () => {
+      // `as never` sul select: la colonna gcal_invite_enabled è stata
+      // aggiunta da migration 20260527100000 e i tipi Supabase generati
+      // non la includono finché Lovable non rigenera. Il cast forza il
+      // typecheck a passare; il return type è esplicitato sotto.
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, email, phone, coach_id, email_notifications, path_type")
+        .select(
+          "id, full_name, email, phone, coach_id, email_notifications, path_type, gcal_invite_enabled" as never,
+        )
         .eq("id", meId!)
         .maybeSingle();
       if (error) throw error;
-      return data;
+      return data as {
+        id: string;
+        full_name: string | null;
+        email: string | null;
+        phone: string | null;
+        coach_id: string | null;
+        email_notifications: boolean;
+        path_type: string | null;
+        gcal_invite_enabled: boolean;
+      } | null;
     },
   });
   // path_type discrimina la logica del block resolver: "recurring" si
@@ -350,6 +365,13 @@ function BookFlow() {
   const coachId = profile?.coach_id;
   const coachName = coachProfileQ.data?.full_name ?? coachProfileQ.data?.email ?? "il tuo Coach";
   const emailNotificationsEnabled = profile?.email_notifications ?? true;
+  // Defensive cast: la colonna gcal_invite_enabled può non essere nei
+  // tipi generati Supabase finché Lovable non rigenera dopo la migration
+  // 20260527100000. Fallback false per legacy. Stesso pattern usato per
+  // path_type / auto_renew_blocks.
+  const gcalInviteEnabled =
+    (profile as { gcal_invite_enabled?: boolean } | null | undefined)?.gcal_invite_enabled ??
+    false;
 
   const { confirm, confirming } = useBookConfirm({
     meId,
@@ -359,6 +381,7 @@ function BookFlow() {
     coachId,
     coachName,
     emailNotificationsEnabled,
+    gcalInviteEnabled,
     selectedISO,
     selectedPoolKey,
     pools,

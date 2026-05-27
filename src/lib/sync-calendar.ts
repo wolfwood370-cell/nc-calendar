@@ -102,6 +102,12 @@ interface CreateInput {
   // Meet URL only comes back in the response.
   requestMeet?: boolean;
   bookingId?: string;
+  // Opt-in Google Calendar invite del cliente. Quando presente,
+  // l'edge function aggiunge {email} come attendee dell'evento +
+  // forza sendUpdates=all così Google manda email di invito al
+  // cliente. Settato dal frontend SOLO se
+  // profiles.gcal_invite_enabled === true sul cliente.
+  clientEmail?: string;
 }
 interface CancelInput {
   action: "cancel";
@@ -164,6 +170,9 @@ function buildBody(input: SyncInput): Record<string, unknown> {
       color: input.color ?? null,
       request_meet: input.requestMeet ?? false,
       booking_id: input.bookingId ?? undefined,
+      // Solo se opt-in del cliente — l'edge function ignora il campo
+      // se mancante / falsy e l'evento Google non avrà attendees.
+      ...(input.clientEmail ? { client_email: input.clientEmail } : {}),
     };
   }
   if (input.action === "cancel") {

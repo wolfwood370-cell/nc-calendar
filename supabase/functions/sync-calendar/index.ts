@@ -284,10 +284,22 @@ Deno.serve(async (req) => {
             query param explicitly — the field in the body alone is
             silently ignored without it. */
         conferenceDataVersion?: 0 | 1;
+        /** Notification policy per gli attendee:
+         *   - "all":         Google manda email a tutti gli attendee (DEFAULT
+         *                    Google se omesso è "none"; lo settiamo
+         *                    esplicitamente quando il cliente è attendee).
+         *   - "externalOnly": solo attendee fuori dal dominio del coach
+         *   - "none":        nessuna email
+         * Necessario per il flow "invito cliente": senza questo param il
+         * cliente non riceve email anche se è nella lista attendees. */
+        sendUpdates?: "all" | "externalOnly" | "none";
       }) => {
         const qs = new URLSearchParams();
         if (params.conferenceDataVersion !== undefined) {
           qs.set("conferenceDataVersion", String(params.conferenceDataVersion));
+        }
+        if (params.sendUpdates !== undefined) {
+          qs.set("sendUpdates", params.sendUpdates);
         }
         const qsStr = qs.toString();
         const path = `/calendars/${encodeURIComponent(params.calendarId)}/events${
@@ -314,10 +326,15 @@ Deno.serve(async (req) => {
         eventId: string;
         requestBody: Record<string, unknown>;
         conferenceDataVersion?: 0 | 1;
+        /** Stessa semantica di insert.sendUpdates — notifica attendee. */
+        sendUpdates?: "all" | "externalOnly" | "none";
       }) => {
         const qs = new URLSearchParams();
         if (params.conferenceDataVersion !== undefined) {
           qs.set("conferenceDataVersion", String(params.conferenceDataVersion));
+        }
+        if (params.sendUpdates !== undefined) {
+          qs.set("sendUpdates", params.sendUpdates);
         }
         const qsStr = qs.toString();
         const path = `/calendars/${encodeURIComponent(params.calendarId)}/events/${encodeURIComponent(
@@ -538,11 +555,27 @@ Deno.serve(async (req) => {
       const endISO =
         body.end_iso ?? new Date(new Date(startISO).getTime() + 60 * 60 * 1000).toISOString();
       const event: Record<string, unknown> = {
-        summary: `${body.session_label ?? "Sessione"} — ${body.client_name}`,
+        // Format titolo evento Google Calendar:
+        //   "[tipo di sessione] - [nome e cognome del cliente]"
+        // Esempio: "Sessione PT - Marco Golinelli". Trattino ASCII per
+        // consistency cross-platform (em-dash precedente non rendeva
+        // bene in alcune notification iOS/macOS).
+        summary: `${body.session_label ?? "Sessione"} - ${body.client_name}`,
         description: body.meeting_link ? `Videochiamata: ${body.meeting_link}` : undefined,
         start: { dateTime: startISO, timeZone: "Europe/Rome" },
         end: { dateTime: endISO, timeZone: "Europe/Rome" },
       };
+      // Client invite (opt-in via profiles.gcal_invite_enabled): se il
+      // frontend passa client_email, lo aggiungiamo come attendee così
+      // Google notifica il cliente e lui può accettare l'evento nel suo
+      // Google Calendar. sendUpdates=all forza l'invio email a tutti
+      // gli attendee al CREATE. L'organizer (coach) NON viene auto-aggiunto
+      // come attendee da Google quando crea l'evento sul suo calendar.
+      if (typeof body.client_email === "string" && body.client_email.includes("@")) {
+        event.attendees = [{ email: body.client_email }];
+        event.guestsCanModify = false;
+        event.guestsCanSeeOtherGuests = false;
+      }
       const colorId = hexToGoogleColorId(body.color);
       if (colorId) event.colorId = colorId;
 
@@ -567,6 +600,10 @@ Deno.serve(async (req) => {
         calendarId,
         requestBody: event,
         conferenceDataVersion: wantsMeet ? 1 : 0,
+        // Se è presente almeno un attendee (= cliente opt-in), forza
+        // Google a mandare l'email di invito. Senza sendUpdates il
+        // cliente non viene mai notificato anche se è nella lista.
+        sendUpdates: event.attendees ? "all" : undefined,
       });
 
       // Capture the Meet URL: Google returns either the top-level
@@ -653,7 +690,8 @@ Deno.serve(async (req) => {
         end: { dateTime: endISO, timeZone: "Europe/Rome" },
       };
       if (body.client_name && body.session_label) {
-        patch.summary = `${body.session_label} — ${body.client_name}`;
+        // Stesso formato del CREATE branch sopra: "[tipo] - [cliente]"
+        patch.summary = `${body.session_label} - ${body.client_name}`;
       }
       const colorId = hexToGoogleColorId(body.color);
       if (colorId) patch.colorId = colorId;
@@ -664,6 +702,12 @@ Deno.serve(async (req) => {
           calendarId,
           eventId: body.google_event_id,
           requestBody: patch,
+          // Notifica l'attendee del nuovo orario (se esiste). Senza
+          // sendUpdates il cliente non riceve email di reschedule.
+          // "all" forza l'email; "none" la suppression. Lo abilitiamo
+          // di default a "all" — se l'evento non ha attendees, Google
+          // silently no-op (no email mandata a nessuno).
+          sendUpdates: "all",
         });
       } catch (e) {
         const msg = String(e);
