@@ -56,6 +56,10 @@ export interface UseBookConfirmInput {
   coachId: string | null | undefined;
   coachName: string;
   emailNotificationsEnabled: boolean;
+  /** Opt-in del cliente a ricevere l'invito Google Calendar (attendee).
+   *  Letto da profiles.gcal_invite_enabled. Quando true, syncCalendar
+   *  passa clientEmail al backend → Google manda email di invito. */
+  gcalInviteEnabled: boolean;
   selectedISO: string | null;
   selectedPoolKey: string | null;
   pools: readonly PoolForConfirm[];
@@ -85,6 +89,7 @@ export function useBookConfirm(input: UseBookConfirmInput): UseBookConfirmReturn
     coachId,
     coachName,
     emailNotificationsEnabled,
+    gcalInviteEnabled,
     selectedISO,
     selectedPoolKey,
     pools,
@@ -244,6 +249,11 @@ export function useBookConfirm(input: UseBookConfirmInput): UseBookConfirmReturn
         color: eventType?.color ?? null,
         requestMeet: isOnline,
         bookingId: bookingId ?? undefined,
+        // Opt-in: solo se il cliente ha attivato il toggle nei suoi
+        // settings, passiamo l'email per farlo invitare come attendee.
+        // L'evento Google del coach includerà attendees: [{email}] +
+        // sendUpdates=all → il cliente riceve l'invito email.
+        clientEmail: gcalInviteEnabled && meEmail ? meEmail : undefined,
       });
       void Promise.all([
         emailNotificationsEnabled
