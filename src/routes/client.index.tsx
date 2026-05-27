@@ -468,15 +468,12 @@ function ClientHome() {
                 )}
 
                 {/* Breakdown per tipologia di sessione — nested card "Le tue
-                    Sessioni" con grid rigida 180px/1fr/auto (vedi
-                    ClientSessionsBreakdown). Sostituisce il vecchio KPI box
-                    single-counter "X sessioni da prenotare" con visibilità
-                    granulare per tipologia (PT, BIA, FMS, ...). */}
+                    Sessioni" con grid flat [1fr_auto_auto] + separatori
+                    (vedi ClientSessionsBreakdown). Sostituisce il vecchio
+                    KPI box single-counter con visibilità granulare per
+                    tipologia (PT, BIA, FMS, ...). */}
                 {currentBlockTypeBreakdown.length > 0 && (
-                  <ClientSessionsBreakdown
-                    rows={currentBlockTypeBreakdown}
-                    grandTotal={currentBlockSlots.length}
-                  />
+                  <ClientSessionsBreakdown rows={currentBlockTypeBreakdown} />
                 )}
 
                 {/* Hint scadenza blocco (sostituisce il sub-testo del vecchio
