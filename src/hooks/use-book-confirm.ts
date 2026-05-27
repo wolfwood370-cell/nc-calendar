@@ -254,6 +254,8 @@ export function useBookConfirm(input: UseBookConfirmInput): UseBookConfirmReturn
         // L'evento Google del coach includerà attendees: [{email}] +
         // sendUpdates=all → il cliente riceve l'invito email.
         clientEmail: gcalInviteEnabled && meEmail ? meEmail : undefined,
+        // Reminders policy: online → 30 min, in presenza → 2h.
+        isOnline,
       });
       void Promise.all([
         emailNotificationsEnabled

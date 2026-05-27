@@ -564,6 +564,10 @@ Deno.serve(async (req) => {
         description: body.meeting_link ? `Videochiamata: ${body.meeting_link}` : undefined,
         start: { dateTime: startISO, timeZone: "Europe/Rome" },
         end: { dateTime: endISO, timeZone: "Europe/Rome" },
+        // Reminders differenziati per tipologia di sessione (vedi
+        // buildReminders): 24h prima per tutti + 30min online / 2h presenza
+        // come secondo touch. Strategia "Golden Standard" anti-no-show.
+        reminders: buildReminders(body.is_online === true),
       };
       // Client invite (opt-in via profiles.gcal_invite_enabled): se il
       // frontend passa client_email, lo aggiungiamo come attendee così
@@ -695,6 +699,35 @@ Deno.serve(async (req) => {
       }
       const colorId = hexToGoogleColorId(body.color);
       if (colorId) patch.colorId = colorId;
+
+      // Reminders: re-apply al reschedule per garantire coerenza con la
+      // strategia "Golden Standard". Il frontend non passa is_online
+      // nell'update (sarebbe lookup ridondante da event_types), quindi lo
+      // deriviamo qui via DB lookup: bookings.google_event_id → event_type_id
+      // → event_types.location_type. Se qualunque step fallisce (booking
+      // orfano, event_type cancellato, ecc.) default a "in presenza" (più
+      // conservativo: 2h prima > 30 min prima = lead time più ampio).
+      let isOnlineOnReschedule = false;
+      try {
+        const { data: bk } = await supabase
+          .from("bookings")
+          .select("event_type_id")
+          .eq("google_event_id", body.google_event_id)
+          .maybeSingle();
+        const eventTypeId = (bk as { event_type_id?: string | null } | null)?.event_type_id;
+        if (eventTypeId) {
+          const { data: et } = await supabase
+            .from("event_types")
+            .select("location_type")
+            .eq("id", eventTypeId)
+            .maybeSingle();
+          isOnlineOnReschedule =
+            (et as { location_type?: string } | null)?.location_type === "online";
+        }
+      } catch (e) {
+        console.warn("sync-calendar: failed to derive isOnline for reschedule reminders", e);
+      }
+      patch.reminders = buildReminders(isOnlineOnReschedule);
       // BUG-5 fix: idempotent skip only on 404/410 (event already gone
       // on Google). Real failures propagate so the user sees the toast.
       try {
@@ -1346,6 +1379,29 @@ function json(payload: unknown, status: number, req: Request) {
     status,
     headers: { ...corsHeaders(req), "Content-Type": "application/json" },
   });
+}
+
+/**
+ * "Golden Standard" reminders anti-no-show: doppio promemoria nativo
+ * sull'evento Google Calendar, differenziato per online vs in presenza.
+ *
+ * - Tutti:           24h prima (1440 min) — finestra cancellazione gratuita
+ * - Online:          + 30 min prima       — apri laptop, prepara link
+ * - In presenza:     + 2h prima (120 min) — pasto pre-workout, viaggio
+ *
+ * useDefault=false sovrascrive i default del calendar utente così la
+ * strategia è uniforme tra tutti i coach (no dipendenza dalle
+ * preference Google personali del cliente). Limite Google = 5 reminder
+ * per evento, ne usiamo solo 2 → ampio margine.
+ */
+function buildReminders(isOnline: boolean) {
+  return {
+    useDefault: false,
+    overrides: [
+      { method: "popup", minutes: 1440 }, // 24h
+      { method: "popup", minutes: isOnline ? 30 : 120 },
+    ],
+  };
 }
 
 /**

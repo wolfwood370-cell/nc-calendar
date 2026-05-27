@@ -108,6 +108,12 @@ interface CreateInput {
   // cliente. Settato dal frontend SOLO se
   // profiles.gcal_invite_enabled === true sul cliente.
   clientEmail?: string;
+  // Driver per la strategia "Golden Standard" dei reminders sull'evento
+  // Google Calendar: true → reminder 30 min prima (online: bastano per
+  // aprire il link); false → 2h prima (in presenza: pasto + viaggio).
+  // Sempre + 24h prima per tutti. Derivato dal frontend da
+  // event_type.location_type === "online".
+  isOnline?: boolean;
 }
 interface CancelInput {
   action: "cancel";
@@ -173,6 +179,10 @@ function buildBody(input: SyncInput): Record<string, unknown> {
       // Solo se opt-in del cliente — l'edge function ignora il campo
       // se mancante / falsy e l'evento Google non avrà attendees.
       ...(input.clientEmail ? { client_email: input.clientEmail } : {}),
+      // is_online dirige i reminders dell'evento Google Calendar
+      // (vedi buildReminders nel backend). undefined → backend default
+      // a false → reminder 2h prima (più sicuro per il caso ambiguo).
+      is_online: input.isOnline ?? false,
     };
   }
   if (input.action === "cancel") {
