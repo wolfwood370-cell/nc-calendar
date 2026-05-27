@@ -197,6 +197,7 @@ function ClientHome() {
       const et = a.event_type_id ? ets.find((e) => e.id === a.event_type_id) : null;
       const cur = map.get(key) ?? {
         key,
+        eventTypeId: a.event_type_id ?? null,
         name: et?.name ?? sessionLabel(a.session_type),
         completed: 0,
         booked: 0,

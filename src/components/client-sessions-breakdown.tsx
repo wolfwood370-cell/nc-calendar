@@ -18,6 +18,9 @@ import { iconForType } from "@/lib/session-type-icon";
 export interface SessionTypeBreakdownRow {
   /** Stable key per il map (event_type_id o session_type fallback). */
   key: string;
+  /** UUID di event_types.id se presente — usato per il deep-link al
+   *  pool picker della /client/book (?eventType=<uuid>). */
+  eventTypeId: string | null;
   /** Etichetta visibile (nome dell'event type o fallback session_type). */
   name: string;
   /** Conteggio booking completed dentro la finestra del blocco. */
@@ -40,13 +43,8 @@ export function ClientSessionsBreakdown({ rows }: Props) {
     // Card esterna Aura: bg-white (#ffffff), 32px radius, border outline-variant,
     // shadow soft. p-5 internal padding.
     <div className="bg-surface-container-lowest rounded-[32px] p-5 border border-outline-variant shadow-sm">
-      {/* Header — title sx, sub-text dx (mockup v3) */}
-      <div className="flex items-center justify-between gap-3 mb-4">
-        <h3 className="text-base font-bold text-on-surface truncate">Le tue Sessioni</h3>
-        <span className="text-xs font-medium text-on-surface-variant whitespace-nowrap shrink-0">
-          Pianifica i tuoi appuntamenti
-        </span>
-      </div>
+      {/* Header — solo title (sub-text rimosso per risparmiare spazio) */}
+      <h3 className="text-base font-bold text-on-surface mb-4">Le tue Sessioni</h3>
 
       {/* Lista righe — flat, separator sottile bottom (skip last) */}
       <div className="flex flex-col w-full">
@@ -90,6 +88,12 @@ export function ClientSessionsBreakdown({ rows }: Props) {
                 ) : (
                   <Link
                     to="/client/book"
+                    // Deep-link: passiamo eventTypeId via search param così
+                    // la pagina di prenotazione pre-seleziona il pool della
+                    // tipologia cliccata. Fallback graceful al primo pool
+                    // disponibile se eventTypeId è null (es. allocations
+                    // legacy senza event_type_id) o non matcha nessun pool.
+                    search={row.eventTypeId ? { eventType: row.eventTypeId } : undefined}
                     className="border border-aura-primary text-aura-primary text-xs font-bold rounded-full px-4 py-1.5 transition-all hover:bg-aura-primary/5 active:scale-95 whitespace-nowrap"
                   >
                     Prenota
