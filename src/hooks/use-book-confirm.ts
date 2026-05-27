@@ -306,6 +306,55 @@ export function useBookConfirm(input: UseBookConfirmInput): UseBookConfirmReturn
             }
           : undefined,
       });
+
+      // Hint UX: se il cliente non ha ancora attivato l'invito Google
+      // Calendar, gli mostriamo un toast secondario informativo con
+      // call-to-action 1-click. Senza questo, molti clienti non scoprono
+      // mai la feature → no-show rate più alto. Il toast NON viene
+      // mostrato a chi ha già attivato (no spam). Per chi sceglie di
+      // ignorare, il toast riapparirà al prossimo booking finché non
+      // attiva (o disattiva esplicitamente da /client/settings).
+      if (!gcalInviteEnabled && meId) {
+        const reminderHint = isOnline
+          ? "Riceverai un promemoria 24h prima e 30 minuti prima della sessione."
+          : "Riceverai un promemoria 24h prima e 2 ore prima della sessione.";
+        toast.info("Non dimenticarti la sessione", {
+          description: `Attiva l'invito Google Calendar: ${reminderHint}`,
+          duration: 10000,
+          action: {
+            label: "Attiva",
+            onClick: async () => {
+              try {
+                const { error: upErr } = await (
+                  supabase.from("profiles") as unknown as {
+                    update: (v: { gcal_invite_enabled: boolean }) => {
+                      eq: (
+                        col: string,
+                        val: string,
+                      ) => Promise<{ error: { message: string } | null }>;
+                    };
+                  }
+                )
+                  .update({ gcal_invite_enabled: true })
+                  .eq("id", meId);
+                if (upErr) {
+                  toast.error("Errore", { description: upErr.message });
+                  return;
+                }
+                toast.success("Promemoria Google Calendar attivati", {
+                  description:
+                    "Riceverai un'email di invito per questa sessione e per quelle future.",
+                });
+                qc.invalidateQueries({ queryKey: ["profile", meId] });
+              } catch (e) {
+                console.error("gcal toggle (post-booking) failed:", e);
+                toast.error("Errore imprevisto");
+              }
+            },
+          },
+        });
+      }
+
       invalidateBookingScope(qc, { coachId, clientId: meId });
       navigate({ to: "/client" });
     } finally {
