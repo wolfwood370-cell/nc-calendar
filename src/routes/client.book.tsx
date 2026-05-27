@@ -32,8 +32,19 @@ import { BookPoolPicker } from "@/components/book-pool-picker";
 import { allocKey } from "@/lib/booking-allocation";
 import { useBookConfirm } from "@/hooks/use-book-confirm";
 
+// Deep-link search params per la pagina prenotazione.
+// `eventType` (UUID di event_types.id) viene passato dal client dashboard
+// quando il cliente clicca "Prenota" su una specifica tipologia di sessione
+// del breakdown. Il BookPoolPicker pre-seleziona automaticamente il pool
+// corrispondente al primo mount (vedi useEffect più sotto).
+// Validator type-safe: zod-like inline, fallback graceful se param mancante
+// o stringa non-UUID (ignorato senza errori).
 export const Route = createFileRoute("/client/book")({
   component: BookFlow,
+  validateSearch: (search: Record<string, unknown>): { eventType?: string } => {
+    const v = search.eventType;
+    return typeof v === "string" && v.length > 0 ? { eventType: v } : {};
+  },
 });
 
 function BookFlow() {
@@ -275,10 +286,25 @@ function BookFlow() {
     return Array.from(poolsMap.values()).filter((p) => p.remaining > 0);
   }, [block, customTypes, extraCreditsQ.data]);
 
-  // Auto-select first available pool
+  // Deep-link: il client dashboard può navigare qui con ?eventType=<uuid>
+  // per pre-selezionare il pool corrispondente alla tipologia cliccata
+  // ("Prenota" su Sessione PT → preseleziona pool PT). Se il param manca o
+  // non matcha alcun pool disponibile (es. tipologia esaurita), fallback
+  // al primo pool con residuo > 0 (comportamento legacy).
+  const deepLinkEventType = Route.useSearch({ select: (s) => s.eventType });
   useEffect(() => {
-    if (!selectedPoolKey && pools[0]) setSelectedPoolKey(pools[0].key);
-  }, [selectedPoolKey, pools]);
+    if (selectedPoolKey) return;
+    if (pools.length === 0) return;
+    if (deepLinkEventType) {
+      const match = pools.find((p) => p.eventTypeId === deepLinkEventType);
+      if (match) {
+        setSelectedPoolKey(match.key);
+        return;
+      }
+    }
+    const first = pools[0];
+    if (first) setSelectedPoolKey(first.key);
+  }, [selectedPoolKey, pools, deepLinkEventType]);
 
   // ===== Aura UI helpers (must run before any early return to satisfy hooks rules) =====
   const todayStart = startOfDay(new Date());
