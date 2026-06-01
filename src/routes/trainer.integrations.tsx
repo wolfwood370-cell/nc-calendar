@@ -1,49 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { syncCalendarAwait, clearAutoSyncThrottle, markAutoSyncDone } from "@/lib/sync-calendar";
-import { useGcalWatchRenewal } from "@/hooks/use-gcal-watch-renewal";
-import { CalendarManageSheet } from "@/components/calendar-manage-sheet";
-import {
-  IntegrationCard,
-  TokenExpiryBadge,
-} from "@/components/integration-card";
-import { queryKeys } from "@/lib/query-keys";
+import { IntegrationCard } from "@/components/integration-card";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import {
-  Calendar,
-  CreditCard,
-  Video,
-  Loader2,
-  Check,
-  RefreshCw,
-  Mail,
-  Clock,
-  LogOut,
-} from "lucide-react";
+import { Calendar, CreditCard, Video, Loader2, Check } from "lucide-react";
 
 export const Route = createFileRoute("/trainer/integrations")({
   component: IntegrationsPage,
@@ -51,209 +13,32 @@ export const Route = createFileRoute("/trainer/integrations")({
 
 function IntegrationsPage() {
   const { user } = useAuth();
-  // BUG-7 fix: keep the Google push notification channel alive. The
-  // hook checks gcal_channel_expires_at and renews if < 48h to expiry.
-  useGcalWatchRenewal(user?.id ?? null);
-  const [isCalendarConnected, setIsCalendarConnected] = useState(false);
-  const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null);
-  const [isCalendarSyncEnabled, setIsCalendarSyncEnabled] = useState(true);
-  const [isCalendarLoading, setIsCalendarLoading] = useState(false);
-  const [connectedEmail, setConnectedEmail] = useState<string | null>(null);
-  // L5 (FULL_APP_AUDIT.md): expose Google Calendar token expiry so coaches
-  // can spot tokens that need re-consent before the next sync silently
-  // fails. The column is populated by persistProviderTokens below and
-  // refreshed server-side by sync-calendar on each successful refresh.
-  const [tokenExpiresAt, setTokenExpiresAt] = useState<Date | null>(null);
   const [isStripeLoading, setIsStripeLoading] = useState(false);
   // Stripe connection state driven by integration_settings.stripe_account_id
-  // (migration 20260520140000). The column is nullable; non-null = connected.
-  // Until per-coach Stripe Connect onboarding ships, ops can flip this with
-  // a single SQL update — see the migration file for the documented snippet.
+  // (migration 20260520140000). Non-null = connected.
   const [isStripeConnected, setIsStripeConnected] = useState(false);
-  const [calendarSheetOpen, setCalendarSheetOpen] = useState(false);
 
-  // Check connection + capture provider tokens after OAuth redirect
   useEffect(() => {
+    if (!user) return;
     let cancelled = false;
-
-    async function persistProviderTokens(
-      providerToken: string,
-      providerRefreshToken: string | null,
-      email: string | null,
-    ) {
-      if (!user) return;
-      // Access tokens Google scadono in ~3600s
-      const expiresAt = new Date(Date.now() + 55 * 60 * 1000).toISOString();
-      const payload: {
-        coach_id: string;
-        gcal_enabled: boolean;
-        gcal_access_token: string;
-        gcal_token_expires_at: string;
-        gcal_account_email: string | null;
-        gcal_calendar_id: string;
-        gcal_refresh_token?: string;
-      } = {
-        coach_id: user.id,
-        gcal_enabled: true,
-        gcal_access_token: providerToken,
-        gcal_token_expires_at: expiresAt,
-        gcal_account_email: email,
-        gcal_calendar_id: email ?? "primary",
-      };
-      // Salva il refresh token solo se presente (Google lo rilascia solo
-      // al primo consent o con prompt=consent)
-      if (providerRefreshToken) payload.gcal_refresh_token = providerRefreshToken;
-
-      const { error } = await supabase
+    (async () => {
+      const { data } = await supabase
         .from("integration_settings")
-        .upsert(payload, { onConflict: "coach_id" });
-      if (error) {
-        console.error("integration_settings upsert failed", error);
-        toast.error("Connessione riuscita ma salvataggio token fallito.");
-        return;
-      }
-      toast.success("Google Calendar collegato con successo.");
-
-      // Register the Google Calendar push-notification channel so the
-      // backend webhook (/api/public/webhooks/gcal-watch) receives live
-      // updates from day one. Fire-and-forget: a failure here doesn't
-      // block the connection — auto-sync still works as fallback.
-      try {
-        const { data: watchData, error: watchErr } = await syncCalendarAwait({
-          action: "register_watch",
-          coachId: user.id,
-        });
-        if (watchErr) {
-          console.error("register_watch invoke failed", watchErr);
-        } else {
-          const result = watchData as { ok?: boolean; error?: string } | null;
-          if (result?.error) {
-            console.error("register_watch returned error", result.error);
-          }
-        }
-      } catch (e) {
-        console.error("register_watch threw", e);
-      }
-    }
-
-    async function check() {
-      if (!user) return;
-      // 1) Estrai eventuale provider_token dalla sessione corrente
-      const { data: sessionData } = await supabase.auth.getSession();
-      const session = sessionData.session;
-      const providerToken = session?.provider_token ?? null;
-      const providerRefreshToken = session?.provider_refresh_token ?? null;
-
-      const googleIdentity = user.identities?.find((i) => i.provider === "google");
-      const emailFromIdentity =
-        (googleIdentity?.identity_data as { email?: string } | undefined)?.email ?? null;
-
-      // 2) Stato corrente in DB. We try-with-stripe_account_id first, then
-      // fall back to the narrower SELECT if the migration hasn't shipped
-      // (Postgres 42703). Same pattern queries.ts uses for is_personal /
-      // category — keeps the page alive across migration races.
-      type IntegrationSettingsRow = {
-        gcal_enabled: boolean | null;
-        gcal_account_email: string | null;
-        gcal_refresh_token: string | null;
-        gcal_token_expires_at: string | null;
-        gcal_last_notification_at: string | null;
-        stripe_account_id?: string | null;
-      };
-      const baseCols =
-        "gcal_enabled, gcal_account_email, gcal_refresh_token, gcal_token_expires_at, gcal_last_notification_at";
-      let settingsRow: IntegrationSettingsRow | null = null;
-      const primaryResp = await supabase
-        .from("integration_settings")
-        .select(`${baseCols}, stripe_account_id`)
+        .select("stripe_account_id")
         .eq("coach_id", user.id)
         .maybeSingle();
-      if (
-        primaryResp.error &&
-        ((primaryResp.error as { code?: string }).code === "42703" ||
-          (primaryResp.error.message ?? "").includes("stripe_account_id"))
-      ) {
-        const fallback = await supabase
-          .from("integration_settings")
-          .select(baseCols)
-          .eq("coach_id", user.id)
-          .maybeSingle();
-        settingsRow = (fallback.data as IntegrationSettingsRow | null) ?? null;
-      } else if (!primaryResp.error) {
-        settingsRow = (primaryResp.data as IntegrationSettingsRow | null) ?? null;
-      }
-      const settings = settingsRow;
-
-      // 3) Se abbiamo un provider_token fresco dall'OAuth flow, persistilo
-      if (providerToken && googleIdentity) {
-        await persistProviderTokens(providerToken, providerRefreshToken, emailFromIdentity);
-        if (cancelled) return;
-        setIsCalendarConnected(true);
-        setConnectedEmail(emailFromIdentity);
-        // persistProviderTokens just wrote `now() + 55min`; mirror it
-        // in state so the UI shows the fresh expiry immediately.
-        setTokenExpiresAt(new Date(Date.now() + 55 * 60 * 1000));
-        return;
-      }
-
       if (cancelled) return;
-      const connected = !!settings?.gcal_enabled;
-      setIsCalendarConnected(connected);
-      setConnectedEmail(settings?.gcal_account_email ?? emailFromIdentity ?? user.email ?? null);
-      setTokenExpiresAt(
-        settings?.gcal_token_expires_at ? new Date(settings.gcal_token_expires_at) : null,
-      );
-      setLastSyncAt(
-        settings?.gcal_last_notification_at ? new Date(settings.gcal_last_notification_at) : null,
-      );
-      // Stripe: any non-null stripe_account_id flips the badge to
-      // "Connesso". When the migration hasn't shipped settings.stripe_
-      // account_id will be undefined and the badge stays "disconnected"
-      // — matching the platform-level no-onboarding default.
-      setIsStripeConnected(!!settings?.stripe_account_id);
-    }
-    check();
+      setIsStripeConnected(!!(data as { stripe_account_id?: string | null } | null)?.stripe_account_id);
+    })();
     return () => {
       cancelled = true;
     };
   }, [user]);
 
-  const handleToggleCalendarSync = (v: boolean) => {
-    setIsCalendarSyncEnabled(v);
-    toast.success("Sincronizzazione automatica aggiornata.");
-  };
-
-  const handleConnectCalendar = async () => {
-    setIsCalendarLoading(true);
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}/trainer/integrations`,
-          scopes: "https://www.googleapis.com/auth/calendar",
-          queryParams: {
-            access_type: "offline",
-            prompt: "consent",
-          },
-        },
-      });
-      if (error) throw error;
-      toast.info("Reindirizzamento a Google in corso...");
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Errore di connessione";
-      toast.error(msg);
-      setIsCalendarLoading(false);
-    }
-  };
-
   const handleConnectStripe = async () => {
     setIsStripeLoading(true);
     toast.info("Reindirizzamento a Stripe Connect in corso...");
     setTimeout(() => setIsStripeLoading(false), 1500);
-  };
-
-  const handleConnectMeet = () => {
-    toast("Integrazione Google Meet in arrivo.");
   };
 
   return (
@@ -263,73 +48,40 @@ function IntegrationsPage() {
           Integrazioni
         </h1>
         <p className="text-sm text-outline mt-1">
-          Collega i tuoi strumenti preferiti per automatizzare il flusso di lavoro.
+          Le integrazioni della piattaforma sono gestite centralmente. Tu vedi solo lo stato.
         </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Google Calendar */}
+        {/* Google Calendar — sempre connesso via Lovable Connector.
+            Un unico account Google riceve tutte le scritture dell'app
+            (creazione, update, cancel) per tutti i coach. Nessun token
+            per-coach in DB. */}
         <IntegrationCard
           accentColor="#4285F4"
-          connected={isCalendarConnected}
+          connected={true}
           icon={<Calendar className="size-7" style={{ color: "#4285F4" }} />}
           iconBg="#4285F415"
           title="Google Calendar"
-          description="Sincronizza automaticamente le sessioni con il tuo calendario Google."
+          description="Sincronizzazione attiva con il calendario della piattaforma."
         >
-          {isCalendarConnected ? (
-            <>
-              {connectedEmail && (
-                <p className="text-xs text-outline flex items-center gap-1.5">
-                  <Mail className="size-3" /> {connectedEmail}
-                </p>
-              )}
-              <TokenExpiryBadge expiresAt={tokenExpiresAt} />
-              <div className="flex items-center justify-between rounded-2xl bg-surface px-4 py-3">
-                <Label
-                  htmlFor="cal-sync"
-                  className="text-sm font-medium text-aura-primary cursor-pointer"
-                >
-                  Sincronizzazione automatica
-                </Label>
-                <Switch
-                  id="cal-sync"
-                  checked={isCalendarSyncEnabled}
-                  onCheckedChange={handleToggleCalendarSync}
-                />
-              </div>
-              <Button
-                variant="outline"
-                onClick={() => setCalendarSheetOpen(true)}
-                className="w-full rounded-full border-surface-variant text-aura-primary hover:bg-surface"
-              >
-                Gestisci connessione
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button
-                onClick={handleConnectCalendar}
-                disabled={isCalendarLoading}
-                className="w-full rounded-full bg-[#4285F4] hover:bg-[#3a76db] text-white"
-              >
-                {isCalendarLoading && <Loader2 className="size-4 animate-spin mr-2" />}
-                Connetti Google Calendar
-              </Button>
-              <p className="text-[11px] leading-relaxed tracking-wide text-outline px-1 font-medium">
-                Nota: per la sincronizzazione corretta, utilizza esclusivamente l'account{" "}
-                <span className="font-semibold text-aura-primary">nctrainingsystems@gmail.com</span>
-                .
-              </p>
-            </>
-          )}
+          <ul className="space-y-2 text-sm text-outline">
+            <li className="flex items-center gap-2">
+              <Check className="size-4 text-[#4285F4]" /> Eventi creati alla conferma
+            </li>
+            <li className="flex items-center gap-2">
+              <Check className="size-4 text-[#4285F4]" /> Inviti email ai clienti (sendUpdates=all)
+            </li>
+            <li className="flex items-center gap-2">
+              <Check className="size-4 text-[#4285F4]" /> Promemoria 24h + 30min (online) / 2h (in presenza)
+            </li>
+          </ul>
+          <p className="text-[11px] leading-relaxed tracking-wide text-outline px-1">
+            Gestita dal workspace via Lovable Connector — nessuna azione richiesta.
+          </p>
         </IntegrationCard>
 
-        {/* Stripe — connected state driven by
-            integration_settings.stripe_account_id (see migration
-            20260520140000). Until per-coach Stripe Connect onboarding
-            ships, ops flip this with a SQL update documented in the
-            migration file. */}
+        {/* Stripe */}
         <IntegrationCard
           accentColor="#635BFF"
           connected={isStripeConnected}
@@ -374,14 +126,15 @@ function IntegrationsPage() {
           )}
         </IntegrationCard>
 
-        {/* Google Meet */}
+        {/* Google Meet — informativo: i link Meet vengono creati dal
+            connettore Google Calendar quando la sessione è online. */}
         <IntegrationCard
           accentColor="#00897B"
-          connected={false}
+          connected={true}
           icon={<Video className="size-7" style={{ color: "#00897B" }} />}
           iconBg="#00897B15"
           title="Google Meet"
-          description="Genera automaticamente link Google Meet per le tue sessioni online."
+          description="Link Meet generati automaticamente per le sessioni online."
         >
           <ul className="space-y-2 text-sm text-outline">
             <li className="flex items-center gap-2">
@@ -391,46 +144,11 @@ function IntegrationsPage() {
               <Check className="size-4 text-[#00897B]" /> Inviti integrati al cliente
             </li>
           </ul>
-          <Button
-            onClick={handleConnectMeet}
-            variant="outline"
-            className="w-full rounded-full border-surface-variant text-aura-primary hover:bg-surface"
-          >
-            Connetti Google Meet
-          </Button>
+          <p className="text-[11px] leading-relaxed tracking-wide text-outline px-1">
+            Incluso nel connettore Google Calendar.
+          </p>
         </IntegrationCard>
       </div>
-
-      <CalendarManageSheet
-        open={calendarSheetOpen}
-        onOpenChange={setCalendarSheetOpen}
-        coachId={user?.id ?? null}
-        connectedEmail={connectedEmail}
-        lastSyncAt={lastSyncAt}
-        onDisconnect={async () => {
-          if (user) {
-            const { error } = await supabase
-              .from("integration_settings")
-              .update({
-                gcal_enabled: false,
-                gcal_access_token: null,
-                gcal_refresh_token: null,
-                gcal_token_expires_at: null,
-              })
-              .eq("coach_id", user.id);
-            if (error) {
-              console.error("Failed to clear integration tokens", error);
-              toast.error("Disconnessione non riuscita. Riprova.");
-              return;
-            }
-          }
-          setIsCalendarConnected(false);
-          setConnectedEmail(null);
-          setCalendarSheetOpen(false);
-          toast.success("Account Google Calendar disconnesso.");
-        }}
-      />
     </div>
   );
 }
-

@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tansta
 import { supabase } from "@/integrations/supabase/client";
 import type { SessionType, BookingStatus } from "@/lib/mock-data";
 import { invalidateBookingScope, queryKeys } from "@/lib/query-keys";
-import { reportSyncFailure, syncCalendar } from "@/lib/sync-calendar";
+import { gcalDeleteEvent, gcalUpdateEvent } from "@/lib/gcal.functions";
 
 export interface BookingRow {
   id: string;
@@ -454,41 +454,14 @@ export function useCancelBooking() {
       if (!result) throw new Error("Cancellazione non riuscita.");
       const wasLate = result.was_late;
 
-      // Sync Google Calendar: late => patch (keep grey event), free => delete.
-      if (bk?.google_event_id && bk.coach_id) {
+      // Sync Google Calendar: in entrambi i casi (late o free) cancelliamo
+      // l'evento dal calendario della piattaforma. La logica del rimborso
+      // credito vive nel RPC `cancel_booking` (server-side).
+      if (bk?.google_event_id) {
         try {
-          let clientName: string | undefined;
-          let sessionLabel: string | undefined;
-          if (wasLate) {
-            const [clientRes, etRes] = await Promise.all([
-              bk.client_id
-                ? supabase.from("profiles").select("full_name").eq("id", bk.client_id).maybeSingle()
-                : Promise.resolve({ data: null }),
-              bk.event_type_id
-                ? supabase
-                    .from("event_types")
-                    .select("name")
-                    .eq("id", bk.event_type_id)
-                    .maybeSingle()
-                : Promise.resolve({ data: null }),
-            ]);
-            clientName =
-              (clientRes.data as { full_name: string | null } | null)?.full_name ?? "Cliente";
-            sessionLabel = (etRes.data as { name: string } | null)?.name ?? "Sessione";
-          }
-          await supabase.functions.invoke("sync-calendar", {
-            body: {
-              action: "cancel",
-              coach_id: bk.coach_id,
-              google_event_id: bk.google_event_id,
-              late: wasLate,
-              client_name: clientName,
-              session_label: sessionLabel,
-            },
-          });
+          await gcalDeleteEvent({ data: { googleEventId: bk.google_event_id } });
         } catch (err) {
-          console.error("sync-calendar cancel failed", err);
-          reportSyncFailure("cancel", err);
+          console.error("gcalDeleteEvent failed", err);
         }
       }
 
@@ -537,12 +510,13 @@ export function useRescheduleBooking() {
       client_id: string | null;
       google_event_id: string | null;
       scheduled_at: string;
+      end_at: string;
     }> => {
       const { data, error } = await supabase
         .from("bookings")
         .update({ scheduled_at: input.newScheduledISO })
         .eq("id", input.bookingId)
-        .select("coach_id, client_id, google_event_id, scheduled_at")
+        .select("coach_id, client_id, google_event_id, scheduled_at, end_at")
         .single();
       if (error) throw error;
       return data as {
@@ -550,6 +524,7 @@ export function useRescheduleBooking() {
         client_id: string | null;
         google_event_id: string | null;
         scheduled_at: string;
+        end_at: string;
       };
     },
     onMutate: async (vars) => {
@@ -570,17 +545,16 @@ export function useRescheduleBooking() {
         coachId: data.coach_id,
         clientId: data.client_id,
       });
-      // Mirror the new time to Google Calendar. Fire-and-forget: a sync
-      // failure surfaces a warning toast via notifySyncFailure but doesn't
-      // rollback the local UPDATE (the booking row IS the source of truth;
-      // GCal is downstream).
+      // Mirror the new time to Google Calendar via Lovable Connector.
+      // Fire-and-forget: GCal è downstream rispetto alla booking row.
       if (data.google_event_id) {
-        syncCalendar({
-          action: "update",
-          coachId: data.coach_id,
-          googleEventId: data.google_event_id,
-          startISO: data.scheduled_at,
-        });
+        void gcalUpdateEvent({
+          data: {
+            googleEventId: data.google_event_id,
+            startISO: data.scheduled_at,
+            endISO: data.end_at,
+          },
+        }).catch((e) => console.error("gcalUpdateEvent failed", e));
       }
     },
   });
@@ -593,16 +567,9 @@ export function useCoachCancelBooking() {
       // 1. Rimuovi evento da Google Calendar (se collegato)
       if (booking.google_event_id) {
         try {
-          await supabase.functions.invoke("sync-calendar", {
-            body: {
-              action: "cancel",
-              coach_id: booking.coach_id,
-              google_event_id: booking.google_event_id,
-            },
-          });
+          await gcalDeleteEvent({ data: { googleEventId: booking.google_event_id } });
         } catch (err) {
-          console.error("sync-calendar cancel failed", err);
-          reportSyncFailure("cancel", err);
+          console.error("gcalDeleteEvent failed", err);
         }
       }
 
