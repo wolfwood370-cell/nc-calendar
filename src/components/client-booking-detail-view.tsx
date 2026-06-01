@@ -15,7 +15,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { sessionLabel, type BookingStatus, type SessionType } from "@/lib/mock-data";
-import { generateGoogleCalendarLink } from "@/lib/calendar-utils";
+import { generateGoogleCalendarLink } from "@/lib/calendar";
 import { useCancelBooking } from "@/lib/queries";
 import { errorMessage } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
