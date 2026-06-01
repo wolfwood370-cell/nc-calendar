@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 export const DAY_LABELS = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
 
 // Heuristic detection for Google Calendar all-day events (birthdays,
-// anniversaries, holidays). sync-calendar normalizes Google's
+// anniversaries, holidays). il connettore Lovable normalizza Google
 // `start.date` (date-only, no time) to `"<yyyy-MM-dd>T00:00:00Z"`, so
 // the `Z`-suffixed midnight pattern is the marker. A regular event
 // scheduled at midnight Italy time would be saved as
@@ -86,7 +86,7 @@ export function AllDayPill({
 }
 
 // Resolve the most informative label for a personal block. Source order:
-//   1. b.title — populated by sync-calendar from Google Calendar event.summary
+//   1. b.title — popolato all'import da Google Calendar event.summary
 //      for every imported event, so this is the original Google title
 //      ("Dentista") when the personal block was converted from a Google event.
 //   2. The raw notes — covers legacy/manual bookings where title may be empty.
@@ -391,8 +391,8 @@ function MobileEventCard({
               {sessionLabel(b.session_type)}
             </span>
           )}
-          {/* Native Google Meet link surfaced as a chip when sync-calendar
-              has minted a Meet room for this booking. Click stops the
+          {/* Native Google Meet link surfaced as a chip quando il booking
+              ha un Meet link generato in fase di create. Click stops the
               card's outer onClick (which would open the focus panel)
               and opens the Meet URL in a new tab. */}
           {!isUnassigned && !isExternal && !isPersonal && b.meeting_link && (

@@ -12,8 +12,8 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders(req) });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405, req);
 
-  // Auth: only coach/admin may send transactional emails
-  const auth = await requireAuth(req, ["coach", "admin"]);
+  // Auth: coach/admin per email transazionali; client può inviare solo a sé stesso
+  const auth = await requireAuth(req, ["coach", "admin", "client"]);
   if (auth instanceof Response) return auth;
 
   try {
@@ -21,9 +21,6 @@ Deno.serve(async (req) => {
     if (!apiKey) return jsonResponse({ error: "RESEND_API_KEY non configurata" }, 500, req);
 
     // M6 (FULL_APP_AUDIT.md): per-caller sliding-window cap (default 20/min).
-    // The RPC prunes its own history as it goes, so the table never grows
-    // unbounded. Fail-closed on RPC errors — better to surface a transient
-    // 500 than to silently un-rate-limit on infra hiccups.
     const { data: allowed, error: rlErr } = await auth.admin.rpc("check_email_rate_limit", {
       p_user_id: auth.userId,
     });
@@ -40,9 +37,16 @@ Deno.serve(async (req) => {
     if (!to || !subject || !html) {
       return jsonResponse({ error: "Parametri mancanti: to, subject, html" }, 400, req);
     }
-    // Basic email format check
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
       return jsonResponse({ error: "Indirizzo email non valido" }, 400, req);
+    }
+
+    // Se è un client, può inviare solo a sé stesso (no email arbitrarie)
+    if (auth.role === "client") {
+      const { data: u } = await auth.userClient.auth.getUser();
+      if (u?.user?.email?.toLowerCase() !== to.toLowerCase()) {
+        return jsonResponse({ error: "Permesso negato" }, 403, req);
+      }
     }
 
     const resend = new Resend(apiKey);
