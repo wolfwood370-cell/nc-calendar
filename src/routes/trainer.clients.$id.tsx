@@ -46,6 +46,7 @@ type EditableStatus = "scheduled" | "completed" | "cancelled" | "late_cancelled"
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useCoachEventTypes } from "@/lib/queries";
+import { gcalDeleteEvent } from "@/lib/gcal.functions";
 import { queryKeys } from "@/lib/query-keys";
 import type { SessionType } from "@/lib/mock-data";
 import { toast } from "sonner";
