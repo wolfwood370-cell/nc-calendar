@@ -40,7 +40,7 @@ import { toast } from "sonner";
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
-import { syncCalendar } from "@/lib/sync-calendar";
+import { gcalUpdateEvent } from "@/lib/gcal.functions";
 import {
   useCoachAvailability,
   useCoachAvailabilityExceptions,
@@ -216,14 +216,16 @@ export function ClientRescheduleSheet({
         .catch((e) => console.error("booking-notifications (rescheduled) failed", e));
 
       if (booking.google_event_id) {
-        syncCalendar({
-          action: "update",
-          coachId: booking.coach_id,
-          googleEventId: booking.google_event_id,
-          startISO: selectedISO,
-          clientName,
-          sessionLabel: booking.session_label,
-        });
+        const endISO = new Date(
+          new Date(selectedISO).getTime() + booking.duration_min * 60_000,
+        ).toISOString();
+        void gcalUpdateEvent({
+          data: {
+            googleEventId: booking.google_event_id,
+            startISO: selectedISO,
+            endISO,
+          },
+        }).catch((e) => console.error("gcalUpdateEvent failed", e));
       }
 
       invalidateBookingScope(qc, {
