@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { Clock } from "lucide-react";
 
 export type IntegrationStatus = "connected" | "disconnected" | "error";
 
