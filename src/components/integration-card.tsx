@@ -25,9 +25,6 @@ export interface IntegrationCardProps {
  * nella pagina trainer/integrations: icona + status pill + titolo + descr
  * + sezione children. Variante "error" mostra un banner rosso al posto
  * dei children.
- *
- * Estratto da trainer.integrations.tsx assieme a StatusPill e
- * TokenExpiryBadge.
  */
 export function IntegrationCard({
   title,
@@ -65,40 +62,6 @@ export function IntegrationCard({
         <div className="space-y-3">{children}</div>
       )}
     </div>
-  );
-}
-
-export interface TokenExpiryBadgeProps {
-  /** Scadenza del token OAuth; null = nessun badge mostrato. */
-  expiresAt: Date | null;
-}
-
-/**
- * Badge che mostra la scadenza dell'access token Google OAuth. L5
- * (FULL_APP_AUDIT.md): coaches vedono a colpo d'occhio se il prossimo
- * sync rischia di fallire — l'access token ruota ~ogni ora, ma se il
- * refresh token è stato revocato (account disconnesso lato Google)
- * l'access token scade e sync-calendar auto-disabilita gcal_enabled.
- */
-export function TokenExpiryBadge({ expiresAt }: TokenExpiryBadgeProps) {
-  if (!expiresAt) return null;
-  const now = Date.now();
-  const ms = expiresAt.getTime() - now;
-  const expired = ms <= 0;
-  const fmt = expiresAt.toLocaleString("it-IT", {
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  const className = expired
-    ? "inline-flex items-center gap-1.5 rounded-full bg-amber-50 text-amber-700 px-2.5 py-1 text-[11px] font-medium"
-    : "inline-flex items-center gap-1.5 rounded-full bg-surface-container-low text-outline px-2.5 py-1 text-[11px] font-medium";
-  const label = expired ? `Token scaduto (${fmt}) — verrà rinnovato` : `Token valido fino a ${fmt}`;
-  return (
-    <span className={className}>
-      <Clock className="size-3" /> {label}
-    </span>
   );
 }
 
