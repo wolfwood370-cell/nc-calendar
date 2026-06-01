@@ -277,23 +277,6 @@ function ClientSettings() {
                 />
               }
             />
-            <SettingsDivider />
-            <SettingsRow
-              icon={<Calendar className="size-5" />}
-              title="Invito Google Calendar"
-              subtitle={
-                gcalInviteEnabled
-                  ? "Riceverai un'email di invito Google per ogni sessione prenotata"
-                  : "Aggiungi automaticamente le tue sessioni al tuo Google Calendar"
-              }
-              control={
-                <Switch
-                  checked={gcalInviteEnabled}
-                  disabled={savingGcalInvite || loading}
-                  onCheckedChange={toggleGcalInvite}
-                />
-              }
-            />
           </div>
         </section>
 
