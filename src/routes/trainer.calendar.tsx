@@ -201,7 +201,7 @@ function CalendarPage() {
       <section className="flex-1 flex flex-col min-w-0 p-6">
         {/* Header */}
         <CalendarHeader
-          mirroring={mirroring}
+          mirroring={false}
           weekRangeLabel={fmtRange(weekStart, weekEnd)}
           onToday={() => setWeekStart(startOfWeek(new Date()))}
           onPrevWeek={() => setWeekStart(addDays(weekStart, -7))}
