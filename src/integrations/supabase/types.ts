@@ -515,61 +515,11 @@ export type Database = {
           },
         ]
       }
-      gcal_sync_signals: {
-        Row: {
-          coach_id: string
-          last_notification_at: string
-        }
-        Insert: {
-          coach_id: string
-          last_notification_at?: string
-        }
-        Update: {
-          coach_id?: string
-          last_notification_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "gcal_sync_signals_coach_id_fkey"
-            columns: ["coach_id"]
-            isOneToOne: true
-            referencedRelation: "client_block_status"
-            referencedColumns: ["client_id"]
-          },
-          {
-            foreignKeyName: "gcal_sync_signals_coach_id_fkey"
-            columns: ["coach_id"]
-            isOneToOne: true
-            referencedRelation: "client_exhaustion_forecast"
-            referencedColumns: ["client_id"]
-          },
-          {
-            foreignKeyName: "gcal_sync_signals_coach_id_fkey"
-            columns: ["coach_id"]
-            isOneToOne: true
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       integration_settings: {
         Row: {
           calendar_optimization_enabled: boolean
           coach_id: string
           created_at: string
-          gcal_access_token: string | null
-          gcal_account_email: string | null
-          gcal_calendar_id: string | null
-          gcal_channel_expires_at: string | null
-          gcal_channel_id: string | null
-          gcal_channel_token: string | null
-          gcal_enabled: boolean
-          gcal_last_notification_at: string | null
-          gcal_refresh_token: string | null
-          gcal_resource_id: string | null
-          gcal_service_account_json: string | null
-          gcal_token_expires_at: string | null
-          gcal_webhook_url: string | null
           id: string
           stripe_account_id: string | null
           updated_at: string
@@ -581,19 +531,6 @@ export type Database = {
           calendar_optimization_enabled?: boolean
           coach_id: string
           created_at?: string
-          gcal_access_token?: string | null
-          gcal_account_email?: string | null
-          gcal_calendar_id?: string | null
-          gcal_channel_expires_at?: string | null
-          gcal_channel_id?: string | null
-          gcal_channel_token?: string | null
-          gcal_enabled?: boolean
-          gcal_last_notification_at?: string | null
-          gcal_refresh_token?: string | null
-          gcal_resource_id?: string | null
-          gcal_service_account_json?: string | null
-          gcal_token_expires_at?: string | null
-          gcal_webhook_url?: string | null
           id?: string
           stripe_account_id?: string | null
           updated_at?: string
@@ -605,19 +542,6 @@ export type Database = {
           calendar_optimization_enabled?: boolean
           coach_id?: string
           created_at?: string
-          gcal_access_token?: string | null
-          gcal_account_email?: string | null
-          gcal_calendar_id?: string | null
-          gcal_channel_expires_at?: string | null
-          gcal_channel_id?: string | null
-          gcal_channel_token?: string | null
-          gcal_enabled?: boolean
-          gcal_last_notification_at?: string | null
-          gcal_refresh_token?: string | null
-          gcal_resource_id?: string | null
-          gcal_service_account_json?: string | null
-          gcal_token_expires_at?: string | null
-          gcal_webhook_url?: string | null
           id?: string
           stripe_account_id?: string | null
           updated_at?: string
@@ -708,7 +632,6 @@ export type Database = {
           email: string | null
           email_notifications: boolean
           full_name: string | null
-          gcal_invite_enabled: boolean
           id: string
           next_billing_date: string | null
           pack_label: string | null
@@ -726,7 +649,6 @@ export type Database = {
           email?: string | null
           email_notifications?: boolean
           full_name?: string | null
-          gcal_invite_enabled?: boolean
           id: string
           next_billing_date?: string | null
           pack_label?: string | null
@@ -744,7 +666,6 @@ export type Database = {
           email?: string | null
           email_notifications?: boolean
           full_name?: string | null
-          gcal_invite_enabled?: boolean
           id?: string
           next_billing_date?: string | null
           pack_label?: string | null
