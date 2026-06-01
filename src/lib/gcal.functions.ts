@@ -20,7 +20,8 @@ import { gcalCreate, gcalUpdate, gcalDelete } from "@/lib/gcal.server";
 
 // Wrapper di sicurezza: ogni server fn ritorna SEMPRE un DTO {ok,error?}.
 // Le UI esistenti non vogliono throw — mostrano toast warning quando ok=false.
-type GcalResult<T> = ({ ok: true } & T) | { ok: false; error: string };
+type GcalResult<T = unknown> = ({ ok: true } & T) | { ok: false; error: string };
+type GcalAck = { ok: true } | { ok: false; error: string };
 
 const CreateSchema = z.object({
   bookingId: z.string().uuid().optional(),
