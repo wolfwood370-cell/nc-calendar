@@ -85,7 +85,7 @@ const UpdateSchema = z.object({
 export const gcalUpdateEvent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => UpdateSchema.parse(input))
-  .handler(async ({ data }): Promise<GcalResult<Record<string, never>>> => {
+  .handler(async ({ data }): Promise<GcalAck> => {
     try {
       await gcalUpdate(data);
       return { ok: true };
@@ -102,7 +102,7 @@ const DeleteSchema = z.object({
 export const gcalDeleteEvent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => DeleteSchema.parse(input))
-  .handler(async ({ data }): Promise<GcalResult<Record<string, never>>> => {
+  .handler(async ({ data }): Promise<GcalAck> => {
     try {
       await gcalDelete(data.googleEventId);
       return { ok: true };
