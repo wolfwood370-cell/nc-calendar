@@ -5,8 +5,6 @@
 //   - WhatsApp: messaggio al cliente (opt-in via integration_settings.wa_*,
 //               solo per booking.created — non spammiamo i clienti quando
 //               riprogrammano essi stessi)
-//   - Webhook esterno: POST a integration_settings.gcal_webhook_url (opt-in,
-//               per entrambi gli event_type, con il discriminator nel body)
 // Invocata dal frontend:
 //   - client.book.tsx       → event_type="booking.created" (default)
 //   - client-reschedule-sheet → event_type="booking.rescheduled"
@@ -170,7 +168,7 @@ Deno.serve(async (req) => {
 
     const { data: settings } = await supabase
       .from("integration_settings")
-      .select("wa_phone_id, wa_access_token, wa_enabled, gcal_webhook_url, gcal_enabled")
+      .select("wa_phone_id, wa_access_token, wa_enabled")
       .eq("coach_id", body.coach_id)
       .maybeSingle();
 
@@ -325,32 +323,7 @@ Deno.serve(async (req) => {
       results.whatsapp = { skipped: true };
     }
 
-    // ---- 4. Webhook esterno (opt-in) -----------------------------------
-    if (settings?.gcal_enabled && settings.gcal_webhook_url) {
-      try {
-        const gcalRes = await fetch(settings.gcal_webhook_url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type: eventType,
-            client_name: body.client_name,
-            scheduled_at: body.scheduled_at,
-            old_scheduled_at: body.old_scheduled_at ?? null,
-            session_label: body.session_label,
-            meeting_link: body.meeting_link ?? null,
-          }),
-        });
-        results.gcal = { status: gcalRes.status, ok: gcalRes.ok };
-        if (!gcalRes.ok) {
-          console.error("GCal webhook error", gcalRes.status, await gcalRes.text());
-        }
-      } catch (e) {
-        console.error("GCal webhook failed", e);
-        results.gcal = { error: String(e) };
-      }
-    } else {
-      results.gcal = { skipped: true };
-    }
+
 
     return jsonResponse({ ok: true, results }, 200, req);
   } catch (e) {
