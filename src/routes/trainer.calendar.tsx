@@ -1,9 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { useIsBelowXl } from "@/hooks/use-mobile";
-import { useGcalWatchRenewal } from "@/hooks/use-gcal-watch-renewal";
 import { CalendarHeader } from "@/components/calendar-header";
 import { CalendarDaysHeader } from "@/components/calendar-days-header";
 import { CalendarAllDayStrip } from "@/components/calendar-all-day-strip";
@@ -23,12 +22,6 @@ import {
 } from "@/lib/queries";
 import { queryKeys } from "@/lib/query-keys";
 import { useAuth } from "@/lib/auth";
-import {
-  syncCalendarAwait,
-  reportSyncFailure,
-  shouldSkipAutoSync,
-  markAutoSyncDone,
-} from "@/lib/sync-calendar";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
