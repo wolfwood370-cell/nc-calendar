@@ -32,7 +32,6 @@ interface ProfileRow {
   full_name: string | null;
   email: string | null;
   email_notifications: boolean;
-  gcal_invite_enabled?: boolean;
   avatar_url?: string | null;
 }
 
@@ -53,8 +52,6 @@ function ClientSettings() {
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [emailEnabled, setEmailEnabled] = useState(true);
   const [savingEmail, setSavingEmail] = useState(false);
-  const [gcalInviteEnabled, setGcalInviteEnabled] = useState(false);
-  const [savingGcalInvite, setSavingGcalInvite] = useState(false);
 
   const [pushSupported, setPushSupported] = useState(false);
   const [pushReady, setPushReady] = useState(false);
@@ -74,18 +71,15 @@ function ClientSettings() {
     void getCurrentPushSubscription().then((s) => setPushEnabled(!!s));
     if (!user) return;
     (async () => {
-      // `as never` sul select: vedi commento gemello in client.book.tsx.
-      // gcal_invite_enabled è da migration 20260527100000.
       const { data } = await supabase
         .from("profiles")
-        .select("full_name, email, email_notifications, gcal_invite_enabled" as never)
+        .select("full_name, email, email_notifications")
         .eq("id", user.id)
         .maybeSingle();
       if (data) {
         const row = data as unknown as ProfileRow;
         setProfile(row);
         setEmailEnabled(row.email_notifications ?? true);
-        setGcalInviteEnabled(row.gcal_invite_enabled ?? false);
       }
       const { data: u } = await supabase.auth.getUser();
       const providers = (u.user?.app_metadata?.providers as string[] | undefined) ?? [];
@@ -112,34 +106,6 @@ function ClientSettings() {
     }
   };
 
-  const toggleGcalInvite = async (next: boolean) => {
-    if (!user) return;
-    setSavingGcalInvite(true);
-    setGcalInviteEnabled(next);
-    // Defensive cast: la colonna gcal_invite_enabled può non essere
-    // nei tipi generati finché Lovable non rigenera dopo la migration
-    // 20260527100000. Cast inline come per altri campi opt-in.
-    const { error } = await (
-      supabase.from("profiles") as unknown as {
-        update: (v: { gcal_invite_enabled: boolean }) => {
-          eq: (col: string, val: string) => Promise<{ error: { message: string } | null }>;
-        };
-      }
-    )
-      .update({ gcal_invite_enabled: next })
-      .eq("id", user.id);
-    setSavingGcalInvite(false);
-    if (error) {
-      setGcalInviteEnabled(!next);
-      toast.error("Errore nel salvataggio", { description: error.message });
-    } else {
-      toast.success(
-        next
-          ? "Inviti Google Calendar attivati"
-          : "Inviti Google Calendar disattivati",
-      );
-    }
-  };
 
   const togglePush = async (next: boolean) => {
     if (!user) return;
