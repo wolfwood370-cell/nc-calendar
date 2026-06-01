@@ -175,8 +175,18 @@ function BookFlow() {
       // MED-B3: stesso pattern del profilo coach sopra — narrowing
       // esplicito invece di `coachIdForAvail!`.
       if (!coachIdForAvail) return [];
-      const from = block ? new Date(block.start_date) : startOfDay(new Date());
-      const to = block ? new Date(block.end_date) : addDays(startOfDay(new Date()), 60);
+      const today = startOfDay(new Date());
+      const from = block ? new Date(block.start_date) : today;
+      // Lookahead: stesso calcolo del useMemo `slots` sotto. Esteso a
+      // now + 14 giorni quando il cliente è nell'ultima settimana del
+      // blocco corrente, così le busy ranges del coach coprono i nuovi
+      // slot visibili.
+      const blockEnd = block ? new Date(block.end_date) : addDays(today, 60);
+      const isLastWeek = block
+        ? today.getTime() >= addDays(blockEnd, -7).getTime()
+        : false;
+      const lookaheadEnd = isLastWeek ? addDays(today, 14) : blockEnd;
+      const to = new Date(Math.max(lookaheadEnd.getTime(), blockEnd.getTime()));
       to.setHours(23, 59, 59, 999);
       const { data, error } = await supabase.rpc("get_coach_busy", {
         p_coach_id: coachIdForAvail,
@@ -204,13 +214,32 @@ function BookFlow() {
     return ranges;
   }, [coachBusyQ.data]);
 
+  // Lookahead "ultima settimana": se il cliente è negli ultimi 7 giorni
+  // del blocco corrente, estendo il range visibile a now + 14 giorni così
+  // può prenotare le sessioni residue anche nei primi giorni del blocco
+  // successivo. Il backend trigger (validate_booking_block_allocation)
+  // permette il booking finché valid_until dell'allocation lo copre —
+  // grace_days è stato esteso a 14 nella migration 20260527150000.
   const slots = useMemo(() => {
-    // Range: from active block dates, or fallback to today + 60d (free clients with extra credits only).
-    const start = block ? new Date(block.start_date) : startOfDay(new Date());
-    const end = block ? new Date(block.end_date) : addDays(startOfDay(new Date()), 60);
+    const today = startOfDay(new Date());
+    const start = block ? new Date(block.start_date) : today;
+    const blockEnd = block ? new Date(block.end_date) : addDays(today, 60);
+    const isLastWeek = block
+      ? today.getTime() >= addDays(blockEnd, -7).getTime()
+      : false;
+    // Lookahead window: 14 giorni dal momento corrente, ma mai oltre la
+    // grace dell'allocation (block.end_date + 14 = block.end_date + 14
+    // dopo la migration 20260527150000). Per i blocchi appena creati con
+    // ancora settimane davanti, isLastWeek=false → comportamento legacy.
+    const lookaheadEnd = isLastWeek ? addDays(today, 14) : blockEnd;
+    const end = new Date(Math.max(lookaheadEnd.getTime(), blockEnd.getTime()));
     end.setHours(23, 59, 59, 999);
+    // daysAhead = numero di giorni dal NOW da scannare per slot. 28 era
+    // tarato sul vecchio "1 blocco". Con lookahead 14 giorni, in ultima
+    // settimana possiamo arrivare a 21+ giorni dal blocco corrente →
+    // alzo a 35 per sicurezza (cap dell'orizzonte).
     return generateSlots(
-      block ? 28 : 60,
+      block ? (isLastWeek ? 35 : 28) : 60,
       blockedRanges,
       availQ.data ?? [],
       exceptionsQ.data ?? [],
@@ -403,8 +432,20 @@ function BookFlow() {
   const selectedPoolValidUntil = useMemo(() => {
     if (!selectedPool) return null;
     if (selectedPool.source === "block" && block) {
+      const today = startOfDay(new Date());
       const blockEnd = new Date(block.end_date);
       blockEnd.setHours(23, 59, 59, 999);
+      // Lookahead "ultima settimana": se siamo a 7 giorni dalla fine,
+      // estendiamo il limite cliccabile del calendar a now + 14 giorni
+      // (capped a block.end_date + 14 = grace, garantito dal backend
+      // dopo migration 20260527150000). Allinea il selectedPoolValidUntil
+      // al range visibile in `slots` per coerenza UX.
+      const isLastWeek = today.getTime() >= addDays(blockEnd, -7).getTime();
+      if (isLastWeek) {
+        const lookaheadEnd = addDays(today, 14);
+        lookaheadEnd.setHours(23, 59, 59, 999);
+        return lookaheadEnd.getTime() > blockEnd.getTime() ? lookaheadEnd : blockEnd;
+      }
       return blockEnd;
     }
     return selectedPool.validUntil;
