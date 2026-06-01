@@ -20,7 +20,6 @@ import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useServerFn } from "@tanstack/react-start";
 import { gcalCreateEvent } from "@/lib/gcal.functions";
 import { generateGoogleCalendarLink } from "@/lib/calendar";
 import { sendBookingConfirmationEmail } from "@/lib/email";
@@ -57,10 +56,6 @@ export interface UseBookConfirmInput {
   coachId: string | null | undefined;
   coachName: string;
   emailNotificationsEnabled: boolean;
-  /** Opt-in del cliente a ricevere l'invito Google Calendar (attendee).
-   *  Letto da profiles.gcal_invite_enabled. Quando true, syncCalendar
-   *  passa clientEmail al backend → Google manda email di invito. */
-  gcalInviteEnabled: boolean;
   selectedISO: string | null;
   selectedPoolKey: string | null;
   pools: readonly PoolForConfirm[];
@@ -90,7 +85,6 @@ export function useBookConfirm(input: UseBookConfirmInput): UseBookConfirmReturn
     coachId,
     coachName,
     emailNotificationsEnabled,
-    gcalInviteEnabled,
     selectedISO,
     selectedPoolKey,
     pools,
@@ -233,31 +227,27 @@ export function useBookConfirm(input: UseBookConfirmInput): UseBookConfirmReturn
         meName,
       );
 
-      // notifications (fire and forget). sync-calendar runs:
-      //   - the Google Calendar event insert
-      //   - if online, asks Google to create a Meet room (conferenceData
-      //     + conferenceDataVersion=1) and writes the returned URL onto
-      //     bookings.meeting_link via service-role UPDATE
-      //   - writes google_event_id back too so future mirror/cancel
-      //     flows know which Google event maps to this booking
-      syncCalendar({
-        action: "create",
-        coachId,
-        clientName: meName,
-        sessionLabel: displayLabel,
-        startISO: iso,
-        meetingLink: null,
-        color: eventType?.color ?? null,
-        requestMeet: isOnline,
-        bookingId: bookingId ?? undefined,
-        // Opt-in: solo se il cliente ha attivato il toggle nei suoi
-        // settings, passiamo l'email per farlo invitare come attendee.
-        // L'evento Google del coach includerà attendees: [{email}] +
-        // sendUpdates=all → il cliente riceve l'invito email.
-        clientEmail: gcalInviteEnabled && meEmail ? meEmail : undefined,
-        // Reminders policy: online → 30 min, in presenza → 2h.
-        isOnline,
-      });
+      // notifications (fire and forget). gcalCreateEvent runs server-side:
+      //   - crea l'evento sul calendario della piattaforma (Lovable Connector)
+      //   - se online, chiede a Google una Meet room (conferenceData +
+      //     conferenceDataVersion=1) e scrive l'URL su bookings.meeting_link
+      //   - scrive google_event_id sulla riga booking così update/cancel
+      //     futuri sanno quale evento Google riferire
+      //   - sendUpdates=all → il cliente riceve email di invito
+      void gcalCreateEvent({
+        data: {
+          bookingId: bookingId ?? undefined,
+          summary: `${displayLabel} — ${meName}`,
+          startISO: iso,
+          endISO: new Date(
+            new Date(iso).getTime() + (eventType?.duration ?? 60) * 60_000,
+          ).toISOString(),
+          attendeeEmail: meEmail || undefined,
+          requestMeet: isOnline,
+          isOnline,
+          colorId: eventType?.color ?? undefined,
+        },
+      }).catch((e) => console.error("gcalCreateEvent failed", e));
       void Promise.all([
         emailNotificationsEnabled
           ? sendBookingConfirmationEmail({
@@ -279,7 +269,7 @@ export function useBookConfirm(input: UseBookConfirmInput): UseBookConfirmReturn
               session_label: displayLabel,
               // notification only carries the URL once the server has
               // had time to mint it; for now we omit it here. The
-              // booking row itself will get the URL via sync-calendar
+              // booking row itself will get the URL via gcalCreateEvent
               // server-side update.
               meeting_link: null,
             },
@@ -307,54 +297,6 @@ export function useBookConfirm(input: UseBookConfirmInput): UseBookConfirmReturn
             }
           : undefined,
       });
-
-      // Hint UX: se il cliente non ha ancora attivato l'invito Google
-      // Calendar, gli mostriamo un toast secondario informativo con
-      // call-to-action 1-click. Senza questo, molti clienti non scoprono
-      // mai la feature → no-show rate più alto. Il toast NON viene
-      // mostrato a chi ha già attivato (no spam). Per chi sceglie di
-      // ignorare, il toast riapparirà al prossimo booking finché non
-      // attiva (o disattiva esplicitamente da /client/settings).
-      if (!gcalInviteEnabled && meId) {
-        const reminderHint = isOnline
-          ? "Riceverai un promemoria 24h prima e 30 minuti prima della sessione."
-          : "Riceverai un promemoria 24h prima e 2 ore prima della sessione.";
-        toast.info("Non dimenticarti la sessione", {
-          description: `Attiva l'invito Google Calendar: ${reminderHint}`,
-          duration: 10000,
-          action: {
-            label: "Attiva",
-            onClick: async () => {
-              try {
-                const { error: upErr } = await (
-                  supabase.from("profiles") as unknown as {
-                    update: (v: { gcal_invite_enabled: boolean }) => {
-                      eq: (
-                        col: string,
-                        val: string,
-                      ) => Promise<{ error: { message: string } | null }>;
-                    };
-                  }
-                )
-                  .update({ gcal_invite_enabled: true })
-                  .eq("id", meId);
-                if (upErr) {
-                  toast.error("Errore", { description: upErr.message });
-                  return;
-                }
-                toast.success("Promemoria Google Calendar attivati", {
-                  description:
-                    "Riceverai un'email di invito per questa sessione e per quelle future.",
-                });
-                qc.invalidateQueries({ queryKey: ["profile", meId] });
-              } catch (e) {
-                console.error("gcal toggle (post-booking) failed:", e);
-                toast.error("Errore imprevisto");
-              }
-            },
-          },
-        });
-      }
 
       invalidateBookingScope(qc, { coachId, clientId: meId });
       navigate({ to: "/client" });
