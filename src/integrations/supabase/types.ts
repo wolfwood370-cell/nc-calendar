@@ -708,6 +708,7 @@ export type Database = {
           email: string | null
           email_notifications: boolean
           full_name: string | null
+          gcal_invite_enabled: boolean
           id: string
           next_billing_date: string | null
           pack_label: string | null
@@ -725,6 +726,7 @@ export type Database = {
           email?: string | null
           email_notifications?: boolean
           full_name?: string | null
+          gcal_invite_enabled?: boolean
           id: string
           next_billing_date?: string | null
           pack_label?: string | null
@@ -742,6 +744,7 @@ export type Database = {
           email?: string | null
           email_notifications?: boolean
           full_name?: string | null
+          gcal_invite_enabled?: boolean
           id?: string
           next_billing_date?: string | null
           pack_label?: string | null
