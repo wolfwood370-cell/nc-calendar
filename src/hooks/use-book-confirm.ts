@@ -21,7 +21,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { syncCalendar } from "@/lib/sync-calendar";
-import { generateGoogleCalendarLink } from "@/lib/calendar-utils";
+import { generateGoogleCalendarLink } from "@/lib/calendar";
 import { sendBookingConfirmationEmail } from "@/lib/email";
 import { sendPush } from "@/lib/push";
 import { invalidateBookingScope } from "@/lib/query-keys";

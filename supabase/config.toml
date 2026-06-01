@@ -6,9 +6,6 @@ verify_jwt = false
 [functions.booking-notifications]
 verify_jwt = false
 
-[functions.sync-calendar]
-verify_jwt = false
-
 [functions.admin-create-user]
 verify_jwt = true
 
