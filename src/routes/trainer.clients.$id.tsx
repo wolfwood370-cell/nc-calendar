@@ -518,18 +518,12 @@ function ClientPathPage() {
   }
 
   async function deleteBookingEverywhere(b: ClientBooking) {
-    // Sync Google Calendar delete
-    if (b.google_event_id && user) {
+    // Sync Google Calendar delete via Lovable Connector
+    if (b.google_event_id) {
       try {
-        await supabase.functions.invoke("sync-calendar", {
-          body: {
-            action: "cancel",
-            coach_id: user.id,
-            google_event_id: b.google_event_id,
-          },
-        });
+        await gcalDeleteEvent({ data: { googleEventId: b.google_event_id } });
       } catch (err) {
-        console.error("sync-calendar delete failed", err);
+        console.error("gcalDeleteEvent failed", err);
       }
     }
     // Restituisci credito se era contabilizzato
