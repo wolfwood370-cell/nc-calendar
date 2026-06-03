@@ -41,11 +41,40 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Indirizzo email non valido" }, 400, req);
     }
 
-    // Se è un client, può inviare solo a sé stesso (no email arbitrarie)
+    // C4 (audit 2026-06-03): restrict destination by role.
+    // - client: può inviare solo a sé stesso.
+    // - coach: può inviare solo a uno dei propri clienti (profiles.coach_id = userId)
+    //          oppure a sé stesso (notifiche interne). Senza questo check un coach
+    //          potrebbe usare il proprio token per spedire email arbitrarie
+    //          via dominio mittente verificato.
+    // - admin: nessun vincolo.
     if (auth.role === "client") {
       const { data: u } = await auth.userClient.auth.getUser();
       if (u?.user?.email?.toLowerCase() !== to.toLowerCase()) {
         return jsonResponse({ error: "Permesso negato" }, 403, req);
+      }
+    } else if (auth.role === "coach") {
+      const { data: self } = await auth.userClient.auth.getUser();
+      const selfEmail = self?.user?.email?.toLowerCase() ?? "";
+      const toLower = to.toLowerCase();
+      if (selfEmail !== toLower) {
+        const { data: client } = await auth.admin
+          .from("profiles")
+          .select("id")
+          .eq("coach_id", auth.userId)
+          .ilike("email", to)
+          .maybeSingle();
+        if (!client) {
+          console.warn("[send-email] coach attempted to email non-client", {
+            coach: auth.userId,
+            to: toLower,
+          });
+          return jsonResponse(
+            { error: "Permesso negato: il destinatario non è tra i tuoi clienti." },
+            403,
+            req,
+          );
+        }
       }
     }
 

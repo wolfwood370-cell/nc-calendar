@@ -37,11 +37,39 @@ const CreateSchema = z.object({
 
 /** Crea l'evento Google Calendar e, se fornito bookingId, scrive
  *  google_event_id + meeting_link sulla riga booking. */
+// C1 (audit 2026-06-03): ownership check helper. Before any admin-client
+// writeback to bookings or any Google Calendar mutation tied to a booking
+// row, verify the caller is the booking's coach (or an admin). Without
+// this a coach could pass any bookingId and overwrite another coach's
+// google_event_id, or trigger gcal operations bound to events they don't own.
+async function assertBookingOwnership(bookingId: string, userId: string): Promise<void> {
+  const { data, error } = await supabaseAdmin
+    .from("bookings")
+    .select("coach_id")
+    .eq("id", bookingId)
+    .maybeSingle();
+  if (error) throw new Error("Booking lookup failed");
+  if (!data) throw new Error("Booking non trovato");
+  if (data.coach_id !== userId) {
+    const { data: roleRow } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (!roleRow) throw new Error("Permesso negato sul booking");
+  }
+}
+
 export const gcalCreateEvent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => CreateSchema.parse(input))
-  .handler(async ({ data }): Promise<GcalResult<{ googleEventId: string; meetingLink: string | null; htmlLink: string | null }>> => {
+  .handler(async ({ data, context }): Promise<GcalResult<{ googleEventId: string; meetingLink: string | null; htmlLink: string | null }>> => {
     try {
+      if (data.bookingId) {
+        await assertBookingOwnership(data.bookingId, context.userId);
+      }
+
       const r = await gcalCreate({
         summary: data.summary,
         description: data.description,
@@ -82,11 +110,45 @@ const UpdateSchema = z.object({
   colorId: z.string().max(2).optional(),
 });
 
+// C1: lookup booking by googleEventId and verify caller ownership before
+// mutating the calendar event. Prevents a coach from updating/deleting
+// another coach's Google Calendar event by guessing/snooping the event id.
+async function assertGoogleEventOwnership(googleEventId: string, userId: string): Promise<void> {
+  const { data, error } = await supabaseAdmin
+    .from("bookings")
+    .select("coach_id")
+    .eq("google_event_id", googleEventId)
+    .maybeSingle();
+  if (error) throw new Error("Booking lookup failed");
+  if (!data) {
+    // No booking row owns this event id: only admins may proceed (e.g.
+    // cleanup of orphaned calendar events).
+    const { data: roleRow } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (!roleRow) throw new Error("Permesso negato sull'evento");
+    return;
+  }
+  if (data.coach_id !== userId) {
+    const { data: roleRow } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (!roleRow) throw new Error("Permesso negato sull'evento");
+  }
+}
+
 export const gcalUpdateEvent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => UpdateSchema.parse(input))
-  .handler(async ({ data }): Promise<GcalAck> => {
+  .handler(async ({ data, context }): Promise<GcalAck> => {
     try {
+      await assertGoogleEventOwnership(data.googleEventId, context.userId);
       await gcalUpdate(data);
       return { ok: true };
     } catch (e) {
@@ -102,8 +164,9 @@ const DeleteSchema = z.object({
 export const gcalDeleteEvent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => DeleteSchema.parse(input))
-  .handler(async ({ data }): Promise<GcalAck> => {
+  .handler(async ({ data, context }): Promise<GcalAck> => {
     try {
+      await assertGoogleEventOwnership(data.googleEventId, context.userId);
       await gcalDelete(data.googleEventId);
       return { ok: true };
     } catch (e) {
