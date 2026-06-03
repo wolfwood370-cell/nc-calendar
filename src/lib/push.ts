@@ -86,9 +86,29 @@ interface SendPushArgs {
   url?: string;
 }
 
-/** Fire-and-forget: errori loggati ma non bloccanti. */
+/**
+ * Fire-and-forget: errori loggati ma non bloccanti.
+ * N10: `supabase.functions.invoke` non rigetta su errori HTTP (status non-2xx
+ * arrivano come `data.error` o nel `error` field), quindi prima si limitava a
+ * intercettare solo gli errori sincroni. Ora logghiamo anche errori applicativi
+ * con context per debug (profileId, titolo) senza esporre dettagli all'utente.
+ */
 export function sendPush({ profileId, title, body, url }: SendPushArgs): void {
-  void supabase.functions
-    .invoke("send-push", { body: { profile_id: profileId, title, body, url } })
-    .catch((err) => console.error("send-push invoke failed", err));
+  void (async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke("send-push", {
+        body: { profile_id: profileId, title, body, url },
+      });
+      if (error) {
+        console.error("send-push failed", { profileId, title, error });
+        return;
+      }
+      const payload = data as { error?: string; sent?: number } | null;
+      if (payload?.error) {
+        console.error("send-push returned error", { profileId, title, error: payload.error });
+      }
+    } catch (err) {
+      console.error("send-push invoke threw", { profileId, title, err });
+    }
+  })();
 }
