@@ -272,6 +272,22 @@ function BugReportsPage() {
         ))}
       </Tabs>
 
+      {all.length >= pageLimit && pageLimit < MAX_ROWS && (
+        <div className="flex justify-center pt-2">
+          <Button
+            variant="outline"
+            className="rounded-full"
+            onClick={() => setPageLimit((n) => Math.min(MAX_ROWS, n * 2))}
+            disabled={reportsQ.isFetching}
+          >
+            {reportsQ.isFetching ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : null}
+            Carica altre segnalazioni
+          </Button>
+        </div>
+      )}
+
       <BugReportDetailSheet
         report={selected}
         onOpenChange={(open) => !open && setSelected(null)}
