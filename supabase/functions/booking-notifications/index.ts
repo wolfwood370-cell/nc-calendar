@@ -67,6 +67,19 @@ Deno.serve(async (req) => {
     if (!body.coach_id || !body.scheduled_at) {
       return jsonResponse({ error: "Missing fields" }, 400, req);
     }
+    // L4 (audit Wave 3): validate scheduled_at unconditionally — was only
+    // checked in the reschedule branch.
+    if (!Number.isFinite(new Date(body.scheduled_at).getTime())) {
+      return jsonResponse({ error: "Invalid scheduled_at" }, 400, req);
+    }
+    // M1 (audit Wave 3): cap free-text fields that flow into push payloads,
+    // notifications.payload and WhatsApp message bodies.
+    if (typeof body.client_name !== "string" || body.client_name.length > 200) {
+      return jsonResponse({ error: "Invalid client_name" }, 400, req);
+    }
+    if (typeof body.session_label !== "string" || body.session_label.length > 200) {
+      return jsonResponse({ error: "Invalid session_label" }, 400, req);
+    }
     try {
       assertUuid(body.coach_id, "coach_id");
     } catch (e) {
