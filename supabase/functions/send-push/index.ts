@@ -70,12 +70,12 @@ Deno.serve(async (req) => {
 
     return jsonResponse({ ok: true, sent: results.length, results }, 200, req);
   } catch (e) {
-    // Audit 2026-05-22 L1: consistent scrubbing with the inner catch
-    // (line 76) — never log the full error object since web-push errors
-    // can echo subscription endpoint URLs (browser-specific tokens) in
-    // their response body.
+    // M6 (audit 2026-06-03): non propagare al chiamante il messaggio interno
+    // (può echare URL endpoint push o dettagli web-push). Log strutturato
+    // lato server, errore generico al client.
     const message = e instanceof Error ? e.message : String(e);
     console.error("send-push error", { message });
-    return jsonResponse({ error: message }, 500, req);
+    return jsonResponse({ error: "Errore invio notifica push." }, 500, req);
   }
 });
+
