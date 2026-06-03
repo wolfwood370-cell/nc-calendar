@@ -75,10 +75,17 @@ Deno.serve(async (req) => {
     // The request can carry an optional `currency` parameter so a future
     // non-EUR market is a data change rather than a code change. Default
     // stays "eur" so existing clients work unchanged.
-    const requestedCurrency: string =
+    const requestedCurrencyRaw: string =
       typeof body.currency === "string" && body.currency.length > 0
         ? body.currency.toLowerCase()
         : "eur";
+    // L2 (audit Wave 3): currency allowlist — prevents arbitrary
+    // attacker-chosen values from polluting query/logs.
+    const CURRENCY_ALLOWLIST = ["eur", "usd"] as const;
+    if (!(CURRENCY_ALLOWLIST as readonly string[]).includes(requestedCurrencyRaw)) {
+      return jsonResponse({ error: "Currency non supportata" }, 400, req);
+    }
+    const requestedCurrency = requestedCurrencyRaw;
 
     const { data: pack, error: packErr } = await admin
       .from("booster_packs")

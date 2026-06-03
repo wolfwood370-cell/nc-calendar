@@ -151,8 +151,20 @@ function StorePage() {
       if (data?.error) throw new Error(data.error);
 
       if (data?.checkout_url) {
+        // M3 (audit Wave 3): defense-in-depth — only allow Stripe-hosted
+        // checkout URLs to prevent open-redirect if the edge fn ever
+        // returned a controlled URL.
+        let target: URL;
+        try {
+          target = new URL(data.checkout_url);
+        } catch {
+          throw new Error("URL di checkout non valido");
+        }
+        if (target.hostname !== "checkout.stripe.com") {
+          throw new Error("URL di checkout non riconosciuto");
+        }
         toast.success("Reindirizzamento...", { id: "checkout-toast" });
-        window.location.href = data.checkout_url;
+        window.location.href = target.toString();
       } else {
         throw new Error("Impossibile avviare il checkout");
       }
