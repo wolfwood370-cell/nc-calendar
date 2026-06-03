@@ -74,9 +74,9 @@ Deno.serve(async (req) => {
     }
     // M1 (audit Wave 3): cap free-text fields that flow into push payloads,
     // notifications.payload and WhatsApp message bodies.
-    if (typeof body.client_name !== "string" || body.client_name.length > 200) {
-      return jsonResponse({ error: "Invalid client_name" }, 400, req);
-    }
+    // P5 (audit Wave 5): client_name viene ricavato server-side più sotto.
+    // Manteniamo solo la validazione del session_label che è informativa
+    // (deriva dall'event_type lato chiamante).
     if (typeof body.session_label !== "string" || body.session_label.length > 200) {
       return jsonResponse({ error: "Invalid session_label" }, 400, req);
     }
@@ -165,6 +165,36 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: "coach_id non coerente" }, 400, req);
       }
     }
+
+    // P5 (Wave 5): risoluzione server-side del nome cliente per impedire
+    // a un caller malevolo di falsificare il nome che il coach vede in
+    // notifiche e WhatsApp. Preferiamo booking.client_id (se booking_id
+    // è stato fornito), altrimenti l'identità del caller.
+    let resolvedClientId: string | null = null;
+    if (body.booking_id) {
+      const { data: b } = await supabase
+        .from("bookings")
+        .select("client_id")
+        .eq("id", body.booking_id)
+        .maybeSingle();
+      resolvedClientId = (b as { client_id?: string } | null)?.client_id ?? null;
+    }
+    if (!resolvedClientId && auth.role !== "admin" && auth.userId !== body.coach_id) {
+      resolvedClientId = auth.userId;
+    }
+    let resolvedClientName = "Cliente";
+    if (resolvedClientId) {
+      const { data: cp } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", resolvedClientId)
+        .maybeSingle();
+      const fn = (cp as { full_name?: string | null } | null)?.full_name;
+      if (typeof fn === "string" && fn.trim().length > 0) {
+        resolvedClientName = fn.trim().slice(0, 200);
+      }
+    }
+    body.client_name = resolvedClientName;
 
     const { data: settings } = await supabase
       .from("integration_settings")
@@ -311,7 +341,8 @@ Deno.serve(async (req) => {
 
     return jsonResponse({ ok: true, results }, 200, req);
   } catch (e) {
+    // P3 (Wave 5): niente leak del messaggio interno.
     console.error("booking-notifications error", e);
-    return jsonResponse({ error: String(e) }, 500, req);
+    return jsonResponse({ error: "Errore interno." }, 500, req);
   }
 });

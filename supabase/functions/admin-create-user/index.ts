@@ -40,6 +40,12 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders(req) });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405, req);
 
+  // P8 (Wave 5): cap body size prima di req.json() per evitare memory pressure.
+  const contentLength = Number(req.headers.get("content-length") ?? "0");
+  if (Number.isFinite(contentLength) && contentLength > 10_000) {
+    return jsonResponse({ error: "Payload troppo grande" }, 413, req);
+  }
+
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;

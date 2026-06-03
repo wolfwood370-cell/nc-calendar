@@ -81,8 +81,8 @@ Deno.serve(async (req) => {
 
     return jsonResponse({ ok: true }, 200, req);
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Errore sconosciuto";
+    // P2 (Wave 5): non propaghiamo il messaggio interno al client.
     console.error("admin-delete-user: unexpected error", e);
-    return jsonResponse({ error: msg }, 500, req);
+    return jsonResponse({ error: "Errore interno. Riprova." }, 500, req);
   }
 });
