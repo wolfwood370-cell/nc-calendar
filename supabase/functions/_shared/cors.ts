@@ -19,6 +19,18 @@
 const PROD_ORIGIN = "https://nc-calendar.lovable.app";
 const ALLOWED_ORIGIN_ENV = Deno.env.get("ALLOWED_ORIGIN");
 
+// Wave 4 (audit 2026-06-03) — N2: tighten *.lovable.app wildcard.
+// Lovable preview/published URLs are deterministic per project. Allowing any
+// *.lovable.app subdomain means another project's preview could call our
+// edge functions with the user's session cookie.
+const PROJECT_ID = "81e402d5-14ed-48a5-938a-c89e014f695a";
+const PROJECT_HOSTNAMES = new Set<string>([
+  `id-preview--${PROJECT_ID}.lovable.app`,
+  `project--${PROJECT_ID}.lovable.app`,
+  `project--${PROJECT_ID}-dev.lovable.app`,
+  "nc-calendar.lovable.app",
+]);
+
 // Env-configured allowlist (comma-separated). Empty list = no extra origins.
 const ENV_ALLOWLIST: string[] = ALLOWED_ORIGIN_ENV
   ? ALLOWED_ORIGIN_ENV.split(",")
@@ -30,15 +42,10 @@ function isAllowedOrigin(origin: string | null): boolean {
   if (!origin) return false;
   if (origin === PROD_ORIGIN) return true;
   if (ENV_ALLOWLIST.includes(origin)) return true;
-  // Auto-allow Lovable preview / stable project URLs:
-  //   https://id-preview--<uuid>.lovable.app
-  //   https://project--<uuid>.lovable.app
-  //   https://project--<uuid>-dev.lovable.app
-  //   https://*.lovable.app (custom subdomains)
   try {
     const u = new URL(origin);
     if (u.protocol !== "https:") return false;
-    if (u.hostname === "lovable.app" || u.hostname.endsWith(".lovable.app")) return true;
+    if (PROJECT_HOSTNAMES.has(u.hostname)) return true;
   } catch {
     return false;
   }
