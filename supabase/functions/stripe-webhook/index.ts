@@ -56,44 +56,53 @@ Deno.serve(async (req) => {
         return new Response("Client has no coach", { status: 400 });
       }
 
-      // HIGH-3 (audit 2026-05-26): lookup event_type per nome ESATTO.
-      // Prima usavamo `.ilike("%${event_type_title}%")` che è case-insensitive
-      // substring → "PT" matchava sia "Sessione PT" che "PT-Pack" (i crediti
-      // potevano finire sulla event_type sbagliata se due tipologie del
-      // coach condividevano un substring). Con `.eq` il match deve essere
-      // letterale; in caso di mismatch (es. il coach ha rinominato la
-      // tipologia dopo il checkout Stripe) cade nel fallback "primo
-      // event_type del coach" che è la stessa rete di sicurezza di prima.
-      let { data: eventType } = await adminClient
-        .from("event_types")
-        .select("id")
-        .eq("coach_id", profile.coach_id)
-        .eq("name", event_type_title)
-        .limit(1)
-        .maybeSingle();
+      // A1 (audit 2026-06-03): preferiamo event_type_id passato nel metadata
+      // dal booster-checkout (risolto al momento del checkout col coach
+      // corretto). Fallback a lookup per nome SOLO per sessioni legacy
+      // in-flight create prima di questo deploy. Rimosso il fallback
+      // "primo event_type del coach": meglio rifiutare l'evento (Stripe
+      // ritenta) che accreditare la tipologia sbagliata.
+      const metadataEventTypeId = (metadata as { event_type_id?: string }).event_type_id;
+      let eventType: { id: string } | null = null;
 
-      // Fallback: pick the first available event_type for this coach
-      if (!eventType) {
-        console.warn(
-          `Event type "${event_type_title}" not found for coach ${profile.coach_id}, using fallback`,
-        );
-        const { data: fallback } = await adminClient
+      if (metadataEventTypeId) {
+        const { data: byId } = await adminClient
           .from("event_types")
-          .select("id")
-          .eq("coach_id", profile.coach_id)
-          .order("created_at", { ascending: true })
-          .limit(1)
+          .select("id, coach_id")
+          .eq("id", metadataEventTypeId)
           .maybeSingle();
-        eventType = fallback;
+        // verifica che l'event_type appartenga al coach del cliente
+        if (byId && (byId as { coach_id: string }).coach_id === profile.coach_id) {
+          eventType = { id: (byId as { id: string }).id };
+        } else {
+          console.error("stripe-webhook: metadata event_type_id mismatch", {
+            metadata_event_type_id: metadataEventTypeId,
+            coach_id: profile.coach_id,
+          });
+        }
       }
 
       if (!eventType) {
-        // Audit 2026-05-22 M3: structured log so a future log filter can
-        // strip / mask the coach_id field consistently rather than parsing
-        // free-form text. Coach UUID isn't a secret but pairing it with
-        // payment context is unnecessary noise in production logs.
-        console.error("stripe-webhook: no event_types for coach", { coachId: profile.coach_id });
-        return new Response("No event types available", { status: 400 });
+        const { data: byName } = await adminClient
+          .from("event_types")
+          .select("id")
+          .eq("coach_id", profile.coach_id)
+          .eq("name", event_type_title)
+          .limit(1)
+          .maybeSingle();
+        eventType = byName as { id: string } | null;
+      }
+
+      if (!eventType) {
+        console.error("stripe-webhook: event_type non risolto", {
+          coachId: profile.coach_id,
+          event_type_title,
+          metadata_event_type_id: metadataEventTypeId ?? null,
+          stripe_session: session.id,
+        });
+        // 400 → Stripe non ritenta. Stato corretto: il pagamento esiste
+        // ma il credito non può essere assegnato senza intervento manuale.
+        return new Response("Event type not resolved", { status: 400 });
       }
 
       // Insert extra_credits (idempotent via UNIQUE on stripe_payment_id)

@@ -101,6 +101,44 @@ Deno.serve(async (req) => {
     const event_type_title = pack.event_type_title as string;
     const currency = pack.currency as string;
 
+    // A1 (audit 2026-06-03): risolviamo event_type_id al checkout (coach
+    // del target + nome esatto). In assenza di match rifiutiamo SUBITO con
+    // 400 invece di lasciare che il webhook scelga "il primo event_type
+    // del coach" — quel fallback poteva accreditare crediti su tipologie
+    // arbitrarie se il coach aveva rinominato la sessione tra checkout e
+    // webhook. Meglio fallire il checkout (Stripe non addebita) che
+    // accreditare la tipologia sbagliata.
+    const { data: targetProfileForType } = await admin
+      .from("profiles")
+      .select("coach_id")
+      .eq("id", targetClientId)
+      .maybeSingle();
+    const targetCoachIdForType =
+      (targetProfileForType as { coach_id?: string | null } | null)?.coach_id ?? null;
+    if (!targetCoachIdForType) {
+      return jsonResponse({ error: "Nessun coach assegnato." }, 400, req);
+    }
+    const { data: resolvedType } = await admin
+      .from("event_types")
+      .select("id")
+      .eq("coach_id", targetCoachIdForType)
+      .eq("name", event_type_title)
+      .limit(1)
+      .maybeSingle();
+    if (!resolvedType?.id) {
+      console.error("booster-checkout: event_type not found", {
+        coach_id: targetCoachIdForType,
+        event_type_title,
+        package_type,
+      });
+      return jsonResponse(
+        { error: "Tipologia di sessione non disponibile per questo coach." },
+        400,
+        req,
+      );
+    }
+    const eventTypeId = resolvedType.id as string;
+
     // Fetch active block_allocation valid_until via inner join
     const { data: allocation, error: allocError } = await admin
       .from("block_allocations")
@@ -179,14 +217,22 @@ Deno.serve(async (req) => {
         package_type,
         quantity: quantity.toString(),
         event_type_title,
+        event_type_id: eventTypeId,
         expires_at: expiresAt.toISOString(),
       },
     });
 
     return jsonResponse({ checkout_url: session.url }, 200, req);
   } catch (error) {
-    console.error("Stripe Checkout Error:", error);
-    const message = error instanceof Error ? error.message : "Errore interno del server";
-    return jsonResponse({ error: message }, 500, req);
+    // A4 (audit 2026-06-03): non propagare al client il testo dell'errore
+    // (può contenere dettagli interni Stripe / network). Log dettagliato
+    // lato server, messaggio generico al frontend.
+    console.error("booster-checkout error:", error);
+    return jsonResponse(
+      { error: "Errore durante la creazione del checkout. Riprova più tardi." },
+      500,
+      req,
+    );
   }
 });
+
