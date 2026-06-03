@@ -148,13 +148,18 @@ function BugReportsPage() {
   });
 
   // Realtime: invalida la query quando arriva un nuovo report (o update).
+  // N4: scope al coach loggato (admin riceve tutto). Senza filtro un coach
+  // riceverebbe eventi di tutti gli altri coach causando refetch inutili.
   useEffect(() => {
     if (!user) return;
+    const isAdmin = role === "admin";
     const channel = supabase
-      .channel("bug-reports-feed")
+      .channel(`bug-reports-feed-${isAdmin ? "admin" : user.id}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "bug_reports" },
+        isAdmin
+          ? { event: "*", schema: "public", table: "bug_reports" }
+          : { event: "*", schema: "public", table: "bug_reports", filter: `coach_id=eq.${user.id}` },
         () => {
           qc.invalidateQueries({ queryKey: ["bug-reports", user.id] });
         },
@@ -163,7 +168,7 @@ function BugReportsPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, qc]);
+  }, [user, role, qc]);
 
   const updateStatus = useMutation({
     mutationFn: async (input: { id: string; status: Status }) => {
