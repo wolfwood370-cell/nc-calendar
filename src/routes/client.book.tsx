@@ -38,12 +38,14 @@ import { useBookConfirm } from "@/hooks/use-book-confirm";
 // del breakdown. Il BookPoolPicker pre-seleziona automaticamente il pool
 // corrispondente al primo mount (vedi useEffect più sotto).
 // Validator type-safe: zod-like inline, fallback graceful se param mancante
-// o stringa non-UUID (ignorato senza errori).
+// o stringa non-UUID (ignorato senza errori). N3: enforce UUID v4 shape per
+// evitare che valori arbitrari entrino in query/lookup downstream.
+const BOOK_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const Route = createFileRoute("/client/book")({
   component: BookFlow,
   validateSearch: (search: Record<string, unknown>): { eventType?: string } => {
     const v = search.eventType;
-    return typeof v === "string" && v.length > 0 ? { eventType: v } : {};
+    return typeof v === "string" && BOOK_UUID_RE.test(v) ? { eventType: v } : {};
   },
 });
 
