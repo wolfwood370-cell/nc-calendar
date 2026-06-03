@@ -556,7 +556,9 @@ function ClientsPage() {
       coach_id: user.id,
     });
     if (error) {
-      toast.error("Invito non riuscito", { description: error.message });
+      // N5: non esporre error.message raw (può rivelare struttura DB / RLS hints).
+      console.error("invite create failed", error);
+      toast.error("Invito non riuscito", { description: "Riprova tra qualche istante." });
       return;
     }
     const coachName = (user.user_metadata?.full_name as string) || user.email || "il tuo Coach";
@@ -572,7 +574,8 @@ function ClientsPage() {
       .update({ status: "cancelled" })
       .eq("id", id);
     if (error) {
-      toast.error("Errore", { description: error.message });
+      console.error("invite cancel failed", error);
+      toast.error("Errore", { description: "Impossibile annullare l'invito." });
       return;
     }
     toast.success("Invito annullato");
@@ -582,7 +585,8 @@ function ClientsPage() {
   async function setClientStatus(id: string, status: "active" | "archived") {
     const { error } = await supabase.from("profiles").update({ status }).eq("id", id);
     if (error) {
-      toast.error("Errore", { description: error.message });
+      console.error("client status update failed", error);
+      toast.error("Errore", { description: "Operazione non riuscita." });
       return;
     }
     toast.success(status === "archived" ? "Cliente archiviato" : "Cliente ripristinato");
