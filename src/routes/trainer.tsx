@@ -15,11 +15,15 @@ interface TrainerSearch {
   reviewEventId?: string;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export const Route = createFileRoute("/trainer")({
   component: TrainerLayout,
   validateSearch: (search: Record<string, unknown>): TrainerSearch => ({
+    // M4 (audit Wave 3): only accept a valid UUID — anything else is
+    // dropped silently to avoid a Postgres 22P02 bubbling into the UI.
     reviewEventId:
-      typeof search.reviewEventId === "string" && search.reviewEventId.length > 0
+      typeof search.reviewEventId === "string" && UUID_RE.test(search.reviewEventId)
         ? search.reviewEventId
         : undefined,
   }),
