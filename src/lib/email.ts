@@ -1,73 +1,49 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-interface SendEmailArgs {
-  to: string;
-  subject: string;
-  html: string;
-}
+// Wave N (audit 2026-06-03) — N1/N3:
+// Il rendering dei template e la sanitizzazione del subject avvengono
+// SERVER-SIDE nella edge function `send-email`. Qui passiamo solo
+// `template` + `params` strutturati. Niente HTML raw client-side.
 
-async function sendEmail({ to, subject, html }: SendEmailArgs) {
+type SendArgs =
+  | {
+      to: string;
+      template: "invitation";
+      params: { clientName?: string | null; coachName: string; appOrigin?: string };
+    }
+  | {
+      to: string;
+      template: "booking_confirmation";
+      params: {
+        recipientName?: string | null;
+        sessionLabel: string;
+        scheduledAtISO: string;
+        coachName: string;
+        clientName: string;
+        appOrigin?: string;
+      };
+    };
+
+async function sendEmail(args: SendArgs) {
   try {
     const { data, error } = await supabase.functions.invoke("send-email", {
-      body: { to, subject, html },
+      body: args,
     });
     if (error) throw error;
     return { ok: true as const, id: (data as { id?: string } | null)?.id };
   } catch (err) {
     console.error("[email] invio fallito", err);
     toast.error("Errore durante l'invio dell'email", {
-      description: err instanceof Error ? err.message : "Riprova più tardi.",
+      description: "Riprova più tardi.",
     });
     return { ok: false as const };
   }
 }
 
-function appUrl(path: string): string {
-  if (typeof window !== "undefined") {
-    return `${window.location.origin}${path}`;
-  }
-  return path;
-}
-
-/**
- * HTML-escape user-supplied strings before interpolating them into the
- * email templates below. Without this, a coach whose `full_name` contains
- * `</strong><a href="https://phishing.com">…</a>` would have that link
- * rendered verbatim in every invitation/confirmation sent to clients.
- */
-function esc(value: string | null | undefined): string {
-  if (value == null) return "";
-  return String(value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function baseLayout(title: string, body: string, cta?: { label: string; href: string }): string {
-  return `<!doctype html>
-<html lang="it">
-  <body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0f172a;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:32px 16px;">
-      <tr><td align="center">
-        <table role="presentation" width="560" cellspacing="0" cellpadding="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
-          <tr><td style="padding:28px 32px 8px;">
-            <h1 style="margin:0;font-size:20px;font-weight:600;color:#0f172a;">${title}</h1>
-          </td></tr>
-          <tr><td style="padding:8px 32px 24px;font-size:15px;line-height:1.6;color:#334155;">
-            ${body}
-            ${cta ? `<div style="margin-top:24px;"><a href="${cta.href}" style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:500;">${cta.label}</a></div>` : ""}
-          </td></tr>
-          <tr><td style="padding:16px 32px 28px;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8;">
-            NC Training Systems · Email automatica, non rispondere a questo messaggio.
-          </td></tr>
-        </table>
-      </td></tr>
-    </table>
-  </body>
-</html>`;
+function currentOrigin(): string {
+  if (typeof window !== "undefined") return window.location.origin;
+  return "";
 }
 
 export interface InvitationEmailParams {
@@ -77,19 +53,14 @@ export interface InvitationEmailParams {
 }
 
 export async function sendInvitationEmail(params: InvitationEmailParams) {
-  const greeting = params.clientName ? `Ciao ${esc(params.clientName)},` : "Ciao,";
-  const coachName = esc(params.coachName);
-  const html = baseLayout(
-    "Sei stato invitato su NC Training Systems",
-    `<p>${greeting}</p>
-     <p>Sei stato invitato su <strong>NC Training Systems</strong> dal tuo Coach <strong>${coachName}</strong>.</p>
-     <p>Clicca sul pulsante qui sotto per creare il tuo account utilizzando questa email.</p>`,
-    { label: "Crea il tuo account", href: appUrl("/auth") },
-  );
   return sendEmail({
     to: params.to,
-    subject: `${params.coachName} ti ha invitato su NC Training Systems`,
-    html,
+    template: "invitation",
+    params: {
+      clientName: params.clientName ?? null,
+      coachName: params.coachName,
+      appOrigin: currentOrigin(),
+    },
   });
 }
 
@@ -103,28 +74,16 @@ export interface BookingEmailParams {
 }
 
 export async function sendBookingConfirmationEmail(params: BookingEmailParams) {
-  const when = params.scheduledAt.toLocaleString("it-IT", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  const greeting = params.recipientName ? `Ciao ${esc(params.recipientName)},` : "Ciao,";
-  const sessionLabel = esc(params.sessionLabel);
-  const coachName = esc(params.coachName);
-  const clientName = esc(params.clientName);
-  const html = baseLayout(
-    "Sessione Prenotata",
-    `<p>${greeting}</p>
-     <p><strong>Sessione prenotata:</strong> hai prenotato una sessione <strong>${sessionLabel}</strong> per il <strong>${when}</strong>.</p>
-     <p style="margin-top:16px;">Coach: <strong>${coachName}</strong><br/>Cliente: <strong>${clientName}</strong></p>`,
-    { label: "Vai alla piattaforma", href: appUrl("/") },
-  );
   return sendEmail({
     to: params.to,
-    subject: `Sessione Prenotata — ${params.sessionLabel}`,
-    html,
+    template: "booking_confirmation",
+    params: {
+      recipientName: params.recipientName ?? null,
+      sessionLabel: params.sessionLabel,
+      scheduledAtISO: params.scheduledAt.toISOString(),
+      coachName: params.coachName,
+      clientName: params.clientName,
+      appOrigin: currentOrigin(),
+    },
   });
 }
