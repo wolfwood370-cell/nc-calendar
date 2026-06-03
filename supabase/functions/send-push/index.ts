@@ -1,7 +1,7 @@
 // Edge function: invia Web Push notifications a tutti i device di un profilo.
-import webpush from "npm:web-push@3.6.7";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { requireAuth, assertUuid } from "../_shared/auth.ts";
+import { isVapidConfigured, sendPushToSubscriptions } from "../_shared/push.ts";
 
 interface Payload {
   profile_id: string;
@@ -10,19 +10,6 @@ interface Payload {
   url?: string;
 }
 
-interface PushSubscriptionJSON {
-  endpoint: string;
-  expirationTime?: number | null;
-  keys: { p256dh: string; auth: string };
-}
-
-const VAPID_PUBLIC = Deno.env.get("VAPID_PUBLIC_KEY") ?? "";
-const VAPID_PRIVATE = Deno.env.get("VAPID_PRIVATE_KEY") ?? "";
-const VAPID_SUBJECT = Deno.env.get("VAPID_SUBJECT") ?? "mailto:nctrainingsystems@gmail.com";
-
-if (VAPID_PUBLIC && VAPID_PRIVATE) {
-  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
-}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders(req) });
