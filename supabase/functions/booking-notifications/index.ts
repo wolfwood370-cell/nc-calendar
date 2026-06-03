@@ -311,7 +311,8 @@ Deno.serve(async (req) => {
 
     return jsonResponse({ ok: true, results }, 200, req);
   } catch (e) {
+    // P3 (Wave 5): niente leak del messaggio interno.
     console.error("booking-notifications error", e);
-    return jsonResponse({ error: String(e) }, 500, req);
+    return jsonResponse({ error: "Errore interno." }, 500, req);
   }
 });
