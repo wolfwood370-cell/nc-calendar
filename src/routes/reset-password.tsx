@@ -97,7 +97,8 @@ function ResetPassword() {
                     id="pw"
                     type="password"
                     required
-                    minLength={6}
+                    minLength={8}
+                    maxLength={128}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                   />
@@ -108,7 +109,8 @@ function ResetPassword() {
                     id="pw2"
                     type="password"
                     required
-                    minLength={6}
+                    minLength={8}
+                    maxLength={128}
                     value={confirm}
                     onChange={(e) => setConfirm(e.target.value)}
                   />
