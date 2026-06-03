@@ -30,9 +30,10 @@ Deno.serve(async (req) => {
         req,
       );
     }
-    if (!VAPID_PUBLIC || !VAPID_PRIVATE) {
+    if (!isVapidConfigured()) {
       return jsonResponse({ error: "VAPID keys not configured" }, 500, req);
     }
+
 
     // Authorization: caller may push to self, OR coach/admin may push to their managed clients.
     if (profile_id !== auth.userId) {
