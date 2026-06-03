@@ -234,12 +234,3 @@ Deno.serve(async (req) => {
       req,
     );
   }
-});
-
-    return jsonResponse({ checkout_url: session.url }, 200, req);
-  } catch (error) {
-    console.error("Stripe Checkout Error:", error);
-    const message = error instanceof Error ? error.message : "Errore interno del server";
-    return jsonResponse({ error: message }, 500, req);
-  }
-});
