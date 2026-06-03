@@ -105,7 +105,7 @@ function severityBadgeVariant(s: Severity): "outline" | "secondary" | "destructi
 }
 
 function BugReportsPage() {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const qc = useQueryClient();
   const [tab, setTab] = useState<Status>("open");
   const [selected, setSelected] = useState<BugReportWithReporter | null>(null);
