@@ -9,9 +9,9 @@
 //   - client.book.tsx       → event_type="booking.created" (default)
 //   - client-reschedule-sheet → event_type="booking.rescheduled"
 
-import webpush from "npm:web-push@3.6.7";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { requireAuth, assertUuid } from "../_shared/auth.ts";
+import { isVapidConfigured, sendPushToSubscriptions } from "../_shared/push.ts";
 
 type EventType = "booking.created" | "booking.rescheduled";
 
@@ -34,19 +34,6 @@ interface Payload {
   booking_id?: string | null;
 }
 
-interface PushSubscriptionJSON {
-  endpoint: string;
-  expirationTime?: number | null;
-  keys: { p256dh: string; auth: string };
-}
-
-const VAPID_PUBLIC = Deno.env.get("VAPID_PUBLIC_KEY") ?? "";
-const VAPID_PRIVATE = Deno.env.get("VAPID_PRIVATE_KEY") ?? "";
-const VAPID_SUBJECT = Deno.env.get("VAPID_SUBJECT") ?? "mailto:nctrainingsystems@gmail.com";
-
-if (VAPID_PUBLIC && VAPID_PRIVATE) {
-  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
-}
 
 /**
  * Validate a phone number in loose E.164 format prior to handing it to
