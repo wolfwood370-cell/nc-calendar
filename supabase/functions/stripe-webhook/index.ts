@@ -147,10 +147,10 @@ Deno.serve(async (req) => {
       const { error: insertError } = await adminClient.from("extra_credits").insert({
         client_id,
         event_type_id: eventType.id,
-        quantity: parseInt(quantity, 10),
+        quantity: parsedQuantity,
         quantity_booked: 0,
         price_paid: session.amount_total ? session.amount_total / 100 : 0,
-        expires_at,
+        expires_at: parsedExpires.toISOString(),
         stripe_payment_id: session.id,
       });
 
