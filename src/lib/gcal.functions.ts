@@ -110,11 +110,45 @@ const UpdateSchema = z.object({
   colorId: z.string().max(2).optional(),
 });
 
+// C1: lookup booking by googleEventId and verify caller ownership before
+// mutating the calendar event. Prevents a coach from updating/deleting
+// another coach's Google Calendar event by guessing/snooping the event id.
+async function assertGoogleEventOwnership(googleEventId: string, userId: string): Promise<void> {
+  const { data, error } = await supabaseAdmin
+    .from("bookings")
+    .select("coach_id")
+    .eq("google_event_id", googleEventId)
+    .maybeSingle();
+  if (error) throw new Error("Booking lookup failed");
+  if (!data) {
+    // No booking row owns this event id: only admins may proceed (e.g.
+    // cleanup of orphaned calendar events).
+    const { data: roleRow } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (!roleRow) throw new Error("Permesso negato sull'evento");
+    return;
+  }
+  if (data.coach_id !== userId) {
+    const { data: roleRow } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (!roleRow) throw new Error("Permesso negato sull'evento");
+  }
+}
+
 export const gcalUpdateEvent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => UpdateSchema.parse(input))
-  .handler(async ({ data }): Promise<GcalAck> => {
+  .handler(async ({ data, context }): Promise<GcalAck> => {
     try {
+      await assertGoogleEventOwnership(data.googleEventId, context.userId);
       await gcalUpdate(data);
       return { ok: true };
     } catch (e) {
@@ -130,8 +164,9 @@ const DeleteSchema = z.object({
 export const gcalDeleteEvent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => DeleteSchema.parse(input))
-  .handler(async ({ data }): Promise<GcalAck> => {
+  .handler(async ({ data, context }): Promise<GcalAck> => {
     try {
+      await assertGoogleEventOwnership(data.googleEventId, context.userId);
       await gcalDelete(data.googleEventId);
       return { ok: true };
     } catch (e) {
