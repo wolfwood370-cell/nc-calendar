@@ -166,6 +166,36 @@ Deno.serve(async (req) => {
       }
     }
 
+    // P5 (Wave 5): risoluzione server-side del nome cliente per impedire
+    // a un caller malevolo di falsificare il nome che il coach vede in
+    // notifiche e WhatsApp. Preferiamo booking.client_id (se booking_id
+    // è stato fornito), altrimenti l'identità del caller.
+    let resolvedClientId: string | null = null;
+    if (body.booking_id) {
+      const { data: b } = await supabase
+        .from("bookings")
+        .select("client_id")
+        .eq("id", body.booking_id)
+        .maybeSingle();
+      resolvedClientId = (b as { client_id?: string } | null)?.client_id ?? null;
+    }
+    if (!resolvedClientId && auth.role !== "admin" && auth.userId !== body.coach_id) {
+      resolvedClientId = auth.userId;
+    }
+    let resolvedClientName = "Cliente";
+    if (resolvedClientId) {
+      const { data: cp } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", resolvedClientId)
+        .maybeSingle();
+      const fn = (cp as { full_name?: string | null } | null)?.full_name;
+      if (typeof fn === "string" && fn.trim().length > 0) {
+        resolvedClientName = fn.trim().slice(0, 200);
+      }
+    }
+    body.client_name = resolvedClientName;
+
     const { data: settings } = await supabase
       .from("integration_settings")
       .select("wa_phone_id, wa_access_token, wa_enabled")
