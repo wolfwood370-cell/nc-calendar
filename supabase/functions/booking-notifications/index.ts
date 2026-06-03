@@ -74,9 +74,9 @@ Deno.serve(async (req) => {
     }
     // M1 (audit Wave 3): cap free-text fields that flow into push payloads,
     // notifications.payload and WhatsApp message bodies.
-    if (typeof body.client_name !== "string" || body.client_name.length > 200) {
-      return jsonResponse({ error: "Invalid client_name" }, 400, req);
-    }
+    // P5 (audit Wave 5): client_name viene ricavato server-side più sotto.
+    // Manteniamo solo la validazione del session_label che è informativa
+    // (deriva dall'event_type lato chiamante).
     if (typeof body.session_label !== "string" || body.session_label.length > 200) {
       return jsonResponse({ error: "Invalid session_label" }, 400, req);
     }
