@@ -30,6 +30,50 @@ Deno.serve(async (req) => {
         req,
       );
     }
+
+    // Wave 4 (audit 2026-06-03) — N1: cap free-text fields delivered to the
+    // browser Notification API to prevent abuse via oversize/binary payloads.
+    if (typeof title !== "string" || title.length === 0 || title.length > 200) {
+      return jsonResponse({ error: "Invalid title" }, 400, req);
+    }
+    if (body !== undefined && (typeof body !== "string" || body.length > 500)) {
+      return jsonResponse({ error: "Invalid body" }, 400, req);
+    }
+
+    // Wave 4 — N1: validate url. Service worker click-handler navigates to
+    // this value; a `javascript:` or `data:` URL would be a stored-XSS sink
+    // controlled by a coach. Accept only relative app paths or https URLs
+    // on our own published origins.
+    let safeUrl = "/";
+    if (url !== undefined && url !== null && url !== "") {
+      if (typeof url !== "string" || url.length > 2048) {
+        return jsonResponse({ error: "Invalid url" }, 400, req);
+      }
+      if (url.startsWith("/") && !url.startsWith("//")) {
+        safeUrl = url;
+      } else {
+        try {
+          const parsed = new URL(url);
+          if (parsed.protocol !== "https:") {
+            return jsonResponse({ error: "Invalid url protocol" }, 400, req);
+          }
+          // Only same-app hostnames (mirrors cors.ts allowlist).
+          const allowedHosts = new Set([
+            "nc-calendar.lovable.app",
+            "id-preview--81e402d5-14ed-48a5-938a-c89e014f695a.lovable.app",
+            "project--81e402d5-14ed-48a5-938a-c89e014f695a.lovable.app",
+            "project--81e402d5-14ed-48a5-938a-c89e014f695a-dev.lovable.app",
+          ]);
+          if (!allowedHosts.has(parsed.hostname)) {
+            return jsonResponse({ error: "Invalid url host" }, 400, req);
+          }
+          safeUrl = parsed.toString();
+        } catch {
+          return jsonResponse({ error: "Invalid url" }, 400, req);
+        }
+      }
+    }
+
     if (!isVapidConfigured()) {
       return jsonResponse({ error: "VAPID keys not configured" }, 500, req);
     }
@@ -59,7 +103,7 @@ Deno.serve(async (req) => {
       .eq("profile_id", profile_id);
     if (error) throw error;
 
-    const payload = JSON.stringify({ title, body, url: url ?? "/" });
+    const payload = JSON.stringify({ title, body: body ?? "", url: safeUrl });
     const results = await sendPushToSubscriptions(
       (subs ?? []) as { id: string; subscription: unknown }[],
       payload,
