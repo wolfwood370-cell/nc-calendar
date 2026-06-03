@@ -60,29 +60,13 @@ Deno.serve(async (req) => {
     if (error) throw error;
 
     const payload = JSON.stringify({ title, body, url: url ?? "/" });
-    const results = await Promise.all(
-      (subs ?? []).map(async (row: { id: string; subscription: unknown }) => {
-        try {
-          await webpush.sendNotification(row.subscription as PushSubscriptionJSON, payload);
-          return { id: row.id, ok: true };
-        } catch (e) {
-          const status = (e as { statusCode?: number }).statusCode;
-          if (status === 404 || status === 410) {
-            await auth.admin.from("push_subscriptions").delete().eq("id", row.id);
-          }
-          // L6 (FULL_APP_AUDIT.md): log only the message, not the full error
-          // object. The error from web-push can include the response body,
-          // which often echoes the push provider endpoint URL — a token-
-          // bearing string that should not land in long-lived function logs.
-          console.error("push failed", {
-            id: row.id,
-            status,
-            message: e instanceof Error ? e.message : String(e),
-          });
-          return { id: row.id, ok: false, status };
-        }
-      }),
+    const results = await sendPushToSubscriptions(
+      (subs ?? []) as { id: string; subscription: unknown }[],
+      payload,
+      auth.admin as unknown as Parameters<typeof sendPushToSubscriptions>[2],
+      "push failed",
     );
+
 
     return jsonResponse({ ok: true, sent: results.length, results }, 200, req);
   } catch (e) {
