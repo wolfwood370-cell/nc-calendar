@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { BlockCreditsDialog } from "@/components/block-credits-dialog";
 import {
@@ -155,19 +155,25 @@ function ClientPathPage() {
   const totalBlocks = blocks.length;
   const totalWeeks = totalBlocks * WEEKS_PER_BLOCK;
 
+  // N8 (audit 2026-06-03): generation counter per invalidare load() in volo
+  // quando cambia il cliente o l'utente si dis-monta. Senza questo, ogni
+  // setState dopo un await può sovrascrivere lo stato di un cliente diverso.
+  const loadGenRef = useRef(0);
+
   useEffect(() => {
     if (!clientId || !user) return;
     void load();
-    // HIGH-6 (audit 2026-05-26): `load` è una funzione locale stabile per
-    // scopo — chiude solo su `user`, `clientId` (entrambi nei deps) e su
-    // setState refs (stabili in React). Includerla nei deps richiederebbe
-    // `useCallback` con cascading invalidations. Pattern intenzionale:
-    // l'effect rifà la fetch a ogni cambio cliente / sessione utente.
+    return () => {
+      // Bumpa la generation: tutte le load() in volo diventano stali.
+      loadGenRef.current += 1;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId, user?.id]);
 
   async function load() {
     if (!user) return;
+    const gen = ++loadGenRef.current;
+    const isStale = () => loadGenRef.current !== gen;
     setLoading(true);
 
     const { data: profile } = await supabase
@@ -175,13 +181,8 @@ function ClientPathPage() {
       .select("id, full_name, email, path_start_date")
       .eq("id", clientId)
       .maybeSingle();
+    if (isStale()) return;
 
-    // M1 (FULL_APP_AUDIT.md): the query above has no explicit coach_id
-    // filter — RLS ("Coach read own clients") silently returns null for any
-    // client that doesn't belong to the current coach. Without this guard
-    // the page used to render with the literal "Cliente" placeholder and
-    // empty block/booking tables, masking the bad URL as a broken page
-    // instead of bouncing back to the client list.
     if (!profile) {
       toast.error("Cliente non trovato o non autorizzato.");
       navigate({ to: "/trainer/clients" });
@@ -217,6 +218,7 @@ function ClientPathPage() {
       .select("auto_renew_blocks")
       .eq("id", clientId)
       .maybeSingle();
+    if (isStale()) return;
     setAutoRenewBlocks(arRow?.auto_renew_blocks ?? true);
 
     const { data: bls } = await supabase
@@ -225,6 +227,7 @@ function ClientPathPage() {
       .eq("client_id", clientId)
       .is("deleted_at", null)
       .order("sequence_order", { ascending: true });
+    if (isStale()) return;
     const blockList = (bls ?? []).map((b) => ({
       id: b.id as string,
       sequence_order: b.sequence_order as number,
@@ -239,6 +242,7 @@ function ClientPathPage() {
           "id, block_id, event_type_id, session_type, quantity_assigned, quantity_booked, week_number, valid_until",
         )
         .in("block_id", blockIds);
+      if (isStale()) return;
       setAllocations((allocs ?? []) as AllocationRecord[]);
 
       const { data: bks } = await supabase
@@ -246,11 +250,11 @@ function ClientPathPage() {
         .select("id, block_id, status, event_type_id, session_type")
         .in("block_id", blockIds)
         .is("deleted_at", null);
+      if (isStale()) return;
       const counts: Record<string, Record<string, number>> = {};
       (bks ?? []).forEach((b) => {
         const bid = b.block_id as string | null;
         if (!bid) return;
-        // Count completed
         if (b.status === "completed") {
           const key = (b.event_type_id as string | null) ?? (b.session_type as string);
           counts[bid] ||= {};
@@ -268,6 +272,7 @@ function ClientPathPage() {
       .select("week_number, block_number, monday_date, shifted")
       .eq("client_id", clientId)
       .order("week_number", { ascending: true });
+    if (isStale()) return;
 
     const map = new Map<number, WeekRow>();
     (existing ?? []).forEach((r) =>
@@ -308,6 +313,7 @@ function ClientPathPage() {
       .eq("client_id", clientId)
       .is("deleted_at", null)
       .order("scheduled_at", { ascending: false });
+    if (isStale()) return;
     const bookingsList = (cbs ?? []) as ClientBooking[];
     setClientBookings(bookingsList);
 
@@ -323,6 +329,7 @@ function ClientPathPage() {
     }
 
     await loadOrphans(fn);
+    if (isStale()) return;
     setLoading(false);
   }
 
