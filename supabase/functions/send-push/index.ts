@@ -1,7 +1,7 @@
 // Edge function: invia Web Push notifications a tutti i device di un profilo.
-import webpush from "npm:web-push@3.6.7";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { requireAuth, assertUuid } from "../_shared/auth.ts";
+import { isVapidConfigured, sendPushToSubscriptions } from "../_shared/push.ts";
 
 interface Payload {
   profile_id: string;
@@ -10,19 +10,6 @@ interface Payload {
   url?: string;
 }
 
-interface PushSubscriptionJSON {
-  endpoint: string;
-  expirationTime?: number | null;
-  keys: { p256dh: string; auth: string };
-}
-
-const VAPID_PUBLIC = Deno.env.get("VAPID_PUBLIC_KEY") ?? "";
-const VAPID_PRIVATE = Deno.env.get("VAPID_PRIVATE_KEY") ?? "";
-const VAPID_SUBJECT = Deno.env.get("VAPID_SUBJECT") ?? "mailto:nctrainingsystems@gmail.com";
-
-if (VAPID_PUBLIC && VAPID_PRIVATE) {
-  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
-}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders(req) });
@@ -43,9 +30,10 @@ Deno.serve(async (req) => {
         req,
       );
     }
-    if (!VAPID_PUBLIC || !VAPID_PRIVATE) {
+    if (!isVapidConfigured()) {
       return jsonResponse({ error: "VAPID keys not configured" }, 500, req);
     }
+
 
     // Authorization: caller may push to self, OR coach/admin may push to their managed clients.
     if (profile_id !== auth.userId) {
@@ -72,38 +60,22 @@ Deno.serve(async (req) => {
     if (error) throw error;
 
     const payload = JSON.stringify({ title, body, url: url ?? "/" });
-    const results = await Promise.all(
-      (subs ?? []).map(async (row: { id: string; subscription: unknown }) => {
-        try {
-          await webpush.sendNotification(row.subscription as PushSubscriptionJSON, payload);
-          return { id: row.id, ok: true };
-        } catch (e) {
-          const status = (e as { statusCode?: number }).statusCode;
-          if (status === 404 || status === 410) {
-            await auth.admin.from("push_subscriptions").delete().eq("id", row.id);
-          }
-          // L6 (FULL_APP_AUDIT.md): log only the message, not the full error
-          // object. The error from web-push can include the response body,
-          // which often echoes the push provider endpoint URL — a token-
-          // bearing string that should not land in long-lived function logs.
-          console.error("push failed", {
-            id: row.id,
-            status,
-            message: e instanceof Error ? e.message : String(e),
-          });
-          return { id: row.id, ok: false, status };
-        }
-      }),
+    const results = await sendPushToSubscriptions(
+      (subs ?? []) as { id: string; subscription: unknown }[],
+      payload,
+      auth.admin as unknown as Parameters<typeof sendPushToSubscriptions>[2],
+      "push failed",
     );
+
 
     return jsonResponse({ ok: true, sent: results.length, results }, 200, req);
   } catch (e) {
-    // Audit 2026-05-22 L1: consistent scrubbing with the inner catch
-    // (line 76) — never log the full error object since web-push errors
-    // can echo subscription endpoint URLs (browser-specific tokens) in
-    // their response body.
+    // M6 (audit 2026-06-03): non propagare al chiamante il messaggio interno
+    // (può echare URL endpoint push o dettagli web-push). Log strutturato
+    // lato server, errore generico al client.
     const message = e instanceof Error ? e.message : String(e);
     console.error("send-push error", { message });
-    return jsonResponse({ error: message }, 500, req);
+    return jsonResponse({ error: "Errore invio notifica push." }, 500, req);
   }
 });
+

@@ -9,9 +9,9 @@
 //   - client.book.tsx       → event_type="booking.created" (default)
 //   - client-reschedule-sheet → event_type="booking.rescheduled"
 
-import webpush from "npm:web-push@3.6.7";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { requireAuth, assertUuid } from "../_shared/auth.ts";
+import { isVapidConfigured, sendPushToSubscriptions } from "../_shared/push.ts";
 
 type EventType = "booking.created" | "booking.rescheduled";
 
@@ -34,19 +34,6 @@ interface Payload {
   booking_id?: string | null;
 }
 
-interface PushSubscriptionJSON {
-  endpoint: string;
-  expirationTime?: number | null;
-  keys: { p256dh: string; auth: string };
-}
-
-const VAPID_PUBLIC = Deno.env.get("VAPID_PUBLIC_KEY") ?? "";
-const VAPID_PRIVATE = Deno.env.get("VAPID_PRIVATE_KEY") ?? "";
-const VAPID_SUBJECT = Deno.env.get("VAPID_SUBJECT") ?? "mailto:nctrainingsystems@gmail.com";
-
-if (VAPID_PUBLIC && VAPID_PRIVATE) {
-  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
-}
 
 /**
  * Validate a phone number in loose E.164 format prior to handing it to
@@ -201,11 +188,8 @@ Deno.serve(async (req) => {
     }
 
     // ---- 2. Web Push to coach (always, if subscribed) ------------------
-    // Duplicates send-push's webpush.sendNotification flow because that
-    // handler enforces caller=coach|admin authz and would reject a
-    // client→coach push. Refactor into _shared/push.ts deferred to keep
-    // this commit focused; the duplication is ~30 lines.
-    if (VAPID_PUBLIC && VAPID_PRIVATE) {
+    // A5 (audit 2026-06-03): logica unificata in _shared/push.ts.
+    if (isVapidConfigured()) {
       try {
         const { data: subs } = await supabase
           .from("push_subscriptions")
@@ -235,26 +219,11 @@ Deno.serve(async (req) => {
           body: pushBody,
           url: "/trainer/calendar",
         });
-        const pushResults = await Promise.all(
-          (subs ?? []).map(async (row: { id: string; subscription: unknown }) => {
-            try {
-              await webpush.sendNotification(row.subscription as PushSubscriptionJSON, pushPayload);
-              return { id: row.id, ok: true };
-            } catch (e) {
-              const status = (e as { statusCode?: number }).statusCode;
-              if (status === 404 || status === 410) {
-                await supabase.from("push_subscriptions").delete().eq("id", row.id);
-              }
-              // L6: log only the message — web-push errors can echo
-              // subscription endpoint URLs which are browser-specific tokens.
-              console.error("coach push failed", {
-                id: row.id,
-                status,
-                message: e instanceof Error ? e.message : String(e),
-              });
-              return { id: row.id, ok: false, status };
-            }
-          }),
+        const pushResults = await sendPushToSubscriptions(
+          (subs ?? []) as { id: string; subscription: unknown }[],
+          pushPayload,
+          supabase as unknown as Parameters<typeof sendPushToSubscriptions>[2],
+          "coach push failed",
         );
         results.push = { sent: pushResults.length };
       } catch (e) {
@@ -264,6 +233,7 @@ Deno.serve(async (req) => {
     } else {
       results.push = { skipped: "no_vapid" };
     }
+
 
     // ---- 3. WhatsApp (opt-in, to client, only on first creation) -------
     // We deliberately don't WhatsApp the client on reschedule: the
