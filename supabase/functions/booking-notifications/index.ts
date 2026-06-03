@@ -266,6 +266,7 @@ Deno.serve(async (req) => {
       eventType === "booking.created" &&
       settings?.wa_enabled &&
       settings.wa_phone_id &&
+      /^\d{10,20}$/.test(settings.wa_phone_id) && // M2 (audit Wave 3): guard against path-injection in Graph API URL
       settings.wa_access_token &&
       waPhoneNormalized
     ) {
