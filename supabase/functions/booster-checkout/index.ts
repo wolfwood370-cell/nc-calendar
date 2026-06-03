@@ -29,9 +29,12 @@ Deno.serve(async (req) => {
     }
     const requested_client_id = body.client_id;
 
-    // Use requested client_id if provided (e.g. coach buying for client),
-    // otherwise default to the caller's userId.
-    const targetClientId = requested_client_id || userId;
+    // P7 (Wave 5): `||` accettava silenziosamente "" come fallback all'utente
+    // corrente. Usiamo `??` + check esplicito stringa non vuota.
+    const targetClientId =
+      typeof requested_client_id === "string" && requested_client_id.trim().length > 0
+        ? requested_client_id
+        : userId;
     // Audit 2026-05-22 M2: validate the resolved id upfront so a
     // malformed payload returns a clean 400 instead of a 22P02 from
     // the downstream UPDATE on bookings/extra_credits.
