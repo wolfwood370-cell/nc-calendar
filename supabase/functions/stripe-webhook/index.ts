@@ -48,8 +48,38 @@ Deno.serve(async (req) => {
       const { client_id, package_type, quantity, event_type_title, expires_at } = metadata;
 
       if (!client_id || !event_type_title || !expires_at || !quantity) {
-        console.error("Missing required metadata", metadata);
+        console.error("Missing required metadata", { stripe_session: session.id });
         return new Response("Missing metadata", { status: 400 });
+      }
+
+      // H1: client_id must be a UUID — supabase-js would surface 22P02 otherwise.
+      if (!isUuid(client_id)) {
+        console.error("stripe-webhook: invalid client_id in metadata", {
+          stripe_session: session.id,
+        });
+        return new Response("Invalid client_id", { status: 400 });
+      }
+
+      // H2: quantity must be a positive integer within a sane cap. Without this
+      // a NaN/negative metadata value silently grants 0 or wrong credits.
+      const parsedQuantity = parseInt(quantity, 10);
+      if (!Number.isInteger(parsedQuantity) || parsedQuantity < 1 || parsedQuantity > 1000) {
+        console.error("stripe-webhook: invalid quantity in metadata", {
+          stripe_session: session.id,
+          quantity,
+        });
+        return new Response("Invalid quantity", { status: 400 });
+      }
+
+      // H3: expires_at must parse to a real future date. An invalid string
+      // would otherwise become NULL → credits never expire.
+      const parsedExpires = new Date(expires_at);
+      if (isNaN(parsedExpires.getTime()) || parsedExpires.getTime() <= Date.now()) {
+        console.error("stripe-webhook: invalid expires_at in metadata", {
+          stripe_session: session.id,
+          expires_at,
+        });
+        return new Response("Invalid expires_at", { status: 400 });
       }
 
       // Find the coach for this client
