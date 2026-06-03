@@ -23,17 +23,42 @@ import { gcalCreate, gcalUpdate, gcalDelete } from "@/lib/gcal.server";
 type GcalResult<T = unknown> = ({ ok: true } & T) | { ok: false; error: string };
 type GcalAck = { ok: true } | { ok: false; error: string };
 
-const CreateSchema = z.object({
-  bookingId: z.string().uuid().optional(),
-  summary: z.string().min(1).max(500),
-  description: z.string().max(2000).optional(),
-  startISO: z.string().datetime({ offset: true }),
-  endISO: z.string().datetime({ offset: true }),
-  attendeeEmail: z.string().email().optional(),
-  requestMeet: z.boolean().optional(),
-  isOnline: z.boolean().optional(),
-  colorId: z.string().max(2).optional(),
-});
+const CreateSchema = z
+  .object({
+    bookingId: z.string().uuid().optional(),
+    summary: z.string().min(1).max(500),
+    description: z.string().max(2000).optional(),
+    startISO: z.string().datetime({ offset: true }),
+    endISO: z.string().datetime({ offset: true }),
+    attendeeEmail: z.string().email().optional(),
+    requestMeet: z.boolean().optional(),
+    isOnline: z.boolean().optional(),
+    colorId: z.string().max(2).optional(),
+  })
+  // N11 (audit 2026-06-03): garantisce endISO > startISO prima della chiamata
+  // a Google Calendar (che altrimenti ritorna un errore generico).
+  .refine((d) => new Date(d.endISO) > new Date(d.startISO), {
+    message: "endISO deve essere successivo a startISO",
+    path: ["endISO"],
+  });
+
+// N5 (audit 2026-06-03): mappiamo solo errori noti a messaggi italiani;
+// tutto il resto viene oscurato dietro un messaggio generico. Lo stacktrace
+// reale resta nei log server-side. Evita di esporre URL Google API, token
+// OAuth parziali, nomi di calendario o vincoli DB al client.
+const KNOWN_ERROR_MESSAGES = new Set<string>([
+  "Booking lookup failed",
+  "Booking non trovato",
+  "Permesso negato sul booking",
+  "Permesso negato sull'evento",
+  "endISO deve essere successivo a startISO",
+]);
+function scrubGcalError(e: unknown, op: string): string {
+  const msg = e instanceof Error ? e.message : String(e);
+  if (KNOWN_ERROR_MESSAGES.has(msg)) return msg;
+  console.error(`[gcal] ${op} internal error`, { message: msg });
+  return "Operazione calendario fallita. Riprova più tardi.";
+}
 
 /** Crea l'evento Google Calendar e, se fornito bookingId, scrive
  *  google_event_id + meeting_link sulla riga booking. */
@@ -97,7 +122,7 @@ export const gcalCreateEvent = createServerFn({ method: "POST" })
       return { ok: true, googleEventId: r.googleEventId, meetingLink: r.meetingLink, htmlLink: r.htmlLink };
     } catch (e) {
       console.error("gcalCreateEvent failed", e);
-      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+      return { ok: false, error: scrubGcalError(e, "create") };
     }
   });
 
@@ -153,7 +178,7 @@ export const gcalUpdateEvent = createServerFn({ method: "POST" })
       return { ok: true };
     } catch (e) {
       console.error("gcalUpdateEvent failed", e);
-      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+      return { ok: false, error: scrubGcalError(e, "update") };
     }
   });
 
@@ -171,6 +196,6 @@ export const gcalDeleteEvent = createServerFn({ method: "POST" })
       return { ok: true };
     } catch (e) {
       console.error("gcalDeleteEvent failed", e);
-      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+      return { ok: false, error: scrubGcalError(e, "delete") };
     }
   });

@@ -99,6 +99,10 @@ export function useNotifications(userId: string | null | undefined) {
       });
     },
     enabled: !!userId,
+    // N14 (audit 2026-06-03): seed con array vuoto così la chiave [""]
+    // non viene mai popolata con dati di un altro utente quando userId
+    // è null/undefined (es. logout in corso).
+    initialData: userId ? undefined : [],
   });
 
   useEffect(() => {

@@ -268,7 +268,7 @@ function CalendarPage() {
                   const isToday = sameDay(d, today);
                   return (
                     <div
-                      key={i}
+                      key={d.toISOString()}
                       className={`relative border-r border-surface-container/60 last:border-r-0 ${isToday ? "bg-primary-fixed/10" : ""}`}
                       style={{ height: HOURS.length * HOUR_HEIGHT }}
                     >
