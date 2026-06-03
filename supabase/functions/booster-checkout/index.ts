@@ -217,9 +217,24 @@ Deno.serve(async (req) => {
         package_type,
         quantity: quantity.toString(),
         event_type_title,
+        event_type_id: eventTypeId,
         expires_at: expiresAt.toISOString(),
       },
     });
+
+    return jsonResponse({ checkout_url: session.url }, 200, req);
+  } catch (error) {
+    // A4 (audit 2026-06-03): non propagare al client il testo dell'errore
+    // (può contenere dettagli interni Stripe / network). Log dettagliato
+    // lato server, messaggio generico al frontend.
+    console.error("booster-checkout error:", error);
+    return jsonResponse(
+      { error: "Errore durante la creazione del checkout. Riprova più tardi." },
+      500,
+      req,
+    );
+  }
+});
 
     return jsonResponse({ checkout_url: session.url }, 200, req);
   } catch (error) {
