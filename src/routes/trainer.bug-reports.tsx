@@ -104,16 +104,22 @@ function severityBadgeVariant(s: Severity): "outline" | "secondary" | "destructi
   return "outline";
 }
 
+// N9: paginazione semplice — 100 righe iniziali, "Carica altri" raddoppia
+// fino a un cap di sicurezza (1000) per evitare query abusive.
+const PAGE_SIZE = 100;
+const MAX_ROWS = 1000;
+
 function BugReportsPage() {
   const { user, role } = useAuth();
   const qc = useQueryClient();
   const [tab, setTab] = useState<Status>("open");
   const [selected, setSelected] = useState<BugReportWithReporter | null>(null);
+  const [pageLimit, setPageLimit] = useState<number>(PAGE_SIZE);
 
   // Fetch reports + reporter profile in 2 query (no .join JS-side perché
   // RLS è scoped sul coach via policy). Il join è fatto in memoria.
   const reportsQ = useQuery({
-    queryKey: ["bug-reports", user?.id],
+    queryKey: ["bug-reports", user?.id, pageLimit],
     enabled: !!user,
     queryFn: async (): Promise<BugReportWithReporter[]> => {
       const sb = supabase as unknown as RelaxedBugReportsClient;
@@ -123,7 +129,7 @@ function BugReportsPage() {
           "id, reporter_id, reporter_role, coach_id, severity, description, page_url, user_agent, sentry_event_id, status, resolved_at, created_at, updated_at",
         )
         .order("created_at", { ascending: false })
-        .limit(500);
+        .limit(pageLimit);
       if (error) throw new Error(error.message);
       const rows = data ?? [];
       if (rows.length === 0) return [];
