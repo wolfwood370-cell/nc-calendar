@@ -77,7 +77,18 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Permesso negato" }, 403, req);
     }
 
-    const payload = (await req.json()) as Partial<Payload>;
+    // Wave 6 P4: content-length è bypassabile via chunked encoding. Leggiamo
+    // il body come testo, applichiamo il cap reale, poi parse JSON.
+    const rawBody = await req.text();
+    if (rawBody.length > 10_000) {
+      return jsonResponse({ error: "Payload troppo grande" }, 413, req);
+    }
+    let payload: Partial<Payload>;
+    try {
+      payload = JSON.parse(rawBody) as Partial<Payload>;
+    } catch {
+      return jsonResponse({ error: "JSON non valido" }, 400, req);
+    }
     const validationErr = validateInput(payload);
     if (validationErr) {
       return jsonResponse({ error: validationErr }, 400, req);

@@ -98,8 +98,12 @@ export async function gcalCreate(input: CreateEventInput): Promise<CreateEventRe
     body: JSON.stringify(body),
   });
   if (!res.ok) {
+    // Wave 6 P7: il body di risposta Google può contenere echo dei
+    // request header (incluso il bearer token). Log solo server-side,
+    // non propagato all'errore che potrebbe affiorare al client.
     const text = await res.text().catch(() => "");
-    throw new Error(`Google Calendar create ${res.status}: ${text.slice(0, 300)}`);
+    console.error("[gcal] create failed", { status: res.status, snippet: text.slice(0, 200) });
+    throw new Error(`Google Calendar create ${res.status}`);
   }
   const event = (await res.json()) as {
     id?: string;
@@ -147,8 +151,10 @@ export async function gcalUpdate(input: UpdateEventInput): Promise<{ ok: true }>
   if (!res.ok) {
     // 404/410 = evento già sparito su Google: trattiamo come no-op silenzioso.
     if (res.status === 404 || res.status === 410) return { ok: true };
+    // Wave 6 P7: redact body dal messaggio di errore (vedi gcalCreate).
     const text = await res.text().catch(() => "");
-    throw new Error(`Google Calendar update ${res.status}: ${text.slice(0, 300)}`);
+    console.error("[gcal] update failed", { status: res.status, snippet: text.slice(0, 200) });
+    throw new Error(`Google Calendar update ${res.status}`);
   }
   return { ok: true };
 }
@@ -162,8 +168,10 @@ export async function gcalDelete(googleEventId: string): Promise<{ ok: true }> {
     headers: gcalHeaders(),
   });
   if (!res.ok && res.status !== 404 && res.status !== 410) {
+    // Wave 6 P7: redact body dal messaggio di errore (vedi gcalCreate).
     const text = await res.text().catch(() => "");
-    throw new Error(`Google Calendar delete ${res.status}: ${text.slice(0, 300)}`);
+    console.error("[gcal] delete failed", { status: res.status, snippet: text.slice(0, 200) });
+    throw new Error(`Google Calendar delete ${res.status}`);
   }
   return { ok: true };
 }
