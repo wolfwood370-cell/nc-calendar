@@ -271,7 +271,7 @@ Deno.serve(async (req) => {
         results.push = { sent: pushResults.length };
       } catch (e) {
         console.error("coach push failed", e);
-        results.push = { error: String(e) };
+        results.push = { error: "push_failed" };
       }
     } else {
       results.push = { skipped: "no_vapid" };
