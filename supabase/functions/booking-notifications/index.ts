@@ -227,7 +227,7 @@ Deno.serve(async (req) => {
       results.in_app = { ok: true };
     } catch (e) {
       console.error("notification insert failed", e);
-      results.in_app = { error: String(e) };
+      results.in_app = { error: "insert_failed" };
     }
 
     // ---- 2. Web Push to coach (always, if subscribed) ------------------
@@ -271,7 +271,7 @@ Deno.serve(async (req) => {
         results.push = { sent: pushResults.length };
       } catch (e) {
         console.error("coach push failed", e);
-        results.push = { error: String(e) };
+        results.push = { error: "push_failed" };
       }
     } else {
       results.push = { skipped: "no_vapid" };
@@ -331,7 +331,7 @@ Deno.serve(async (req) => {
         }
       } catch (e) {
         console.error("WhatsApp send failed", e);
-        results.whatsapp = { error: String(e) };
+        results.whatsapp = { error: "whatsapp_failed" };
       }
     } else {
       results.whatsapp = { skipped: true };
