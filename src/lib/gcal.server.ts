@@ -168,8 +168,10 @@ export async function gcalDelete(googleEventId: string): Promise<{ ok: true }> {
     headers: gcalHeaders(),
   });
   if (!res.ok && res.status !== 404 && res.status !== 410) {
+    // Wave 6 P7: redact body dal messaggio di errore (vedi gcalCreate).
     const text = await res.text().catch(() => "");
-    throw new Error(`Google Calendar delete ${res.status}: ${text.slice(0, 300)}`);
+    console.error("[gcal] delete failed", { status: res.status, snippet: text.slice(0, 200) });
+    throw new Error(`Google Calendar delete ${res.status}`);
   }
   return { ok: true };
 }
