@@ -15,11 +15,22 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders(req) });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405, req);
 
-  const auth = await requireAuth(req);
+  // Wave 7 P1: pass requiredRoles so auth.role is populated — otherwise the
+  // coach-managed-client branch below is unreachable (role is always null).
+  const auth = await requireAuth(req, ["client", "coach", "admin"]);
   if (auth instanceof Response) return auth;
 
   try {
-    const { profile_id, title, body, url } = (await req.json()) as Payload;
+    // Wave 7 P2: DoS guard — cap body BEFORE parsing JSON.
+    const contentLength = Number(req.headers.get("content-length") ?? "0");
+    if (contentLength > 10_000) {
+      return jsonResponse({ error: "Payload troppo grande" }, 413, req);
+    }
+    const rawBody = await req.text();
+    if (rawBody.length > 10_000) {
+      return jsonResponse({ error: "Payload troppo grande" }, 413, req);
+    }
+    const { profile_id, title, body, url } = JSON.parse(rawBody) as Payload;
     if (!profile_id || !title) return jsonResponse({ error: "Missing fields" }, 400, req);
     try {
       assertUuid(profile_id, "profile_id");
