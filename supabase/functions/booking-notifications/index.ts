@@ -331,7 +331,7 @@ Deno.serve(async (req) => {
         }
       } catch (e) {
         console.error("WhatsApp send failed", e);
-        results.whatsapp = { error: String(e) };
+        results.whatsapp = { error: "whatsapp_failed" };
       }
     } else {
       results.whatsapp = { skipped: true };
