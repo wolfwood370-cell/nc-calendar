@@ -23,7 +23,16 @@ Deno.serve(async (req) => {
       return new Response("No signature", { status: 400 });
     }
 
+    // Wave 6 P3: cap body size prima di req.text() per evitare OOM con
+    // payload enormi pre-verifica firma. Stripe webhook body è << 64KB.
+    const contentLength = Number(req.headers.get("content-length") ?? "0");
+    if (Number.isFinite(contentLength) && contentLength > 65_536) {
+      return new Response("Payload too large", { status: 413 });
+    }
     const body = await req.text();
+    if (body.length > 65_536) {
+      return new Response("Payload too large", { status: 413 });
+    }
     let event;
 
     try {
