@@ -151,8 +151,10 @@ export async function gcalUpdate(input: UpdateEventInput): Promise<{ ok: true }>
   if (!res.ok) {
     // 404/410 = evento già sparito su Google: trattiamo come no-op silenzioso.
     if (res.status === 404 || res.status === 410) return { ok: true };
+    // Wave 6 P7: redact body dal messaggio di errore (vedi gcalCreate).
     const text = await res.text().catch(() => "");
-    throw new Error(`Google Calendar update ${res.status}: ${text.slice(0, 300)}`);
+    console.error("[gcal] update failed", { status: res.status, snippet: text.slice(0, 200) });
+    throw new Error(`Google Calendar update ${res.status}`);
   }
   return { ok: true };
 }
