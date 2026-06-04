@@ -242,7 +242,10 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Invio email fallito." }, 502, req);
     }
 
-    return jsonResponse({ ok: true, id: data?.id }, 200, req);
+    // Wave 7 P7: non esporre il Resend message.id al chiamante (info leak
+    // su infrastruttura interna). Log lato server per debugging.
+    if (data?.id) console.log("[send-email] sent", { id: data.id });
+    return jsonResponse({ ok: true }, 200, req);
   } catch (err) {
     console.error("[send-email] error", err);
     return jsonResponse({ error: "Errore interno del server." }, 500, req);

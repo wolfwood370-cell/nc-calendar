@@ -302,12 +302,28 @@ Deno.serve(async (req) => {
         bookingId: body.booking_id,
       });
     }
+    // Wave 7 P3: valida meeting_link prima di concatenarlo nel testo WhatsApp
+    // (XSS/payload abuse via link arbitrario salvato in JSONB e inviato a
+    // terzi). Accetta solo https:// con lunghezza ragionevole.
+    let safeMeetingLink: string | null = null;
+    if (body.meeting_link && typeof body.meeting_link === "string" && body.meeting_link.length <= 2048) {
+      try {
+        const parsed = new URL(body.meeting_link);
+        if (parsed.protocol === "https:") safeMeetingLink = parsed.toString();
+      } catch { /* invalid URL → skip */ }
+    }
+    // Wave 7 P6: wa_access_token va in un header Authorization; rimuovi
+    // CR/LF per prevenire header injection se il token fosse corrotto.
+    const waTokenSafe =
+      typeof settings?.wa_access_token === "string"
+        ? settings.wa_access_token.replace(/[\r\n]/g, "")
+        : null;
     if (
       eventType === "booking.created" &&
       settings?.wa_enabled &&
       settings.wa_phone_id &&
       /^\d{10,20}$/.test(settings.wa_phone_id) && // M2 (audit Wave 3): guard against path-injection in Graph API URL
-      settings.wa_access_token &&
+      waTokenSafe &&
       waPhoneNormalized
     ) {
       try {
@@ -317,7 +333,7 @@ Deno.serve(async (req) => {
           timeZone: "Europe/Rome",
         });
         const text = `Ciao ${body.client_name}, conferma sessione ${body.session_label} il ${dateLabel}.${
-          body.meeting_link ? ` Videochiamata: ${body.meeting_link}` : ""
+          safeMeetingLink ? ` Videochiamata: ${safeMeetingLink}` : ""
         }`;
         const waRes = await fetch(
           `https://graph.facebook.com/v18.0/${settings.wa_phone_id}/messages`,
