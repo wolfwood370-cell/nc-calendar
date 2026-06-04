@@ -227,7 +227,7 @@ Deno.serve(async (req) => {
       results.in_app = { ok: true };
     } catch (e) {
       console.error("notification insert failed", e);
-      results.in_app = { error: String(e) };
+      results.in_app = { error: "insert_failed" };
     }
 
     // ---- 2. Web Push to coach (always, if subscribed) ------------------
