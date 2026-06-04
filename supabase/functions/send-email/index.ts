@@ -199,11 +199,16 @@ Deno.serve(async (req) => {
       const selfEmail = self?.user?.email?.toLowerCase() ?? "";
       const toLower = to.toLowerCase();
       if (selfEmail !== toLower) {
+        // Wave 6 P1: escape SQL LIKE metacharacters (`_`, `%`, `\`) prima di
+        // passarli a `.ilike`. Senza escape, un coach può inserire pattern
+        // come `a_min@example.com` e matchare email di clienti non propri.
+        // Usiamo `\` come escape char (default Postgres LIKE).
+        const escapedTo = to.replace(/([\\%_])/g, "\\$1");
         const { data: client } = await auth.admin
           .from("profiles")
           .select("id")
           .eq("coach_id", auth.userId)
-          .ilike("email", to)
+          .ilike("email", escapedTo)
           .maybeSingle();
         if (!client) {
           console.warn("[send-email] coach attempted to email non-client", {
