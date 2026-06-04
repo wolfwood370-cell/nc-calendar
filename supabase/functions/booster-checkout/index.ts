@@ -17,7 +17,16 @@ Deno.serve(async (req) => {
     if (authResult instanceof Response) return authResult;
 
     const { userId, admin } = authResult;
-    const body = await req.json();
+    // Wave 7 P2: DoS guard — cap body BEFORE parsing JSON.
+    const contentLength = Number(req.headers.get("content-length") ?? "0");
+    if (contentLength > 10_000) {
+      return jsonResponse({ error: "Payload troppo grande" }, 413, req);
+    }
+    const rawBody = await req.text();
+    if (rawBody.length > 10_000) {
+      return jsonResponse({ error: "Payload troppo grande" }, 413, req);
+    }
+    const body = JSON.parse(rawBody);
     // MED-B4: type guard sul package_type prima di propagarlo a una query
     // .eq() e a una stringa template HTML. Senza il check, un payload
     // malformato (number, object, null) sarebbe accettato silenziosamente e

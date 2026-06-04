@@ -55,11 +55,21 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders(req) });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405, req);
 
-  const auth = await requireAuth(req);
+  // Wave 7 P1: populate auth.role so the admin bypass below actually works.
+  const auth = await requireAuth(req, ["client", "coach", "admin"]);
   if (auth instanceof Response) return auth;
 
   try {
-    const body = (await req.json()) as Payload;
+    // Wave 7 P2: DoS guard — cap body BEFORE parsing JSON.
+    const contentLength = Number(req.headers.get("content-length") ?? "0");
+    if (contentLength > 10_000) {
+      return jsonResponse({ error: "Payload troppo grande" }, 413, req);
+    }
+    const rawBody = await req.text();
+    if (rawBody.length > 10_000) {
+      return jsonResponse({ error: "Payload troppo grande" }, 413, req);
+    }
+    const body = JSON.parse(rawBody) as Payload;
     const eventType: EventType = body.event_type ?? "booking.created";
     if (eventType !== "booking.created" && eventType !== "booking.rescheduled") {
       return jsonResponse({ error: "Unknown event_type" }, 400, req);
