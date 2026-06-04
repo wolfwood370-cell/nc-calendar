@@ -340,7 +340,7 @@ Deno.serve(async (req) => {
           {
             method: "POST",
             headers: {
-              Authorization: `Bearer ${settings.wa_access_token}`,
+              Authorization: `Bearer ${waTokenSafe}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
