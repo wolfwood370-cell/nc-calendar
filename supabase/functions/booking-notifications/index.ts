@@ -60,6 +60,19 @@ Deno.serve(async (req) => {
   const auth = await requireAuth(req, ["client", "coach", "admin"]);
   if (auth instanceof Response) return auth;
 
+  // Wave 7 P5: max 20 notifiche / minuto per chiamante. Una prenotazione
+  // genera 1 chiamata; il limite ferma loop e abuse senza impattare l'uso
+  // normale.
+  const rlOk = await checkRateLimit(auth.admin, {
+    userId: auth.userId,
+    action: "booking-notifications",
+    limit: 20,
+    windowSeconds: 60,
+  });
+  if (!rlOk) {
+    return jsonResponse({ error: "Troppe notifiche, riprova tra poco." }, 429, req);
+  }
+
   try {
     // Wave 7 P2: DoS guard — cap body BEFORE parsing JSON.
     const contentLength = Number(req.headers.get("content-length") ?? "0");
