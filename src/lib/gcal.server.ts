@@ -67,6 +67,21 @@ function buildReminders(isOnline: boolean | undefined) {
   } as const;
 }
 
+// Wave 7 P8: validazione attendee email prima di passarla a Google Calendar
+// con sendUpdates=all. L'email arriva da `profiles.email` (impostata dal
+// coach in fase di invito), ma un valore malformato o di lunghezza
+// abusiva farebbe inviare un invito Google a un indirizzo arbitrario o
+// triggererebbe errori 400 ripetuti. RFC 5321 limita la lunghezza totale
+// a 254 caratteri; la regex è volutamente permissiva (Google fa la
+// validazione vera) ma rifiuta whitespace, CRLF injection e formati
+// chiaramente non-email.
+const EMAIL_RE = /^[^\s@<>,;"'\\]+@[^\s@<>,;"'\\]+\.[^\s@<>,;"'\\]+$/;
+function isSafeEmail(email: string): boolean {
+  if (email.length === 0 || email.length > 254) return false;
+  if (/[\r\n\t]/.test(email)) return false;
+  return EMAIL_RE.test(email);
+}
+
 export async function gcalCreate(input: CreateEventInput): Promise<CreateEventResult> {
   const body: Record<string, unknown> = {
     summary: input.summary,
@@ -76,7 +91,13 @@ export async function gcalCreate(input: CreateEventInput): Promise<CreateEventRe
     reminders: buildReminders(input.isOnline),
   };
   if (input.attendeeEmail) {
-    body.attendees = [{ email: input.attendeeEmail }];
+    if (!isSafeEmail(input.attendeeEmail)) {
+      console.warn("[gcal] skipping invalid attendee email", {
+        length: input.attendeeEmail.length,
+      });
+    } else {
+      body.attendees = [{ email: input.attendeeEmail }];
+    }
   }
   if (input.colorId) body.colorId = input.colorId;
   if (input.requestMeet) {
