@@ -69,23 +69,31 @@ function ClientSettings() {
     setPushSupported(isPushSupported());
     void isPushReady().then(setPushReady);
     void getCurrentPushSubscription().then((s) => setPushEnabled(!!s));
-    if (!user) return;
-    (async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("full_name, email, email_notifications")
-        .eq("id", user.id)
-        .maybeSingle();
-      if (data) {
-        const row = data as unknown as ProfileRow;
-        setProfile(row);
-        setEmailEnabled(row.email_notifications ?? true);
-      }
-      const { data: u } = await supabase.auth.getUser();
-      const providers = (u.user?.app_metadata?.providers as string[] | undefined) ?? [];
-      const idents = (u.user?.identities ?? []).map((i) => i.provider);
-      setGoogleLinked(providers.includes("google") || idents.includes("google"));
+    if (!user) {
       setLoading(false);
+      return;
+    }
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("profiles")
+          .select("full_name, email, email_notifications")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (data) {
+          const row = data as unknown as ProfileRow;
+          setProfile(row);
+          setEmailEnabled(row.email_notifications ?? true);
+        }
+        const { data: u } = await supabase.auth.getUser();
+        const providers = (u.user?.app_metadata?.providers as string[] | undefined) ?? [];
+        const idents = (u.user?.identities ?? []).map((i) => i.provider);
+        setGoogleLinked(providers.includes("google") || idents.includes("google"));
+      } catch (e) {
+        console.error("client.settings: caricamento profilo fallito", e);
+      } finally {
+        setLoading(false);
+      }
     })();
   }, [user]);
 

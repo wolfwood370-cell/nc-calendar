@@ -21,11 +21,12 @@ export interface InviteClientPayload {
 export function InviteClientDialog({
   onSubmit,
 }: {
-  onSubmit: (d: InviteClientPayload) => void;
+  onSubmit: (d: InviteClientPayload) => void | Promise<void>;
 }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [busy, setBusy] = useState(false);
   return (
     <DialogContent>
       <DialogHeader>
@@ -33,9 +34,15 @@ export function InviteClientDialog({
       </DialogHeader>
       <form
         className="space-y-4"
-        onSubmit={(e) => {
+        onSubmit={async (e) => {
           e.preventDefault();
-          onSubmit({ name, email, phone });
+          if (busy) return;
+          setBusy(true);
+          try {
+            await onSubmit({ name, email, phone });
+          } finally {
+            setBusy(false);
+          }
         }}
       >
         <div className="space-y-2">
@@ -54,7 +61,9 @@ export function InviteClientDialog({
           <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
         </div>
         <DialogFooter>
-          <Button type="submit">Invia invito</Button>
+          <Button type="submit" disabled={busy}>
+            {busy ? "Invio in corso…" : "Invia invito"}
+          </Button>
         </DialogFooter>
       </form>
     </DialogContent>
