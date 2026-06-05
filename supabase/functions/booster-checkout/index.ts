@@ -1,6 +1,7 @@
 import Stripe from "npm:stripe@^14.0.0";
 import { requireAuth, assertUuid } from "../_shared/auth.ts";
 import { jsonResponse } from "../_shared/cors.ts";
+import { checkRateLimit } from "../_shared/rate-limit.ts";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
   apiVersion: "2023-10-16",
@@ -17,6 +18,19 @@ Deno.serve(async (req) => {
     if (authResult instanceof Response) return authResult;
 
     const { userId, admin } = authResult;
+
+    // Wave 7 P4: max 5 sessioni di checkout / 5 min per utente. Una
+    // creazione legittima è rara (1-2 al mese); il limite protegge da
+    // automated abuse di Stripe Checkout sessions (DoS + log spam).
+    const allowed = await checkRateLimit(admin, {
+      userId,
+      action: "booster-checkout",
+      limit: 5,
+      windowSeconds: 300,
+    });
+    if (!allowed) {
+      return jsonResponse({ error: "Troppe richieste, riprova tra qualche minuto." }, 429, req);
+    }
     // Wave 7 P2: DoS guard — cap body BEFORE parsing JSON.
     const contentLength = Number(req.headers.get("content-length") ?? "0");
     if (contentLength > 10_000) {
