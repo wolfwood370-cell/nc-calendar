@@ -562,8 +562,14 @@ function ClientsPage() {
       return;
     }
     const coachName = (user.user_metadata?.full_name as string) || user.email || "il tuo Coach";
-    await sendInvitationEmail({ to: data.email, clientName: data.name, coachName });
-    toast.success("Invito creato", { description: `Email di invito inviata a ${data.email}.` });
+    const r = await sendInvitationEmail({ to: data.email, clientName: data.name, coachName });
+    if (r.ok) {
+      toast.success("Invito creato", { description: `Email di invito inviata a ${data.email}.` });
+    } else {
+      toast.warning("Invito creato", {
+        description: `L'invito è registrato, ma l'email non è partita. Avvisa ${data.email} manualmente o riprova.`,
+      });
+    }
     setOpen(false);
     load();
   }

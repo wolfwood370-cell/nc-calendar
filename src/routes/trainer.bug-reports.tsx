@@ -15,7 +15,7 @@
 // ----------------------------------------------------------------------------
 
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Bug, Copy, ExternalLink, Check, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
@@ -110,7 +110,7 @@ const PAGE_SIZE = 100;
 const MAX_ROWS = 1000;
 
 function BugReportsPage() {
-  const { user, role } = useAuth();
+  const { user } = useAuth();
   const qc = useQueryClient();
   const [tab, setTab] = useState<Status>("open");
   const [selected, setSelected] = useState<BugReportWithReporter | null>(null);
@@ -153,28 +153,11 @@ function BugReportsPage() {
     },
   });
 
-  // Realtime: invalida la query quando arriva un nuovo report (o update).
-  // N4: scope al coach loggato (admin riceve tutto). Senza filtro un coach
-  // riceverebbe eventi di tutti gli altri coach causando refetch inutili.
-  useEffect(() => {
-    if (!user) return;
-    const isAdmin = role === "admin";
-    const channel = supabase
-      .channel(`bug-reports-feed-${isAdmin ? "admin" : user.id}`)
-      .on(
-        "postgres_changes",
-        isAdmin
-          ? { event: "*", schema: "public", table: "bug_reports" }
-          : { event: "*", schema: "public", table: "bug_reports", filter: `coach_id=eq.${user.id}` },
-        () => {
-          qc.invalidateQueries({ queryKey: ["bug-reports", user.id] });
-        },
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user, role, qc]);
+  // NB: la lista NON si aggiorna in realtime. La tabella bug_reports è stata
+  // rimossa dalla publication supabase_realtime (migration 20260527075437)
+  // per motivi di sicurezza, quindi una subscription postgres_changes non
+  // riceverebbe mai eventi. L'aggiornamento avviene via refetch (pulsante
+  // manuale / navigazione).
 
   const updateStatus = useMutation({
     mutationFn: async (input: { id: string; status: Status }) => {
