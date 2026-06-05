@@ -12,6 +12,7 @@
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { requireAuth, assertUuid } from "../_shared/auth.ts";
 import { isVapidConfigured, sendPushToSubscriptions } from "../_shared/push.ts";
+import { checkRateLimit } from "../_shared/rate-limit.ts";
 
 type EventType = "booking.created" | "booking.rescheduled";
 
@@ -58,6 +59,19 @@ Deno.serve(async (req) => {
   // Wave 7 P1: populate auth.role so the admin bypass below actually works.
   const auth = await requireAuth(req, ["client", "coach", "admin"]);
   if (auth instanceof Response) return auth;
+
+  // Wave 7 P5: max 20 notifiche / minuto per chiamante. Una prenotazione
+  // genera 1 chiamata; il limite ferma loop e abuse senza impattare l'uso
+  // normale.
+  const rlOk = await checkRateLimit(auth.admin, {
+    userId: auth.userId,
+    action: "booking-notifications",
+    limit: 20,
+    windowSeconds: 60,
+  });
+  if (!rlOk) {
+    return jsonResponse({ error: "Troppe notifiche, riprova tra poco." }, 429, req);
+  }
 
   try {
     // Wave 7 P2: DoS guard — cap body BEFORE parsing JSON.

@@ -2,6 +2,7 @@
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { requireAuth, assertUuid } from "../_shared/auth.ts";
 import { isVapidConfigured, sendPushToSubscriptions } from "../_shared/push.ts";
+import { checkRateLimit } from "../_shared/rate-limit.ts";
 
 interface Payload {
   profile_id: string;
@@ -19,6 +20,18 @@ Deno.serve(async (req) => {
   // coach-managed-client branch below is unreachable (role is always null).
   const auth = await requireAuth(req, ["client", "coach", "admin"]);
   if (auth instanceof Response) return auth;
+
+  // Wave 7 P5: max 30 push / minuto per chiamante (coach può legittimamente
+  // notificare più clienti in batch, ma 30/min è già molto generoso).
+  const allowed = await checkRateLimit(auth.admin, {
+    userId: auth.userId,
+    action: "send-push",
+    limit: 30,
+    windowSeconds: 60,
+  });
+  if (!allowed) {
+    return jsonResponse({ error: "Troppe notifiche inviate, riprova tra poco." }, 429, req);
+  }
 
   try {
     // Wave 7 P2: DoS guard — cap body BEFORE parsing JSON.
