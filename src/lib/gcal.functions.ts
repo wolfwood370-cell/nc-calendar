@@ -25,12 +25,15 @@ type GcalAck = { ok: true } | { ok: false; error: string };
 
 const CreateSchema = z
   .object({
-    bookingId: z.string().uuid().optional(),
+    // S-AUTHZ (audit 2026-06-05): bookingId OBBLIGATORIO. attendeeEmail RIMOSSO
+    // dall'input — viene derivato server-side dal cliente del booking, così
+    // nessuno può inviare inviti Google ad email arbitrarie dal calendario
+    // condiviso del workspace.
+    bookingId: z.string().uuid(),
     summary: z.string().min(1).max(500),
     description: z.string().max(2000).optional(),
     startISO: z.string().datetime({ offset: true }),
     endISO: z.string().datetime({ offset: true }),
-    attendeeEmail: z.string().email().optional(),
     requestMeet: z.boolean().optional(),
     isOnline: z.boolean().optional(),
     colorId: z.string().max(2).optional(),
@@ -60,22 +63,27 @@ function scrubGcalError(e: unknown, op: string): string {
   return "Operazione calendario fallita. Riprova più tardi.";
 }
 
-/** Crea l'evento Google Calendar e, se fornito bookingId, scrive
- *  google_event_id + meeting_link sulla riga booking. */
-// C1 (audit 2026-06-03): ownership check helper. Before any admin-client
-// writeback to bookings or any Google Calendar mutation tied to a booking
-// row, verify the caller is the booking's coach (or an admin). Without
-// this a coach could pass any bookingId and overwrite another coach's
-// google_event_id, or trigger gcal operations bound to events they don't own.
-async function assertBookingOwnership(bookingId: string, userId: string): Promise<void> {
-  const { data, error } = await supabaseAdmin
+// C1 (audit 2026-06-03) + S-AUTHZ (audit 2026-06-05): access control helper.
+// Verifica che il caller sia autorizzato sul booking (il CLIENT proprietario,
+// il COACH assegnato, oppure un admin) e ritorna l'email autoritativa del
+// cliente del booking, presa dal DB tramite profiles. Questo:
+//   - rende impossibile creare eventi gcal senza un booking posseduto;
+//   - elimina il vettore attendeeEmail arbitraria (sendUpdates=all): l'invito
+//     Google può finire SOLO all'email reale del cliente di quel booking.
+async function assertBookingAccessAndGetAttendee(
+  bookingId: string,
+  userId: string,
+): Promise<{ attendeeEmail: string | null }> {
+  const { data: booking, error } = await supabaseAdmin
     .from("bookings")
-    .select("coach_id")
+    .select("client_id, coach_id")
     .eq("id", bookingId)
     .maybeSingle();
   if (error) throw new Error("Booking lookup failed");
-  if (!data) throw new Error("Booking non trovato");
-  if (data.coach_id !== userId) {
+  if (!booking) throw new Error("Booking non trovato");
+
+  const isOwner = booking.client_id === userId || booking.coach_id === userId;
+  if (!isOwner) {
     const { data: roleRow } = await supabaseAdmin
       .from("user_roles")
       .select("role")
@@ -84,29 +92,48 @@ async function assertBookingOwnership(bookingId: string, userId: string): Promis
       .maybeSingle();
     if (!roleRow) throw new Error("Permesso negato sul booking");
   }
+
+  // Email autoritativa del cliente del booking (NON fornita dal client).
+  let attendeeEmail: string | null = null;
+  if (booking.client_id) {
+    const { data: clientProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("email")
+      .eq("id", booking.client_id)
+      .maybeSingle();
+    attendeeEmail = clientProfile?.email ?? null;
+  }
+  return { attendeeEmail };
 }
 
+/** Crea l'evento Google Calendar e scrive google_event_id + meeting_link
+ *  sulla riga booking. Richiede SEMPRE un bookingId valido posseduto dal
+ *  caller (client del booking, coach assegnato, o admin). L'attendee email
+ *  è SEMPRE quella autoritativa del cliente del booking. */
 export const gcalCreateEvent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => CreateSchema.parse(input))
   .handler(async ({ data, context }): Promise<GcalResult<{ googleEventId: string; meetingLink: string | null; htmlLink: string | null }>> => {
     try {
-      if (data.bookingId) {
-        await assertBookingOwnership(data.bookingId, context.userId);
-      }
+      // S-AUTHZ: ownership SEMPRE applicato (bookingId ora obbligatorio).
+      const { attendeeEmail } = await assertBookingAccessAndGetAttendee(
+        data.bookingId,
+        context.userId,
+      );
 
       const r = await gcalCreate({
         summary: data.summary,
         description: data.description,
         startISO: data.startISO,
         endISO: data.endISO,
-        attendeeEmail: data.attendeeEmail,
+        // Email autoritativa derivata dal booking, mai dal client.
+        attendeeEmail: attendeeEmail ?? undefined,
         requestMeet: data.requestMeet,
         isOnline: data.isOnline,
         colorId: data.colorId,
       });
 
-      if (data.bookingId && r.googleEventId) {
+      if (r.googleEventId) {
         const { error: upErr } = await supabaseAdmin
           .from("bookings")
           .update({
