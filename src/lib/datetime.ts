@@ -22,10 +22,6 @@ export function formatLocalDate(value: string | Date): string {
   return formatLocal(value, "dd MMM yyyy");
 }
 
-export function formatLocalTime(value: string | Date): string {
-  return formatLocal(value, "HH:mm");
-}
-
 /**
  * Returns the user's IANA timezone label (e.g. "Europe/Rome") plus a short
  * GMT offset suffix (e.g. "GMT+1"). Used in booking-confirmation UI so
