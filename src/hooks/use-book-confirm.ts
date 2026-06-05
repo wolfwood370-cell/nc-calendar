@@ -234,20 +234,26 @@ export function useBookConfirm(input: UseBookConfirmInput): UseBookConfirmReturn
       //   - scrive google_event_id sulla riga booking così update/cancel
       //     futuri sanno quale evento Google riferire
       //   - sendUpdates=all → il cliente riceve email di invito
-      void gcalCreateEvent({
-        data: {
-          bookingId: bookingId ?? undefined,
-          summary: `${displayLabel} — ${meName}`,
-          startISO: iso,
-          endISO: new Date(
-            new Date(iso).getTime() + (eventType?.duration ?? 60) * 60_000,
-          ).toISOString(),
-          attendeeEmail: meEmail || undefined,
-          requestMeet: isOnline,
-          isOnline,
-          colorId: eventType?.color ?? undefined,
-        },
-      }).catch((e) => console.error("gcalCreateEvent failed", e));
+      // S-AUTHZ: gcalCreateEvent ora richiede un bookingId (l'attendee email è
+      // derivata server-side dal cliente del booking). Se l'INSERT non ha reso
+      // l'id, saltiamo la creazione evento invece di chiamarla a vuoto.
+      if (bookingId) {
+        void gcalCreateEvent({
+          data: {
+            bookingId,
+            summary: `${displayLabel} — ${meName}`,
+            startISO: iso,
+            endISO: new Date(
+              new Date(iso).getTime() + (eventType?.duration ?? 60) * 60_000,
+            ).toISOString(),
+            requestMeet: isOnline,
+            isOnline,
+            colorId: eventType?.color ?? undefined,
+          },
+        }).catch((e) => console.error("gcalCreateEvent failed", e));
+      } else {
+        console.error("gcalCreateEvent skipped: booking insert returned no id");
+      }
       // Avviamo l'invio email + la notifica al coach in parallelo. L'esito
       // dell'email serve a personalizzare il toast in modo non contraddittorio:
       // se la consegna fallisce, NON diciamo "Email inviata".

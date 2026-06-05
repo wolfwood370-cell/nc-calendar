@@ -1,5 +1,4 @@
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
 
 // Wave N (audit 2026-06-03) — N1/N3:
 // Il rendering dei template e la sanitizzazione del subject avvengono
@@ -33,13 +32,10 @@ async function sendEmail(args: SendArgs) {
     if (error) throw error;
     return { ok: true as const, id: (data as { id?: string } | null)?.id };
   } catch (err) {
-    // Non esponiamo all'utente la stringa tecnica
-    // "Edge Function returned a non-2xx status code": logghiamo lato dev
-    // e mostriamo un messaggio in italiano comprensibile.
+    // Il messaging all'utente è responsabilità del chiamante (booking e
+    // invito hanno copy diversi). Qui logghiamo soltanto e ritorniamo l'esito,
+    // così non si generano toast contraddittori.
     console.error("[email] invio fallito", err);
-    toast.error("Impossibile inviare l'email di conferma", {
-      description: "La prenotazione è comunque confermata.",
-    });
     return { ok: false as const };
   }
 }
