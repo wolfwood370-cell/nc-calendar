@@ -12,6 +12,7 @@
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { requireAuth, assertUuid } from "../_shared/auth.ts";
 import { isVapidConfigured, sendPushToSubscriptions } from "../_shared/push.ts";
+import { checkRateLimit } from "../_shared/rate-limit.ts";
 
 type EventType = "booking.created" | "booking.rescheduled";
 
