@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      action_rate_limits: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       availability_exceptions: {
         Row: {
           coach_id: string
@@ -1087,6 +1108,15 @@ export type Database = {
           status: Database["public"]["Enums"]["booking_status"]
           was_late: boolean
         }[]
+      }
+      check_action_rate_limit: {
+        Args: {
+          p_action: string
+          p_limit: number
+          p_user_id: string
+          p_window_seconds: number
+        }
+        Returns: boolean
       }
       check_email_rate_limit: {
         Args: { p_limit?: number; p_user_id: string }
