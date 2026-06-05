@@ -33,9 +33,12 @@ async function sendEmail(args: SendArgs) {
     if (error) throw error;
     return { ok: true as const, id: (data as { id?: string } | null)?.id };
   } catch (err) {
+    // Non esponiamo all'utente la stringa tecnica
+    // "Edge Function returned a non-2xx status code": logghiamo lato dev
+    // e mostriamo un messaggio in italiano comprensibile.
     console.error("[email] invio fallito", err);
-    toast.error("Errore durante l'invio dell'email", {
-      description: "Riprova più tardi.",
+    toast.error("Impossibile inviare l'email di conferma", {
+      description: "La prenotazione è comunque confermata.",
     });
     return { ok: false as const };
   }

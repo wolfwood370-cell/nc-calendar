@@ -1,4 +1,3 @@
-import { Resend } from "npm:resend@4.0.1";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { requireAuth } from "../_shared/auth.ts";
 
@@ -9,6 +8,11 @@ import { requireAuth } from "../_shared/auth.ts";
 //  - N3: ogni `subject` passa per `safeSubject()` che strappa CR/LF/TAB
 //        per prevenire SMTP header injection.
 //  - N10: regex email più stringente + length cap 254 (RFC 5321).
+//
+// 2026-06-05: migrato dal SDK Resend npm al connettore Lovable Resend
+// (gateway). Niente più chiamata diretta a api.resend.com; passiamo dal
+// gateway così la chiave è gestita a livello workspace e gli upstream
+// 4xx/5xx vengono mappati in errori utente puliti.
 
 type TemplateId = "invitation" | "booking_confirmation";
 
@@ -33,6 +37,14 @@ interface Payload {
 }
 
 const EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+const GATEWAY_URL = "https://connector-gateway.lovable.dev/resend";
+
+// Mittente: configurabile tramite secret `RESEND_FROM` (formato
+// "Nome <indirizzo@dominio.tld>"). Fallback al dominio sandbox di Resend
+// che però consegna SOLO all'email proprietario dell'account. Per inviare
+// ai clienti reali, verifica un dominio su resend.com/domains e imposta
+// RESEND_FROM al mittente verificato.
+const DEFAULT_FROM = "NC Training Systems <onboarding@resend.dev>";
 
 function esc(value: string | null | undefined): string {
   if (value == null) return "";
@@ -159,8 +171,13 @@ Deno.serve(async (req) => {
   if (auth instanceof Response) return auth;
 
   try {
-    const apiKey = Deno.env.get("RESEND_API_KEY");
-    if (!apiKey) return jsonResponse({ error: "RESEND_API_KEY non configurata" }, 500, req);
+    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+    const resendKey = Deno.env.get("RESEND_API_KEY");
+    if (!lovableKey || !resendKey) {
+      console.error("[send-email] missing connector credentials");
+      return jsonResponse({ error: "Servizio email non configurato." }, 500, req);
+    }
+    const fromAddress = Deno.env.get("RESEND_FROM") || DEFAULT_FROM;
 
     const { data: allowed, error: rlErr } = await auth.admin.rpc("check_email_rate_limit", {
       p_user_id: auth.userId,
@@ -202,7 +219,6 @@ Deno.serve(async (req) => {
         // Wave 6 P1: escape SQL LIKE metacharacters (`_`, `%`, `\`) prima di
         // passarli a `.ilike`. Senza escape, un coach può inserire pattern
         // come `a_min@example.com` e matchare email di clienti non propri.
-        // Usiamo `\` come escape char (default Postgres LIKE).
         const escapedTo = to.replace(/([\\%_])/g, "\\$1");
         const { data: client } = await auth.admin
           .from("profiles")
@@ -229,21 +245,38 @@ Deno.serve(async (req) => {
         ? renderInvitation(params as InvitationParams)
         : renderBookingConfirmation(params as BookingConfirmationParams);
 
-    const resend = new Resend(apiKey);
-    const { data, error } = await resend.emails.send({
-      from: "NC Training Systems <onboarding@resend.dev>",
-      to: [to],
-      subject: rendered.subject,
-      html: rendered.html,
+    // Invio via gateway connettore Resend.
+    const gatewayRes = await fetch(`${GATEWAY_URL}/emails`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${lovableKey}`,
+        "X-Connection-Api-Key": resendKey,
+      },
+      body: JSON.stringify({
+        from: fromAddress,
+        to: [to],
+        subject: rendered.subject,
+        html: rendered.html,
+      }),
     });
 
-    if (error) {
-      console.error("[send-email] Resend error:", error);
-      return jsonResponse({ error: "Invio email fallito." }, 502, req);
+    if (!gatewayRes.ok) {
+      const text = await gatewayRes.text().catch(() => "");
+      console.error("[send-email] Resend gateway error", {
+        status: gatewayRes.status,
+        body: text.slice(0, 500),
+      });
+      // Scrubbing: non esponiamo dettagli upstream al chiamante.
+      return jsonResponse(
+        { error: "Invio email fallito. Riprova più tardi." },
+        502,
+        req,
+      );
     }
 
-    // Wave 7 P7: non esporre il Resend message.id al chiamante (info leak
-    // su infrastruttura interna). Log lato server per debugging.
+    // Wave 7 P7: non esporre il message id Resend (info leak).
+    const data = (await gatewayRes.json().catch(() => null)) as { id?: string } | null;
     if (data?.id) console.log("[send-email] sent", { id: data.id });
     return jsonResponse({ ok: true }, 200, req);
   } catch (err) {
