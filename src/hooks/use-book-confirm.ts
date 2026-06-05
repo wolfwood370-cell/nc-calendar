@@ -248,34 +248,36 @@ export function useBookConfirm(input: UseBookConfirmInput): UseBookConfirmReturn
           colorId: eventType?.color ?? undefined,
         },
       }).catch((e) => console.error("gcalCreateEvent failed", e));
-      void Promise.all([
-        emailNotificationsEnabled
-          ? sendBookingConfirmationEmail({
-              to: meEmail,
-              recipientName: meName,
-              sessionLabel: displayLabel,
-              scheduledAt: new Date(iso),
-              coachName,
-              clientName: meName,
-            }).catch((e) => console.error("email failed", e))
-          : Promise.resolve(),
-        supabase.functions
-          .invoke("booking-notifications", {
-            body: {
-              coach_id: coachId,
-              client_name: meName,
-              client_phone: mePhone,
-              scheduled_at: iso,
-              session_label: displayLabel,
-              // notification only carries the URL once the server has
-              // had time to mint it; for now we omit it here. The
-              // booking row itself will get the URL via gcalCreateEvent
-              // server-side update.
-              meeting_link: null,
-            },
+      // Avviamo l'invio email + la notifica al coach in parallelo. L'esito
+      // dell'email serve a personalizzare il toast in modo non contraddittorio:
+      // se la consegna fallisce, NON diciamo "Email inviata".
+      const emailPromise: Promise<{ ok: boolean }> = emailNotificationsEnabled
+        ? sendBookingConfirmationEmail({
+            to: meEmail,
+            recipientName: meName,
+            sessionLabel: displayLabel,
+            scheduledAt: new Date(iso),
+            coachName,
+            clientName: meName,
+          }).catch((e) => {
+            console.error("email failed", e);
+            return { ok: false };
           })
-          .catch((e) => console.error("booking-notifications failed", e)),
-      ]);
+        : Promise.resolve({ ok: true });
+
+      void supabase.functions
+        .invoke("booking-notifications", {
+          body: {
+            coach_id: coachId,
+            client_name: meName,
+            client_phone: mePhone,
+            scheduled_at: iso,
+            session_label: displayLabel,
+            meeting_link: null,
+          },
+        })
+        .catch((e) => console.error("booking-notifications failed", e));
+
       sendPush({
         profileId: meId,
         title: "Prenotazione confermata",
@@ -283,13 +285,19 @@ export function useBookConfirm(input: UseBookConfirmInput): UseBookConfirmReturn
         url: "/client",
       });
 
+      const emailResult = await emailPromise;
+      const emailOk = emailResult?.ok !== false;
       const usedExtra = !!extraId;
+      const emailNote = emailNotificationsEnabled
+        ? emailOk
+          ? " Email di conferma inviata."
+          : " Email di conferma non disponibile al momento."
+        : "";
+      const meetNote = " I link videochiamata sono generati automaticamente per le sessioni online.";
       toast.success("Sessione prenotata", {
         description: usedExtra
-          ? `Scalata da credito omaggio/extra.${emailNotificationsEnabled ? " Email di conferma inviata." : ""}`
-          : emailNotificationsEnabled
-            ? "Email di conferma inviata. I link videochiamata sono generati automaticamente per le sessioni online."
-            : "I link videochiamata sono generati automaticamente per le sessioni online.",
+          ? `Scalata da credito omaggio/extra.${emailNote}`
+          : `${emailNote.trim()}${emailNote ? " " : ""}${meetNote.trim()}`.trim(),
         action: calendarUrl
           ? {
               label: "Aggiungi al Calendario",
