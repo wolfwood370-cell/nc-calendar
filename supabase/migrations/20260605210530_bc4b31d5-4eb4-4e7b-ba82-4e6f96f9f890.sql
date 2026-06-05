@@ -1,0 +1,1 @@
+UPDATE public.booster_packs SET event_type_title = 'Sessione PT' WHERE event_type_title = 'PT'; UPDATE public.booster_packs SET event_type_title = 'Test Funzionali + Check Tecnico' WHERE event_type_title = 'Triage';
