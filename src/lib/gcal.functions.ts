@@ -16,7 +16,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { gcalCreate, gcalUpdate, gcalDelete } from "@/lib/gcal.server";
+import { gcalCreate, gcalUpdate, gcalDelete, gcalList } from "@/lib/gcal.server";
 
 // Wrapper di sicurezza: ogni server fn ritorna SEMPRE un DTO {ok,error?}.
 // Le UI esistenti non vogliono throw — mostrano toast warning quando ok=false.
@@ -224,5 +224,120 @@ export const gcalDeleteEvent = createServerFn({ method: "POST" })
     } catch (e) {
       console.error("gcalDeleteEvent failed", e);
       return { ok: false, error: scrubGcalError(e, "delete") };
+    }
+  });
+
+// ----------------------------------------------------------------------------
+// gcalReconcileEvents — riconciliazione Google -> DB (sync inverso).
+// Innescata on-demand quando il coach apre/aggiorna /trainer/calendar.
+// Confronta le sessioni 'scheduled' future (finestra now-1h .. now+16g) con
+// gli eventi Google: se un evento e cancelled -> annulla la sessione + rimborsa
+// (RPC reconcile_gcal_cancel); se l'orario e cambiato -> allinea (reconcile_gcal_move).
+// SICUREZZA: cancella SOLO su status="cancelled" esplicito; se la GET fallisce
+// o la lista e vuota con booking attesi -> NON tocca nulla (anti-wipe).
+// ----------------------------------------------------------------------------
+type ReconcileResult = {
+  ok: boolean;
+  cancelled?: number;
+  moved?: number;
+  conflicts?: number;
+  skipped?: string;
+  error?: string;
+};
+
+export const gcalReconcileEvents = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<ReconcileResult> => {
+    try {
+      // Authz: solo coach/admin (operazione su tutte le sessioni del workspace).
+      const { data: roleRow } = await supabaseAdmin
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", context.userId)
+        .maybeSingle();
+      const role = (roleRow as { role?: string } | null)?.role;
+      if (role !== "coach" && role !== "admin") {
+        return { ok: false, error: "Permesso negato" };
+      }
+
+      const now = Date.now();
+      const timeMinISO = new Date(now - 60 * 60_000).toISOString(); // now - 1h
+      const timeMaxISO = new Date(now + 16 * 24 * 60 * 60_000).toISOString(); // now + 16g
+
+      // Sessioni candidate: scheduled, non cancellate, con evento Google, nella finestra.
+      const { data: bookings, error: bErr } = await supabaseAdmin
+        .from("bookings")
+        .select("id, google_event_id, scheduled_at")
+        .eq("status", "scheduled")
+        .is("deleted_at", null)
+        .not("google_event_id", "is", null)
+        .gte("scheduled_at", timeMinISO)
+        .lte("scheduled_at", timeMaxISO);
+      if (bErr) {
+        console.error("gcalReconcile: bookings query failed", bErr);
+        return { ok: false, error: "Lettura prenotazioni fallita" };
+      }
+      const rows = bookings ?? [];
+      if (rows.length === 0) return { ok: true, cancelled: 0, moved: 0, conflicts: 0 };
+
+      const byEventId = new Map<string, { id: string; scheduledMs: number }>();
+      for (const b of rows) {
+        if (b.google_event_id) {
+          byEventId.set(b.google_event_id, { id: b.id, scheduledMs: Date.parse(b.scheduled_at) });
+        }
+      }
+
+      // Lettura eventi Google. Se fallisce (errore di trasporto) -> abort totale.
+      let events;
+      try {
+        events = await gcalList({ timeMinISO, timeMaxISO });
+      } catch (e) {
+        console.error("gcalReconcile: gcalList failed", e);
+        return { ok: false, error: "Lettura Google Calendar fallita" };
+      }
+
+      // Anti-wipe: lista vuota MA con booking attesi = quasi certo un problema
+      // (errore gateway/paginazione) -> non riconciliare nulla.
+      if (events.length === 0 && byEventId.size > 0) {
+        console.warn("gcalReconcile: lista Google vuota con booking attesi, skip (anti-wipe)");
+        return { ok: true, skipped: "empty-list-guard", cancelled: 0, moved: 0, conflicts: 0 };
+      }
+
+      let cancelled = 0;
+      let moved = 0;
+      let conflicts = 0;
+      for (const ev of events) {
+        const booking = byEventId.get(ev.id);
+        if (!booking) continue; // evento Google non mappato a una sessione -> ignora (no import)
+
+        if (ev.status === "cancelled") {
+          const { error } = await supabaseAdmin.rpc("reconcile_gcal_cancel", {
+            p_booking_id: booking.id,
+          });
+          if (error) console.error("reconcile_gcal_cancel failed", { id: booking.id, error });
+          else cancelled++;
+          continue;
+        }
+
+        // Spostamento: confronto su epoch (offset-safe), tolleranza 60s.
+        if (ev.startMs !== null && Number.isFinite(booking.scheduledMs)) {
+          if (Math.abs(ev.startMs - booking.scheduledMs) > 60_000) {
+            const { error } = await supabaseAdmin.rpc("reconcile_gcal_move", {
+              p_booking_id: booking.id,
+              p_new_scheduled_at: new Date(ev.startMs).toISOString(),
+            });
+            if (error) {
+              console.error("reconcile_gcal_move failed", { id: booking.id, error });
+              conflicts++;
+            } else {
+              moved++;
+            }
+          }
+        }
+      }
+      return { ok: true, cancelled, moved, conflicts };
+    } catch (e) {
+      console.error("gcalReconcileEvents failed", e);
+      return { ok: false, error: e instanceof Error ? e.message : String(e) };
     }
   });
