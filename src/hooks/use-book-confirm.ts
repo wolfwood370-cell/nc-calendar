@@ -238,6 +238,19 @@ export function useBookConfirm(input: UseBookConfirmInput): UseBookConfirmReturn
       // derivata server-side dal cliente del booking). Se l'INSERT non ha reso
       // l'id, saltiamo la creazione evento invece di chiamarla a vuoto.
       if (bookingId) {
+        // GCAL-FIX (2026-06-06): event_types.color è tipicamente un hex code
+        // ("#10b981") per il display UI dell'app, ma Google Calendar accetta
+        // SOLO colorId 1-11 (max 2 char numeric). Passarlo invariato faceva
+        // buttare la Zod validation di gcalCreateEvent (max 2 char) ->
+        // handler mai eseguito -> google_event_id NULL su ogni booking dal
+        // 1/6. Defense-in-depth lato client: spedisci colorId SOLO se
+        // matcha la spec Google (sanitize server-side via .catch(undefined)
+        // resta come backstop).
+        const rawColor = eventType?.color;
+        const safeColorId =
+          typeof rawColor === "string" && /^\d{1,2}$/.test(rawColor)
+            ? rawColor
+            : undefined;
         void gcalCreateEvent({
           data: {
             bookingId,
@@ -248,7 +261,7 @@ export function useBookConfirm(input: UseBookConfirmInput): UseBookConfirmReturn
             ).toISOString(),
             requestMeet: isOnline,
             isOnline,
-            colorId: eventType?.color ?? undefined,
+            colorId: safeColorId,
           },
         }).catch((e) => console.error("gcalCreateEvent failed", e));
       } else {
