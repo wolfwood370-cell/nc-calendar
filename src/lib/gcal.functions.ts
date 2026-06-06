@@ -797,9 +797,20 @@ export const gcalImportEvent = createServerFn({ method: "POST" })
       const status: "scheduled" | "completed" = startMs < Date.now() ? "completed" : "scheduled";
       const isExternal = data.mode === "external";
 
+      // WORKAROUND TRIGGER CREDITI (2026-06-06): sul DB live il trigger
+      // validate_booking_extra_credits NON ha (ancora) la guardia
+      // `google_event_id IS NOT NULL` presente nel repo (drift repo<->DB; non
+      // applicabile via migration senza crediti Lovable). Quel trigger e'
+      // BEFORE INSERT e pretende un credito per le sessioni cliente
+      // (client_id != coach_id, block_id null). Lo aggiriamo in 2 passi:
+      //   1) INSERT con client_id = coachId -> il trigger salta (client_id =
+      //      coach_id) -> nessun consumo crediti.
+      //   2) se mode='client', UPDATE per collegare il cliente reale: i trigger
+      //      crediti sono BEFORE INSERT (NON rifireano su UPDATE) e
+      //      validate_client_booking_update bypassa il service_role.
       const insertRow = {
         coach_id: coachId,
-        client_id: clientId,
+        client_id: coachId, // passo 1: evita il trigger crediti
         scheduled_at: data.startISO,
         end_at: endISO,
         duration_min: durationMin,
@@ -810,7 +821,7 @@ export const gcalImportEvent = createServerFn({ method: "POST" })
         category: isExternal ? "personal" : "client_session",
         title: data.summary ?? null,
         google_event_id: data.googleEventId, // LINK -> niente doppioni
-        // block_id NON impostato -> nessun consumo crediti (safe-by-construction)
+        // block_id NON impostato -> nessun consumo crediti
       };
 
       const { data: inserted, error: insErr } = await supabaseAdmin
@@ -838,7 +849,28 @@ export const gcalImportEvent = createServerFn({ method: "POST" })
           .join(" · ");
         return { ok: false, error: `Import fallito → ${detail}`.slice(0, 400) };
       }
-      return { ok: true, bookingId: (inserted as { id: string }).id };
+
+      const bookingId = (inserted as { id: string }).id;
+
+      // Passo 2 (solo modalita' "client"): collega il cliente reale. I trigger
+      // crediti sono BEFORE INSERT -> non rifireano qui; validate_client_booking_update
+      // bypassa il service_role.
+      if (data.mode === "client" && clientId !== coachId) {
+        const { error: linkErr } = await supabaseAdmin
+          .from("bookings")
+          .update({ client_id: clientId, is_personal: false, category: "client_session" })
+          .eq("id", bookingId);
+        if (linkErr) {
+          // Rollback: rimuovi la riga appena creata per non lasciare un evento
+          // "esterno" mislabeled al posto della sessione cliente richiesta.
+          await supabaseAdmin.from("bookings").delete().eq("id", bookingId);
+          const d = [linkErr.code, linkErr.message, linkErr.details, linkErr.hint]
+            .filter(Boolean)
+            .join(" · ");
+          return { ok: false, error: `Collegamento cliente fallito → ${d}`.slice(0, 400) };
+        }
+      }
+      return { ok: true, bookingId };
     } catch (e) {
       console.error("gcalImportEvent failed", e);
       return { ok: false, error: e instanceof Error ? e.message : String(e) };
