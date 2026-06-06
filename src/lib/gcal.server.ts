@@ -53,6 +53,10 @@ export interface CreateEventInput {
   isOnline?: boolean;
   /** Color id Google Calendar (1..11). Opzionale. */
   colorId?: string;
+  /** Politica notifiche Google. Default "all" (invia invito all'attendee).
+   *  Il backfill storico (gcalRepairMissingEvents) usa "none" per NON
+   *  bombardare i clienti di inviti per eventi gia' passati/noti. */
+  sendUpdates?: "all" | "none" | "externalOnly";
 }
 
 export interface CreateEventResult {
@@ -119,7 +123,9 @@ export async function gcalCreate(input: CreateEventInput): Promise<CreateEventRe
   }
 
   const url = new URL(`${GATEWAY_BASE}${CALENDAR_PATH}`);
-  url.searchParams.set("sendUpdates", "all");
+  // Default "all" = invia invito Google all'attendee. Il backfill passa "none"
+  // per creare l'evento in silenzio (nessuna email al cliente).
+  url.searchParams.set("sendUpdates", input.sendUpdates ?? "all");
   if (input.requestMeet) url.searchParams.set("conferenceDataVersion", "1");
 
   const res = await fetch(url.toString(), {

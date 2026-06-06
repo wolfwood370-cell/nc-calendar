@@ -488,21 +488,31 @@ export const gcalRepairMissingEvents = createServerFn({ method: "POST" })
       }
 
       const now = Date.now();
-      const timeMinISO = new Date(now - 60 * 60_000).toISOString(); // -1h (sessioni di oggi)
+      // Finestra di backfill: dal 1° gennaio 2026 fino a +90 giorni nel futuro.
+      // Copre TUTTE le sessioni reali dell'anno mancanti su Google (richiesta
+      // utente 2026-06-06), non solo le future.
+      const timeMinISO = "2026-01-01T00:00:00.000Z";
       const timeMaxISO = new Date(now + 90 * 24 * 60 * 60_000).toISOString(); // +90g
 
-      // Sessioni candidate: scheduled, non cancellate, SENZA evento Google,
-      // nella finestra futura. Coach -> solo le proprie; admin -> tutte.
+      // Sessioni candidate: stati "reali" (scheduled/completed/no_show -> NON
+      // cancelled/late_cancelled), non eliminate, SENZA evento Google, nella
+      // finestra. Coach -> solo le proprie; admin -> tutte.
       let q = supabaseAdmin
         .from("bookings")
         .select(
           "id, client_id, coach_id, scheduled_at, end_at, duration_min, session_type, event_type_id, is_personal, title",
         )
-        .eq("status", "scheduled")
+        .in("status", ["scheduled", "completed", "no_show"])
         .is("deleted_at", null)
         .is("google_event_id", null)
         .gte("scheduled_at", timeMinISO)
-        .lte("scheduled_at", timeMaxISO);
+        .lte("scheduled_at", timeMaxISO)
+        // Cap per-esecuzione: ogni gcalCreate e' una chiamata HTTP sequenziale,
+        // un backfill enorme rischierebbe il timeout del server. La fn e'
+        // idempotente e rigira al prossimo mount / click "Aggiorna", quindi
+        // completa il backfill in piu' passate. Future/recenti prima.
+        .order("scheduled_at", { ascending: false })
+        .limit(50);
       if (role === "coach") q = q.eq("coach_id", context.userId);
 
       const { data: rows, error: bErr } = await q;
@@ -579,6 +589,11 @@ export const gcalRepairMissingEvents = createServerFn({ method: "POST" })
             requestMeet: isOnline,
             isOnline,
             colorId: toGoogleColorId(et?.color),
+            // BACKFILL SILENZIOSO: nessun invito Google al cliente per eventi
+            // storici/gia' noti (richiesta utente). Le prenotazioni NUOVE usano
+            // il flusso gcalCreateEvent con sendUpdates="all" (default) -> quelle
+            // sì mandano l'invito.
+            sendUpdates: "none",
           });
 
           if (r.googleEventId) {
