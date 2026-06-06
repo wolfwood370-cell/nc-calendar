@@ -147,30 +147,20 @@ export const gcalCreateEvent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input): GcalCreateInput => input as GcalCreateInput)
   .handler(async ({ data: rawInput, context }): Promise<GcalResult<{ googleEventId: string; meetingLink: string | null; htmlLink: string | null }>> => {
-    // V4 PING: PRIMA azione del handler, prima di OGNI validazione/check. Estrae
-    // bookingId in modo tollerante (typeof guard, nessuna Zod parse) cosi' anche
-    // un payload malformato puo' lasciare la traccia "[V4-PING]". Il PING viene
-    // poi sovrascritto da [V4-OK] o [V4-ERR] negli step successivi. Se rimane
-    // [V4-PING] nel valore finale -> il flow si e' interrotto IN MEZZO al try
-    // prima del catch (es. timeout/kill del container).
+    // bookingId estratto in modo tollerante PRIMA della validazione Zod, cosi'
+    // anche un payload che fallisce la parse puo' comunque registrare l'errore
+    // sul booking giusto (vedi catch).
     const rawObj = (rawInput ?? {}) as Record<string, unknown>;
     let bookingId: string | undefined =
       typeof rawObj.bookingId === "string" ? (rawObj.bookingId as string) : undefined;
-    if (bookingId) {
-      try {
-        await supabaseAdmin
-          .from("bookings")
-          .update({ last_gcal_error: `[V4-PING] handler entered at ${new Date().toISOString()}` })
-          .eq("id", bookingId);
-      } catch {
-        // ignora errori di scrittura del PING - non bloccare il flow per la diag.
-      }
-    }
 
     let step = "entry";
     try {
-      // V4: Zod parse spostata QUI (dentro try) cosi' un fail di validazione
-      // diventa [V4-ERR] [step:zod] ... invece di sparire come TSR/Error 200.
+      // La validazione Zod sta DENTRO il try (non nell'inputValidator chain):
+      // in TanStack Start un throw nell'inputValidator produce una response 200
+      // con envelope TSR/Error PRIMA del handler -> l'errore non sarebbe mai
+      // registrato. Qui invece un fail diventa last_gcal_error="[step:zod] ..."
+      // visibile via SQL. (Lezione del bug colorId, 2026-06-06.)
       step = "zod";
       const data = CreateSchema.parse(rawInput);
       bookingId = data.bookingId;
@@ -209,14 +199,16 @@ export const gcalCreateEvent = createServerFn({ method: "POST" })
         }
       }
 
-      step = "persistSuccess";
-      await persistGcalError(data.bookingId, `[V4-OK] step:${step} eventId:${r.googleEventId || "EMPTY"}`);
+      // Successo: azzeriamo last_gcal_error (nessun errore in sospeso).
+      await persistGcalError(data.bookingId, null);
 
       return { ok: true, googleEventId: r.googleEventId, meetingLink: r.meetingLink, htmlLink: r.htmlLink };
     } catch (e) {
       console.error("gcalCreateEvent failed", e);
       const errBody = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
-      const rawMsg = `[V4-ERR] [step:${step}] ${errBody}`;
+      // last_gcal_error registra DOVE e' fallito (step) + il messaggio raw,
+      // cosi' la diagnostica futura non richiede ri-strumentare il codice.
+      const rawMsg = `[step:${step}] ${errBody}`;
       if (bookingId) {
         await persistGcalError(bookingId, rawMsg.slice(0, 1000));
       }
@@ -441,6 +433,195 @@ export const gcalReconcileEvents = createServerFn({ method: "POST" })
       return { ok: true, cancelled, moved, conflicts };
     } catch (e) {
       console.error("gcalReconcileEvents failed", e);
+      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  });
+
+// ----------------------------------------------------------------------------
+// gcalRepairMissingEvents — BACKFILL DB -> Google (rete di sicurezza).
+// ----------------------------------------------------------------------------
+// La creazione per-booking (gcalCreateEvent) e' una chiamata client-side
+// fire-and-forget: se il browser la perde, fallisce, o un campo cosmetico
+// rompe la validazione (es. il bug colorId), l'evento Google non viene mai
+// creato e nessuno se ne accorge. Questa funzione e' il rimedio STABILE:
+//
+//   - gira interamente server-side (nessun parametro fragile dal client:
+//     summary/start/end/color/attendee derivati TUTTI dal DB);
+//   - e' idempotente: tocca SOLO i booking con google_event_id IS NULL;
+//   - e' auto-innescata quando il coach apre /trainer/calendar (insieme alla
+//     riconciliazione Google->DB) -> il sistema si auto-ripara senza che
+//     nessuno debba ricordarsi nulla;
+//   - puo' anche essere chiamata a mano dal bottone "Aggiorna".
+//
+// Cosi' anche se un domani un nuovo campo rompesse di nuovo gcalCreateEvent,
+// gli eventi mancanti verrebbero comunque creati alla prossima apertura del
+// calendario. Niente piu' dipendenza dal singolo percorso di prenotazione.
+// ----------------------------------------------------------------------------
+type RepairResult = {
+  ok: boolean;
+  created?: number;
+  failed?: number;
+  total?: number;
+  error?: string;
+};
+
+// Google Calendar accetta colorId solo 1..11 (max 2 char numerici). L'app
+// salva event_types.color come hex per il display in-app -> qui lo droppiamo
+// se non e' un colorId Google valido (stessa logica del fix booking flow).
+function toGoogleColorId(raw: string | null | undefined): string | undefined {
+  return typeof raw === "string" && /^\d{1,2}$/.test(raw) ? raw : undefined;
+}
+
+export const gcalRepairMissingEvents = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<RepairResult> => {
+    try {
+      // Authz: solo coach/admin.
+      const { data: roleRow } = await supabaseAdmin
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", context.userId)
+        .maybeSingle();
+      const role = (roleRow as { role?: string } | null)?.role;
+      if (role !== "coach" && role !== "admin") {
+        return { ok: false, error: "Permesso negato" };
+      }
+
+      const now = Date.now();
+      // Finestra di backfill: dal 1° gennaio 2026 fino a +90 giorni nel futuro.
+      // Copre TUTTE le sessioni reali dell'anno mancanti su Google (richiesta
+      // utente 2026-06-06), non solo le future.
+      const timeMinISO = "2026-01-01T00:00:00.000Z";
+      const timeMaxISO = new Date(now + 90 * 24 * 60 * 60_000).toISOString(); // +90g
+
+      // Sessioni candidate: stati "reali" (scheduled/completed/no_show -> NON
+      // cancelled/late_cancelled), non eliminate, SENZA evento Google, nella
+      // finestra. Coach -> solo le proprie; admin -> tutte.
+      let q = supabaseAdmin
+        .from("bookings")
+        .select(
+          "id, client_id, coach_id, scheduled_at, end_at, duration_min, session_type, event_type_id, is_personal, title",
+        )
+        .in("status", ["scheduled", "completed", "no_show"])
+        .is("deleted_at", null)
+        .is("google_event_id", null)
+        .gte("scheduled_at", timeMinISO)
+        .lte("scheduled_at", timeMaxISO)
+        // Cap per-esecuzione: ogni gcalCreate e' una chiamata HTTP sequenziale,
+        // un backfill enorme rischierebbe il timeout del server. La fn e'
+        // idempotente e rigira al prossimo mount / click "Aggiorna", quindi
+        // completa il backfill in piu' passate. Future/recenti prima.
+        .order("scheduled_at", { ascending: false })
+        .limit(50);
+      if (role === "coach") q = q.eq("coach_id", context.userId);
+
+      const { data: rows, error: bErr } = await q;
+      if (bErr) {
+        console.error("gcalRepair: bookings query failed", bErr);
+        return { ok: false, error: "Lettura prenotazioni fallita" };
+      }
+      const bookings = rows ?? [];
+      if (bookings.length === 0) return { ok: true, created: 0, failed: 0, total: 0 };
+
+      // Prefetch event_types + profiles in 2 query (no N+1).
+      const eventTypeIds = [...new Set(bookings.map((b) => b.event_type_id).filter(Boolean) as string[])];
+      const clientIds = [...new Set(bookings.map((b) => b.client_id).filter(Boolean) as string[])];
+
+      const eventTypeMap = new Map<string, { name: string; color: string; location_type: string; duration: number }>();
+      if (eventTypeIds.length > 0) {
+        const { data: ets } = await supabaseAdmin
+          .from("event_types")
+          .select("id, name, color, location_type, duration")
+          .in("id", eventTypeIds);
+        for (const et of ets ?? []) {
+          eventTypeMap.set(et.id, {
+            name: et.name,
+            color: et.color,
+            location_type: et.location_type,
+            duration: et.duration,
+          });
+        }
+      }
+
+      const profileMap = new Map<string, { full_name: string | null; email: string | null }>();
+      if (clientIds.length > 0) {
+        const { data: profs } = await supabaseAdmin
+          .from("profiles")
+          .select("id, full_name, email")
+          .in("id", clientIds);
+        for (const p of profs ?? []) {
+          profileMap.set(p.id, { full_name: p.full_name, email: p.email });
+        }
+      }
+
+      let created = 0;
+      let failed = 0;
+      for (const b of bookings) {
+        try {
+          const et = b.event_type_id ? eventTypeMap.get(b.event_type_id) : undefined;
+          const clientProfile = b.client_id ? profileMap.get(b.client_id) : undefined;
+
+          // Titolo: "<tipo> — <cliente>" (cliente omesso per blocchi personali
+          // o quando client == coach, cioe' eventi esterni del coach stesso).
+          const typeLabel = b.title ?? et?.name ?? b.session_type ?? "Sessione";
+          const isOwnEvent = b.is_personal || (b.client_id && b.client_id === b.coach_id);
+          const clientName = !isOwnEvent ? clientProfile?.full_name : null;
+          const summary = clientName ? `${typeLabel} — ${clientName}` : typeLabel;
+
+          // Start/end derivati dal DB. end_at e' sempre valorizzato (trigger
+          // a_trg_set_booking_duration_defaults); fallback a duration_min se
+          // mancasse.
+          const startISO = new Date(b.scheduled_at).toISOString();
+          const endISO = b.end_at
+            ? new Date(b.end_at).toISOString()
+            : new Date(new Date(b.scheduled_at).getTime() + (b.duration_min ?? 60) * 60_000).toISOString();
+
+          const isOnline = et?.location_type === "online";
+          // Attendee SOLO per sessioni con un vero cliente (non blocchi
+          // personali / eventi esterni del coach).
+          const attendeeEmail = !isOwnEvent ? (clientProfile?.email ?? undefined) : undefined;
+
+          const r = await gcalCreate({
+            summary,
+            startISO,
+            endISO,
+            attendeeEmail,
+            requestMeet: isOnline,
+            isOnline,
+            colorId: toGoogleColorId(et?.color),
+            // BACKFILL SILENZIOSO: nessun invito Google al cliente per eventi
+            // storici/gia' noti (richiesta utente). Le prenotazioni NUOVE usano
+            // il flusso gcalCreateEvent con sendUpdates="all" (default) -> quelle
+            // sì mandano l'invito.
+            sendUpdates: "none",
+          });
+
+          if (r.googleEventId) {
+            await supabaseAdmin
+              .from("bookings")
+              .update({
+                google_event_id: r.googleEventId,
+                ...(r.meetingLink ? { meeting_link: r.meetingLink } : {}),
+                last_gcal_error: null, // successo: nessun errore in sospeso
+              })
+              .eq("id", b.id);
+            created++;
+          } else {
+            await persistGcalError(b.id, "[repair] gcalCreate ritornato senza eventId");
+            failed++;
+          }
+        } catch (perBookingErr) {
+          const msg = perBookingErr instanceof Error ? perBookingErr.message : String(perBookingErr);
+          console.error("gcalRepair: per-booking failed", { id: b.id, msg });
+          await persistGcalError(b.id, `[repair] ${msg}`.slice(0, 1000));
+          failed++;
+          // continua col prossimo: un booking rotto non blocca gli altri.
+        }
+      }
+
+      return { ok: true, created, failed, total: bookings.length };
+    } catch (e) {
+      console.error("gcalRepairMissingEvents failed", e);
       return { ok: false, error: e instanceof Error ? e.message : String(e) };
     }
   });
