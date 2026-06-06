@@ -153,11 +153,13 @@ export const gcalCreateEvent = createServerFn({ method: "POST" })
         }
       }
 
-      // GCAL-DIAG: la creazione è andata a buon fine -> ripuliamo last_gcal_error
-      // per non lasciare un errore stantio sul booking. AWAITED (v2 fix): in
-      // serverless un fire-and-forget post-return viene killed col container.
+      // GCAL-DIAG v3: SCRIVIAMO un marker invece di null sul success path.
+      // Cosi' possiamo distinguere a colpo d'occhio se il worker live esegue
+      // il codice v3 o una build precedente. Se vedi last_gcal_error che
+      // inizia con [V3-OK] -> v3 attivo + persistGcalError funziona DB-side.
+      // Se NULL nonostante un POST 200 -> il worker live serve cache stantia.
       step = "persistSuccess";
-      await persistGcalError(data.bookingId, null);
+      await persistGcalError(data.bookingId, `[V3-OK] step:${step} eventId:${r.googleEventId || "EMPTY"}`);
 
       return { ok: true, googleEventId: r.googleEventId, meetingLink: r.meetingLink, htmlLink: r.htmlLink };
     } catch (e) {
@@ -174,7 +176,11 @@ export const gcalCreateEvent = createServerFn({ method: "POST" })
       // coach/admin/service_role). Al client torna sempre lo scrubbed.
       console.error("gcalCreateEvent failed", e);
       const errBody = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
-      const rawMsg = `[step:${step}] ${errBody}`;
+      // GCAL-DIAG v3: prefisso [V3-ERR] anche sul catch path. Insieme al
+      // marker [V3-OK] del success path ci permette di affermare con
+      // certezza se il worker live esegue v3, senza dipendere dai worker
+      // logs di Lovable (che NON catturano le console.error degli handler).
+      const rawMsg = `[V3-ERR] [step:${step}] ${errBody}`;
       await persistGcalError(data.bookingId, rawMsg.slice(0, 1000));
       return { ok: false, error: scrubGcalError(e, "create") };
     }
