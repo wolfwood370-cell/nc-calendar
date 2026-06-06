@@ -19,6 +19,16 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -83,6 +93,9 @@ export function EditBookingDialog({
   const [eventTypeId, setEventTypeId] = useState<string>("");
   const [status, setStatus] = useState<EditableBookingStatus>("scheduled");
   const [saving, setSaving] = useState(false);
+  // B13 (audit): conferma eliminazione via AlertDialog dell'app invece del
+  // confirm() nativo del browser (coerente col resto + azione irreversibile).
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   useEffect(() => {
     if (!booking) return;
@@ -190,11 +203,9 @@ export function EditBookingDialog({
               variant="destructive"
               className="flex-1"
               disabled={saving}
-              onClick={async () => {
+              onClick={() => {
                 if (!booking) return;
-                if (!confirm("Sei sicuro? L'evento verrà eliminato anche da Google Calendar."))
-                  return;
-                await onDeleteEverywhere(booking);
+                setConfirmDeleteOpen(true);
               }}
             >
               <Trash2 className="size-4" /> Elimina ovunque
@@ -211,6 +222,29 @@ export function EditBookingDialog({
             Salva
           </Button>
         </DialogFooter>
+
+        <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Eliminare la sessione ovunque?</AlertDialogTitle>
+              <AlertDialogDescription>
+                L'evento verrà eliminato definitivamente, anche da Google Calendar.
+                L'azione non può essere annullata.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={saving}>Annulla</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={async () => {
+                  if (!booking) return;
+                  await onDeleteEverywhere(booking);
+                }}
+              >
+                Elimina ovunque
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   );

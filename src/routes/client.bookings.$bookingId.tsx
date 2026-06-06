@@ -82,6 +82,21 @@ function BookingDetailPage() {
                 <AuraLineSkeleton className="w-5/6 h-3" />
               </AuraCardSkeleton>
             </>
+          ) : q.isError ? (
+            // B15 (audit): distingui errore di rete (con retry) da sessione
+            // realmente inesistente, invece di mostrare sempre "non trovata".
+            <div className="py-10 text-center space-y-3">
+              <p className="text-on-surface-variant">
+                Impossibile caricare la sessione. Controlla la connessione e riprova.
+              </p>
+              <button
+                type="button"
+                onClick={() => q.refetch()}
+                className="rounded-full bg-primary-container text-on-primary-container px-5 py-2 text-sm font-semibold active:scale-95 transition-transform"
+              >
+                Riprova
+              </button>
+            </div>
           ) : !q.data ? (
             <p className="text-center text-on-surface-variant py-10">Sessione non trovata.</p>
           ) : (

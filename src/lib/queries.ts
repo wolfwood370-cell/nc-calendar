@@ -238,6 +238,10 @@ export function useCoachBookings(coachId?: string) {
   return useQuery({
     queryKey: ["bookings", "coach", coachId],
     enabled: !!coachId,
+    // B20 (audit): staleTime breve per evitare refetch dell'intera lista a ogni
+    // focus/cambio finestra. Le mutation invalidano comunque la query
+    // (invalidateQueries), quindi i cambiamenti restano immediati.
+    staleTime: 30_000,
     queryFn: () => selectBookingsByCoach(coachId!),
   });
 }
@@ -246,6 +250,7 @@ export function useClientBookings(clientId?: string) {
   return useQuery({
     queryKey: ["bookings", "client", clientId],
     enabled: !!clientId,
+    staleTime: 30_000,
     queryFn: () => selectBookingsByClient(clientId!),
   });
 }
