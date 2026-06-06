@@ -824,8 +824,19 @@ export const gcalImportEvent = createServerFn({ method: "POST" })
         if (insErr.code === "23P01") {
           return { ok: false, error: "Sovrapposizione: esiste già una sessione in questo orario." };
         }
+        // 23505 = unique violation (es. google_event_id già usato): trattalo
+        // come "già importato" invece che come errore.
+        if (insErr.code === "23505") {
+          return { ok: false, error: "Questo evento risulta già importato." };
+        }
         console.error("gcalImportEvent insert failed", insErr);
-        return { ok: false, error: "Import fallito. Riprova." };
+        // Strumento interno coach/admin: esponiamo l'errore DB raw (code +
+        // message + details) cosi' e' diagnosticabile dal toast senza dover
+        // leggere i log server (che non catturano console.error degli handler).
+        const detail = [insErr.code, insErr.message, insErr.details, insErr.hint]
+          .filter(Boolean)
+          .join(" · ");
+        return { ok: false, error: `Import fallito → ${detail}`.slice(0, 400) };
       }
       return { ok: true, bookingId: (inserted as { id: string }).id };
     } catch (e) {
