@@ -146,12 +146,44 @@ export const gcalCreateEvent = createServerFn({ method: "POST" })
         }
       }
 
+      // GCAL-DIAG (2026-06-06): la creazione è andata a buon fine -> ripuliamo
+      // last_gcal_error per non lasciare un errore stantio sul booking.
+      void persistGcalError(data.bookingId, null);
+
       return { ok: true, googleEventId: r.googleEventId, meetingLink: r.meetingLink, htmlLink: r.htmlLink };
     } catch (e) {
+      // GCAL-DIAG (2026-06-06): i log dei worker Lovable NON catturano le
+      // console.error degli handler delle server fn, quindi il messaggio reale
+      // dell'errore non è mai ispezionabile post-mortem. Persistiamo il raw msg
+      // su bookings.last_gcal_error così possiamo leggerlo via SQL.
+      // NOTE: il messaggio scritto qui è SOLO server-side (RLS: solo
+      // coach/admin/service_role). Al client torna sempre lo scrubbed.
       console.error("gcalCreateEvent failed", e);
+      const rawMsg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+      void persistGcalError(data.bookingId, rawMsg.slice(0, 1000));
       return { ok: false, error: scrubGcalError(e, "create") };
     }
   });
+
+// GCAL-DIAG (2026-06-06): writeback del raw error su bookings.last_gcal_error.
+// Wrapped in try/catch perché:
+//   1) se la migration `last_gcal_error` non è ancora applicata, l'UPDATE
+//      restituisce un errore PostgREST (colonna inesistente) -> NON deve
+//      rompere il flusso prenotazione.
+//   2) il client TS non ha ancora la colonna nei tipi generati (Lovable
+//      rigenera dopo la migration), quindi cast localizzato.
+async function persistGcalError(bookingId: string, rawMessage: string | null): Promise<void> {
+  try {
+    const payload = { last_gcal_error: rawMessage } as unknown as Record<string, unknown>;
+    await supabaseAdmin
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .from("bookings" as any)
+      .update(payload)
+      .eq("id", bookingId);
+  } catch (writeErr) {
+    console.error("[gcal] persistGcalError failed (column missing?)", writeErr);
+  }
+}
 
 const UpdateSchema = z.object({
   googleEventId: z.string().min(1).max(1024),
