@@ -715,7 +715,10 @@ const ImportSchema = z.object({
   summary: z.string().max(500).optional(),
   startISO: z.string().datetime({ offset: true }),
   endISO: z.string().datetime({ offset: true }).optional(),
-  mode: z.enum(["external", "client"]),
+  // client      -> sessione collegata a un cliente (category client_session)
+  // consulenza  -> consulenza / appuntamento esterno, senza cliente (category consulenza)
+  // personal    -> impegno personale / blocco (category personal, is_personal)
+  mode: z.enum(["client", "consulenza", "personal"]),
   clientId: z.string().uuid().optional(),
   eventTypeId: z.string().uuid().optional(),
 });
@@ -795,7 +798,10 @@ export const gcalImportEvent = createServerFn({ method: "POST" })
 
       // Eventi passati -> 'completed' (archivio storico); futuri -> 'scheduled'.
       const status: "scheduled" | "completed" = startMs < Date.now() ? "completed" : "scheduled";
-      const isExternal = data.mode === "external";
+      // Mappa modalita' -> is_personal + category (CHECK: client_session|personal|consulenza).
+      const isPersonalBlock = data.mode === "personal";
+      const importCategory =
+        data.mode === "client" ? "client_session" : data.mode === "consulenza" ? "consulenza" : "personal";
 
       // WORKAROUND TRIGGER CREDITI (2026-06-06): sul DB live il trigger
       // validate_booking_extra_credits NON ha (ancora) la guardia
@@ -817,8 +823,8 @@ export const gcalImportEvent = createServerFn({ method: "POST" })
         session_type: sessionType,
         event_type_id: eventTypeId,
         status,
-        is_personal: isExternal,
-        category: isExternal ? "personal" : "client_session",
+        is_personal: isPersonalBlock,
+        category: importCategory,
         title: data.summary ?? null,
         google_event_id: data.googleEventId, // LINK -> niente doppioni
         // block_id NON impostato -> nessun consumo crediti
