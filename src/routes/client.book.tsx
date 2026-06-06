@@ -171,17 +171,13 @@ function BookFlow() {
       // esplicito invece di `coachIdForAvail!`.
       if (!coachIdForAvail) return [];
       const today = startOfDay(new Date());
-      const from = block ? new Date(block.start_date) : today;
-      // Lookahead: stesso calcolo del useMemo `slots` sotto. Esteso a
-      // now + 14 giorni quando il cliente è nell'ultima settimana del
-      // blocco corrente, così le busy ranges del coach coprono i nuovi
-      // slot visibili.
-      const blockEnd = block ? new Date(block.end_date) : addDays(today, 60);
-      const isLastWeek = block
-        ? today.getTime() >= addDays(blockEnd, -7).getTime()
-        : false;
-      const lookaheadEnd = isLastWeek ? addDays(today, 14) : blockEnd;
-      const to = new Date(Math.max(lookaheadEnd.getTime(), blockEnd.getTime()));
+      // Finestra fissa: da max(oggi, inizio blocco) a oggi+14gg SEMPRE
+      // (settimana corrente + 2 successive), così le busy ranges del coach
+      // coprono tutti gli slot visibili.
+      const from = block
+        ? new Date(Math.max(today.getTime(), new Date(block.start_date).getTime()))
+        : today;
+      const to = addDays(today, 14);
       to.setHours(23, 59, 59, 999);
       const { data, error } = await supabase.rpc("get_coach_busy", {
         p_coach_id: coachIdForAvail,
@@ -209,32 +205,21 @@ function BookFlow() {
     return ranges;
   }, [coachBusyQ.data]);
 
-  // Lookahead "ultima settimana": se il cliente è negli ultimi 7 giorni
-  // del blocco corrente, estendo il range visibile a now + 14 giorni così
-  // può prenotare le sessioni residue anche nei primi giorni del blocco
-  // successivo. Il backend trigger (validate_booking_block_allocation)
-  // permette il booking finché valid_until dell'allocation lo copre —
-  // grace_days è stato esteso a 14 nella migration 20260527150000.
+  // Finestra di prenotazione SEMPRE [max(oggi, inizio blocco), oggi+14gg]
+  // = settimana corrente + 2 successive. Il backend
+  // (validate_booking_block_allocation) accetta finché esiste un'allocation
+  // con valid_until >= data della sessione; i giorni senza credito danno
+  // errore al click (gestito in use-book-confirm), come nel flusso di create
+  // esistente. Niente più logica isLastWeek.
   const slots = useMemo(() => {
     const today = startOfDay(new Date());
-    const start = block ? new Date(block.start_date) : today;
-    const blockEnd = block ? new Date(block.end_date) : addDays(today, 60);
-    const isLastWeek = block
-      ? today.getTime() >= addDays(blockEnd, -7).getTime()
-      : false;
-    // Lookahead window: 14 giorni dal momento corrente, ma mai oltre la
-    // grace dell'allocation (block.end_date + 14 = block.end_date + 14
-    // dopo la migration 20260527150000). Per i blocchi appena creati con
-    // ancora settimane davanti, isLastWeek=false → comportamento legacy.
-    const lookaheadEnd = isLastWeek ? addDays(today, 14) : blockEnd;
-    const end = new Date(Math.max(lookaheadEnd.getTime(), blockEnd.getTime()));
+    const start = block
+      ? new Date(Math.max(today.getTime(), new Date(block.start_date).getTime()))
+      : today;
+    const end = addDays(today, 14);
     end.setHours(23, 59, 59, 999);
-    // daysAhead = numero di giorni dal NOW da scannare per slot. 28 era
-    // tarato sul vecchio "1 blocco". Con lookahead 14 giorni, in ultima
-    // settimana possiamo arrivare a 21+ giorni dal blocco corrente →
-    // alzo a 35 per sicurezza (cap dell'orizzonte).
     return generateSlots(
-      block ? (isLastWeek ? 35 : 28) : 60,
+      block ? 15 : 60, // oggi..oggi+14 = 15 giorni
       blockedRanges,
       availQ.data ?? [],
       exceptionsQ.data ?? [],
@@ -419,21 +404,15 @@ function BookFlow() {
   const selectedPoolValidUntil = useMemo(() => {
     if (!selectedPool) return null;
     if (selectedPool.source === "block" && block) {
+      // Limite cliccabile del calendario = oggi+14 SECCO (settimana corrente
+      // + 2). NIENTE cap sul valid_until del blocco corrente: altrimenti i
+      // giorni coperti da un'altra allocation (blocco successivo / grace)
+      // verrebbero grigiati. Il backend rifiuta i giorni realmente senza
+      // credito; il fallback no-slots gestisce il caso.
       const today = startOfDay(new Date());
-      const blockEnd = new Date(block.end_date);
-      blockEnd.setHours(23, 59, 59, 999);
-      // Lookahead "ultima settimana": se siamo a 7 giorni dalla fine,
-      // estendiamo il limite cliccabile del calendar a now + 14 giorni
-      // (capped a block.end_date + 14 = grace, garantito dal backend
-      // dopo migration 20260527150000). Allinea il selectedPoolValidUntil
-      // al range visibile in `slots` per coerenza UX.
-      const isLastWeek = today.getTime() >= addDays(blockEnd, -7).getTime();
-      if (isLastWeek) {
-        const lookaheadEnd = addDays(today, 14);
-        lookaheadEnd.setHours(23, 59, 59, 999);
-        return lookaheadEnd.getTime() > blockEnd.getTime() ? lookaheadEnd : blockEnd;
-      }
-      return blockEnd;
+      const lookaheadEnd = addDays(today, 14);
+      lookaheadEnd.setHours(23, 59, 59, 999);
+      return lookaheadEnd;
     }
     return selectedPool.validUntil;
   }, [selectedPool, block]);

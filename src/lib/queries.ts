@@ -512,20 +512,29 @@ export function useRescheduleBooking() {
       scheduled_at: string;
       end_at: string;
     }> => {
-      const { data, error } = await supabase
-        .from("bookings")
-        .update({ scheduled_at: input.newScheduledISO })
-        .eq("id", input.bookingId)
-        .select("coach_id, client_id, google_event_id, scheduled_at, end_at")
-        .single();
+      // Reschedule via RPC atomico: valida finestra+24h, ri-alloca i crediti
+      // (rilascia vecchia settimana, consuma nuova) e sposta scheduled_at.
+      // Sostituisce l'UPDATE diretto + il trigger FIX D (rimosso).
+      // NB: cast `as never` perché reschedule_booking non è ancora nei tipi
+      // generati (verrà incluso quando Lovable rigenera supabase/types dopo
+      // aver creato l'RPC).
+      const { data, error } = await supabase.rpc(
+        "reschedule_booking" as never,
+        {
+          p_booking_id: input.bookingId,
+          p_new_scheduled_at: input.newScheduledISO,
+        } as never,
+      );
       if (error) throw error;
-      return data as {
+      // reschedule_booking RETURNS TABLE(...) -> PostgREST serializza come array.
+      const row = (Array.isArray(data) ? data[0] : data) as unknown as {
         coach_id: string;
         client_id: string | null;
         google_event_id: string | null;
         scheduled_at: string;
         end_at: string;
       };
+      return row;
     },
     onMutate: async (vars) => {
       await qc.cancelQueries({ predicate: (q) => q.queryKey[0] === "bookings" });

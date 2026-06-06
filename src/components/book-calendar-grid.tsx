@@ -125,7 +125,7 @@ export function BookCalendarGrid({
           <p>
             {selectedPoolSource === "extra"
               ? `I crediti extra scadono il ${format(selectedPoolValidUntil, "d MMMM yyyy", { locale: it })}.`
-              : `Da prenotare entro il ${format(selectedPoolValidUntil, "d MMMM yyyy", { locale: it })} (fine del blocco corrente).`}
+              : `Prenotabile fino al ${format(selectedPoolValidUntil, "d MMMM yyyy", { locale: it })}.`}
           </p>
           {selectedPoolSource === "block" && nextBlockStartDate && (
             <p>

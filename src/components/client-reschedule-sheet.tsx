@@ -68,7 +68,7 @@ interface Props {
   onSuccess?: () => void;
 }
 
-const HORIZON_DAYS = 60;
+const HORIZON_DAYS = 14; // finestra reschedule coerente con la prenotazione (oggi..oggi+14)
 const MIN_LEAD_MS = 24 * 60 * 60 * 1000;
 
 export function ClientRescheduleSheet({
@@ -187,13 +187,15 @@ export function ClientRescheduleSheet({
 
     setSubmitting(true);
     try {
-      const { error: updErr } = await supabase
-        .from("bookings")
-        .update({ scheduled_at: selectedISO })
-        .eq("id", booking.id);
+      // cast `as never`: reschedule_booking non è ancora nei tipi generati
+      // (Lovable rigenera i tipi dopo aver creato l'RPC).
+      const { error: updErr } = await supabase.rpc(
+        "reschedule_booking" as never,
+        { p_booking_id: booking.id, p_new_scheduled_at: selectedISO } as never,
+      );
       if (updErr) {
-        // The trigger raises Italian messages already; surface them
-        // directly. P0001 + 23P01 (overlap exclusion) both land here.
+        // Il RPC alza messaggi italiani (P0001: 24h / credito / finestra) e
+        // 23P01 (overlap) arriva con messaggio già pronto. Li mostriamo diretti.
         toast.error("Riprogrammazione rifiutata", {
           description: updErr.message,
         });
