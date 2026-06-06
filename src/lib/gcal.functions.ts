@@ -114,13 +114,19 @@ export const gcalCreateEvent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => CreateSchema.parse(input))
   .handler(async ({ data, context }): Promise<GcalResult<{ googleEventId: string; meetingLink: string | null; htmlLink: string | null }>> => {
+    // GCAL-DIAG (2026-06-06 v2): step tracker per capire DOVE bucchia il flow
+    // quando vediamo last_gcal_error popolato. Senza step, "Booking non trovato"
+    // potrebbe venire da 3 punti diversi (assert, gcalCreate, writeback).
+    let step = "entry";
     try {
+      step = "assertBookingAccess";
       // S-AUTHZ: ownership SEMPRE applicato (bookingId ora obbligatorio).
       const { attendeeEmail } = await assertBookingAccessAndGetAttendee(
         data.bookingId,
         context.userId,
       );
 
+      step = "gcalCreate";
       const r = await gcalCreate({
         summary: data.summary,
         description: data.description,
@@ -133,6 +139,7 @@ export const gcalCreateEvent = createServerFn({ method: "POST" })
         colorId: data.colorId,
       });
 
+      step = "writeback";
       if (r.googleEventId) {
         const { error: upErr } = await supabaseAdmin
           .from("bookings")
@@ -146,21 +153,29 @@ export const gcalCreateEvent = createServerFn({ method: "POST" })
         }
       }
 
-      // GCAL-DIAG (2026-06-06): la creazione è andata a buon fine -> ripuliamo
-      // last_gcal_error per non lasciare un errore stantio sul booking.
-      void persistGcalError(data.bookingId, null);
+      // GCAL-DIAG: la creazione è andata a buon fine -> ripuliamo last_gcal_error
+      // per non lasciare un errore stantio sul booking. AWAITED (v2 fix): in
+      // serverless un fire-and-forget post-return viene killed col container.
+      step = "persistSuccess";
+      await persistGcalError(data.bookingId, null);
 
       return { ok: true, googleEventId: r.googleEventId, meetingLink: r.meetingLink, htmlLink: r.htmlLink };
     } catch (e) {
-      // GCAL-DIAG (2026-06-06): i log dei worker Lovable NON catturano le
+      // GCAL-DIAG (2026-06-06 v2): i log dei worker Lovable NON catturano le
       // console.error degli handler delle server fn, quindi il messaggio reale
       // dell'errore non è mai ispezionabile post-mortem. Persistiamo il raw msg
-      // su bookings.last_gcal_error così possiamo leggerlo via SQL.
+      // (con step prefix) su bookings.last_gcal_error così possiamo leggerlo
+      // via SQL.
+      // FIX v2: AWAITED. La versione v1 usava `void persistGcalError(...)` ->
+      // fire-and-forget -> in serverless la promise viene killed al return e
+      // l'UPDATE non viene mai applicato (sintomo: last_gcal_error sempre NULL
+      // anche quando il catch viene eseguito).
       // NOTE: il messaggio scritto qui è SOLO server-side (RLS: solo
       // coach/admin/service_role). Al client torna sempre lo scrubbed.
       console.error("gcalCreateEvent failed", e);
-      const rawMsg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
-      void persistGcalError(data.bookingId, rawMsg.slice(0, 1000));
+      const errBody = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+      const rawMsg = `[step:${step}] ${errBody}`;
+      await persistGcalError(data.bookingId, rawMsg.slice(0, 1000));
       return { ok: false, error: scrubGcalError(e, "create") };
     }
   });
@@ -174,14 +189,26 @@ export const gcalCreateEvent = createServerFn({ method: "POST" })
 //      rigenera dopo la migration), quindi cast localizzato.
 async function persistGcalError(bookingId: string, rawMessage: string | null): Promise<void> {
   try {
-    const payload = { last_gcal_error: rawMessage } as unknown as Record<string, unknown>;
-    await supabaseAdmin
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .from("bookings" as any)
-      .update(payload)
+    // GCAL-DIAG v2: Lovable ha rigenerato i tipi dopo la migration -> ora la
+    // colonna esiste in Database type, niente cast `as any`.
+    const { error: upErr } = await supabaseAdmin
+      .from("bookings")
+      .update({ last_gcal_error: rawMessage })
       .eq("id", bookingId);
+    if (upErr) {
+      // FIX v2: Supabase postgrest ritorna {error} object, NON throwa. La
+      // versione v1 aveva solo try/catch esterno -> errori postgrest finivano
+      // silenziosi e last_gcal_error non veniva mai popolato senza segnale.
+      console.error("[gcal] persistGcalError postgrest error", {
+        code: upErr.code,
+        message: upErr.message,
+        details: upErr.details,
+        hint: upErr.hint,
+      });
+    }
   } catch (writeErr) {
-    console.error("[gcal] persistGcalError failed (column missing?)", writeErr);
+    // Cattura il throw del proxy supabaseAdmin (env mancante) o errori di rete.
+    console.error("[gcal] persistGcalError unexpected throw", writeErr);
   }
 }
 
