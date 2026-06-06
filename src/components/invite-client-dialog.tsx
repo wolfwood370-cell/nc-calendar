@@ -46,19 +46,25 @@ export function InviteClientDialog({
         }}
       >
         <div className="space-y-2">
-          <Label>Nome completo</Label>
-          <Input value={name} onChange={(e) => setName(e.target.value)} required />
+          <Label htmlFor="invite-name">Nome completo</Label>
+          <Input id="invite-name" value={name} onChange={(e) => setName(e.target.value)} required />
         </div>
         <div className="space-y-2">
-          <Label>Email</Label>
-          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <Label htmlFor="invite-email">Email</Label>
+          <Input
+            id="invite-email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
           <p className="text-xs text-muted-foreground">
             Il cliente potrà registrarsi con questa email e verrà collegato automaticamente a te.
           </p>
         </div>
         <div className="space-y-2">
-          <Label>Telefono</Label>
-          <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+          <Label htmlFor="invite-phone">Telefono</Label>
+          <Input id="invite-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
         </div>
         <DialogFooter>
           <Button type="submit" disabled={busy}>

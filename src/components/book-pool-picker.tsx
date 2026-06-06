@@ -30,12 +30,19 @@ export function BookPoolPicker({ pools, selectedPoolKey, onSelectPoolKey }: Book
           Nessun credito residuo nel blocco attivo.
         </p>
       ) : (
-        <div className="flex overflow-x-auto gap-3 pb-2 -mx-margin-mobile px-margin-mobile [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+        <div
+          role="radiogroup"
+          aria-label="Tipo di sessione"
+          className="flex overflow-x-auto gap-3 pb-2 -mx-margin-mobile px-margin-mobile [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+        >
           {pools.map((p) => {
             const active = p.key === selectedPoolKey;
             return (
               <button
                 key={p.key}
+                type="button"
+                role="radio"
+                aria-checked={active}
                 onClick={() => onSelectPoolKey(p.key)}
                 className={`flex-shrink-0 rounded-full px-6 py-3 text-sm font-semibold whitespace-nowrap transition-transform active:scale-95 ${
                   active

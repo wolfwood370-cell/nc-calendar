@@ -48,13 +48,15 @@ export function BookSlotsGrid({
           Nessuno slot disponibile in questa data.
         </p>
       ) : (
-        <div className="grid grid-cols-3 gap-4">
+        <div role="radiogroup" aria-label="Orario disponibile" className="grid grid-cols-3 gap-4">
           {slotsForSelectedDay.map((s) => {
             const isSelected = s.iso === selectedISO;
             const recommended = !!s.recommended;
             const button = (
               <button
                 type="button"
+                role="radio"
+                aria-checked={isSelected}
                 onClick={() => onSelectISO(s.iso)}
                 className={`w-full rounded-full py-3 text-sm font-semibold tabular-nums transition-colors ${
                   isSelected

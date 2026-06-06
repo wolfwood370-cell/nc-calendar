@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { Bell, Plus, Check, CheckCircle2, CalendarCheck, Clock } from "lucide-react";
+import { Plus, Check, CheckCircle2, CalendarCheck, Clock } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -314,13 +314,9 @@ function ClientHome() {
             </div>
             <h1 className="text-2xl font-bold text-aura-primary">Ciao {firstName}</h1>
           </div>
-          <button
-            type="button"
-            aria-label="Notifiche"
-            className="text-aura-primary hover:bg-surface-container-high transition-colors active:scale-95 duration-200 p-2 rounded-full"
-          >
-            <Bell className="size-6" />
-          </button>
+          {/* B12 (audit): rimossa la campanella notifiche inerte (nessuna azione
+              collegata). Da reintrodurre solo quando esistera' un pannello
+              notifiche cliente funzionante. */}
         </div>
       </header>
 
