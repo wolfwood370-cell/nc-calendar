@@ -459,9 +459,18 @@ function AvailabilityPage() {
           <div className="space-y-6">
             <div className="bg-white rounded-[32px] shadow-[0px_4px_20px_rgba(0,86,133,0.05)] p-6 sm:p-8">
               <h2 className="font-display text-xl font-semibold mb-1">Regole di Prenotazione</h2>
-              <p className="text-sm text-muted-foreground mb-6">
+              <p className="text-sm text-muted-foreground mb-3">
                 Imposta i vincoli che i tuoi clienti devono rispettare.
               </p>
+              {/* M3 (audit 2026-06-06): questi valori sono salvati ma NON ancora
+                  applicati dal motore di generazione slot (preavviso 24h e
+                  orizzonte 14 giorni sono per ora fissi). Avviso onesto finche'
+                  non vengono collegati, per non promettere un controllo inattivo. */}
+              <div className="mb-6 rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3 text-xs text-amber-800">
+                ⚠️ Funzione in arrivo: al momento i clienti possono prenotare con
+                24h di preavviso fino a 2 settimane in avanti. Questi valori
+                vengono salvati ma non ancora applicati.
+              </div>
 
               <div className="space-y-5">
                 <div>

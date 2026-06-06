@@ -46,7 +46,7 @@ function ForgotPassword() {
           <div className="size-9 rounded-lg bg-primary text-primary-foreground grid place-items-center">
             <Dumbbell className="size-5" />
           </div>
-          <span className="font-display text-xl font-semibold">Stride</span>
+          <span className="font-display text-xl font-semibold">NC Calendar</span>
         </div>
 
         <Card>

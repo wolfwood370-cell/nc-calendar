@@ -773,11 +773,14 @@ export const gcalImportEvent = createServerFn({ method: "POST" })
         clientId = data.clientId;
 
         // Tipo evento opzionale -> definisce session_type + durata.
+        // B19 (audit 2026-06-06): vincola il tipo evento al coach chiamante
+        // (un coach non puo' usare la tipologia di un altro coach).
         if (data.eventTypeId) {
           const { data: et } = await supabaseAdmin
             .from("event_types")
             .select("id, base_type, duration")
             .eq("id", data.eventTypeId)
+            .eq("coach_id", coachId)
             .maybeSingle();
           if (et) {
             eventTypeId = et.id;
