@@ -72,8 +72,9 @@ export function CalendarGcalReview({ coachId, bookings, clientsMap, eventTypesMa
   const [open, setOpen] = useState(false);
 
   // ---- stato dialogo import ----
+  type ImportMode = "client" | "consulenza" | "personal";
   const [importTarget, setImportTarget] = useState<ReviewEvent | null>(null);
-  const [mode, setMode] = useState<"external" | "client">("external");
+  const [mode, setMode] = useState<ImportMode>("consulenza");
   const [clientId, setClientId] = useState<string>("");
   const [eventTypeId, setEventTypeId] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
@@ -154,7 +155,9 @@ export function CalendarGcalReview({ coachId, bookings, clientsMap, eventTypesMa
         bestC = n.length;
       }
     }
-    setMode(cId ? "client" : "external");
+    // Se trovo un cliente -> "client". Altrimenti default "consulenza"
+    // (gli eventi non assegnabili sono di norma consulenze/appuntamenti esterni).
+    setMode(cId ? "client" : "consulenza");
     setClientId(cId);
     setEventTypeId(etId);
   }
@@ -322,18 +325,7 @@ export function CalendarGcalReview({ coachId, bookings, clientsMap, eventTypesMa
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            <RadioGroup value={mode} onValueChange={(v) => setMode(v as "external" | "client")}>
-              <div className="flex items-start gap-2">
-                <RadioGroupItem value="external" id="imp-external" className="mt-1" />
-                <Label htmlFor="imp-external" className="font-normal cursor-pointer">
-                  <span className="font-medium">Evento esterno / mio impegno</span>
-                  <br />
-                  <span className="text-xs text-muted-foreground">
-                    Occupa lo slot nel calendario. Non collegato a un cliente, non
-                    scala crediti.
-                  </span>
-                </Label>
-              </div>
+            <RadioGroup value={mode} onValueChange={(v) => setMode(v as ImportMode)}>
               <div className="flex items-start gap-2">
                 <RadioGroupItem value="client" id="imp-client" className="mt-1" />
                 <Label htmlFor="imp-client" className="font-normal cursor-pointer">
@@ -342,6 +334,28 @@ export function CalendarGcalReview({ coachId, bookings, clientsMap, eventTypesMa
                   <span className="text-xs text-muted-foreground">
                     Collegata a un cliente per lo storico. NON scala crediti
                     (gestiscili a parte se serve).
+                  </span>
+                </Label>
+              </div>
+              <div className="flex items-start gap-2">
+                <RadioGroupItem value="consulenza" id="imp-consulenza" className="mt-1" />
+                <Label htmlFor="imp-consulenza" className="font-normal cursor-pointer">
+                  <span className="font-medium">Consulenza / appuntamento esterno</span>
+                  <br />
+                  <span className="text-xs text-muted-foreground">
+                    Per chi non è un cliente registrato (consulenze, prima
+                    chiamata, impegni esterni). Occupa lo slot, nessun credito.
+                  </span>
+                </Label>
+              </div>
+              <div className="flex items-start gap-2">
+                <RadioGroupItem value="personal" id="imp-personal" className="mt-1" />
+                <Label htmlFor="imp-personal" className="font-normal cursor-pointer">
+                  <span className="font-medium">Impegno personale / blocco</span>
+                  <br />
+                  <span className="text-xs text-muted-foreground">
+                    Tempo personale (palestra, pausa, ecc.). Non collegato a
+                    nessuno.
                   </span>
                 </Label>
               </div>
