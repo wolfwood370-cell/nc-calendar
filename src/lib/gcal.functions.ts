@@ -36,7 +36,21 @@ const CreateSchema = z
     endISO: z.string().datetime({ offset: true }),
     requestMeet: z.boolean().optional(),
     isOnline: z.boolean().optional(),
-    colorId: z.string().max(2).optional(),
+    // GCAL-FIX (2026-06-06): Google Calendar accetta colorId 1-11 (max 2 char
+    // numeric). L'UI dell'app salva `event_types.color` come hex code (es.
+    // "#10b981") per il display in-app, e prima passava quell'hex come colorId
+    // a Google -> Zod buttava con too_big.max=2 -> handler MAI eseguito ->
+    // google_event_id NULL su ogni booking dal 1/6 (confermato V4 PING).
+    // Fix server-side: regex + .catch(undefined) droppa silenziosamente un
+    // colorId invalido invece di rigettare l'INTERA prenotazione. Un colore
+    // di display non valido per Google == evento senza colorId (Google usa
+    // il colore di default del calendario). Mapping hex->1-11 sara' un todo
+    // separato se servira'.
+    colorId: z
+      .string()
+      .regex(/^\d{1,2}$/, "colorId must be 1-2 numeric chars (Google Calendar 1-11)")
+      .optional()
+      .catch(undefined),
   })
   // N11 (audit 2026-06-03): garantisce endISO > startISO prima della chiamata
   // a Google Calendar (che altrimenti ritorna un errore generico).
