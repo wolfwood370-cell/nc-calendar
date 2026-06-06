@@ -110,15 +110,57 @@ async function assertBookingAccessAndGetAttendee(
  *  sulla riga booking. Richiede SEMPRE un bookingId valido posseduto dal
  *  caller (client del booking, coach assegnato, o admin). L'attendee email
  *  è SEMPRE quella autoritativa del cliente del booking. */
+// GCAL-DIAG v4 (2026-06-06): l'inputValidator Zod nella v3 chain `throws` PRIMA
+// del handler quando il payload non matcha lo schema -> response 200 con envelope
+// TSR/Error -> handler mai entrato -> niente write su last_gcal_error -> sintomo
+// NULL ovunque nonostante il commit v3 sia in produzione (confermato da Lovable col
+// content-hash dell'handler).
+// Sostituiamo l'inputValidator con un cast pass-through (mantiene il TIPO per il
+// caller TypeScript ma NON throws). La vera validazione Zod e' spostata DENTRO il
+// try del handler -> un fail diventa [V4-ERR] [step:zod] ... visibile in DB invece
+// di sparire come TSR/Error 200 silente.
+type GcalCreateInput = {
+  bookingId: string;
+  summary: string;
+  description?: string;
+  startISO: string;
+  endISO: string;
+  requestMeet?: boolean;
+  isOnline?: boolean;
+  colorId?: string;
+};
 export const gcalCreateEvent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) => CreateSchema.parse(input))
-  .handler(async ({ data, context }): Promise<GcalResult<{ googleEventId: string; meetingLink: string | null; htmlLink: string | null }>> => {
-    // GCAL-DIAG (2026-06-06 v2): step tracker per capire DOVE bucchia il flow
-    // quando vediamo last_gcal_error popolato. Senza step, "Booking non trovato"
-    // potrebbe venire da 3 punti diversi (assert, gcalCreate, writeback).
+  .inputValidator((input): GcalCreateInput => input as GcalCreateInput)
+  .handler(async ({ data: rawInput, context }): Promise<GcalResult<{ googleEventId: string; meetingLink: string | null; htmlLink: string | null }>> => {
+    // V4 PING: PRIMA azione del handler, prima di OGNI validazione/check. Estrae
+    // bookingId in modo tollerante (typeof guard, nessuna Zod parse) cosi' anche
+    // un payload malformato puo' lasciare la traccia "[V4-PING]". Il PING viene
+    // poi sovrascritto da [V4-OK] o [V4-ERR] negli step successivi. Se rimane
+    // [V4-PING] nel valore finale -> il flow si e' interrotto IN MEZZO al try
+    // prima del catch (es. timeout/kill del container).
+    const rawObj = (rawInput ?? {}) as Record<string, unknown>;
+    let bookingId: string | undefined =
+      typeof rawObj.bookingId === "string" ? (rawObj.bookingId as string) : undefined;
+    if (bookingId) {
+      try {
+        await supabaseAdmin
+          .from("bookings")
+          .update({ last_gcal_error: `[V4-PING] handler entered at ${new Date().toISOString()}` })
+          .eq("id", bookingId);
+      } catch {
+        // ignora errori di scrittura del PING - non bloccare il flow per la diag.
+      }
+    }
+
     let step = "entry";
     try {
+      // V4: Zod parse spostata QUI (dentro try) cosi' un fail di validazione
+      // diventa [V4-ERR] [step:zod] ... invece di sparire come TSR/Error 200.
+      step = "zod";
+      const data = CreateSchema.parse(rawInput);
+      bookingId = data.bookingId;
+
       step = "assertBookingAccess";
       // S-AUTHZ: ownership SEMPRE applicato (bookingId ora obbligatorio).
       const { attendeeEmail } = await assertBookingAccessAndGetAttendee(
@@ -153,35 +195,17 @@ export const gcalCreateEvent = createServerFn({ method: "POST" })
         }
       }
 
-      // GCAL-DIAG v3: SCRIVIAMO un marker invece di null sul success path.
-      // Cosi' possiamo distinguere a colpo d'occhio se il worker live esegue
-      // il codice v3 o una build precedente. Se vedi last_gcal_error che
-      // inizia con [V3-OK] -> v3 attivo + persistGcalError funziona DB-side.
-      // Se NULL nonostante un POST 200 -> il worker live serve cache stantia.
       step = "persistSuccess";
-      await persistGcalError(data.bookingId, `[V3-OK] step:${step} eventId:${r.googleEventId || "EMPTY"}`);
+      await persistGcalError(data.bookingId, `[V4-OK] step:${step} eventId:${r.googleEventId || "EMPTY"}`);
 
       return { ok: true, googleEventId: r.googleEventId, meetingLink: r.meetingLink, htmlLink: r.htmlLink };
     } catch (e) {
-      // GCAL-DIAG (2026-06-06 v2): i log dei worker Lovable NON catturano le
-      // console.error degli handler delle server fn, quindi il messaggio reale
-      // dell'errore non è mai ispezionabile post-mortem. Persistiamo il raw msg
-      // (con step prefix) su bookings.last_gcal_error così possiamo leggerlo
-      // via SQL.
-      // FIX v2: AWAITED. La versione v1 usava `void persistGcalError(...)` ->
-      // fire-and-forget -> in serverless la promise viene killed al return e
-      // l'UPDATE non viene mai applicato (sintomo: last_gcal_error sempre NULL
-      // anche quando il catch viene eseguito).
-      // NOTE: il messaggio scritto qui è SOLO server-side (RLS: solo
-      // coach/admin/service_role). Al client torna sempre lo scrubbed.
       console.error("gcalCreateEvent failed", e);
       const errBody = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
-      // GCAL-DIAG v3: prefisso [V3-ERR] anche sul catch path. Insieme al
-      // marker [V3-OK] del success path ci permette di affermare con
-      // certezza se il worker live esegue v3, senza dipendere dai worker
-      // logs di Lovable (che NON catturano le console.error degli handler).
-      const rawMsg = `[V3-ERR] [step:${step}] ${errBody}`;
-      await persistGcalError(data.bookingId, rawMsg.slice(0, 1000));
+      const rawMsg = `[V4-ERR] [step:${step}] ${errBody}`;
+      if (bookingId) {
+        await persistGcalError(bookingId, rawMsg.slice(0, 1000));
+      }
       return { ok: false, error: scrubGcalError(e, "create") };
     }
   });
