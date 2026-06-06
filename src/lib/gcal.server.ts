@@ -196,3 +196,68 @@ export async function gcalDelete(googleEventId: string): Promise<{ ok: true }> {
   }
   return { ok: true };
 }
+
+// ----------------------------------------------------------------------------
+// gcalList — LETTURA eventi (per la riconciliazione Google -> DB).
+// Il gateway Lovable inoltra le GET (verificato 2026-06-06). Usiamo
+// showDeleted=true per ricevere gli eventi cancellati con status="cancelled"
+// (segnale ESPLICITO di cancellazione — non ci basiamo mai sull'assenza, per
+// non cancellare booking validi a causa di un errore di rete transitorio).
+// singleEvents=true espande le ricorrenze in istanze con id propri, coerente
+// col modello 1 booking = 1 evento.
+// ----------------------------------------------------------------------------
+export interface GcalEventLite {
+  id: string;
+  /** "confirmed" | "tentative" | "cancelled" */
+  status: string;
+  /** epoch ms da start.dateTime; null per eventi all-day (start.date) -> ignorati a valle. */
+  startMs: number | null;
+}
+
+export async function gcalList(opts: {
+  timeMinISO: string;
+  timeMaxISO: string;
+}): Promise<GcalEventLite[]> {
+  const out: GcalEventLite[] = [];
+  let pageToken: string | undefined;
+  do {
+    const url = new URL(`${GATEWAY_BASE}${CALENDAR_PATH}`);
+    url.searchParams.set("timeMin", opts.timeMinISO);
+    url.searchParams.set("timeMax", opts.timeMaxISO);
+    url.searchParams.set("singleEvents", "true");
+    url.searchParams.set("showDeleted", "true");
+    url.searchParams.set("maxResults", "250");
+    url.searchParams.set("orderBy", "startTime");
+    if (pageToken) url.searchParams.set("pageToken", pageToken);
+
+    const res = await fetch(url.toString(), { method: "GET", headers: gcalHeaders() });
+    if (!res.ok) {
+      // Qualsiasi errore di trasporto (404/410/429/5xx) -> NON riconciliare:
+      // chi chiama deve abortire, non interpretare come "eventi spariti".
+      const text = await res.text().catch(() => "");
+      console.error("[gcal] list failed", { status: res.status, snippet: text.slice(0, 200) });
+      throw new Error(`Google Calendar list ${res.status}`);
+    }
+    const json = (await res.json()) as {
+      items?: Array<{
+        id?: string;
+        status?: string;
+        start?: { dateTime?: string; date?: string };
+      }>;
+      nextPageToken?: string;
+    };
+    for (const it of json.items ?? []) {
+      if (!it.id) continue;
+      // Confronto sempre su epoch (Date.parse gestisce l'offset es. +02:00),
+      // mai su stringhe. all-day (start.date senza dateTime) -> startMs null.
+      const parsed = it.start?.dateTime ? Date.parse(it.start.dateTime) : NaN;
+      out.push({
+        id: it.id,
+        status: it.status ?? "confirmed",
+        startMs: Number.isFinite(parsed) ? parsed : null,
+      });
+    }
+    pageToken = json.nextPageToken;
+  } while (pageToken);
+  return out;
+}
