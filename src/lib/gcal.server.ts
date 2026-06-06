@@ -15,6 +15,15 @@
 const GATEWAY_BASE = "https://connector-gateway.lovable.dev/google_calendar";
 const CALENDAR_PATH = "/calendar/v3/calendars/primary/events";
 
+// GCAL-DIAG (2026-06-06): rimuove qualunque sequenza simile a un Bearer token
+// dallo snippet del body Google prima di includerlo in messaggi di errore che
+// possono finire in DB. Belt-and-suspenders: il gateway Lovable non dovrebbe
+// echoare i nostri headers, ma se per qualche motivo lo facesse, non vogliamo
+// un token nei log persistenti. La sostituzione è non-greedy + case-insensitive.
+function redactBearer(s: string): string {
+  return s.replace(/Bearer\s+[A-Za-z0-9._\-]+/gi, "Bearer [REDACTED]");
+}
+
 function requireEnv(name: string): string {
   const v = process.env[name];
   if (!v) throw new Error(`gcal: missing required env var ${name}`);
@@ -119,12 +128,13 @@ export async function gcalCreate(input: CreateEventInput): Promise<CreateEventRe
     body: JSON.stringify(body),
   });
   if (!res.ok) {
-    // Wave 6 P7: il body di risposta Google può contenere echo dei
-    // request header (incluso il bearer token). Log solo server-side,
-    // non propagato all'errore che potrebbe affiorare al client.
+    // GCAL-DIAG (2026-06-06): includiamo lo snippet (redacted) nel messaggio
+    // del throw così finisce nel bookings.last_gcal_error per la diagnostica
+    // dei 4xx Google. Wave 6 P7 (redact Bearer) preservato via redactBearer.
     const text = await res.text().catch(() => "");
-    console.error("[gcal] create failed", { status: res.status, snippet: text.slice(0, 200) });
-    throw new Error(`Google Calendar create ${res.status}`);
+    const snippet = redactBearer(text).slice(0, 300);
+    console.error("[gcal] create failed", { status: res.status, snippet });
+    throw new Error(`Google Calendar create ${res.status}: ${snippet}`);
   }
   const event = (await res.json()) as {
     id?: string;
@@ -172,10 +182,11 @@ export async function gcalUpdate(input: UpdateEventInput): Promise<{ ok: true }>
   if (!res.ok) {
     // 404/410 = evento già sparito su Google: trattiamo come no-op silenzioso.
     if (res.status === 404 || res.status === 410) return { ok: true };
-    // Wave 6 P7: redact body dal messaggio di errore (vedi gcalCreate).
+    // GCAL-DIAG: snippet redacted nel throw (vedi gcalCreate).
     const text = await res.text().catch(() => "");
-    console.error("[gcal] update failed", { status: res.status, snippet: text.slice(0, 200) });
-    throw new Error(`Google Calendar update ${res.status}`);
+    const snippet = redactBearer(text).slice(0, 300);
+    console.error("[gcal] update failed", { status: res.status, snippet });
+    throw new Error(`Google Calendar update ${res.status}: ${snippet}`);
   }
   return { ok: true };
 }
@@ -189,10 +200,11 @@ export async function gcalDelete(googleEventId: string): Promise<{ ok: true }> {
     headers: gcalHeaders(),
   });
   if (!res.ok && res.status !== 404 && res.status !== 410) {
-    // Wave 6 P7: redact body dal messaggio di errore (vedi gcalCreate).
+    // GCAL-DIAG: snippet redacted nel throw (vedi gcalCreate).
     const text = await res.text().catch(() => "");
-    console.error("[gcal] delete failed", { status: res.status, snippet: text.slice(0, 200) });
-    throw new Error(`Google Calendar delete ${res.status}`);
+    const snippet = redactBearer(text).slice(0, 300);
+    console.error("[gcal] delete failed", { status: res.status, snippet });
+    throw new Error(`Google Calendar delete ${res.status}: ${snippet}`);
   }
   return { ok: true };
 }
