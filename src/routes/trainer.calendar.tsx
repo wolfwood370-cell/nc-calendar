@@ -21,7 +21,7 @@ import {
   type EventTypeRow,
 } from "@/lib/queries";
 import { queryKeys } from "@/lib/query-keys";
-import { gcalReconcileEvents } from "@/lib/gcal.functions";
+import { gcalReconcileEvents, gcalRepairMissingEvents } from "@/lib/gcal.functions";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -73,18 +73,31 @@ function CalendarPage() {
   const clientsQ = useCoachClients(user?.id);
   const eventTypesQ = useCoachEventTypes(user?.id);
 
-  // Riconciliazione Google -> app: allinea le sessioni agli eventi Google
-  // (cancellazioni/spostamenti fatti direttamente su Google Calendar). Mostra
-  // un toast solo se qualcosa e cambiato.
+  // Sincronizzazione bidirezionale con Google Calendar, in 2 direzioni:
+  //   1. Google -> app (gcalReconcileEvents): allinea le sessioni agli eventi
+  //      Google (cancellazioni/spostamenti fatti direttamente su Google).
+  //   2. app -> Google (gcalRepairMissingEvents): RETE DI SICUREZZA. Ricrea
+  //      gli eventi Google mancanti (booking con google_event_id NULL), p.es.
+  //      quando la creazione per-booking client-side e' fallita. Idempotente,
+  //      tutto derivato server-side. Cosi' il calendario Google si riallinea
+  //      da solo a ogni apertura, senza dipendere dal singolo flusso di
+  //      prenotazione. Mostra un toast solo se qualcosa e' cambiato.
   const runReconcile = useCallback(async () => {
     try {
-      const r = await gcalReconcileEvents();
-      if (r.ok && ((r.cancelled ?? 0) > 0 || (r.moved ?? 0) > 0)) {
+      const [pull, push] = await Promise.all([
+        gcalReconcileEvents(),
+        gcalRepairMissingEvents(),
+      ]);
+      const changed =
+        (pull.ok && ((pull.cancelled ?? 0) > 0 || (pull.moved ?? 0) > 0)) ||
+        (push.ok && (push.created ?? 0) > 0);
+      if (changed) {
         qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(user?.id) });
         qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(user?.id) });
         const parts: string[] = [];
-        if (r.cancelled) parts.push(`${r.cancelled} annullata/e`);
-        if (r.moved) parts.push(`${r.moved} spostata/e`);
+        if (pull.ok && pull.cancelled) parts.push(`${pull.cancelled} annullata/e`);
+        if (pull.ok && pull.moved) parts.push(`${pull.moved} spostata/e`);
+        if (push.ok && push.created) parts.push(`${push.created} aggiunta/e su Google`);
         toast.info("Sincronizzato con Google Calendar", { description: parts.join(" · ") });
       }
     } catch (e) {
