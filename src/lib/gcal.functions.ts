@@ -495,8 +495,12 @@ export const gcalRepairMissingEvents = createServerFn({ method: "POST" })
       const timeMaxISO = new Date(now + 90 * 24 * 60 * 60_000).toISOString(); // +90g
 
       // Sessioni candidate: stati "reali" (scheduled/completed/no_show -> NON
-      // cancelled/late_cancelled), non eliminate, SENZA evento Google, nella
-      // finestra. Coach -> solo le proprie; admin -> tutte.
+      // cancelled/late_cancelled), non eliminate, NON personali, SENZA evento
+      // Google, nella finestra. Coach -> solo le proprie; admin -> tutte.
+      // is_personal=false: i blocchi personali del coach restano nell'app.
+      // Gli eventi "tutto il giorno" (compleanni/Stripe/milestone) sono
+      // esclusi DOPO il fetch (vedi isMidnightUtc) -> restano solo nell'app
+      // (decisione utente 2026-06-06).
       let q = supabaseAdmin
         .from("bookings")
         .select(
@@ -504,6 +508,7 @@ export const gcalRepairMissingEvents = createServerFn({ method: "POST" })
         )
         .in("status", ["scheduled", "completed", "no_show"])
         .is("deleted_at", null)
+        .eq("is_personal", false)
         .is("google_event_id", null)
         .gte("scheduled_at", timeMinISO)
         .lte("scheduled_at", timeMaxISO)
@@ -520,7 +525,11 @@ export const gcalRepairMissingEvents = createServerFn({ method: "POST" })
         console.error("gcalRepair: bookings query failed", bErr);
         return { ok: false, error: "Lettura prenotazioni fallita" };
       }
-      const bookings = rows ?? [];
+      // Escludi gli eventi "tutto il giorno" (scheduled_at a mezzanotte UTC):
+      // compleanni / promemoria Stripe / fine percorso -> restano solo nell'app,
+      // non vanno spinti su Google (diventerebbero brutti eventi delle 02:00).
+      const isMidnightUtc = (iso: string) => /T00:00:00(?:\.000)?Z$/i.test(iso);
+      const bookings = (rows ?? []).filter((b) => !isMidnightUtc(b.scheduled_at));
       if (bookings.length === 0) return { ok: true, created: 0, failed: 0, total: 0 };
 
       // Prefetch event_types + profiles in 2 query (no N+1).
