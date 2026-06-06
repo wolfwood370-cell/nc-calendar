@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { useIsBelowXl } from "@/hooks/use-mobile";
@@ -21,6 +21,7 @@ import {
   type EventTypeRow,
 } from "@/lib/queries";
 import { queryKeys } from "@/lib/query-keys";
+import { gcalReconcileEvents } from "@/lib/gcal.functions";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -71,6 +72,36 @@ function CalendarPage() {
   const bookingsQ = useCoachBookings(user?.id);
   const clientsQ = useCoachClients(user?.id);
   const eventTypesQ = useCoachEventTypes(user?.id);
+
+  // Riconciliazione Google -> app: allinea le sessioni agli eventi Google
+  // (cancellazioni/spostamenti fatti direttamente su Google Calendar). Mostra
+  // un toast solo se qualcosa e cambiato.
+  const runReconcile = useCallback(async () => {
+    try {
+      const r = await gcalReconcileEvents();
+      if (r.ok && ((r.cancelled ?? 0) > 0 || (r.moved ?? 0) > 0)) {
+        qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(user?.id) });
+        qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(user?.id) });
+        const parts: string[] = [];
+        if (r.cancelled) parts.push(`${r.cancelled} annullata/e`);
+        if (r.moved) parts.push(`${r.moved} spostata/e`);
+        toast.info("Sincronizzato con Google Calendar", { description: parts.join(" · ") });
+      }
+    } catch (e) {
+      console.error("gcalReconcile (calendar) failed", e);
+    }
+  }, [qc, user?.id]);
+
+  // Al mount: riconcilia una volta, con throttle (max 1 ogni 10 min) per non
+  // interrogare Google a ogni navigazione.
+  useEffect(() => {
+    if (!user) return;
+    const KEY = "gcal_reconcile_last";
+    const last = Number(localStorage.getItem(KEY) ?? "0");
+    if (Date.now() - last < 10 * 60_000) return;
+    localStorage.setItem(KEY, String(Date.now()));
+    void runReconcile();
+  }, [user, runReconcile]);
 
   const bookings = bookingsQ.data ?? [];
   const clients = clientsQ.data ?? [];
@@ -216,6 +247,7 @@ function CalendarPage() {
             qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(user?.id) });
             qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(user?.id) });
             qc.invalidateQueries({ queryKey: queryKeys.clients.coach(user?.id) });
+            void runReconcile(); // forza la sync Google -> app (oltre al refresh locale)
             toast.success("Calendario aggiornato");
           }}
           hasBookingsError={bookingsQ.isError}
