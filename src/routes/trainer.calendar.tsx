@@ -8,6 +8,7 @@ import { CalendarDaysHeader } from "@/components/calendar-days-header";
 import { CalendarAllDayStrip } from "@/components/calendar-all-day-strip";
 import { CalendarEventTile } from "@/components/calendar-event-tile";
 import { CalendarContextPanel } from "@/components/calendar-context-panel";
+import { CalendarGcalReview } from "@/components/calendar-gcal-review";
 import { layoutDay } from "@/lib/calendar-layout";
 import { MessageCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -267,6 +268,14 @@ function CalendarPage() {
           onRetryBookings={() => bookingsQ.refetch()}
           filtersActive={filtersActive}
           totalVisible={totalVisible}
+        />
+
+        {/* Riconciliazione bidirezionale Google <-> app (sola lettura) */}
+        <CalendarGcalReview
+          coachId={user?.id}
+          bookings={bookings}
+          clientsMap={clientsMap}
+          eventTypesMap={eventTypesMap}
         />
 
         {/* Mobile agenda view (audit H5) — replaces the 7-column grid below md */}

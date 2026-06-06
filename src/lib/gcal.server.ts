@@ -230,6 +230,12 @@ export interface GcalEventLite {
   status: string;
   /** epoch ms da start.dateTime; null per eventi all-day (start.date) -> ignorati a valle. */
   startMs: number | null;
+  /** epoch ms da end.dateTime; null per all-day o end mancante. */
+  endMs: number | null;
+  /** Titolo dell'evento Google (per la UI di riconciliazione). "" se assente. */
+  summary: string;
+  /** true se all-day (start.date senza dateTime). */
+  allDay: boolean;
 }
 
 export async function gcalList(opts: {
@@ -260,7 +266,9 @@ export async function gcalList(opts: {
       items?: Array<{
         id?: string;
         status?: string;
+        summary?: string;
         start?: { dateTime?: string; date?: string };
+        end?: { dateTime?: string; date?: string };
       }>;
       nextPageToken?: string;
     };
@@ -269,10 +277,14 @@ export async function gcalList(opts: {
       // Confronto sempre su epoch (Date.parse gestisce l'offset es. +02:00),
       // mai su stringhe. all-day (start.date senza dateTime) -> startMs null.
       const parsed = it.start?.dateTime ? Date.parse(it.start.dateTime) : NaN;
+      const parsedEnd = it.end?.dateTime ? Date.parse(it.end.dateTime) : NaN;
       out.push({
         id: it.id,
         status: it.status ?? "confirmed",
         startMs: Number.isFinite(parsed) ? parsed : null,
+        endMs: Number.isFinite(parsedEnd) ? parsedEnd : null,
+        summary: it.summary ?? "",
+        allDay: !it.start?.dateTime && !!it.start?.date,
       });
     }
     pageToken = json.nextPageToken;

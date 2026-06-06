@@ -625,3 +625,56 @@ export const gcalRepairMissingEvents = createServerFn({ method: "POST" })
       return { ok: false, error: e instanceof Error ? e.message : String(e) };
     }
   });
+
+// ----------------------------------------------------------------------------
+// gcalListEventsForReview — LETTURA eventi Google per la UI di riconciliazione.
+// ----------------------------------------------------------------------------
+// Sola lettura: espone al client (coach/admin) gli eventi Google "confirmed"
+// di una finestra temporale, cosi' la pagina /trainer/calendar puo' confrontarli
+// con i booking gia' caricati e mostrare:
+//   - eventi su Google MA non in piattaforma (da importare/visualizzare);
+//   - booking in piattaforma MA non su Google (da rivedere).
+// Nessuna scrittura sul DB, nessuna migration: e' un confronto a video.
+// ----------------------------------------------------------------------------
+type ReviewEvent = { id: string; summary: string; startMs: number | null; endMs: number | null; allDay: boolean };
+type ListReviewResult =
+  | { ok: true; events: ReviewEvent[] }
+  | { ok: false; error: string };
+
+export const gcalListEventsForReview = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input): { timeMinISO?: string; timeMaxISO?: string } => (input ?? {}) as { timeMinISO?: string; timeMaxISO?: string })
+  .handler(async ({ data, context }): Promise<ListReviewResult> => {
+    try {
+      // Authz: solo coach/admin (lettura del calendario condiviso del workspace).
+      const { data: roleRow } = await supabaseAdmin
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", context.userId)
+        .maybeSingle();
+      const role = (roleRow as { role?: string } | null)?.role;
+      if (role !== "coach" && role !== "admin") {
+        return { ok: false, error: "Permesso negato" };
+      }
+
+      const now = Date.now();
+      // Finestra di default: -30g .. +90g (copre recenti + futuro). Il client
+      // puo' passarne una propria; clampiamo a un massimo di ~13 mesi per non
+      // tirare giu' un calendario intero.
+      const defMin = new Date(now - 30 * 24 * 60 * 60_000).toISOString();
+      const defMax = new Date(now + 90 * 24 * 60 * 60_000).toISOString();
+      const timeMinISO = typeof data.timeMinISO === "string" ? data.timeMinISO : defMin;
+      const timeMaxISO = typeof data.timeMaxISO === "string" ? data.timeMaxISO : defMax;
+
+      const events = await gcalList({ timeMinISO, timeMaxISO });
+      // Solo eventi "vivi": scartiamo i cancelled (sono gestiti dal sync
+      // Google->DB) e gli all-day (non mappano a una sessione 1:1).
+      const out: ReviewEvent[] = events
+        .filter((e) => e.status !== "cancelled" && !e.allDay)
+        .map((e) => ({ id: e.id, summary: e.summary, startMs: e.startMs, endMs: e.endMs, allDay: e.allDay }));
+      return { ok: true, events: out };
+    } catch (e) {
+      console.error("gcalListEventsForReview failed", e);
+      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  });
