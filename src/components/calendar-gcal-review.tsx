@@ -21,6 +21,7 @@ import { ChevronDown, ChevronRight, CalendarPlus, AlertTriangle, RefreshCw } fro
 import { Button } from "@/components/ui/button";
 import { gcalListEventsForReview } from "@/lib/gcal.functions";
 import type { BookingRow, ProfileRow, EventTypeRow } from "@/lib/queries";
+import { isAllDayEvent } from "@/components/mobile-calendar-agenda";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -80,6 +81,11 @@ export function CalendarGcalReview({ coachId, bookings, clientsMap, eventTypesMa
     const pOnly = bookings.filter((b) => {
       if (b.status === "cancelled") return false;
       if (b.deleted_at) return false;
+      // Promemoria interni (decisione utente 2026-06-06): gli eventi "tutto il
+      // giorno" (compleanni, promemoria Stripe, fine percorso) e i blocchi
+      // personali restano SOLO nell'app -> non vanno su Google e non sono
+      // "errori da rivedere". Li escludiamo dalla lista.
+      if (isAllDayEvent(b) || b.is_personal) return false;
       const ms = Date.parse(b.scheduled_at);
       if (!Number.isFinite(ms) || ms < lowerMs || ms > upperMs) return false;
       // manca del tutto l'evento Google, oppure l'id non e' tra quelli vivi.
