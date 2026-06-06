@@ -1,25 +1,44 @@
 // ----------------------------------------------------------------------------
 // CalendarGcalReview — pannello di riconciliazione bidirezionale Google <-> app.
 // ----------------------------------------------------------------------------
-// SOLA LETTURA: legge gli eventi del Google Calendar condiviso (server fn
-// gcalListEventsForReview) e li confronta con i booking gia' caricati nella
-// pagina /trainer/calendar. Mostra due liste:
+// Legge il Google Calendar condiviso (server fn gcalListEventsForReview) e lo
+// confronta con i booking gia' caricati in /trainer/calendar. Mostra due liste:
 //
 //   1. "Su Google, non in piattaforma" — eventi creati direttamente su Google
-//      Calendar che non hanno un booking corrispondente. Vanno visti/importati.
-//   2. "In piattaforma, non su Google" — sessioni prenotate nell'app che non
-//      hanno (piu') un evento Google corrispondente. Vanno riviste.
+//      senza booking corrispondente. Ogni riga ha un pulsante "Importa" che apre
+//      un dialogo (FASE 2): evento esterno (no crediti) oppure sessione cliente
+//      (collegata a un cliente, SENZA scalare crediti). L'import imposta
+//      google_event_id -> niente doppioni.
+//   2. "In piattaforma, non su Google" — sessioni app senza evento Google ->
+//      da rivedere. Gli eventi "tutto il giorno" / personali sono esclusi
+//      (restano note interne dell'app, decisione utente 2026-06-06).
 //
-// Nessuna scrittura sul DB, nessuna migration: e' un confronto a video. Il
-// matching e' per `bookings.google_event_id` == `googleEvent.id` -> niente
-// doppioni. Le azioni di import/archiviazione persistenti sono una fase 2
-// (richiedono scritture DB) e verranno aggiunte quando servira'.
+// Matching per `bookings.google_event_id` == `googleEvent.id`.
 // ----------------------------------------------------------------------------
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, CalendarPlus, AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { gcalListEventsForReview } from "@/lib/gcal.functions";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { toast } from "sonner";
+import { gcalListEventsForReview, gcalImportEvent } from "@/lib/gcal.functions";
+import { queryKeys } from "@/lib/query-keys";
 import type { BookingRow, ProfileRow, EventTypeRow } from "@/lib/queries";
 import { isAllDayEvent } from "@/components/mobile-calendar-agenda";
 import { cn } from "@/lib/utils";
@@ -30,6 +49,8 @@ interface Props {
   clientsMap: Map<string, ProfileRow>;
   eventTypesMap: Map<string, EventTypeRow>;
 }
+
+type ReviewEvent = { id: string; summary: string; startMs: number | null; endMs: number | null };
 
 function fmtDateTime(ms: number | null): string {
   if (ms == null || !Number.isFinite(ms)) return "—";
@@ -47,7 +68,18 @@ function fmtIso(iso: string): string {
 }
 
 export function CalendarGcalReview({ coachId, bookings, clientsMap, eventTypesMap }: Props) {
+  const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+
+  // ---- stato dialogo import ----
+  const [importTarget, setImportTarget] = useState<ReviewEvent | null>(null);
+  const [mode, setMode] = useState<"external" | "client">("external");
+  const [clientId, setClientId] = useState<string>("");
+  const [eventTypeId, setEventTypeId] = useState<string>("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const clients = useMemo(() => Array.from(clientsMap.values()), [clientsMap]);
+  const eventTypes = useMemo(() => Array.from(eventTypesMap.values()), [eventTypesMap]);
 
   const reviewQ = useQuery({
     queryKey: ["gcal-review", coachId],
@@ -62,33 +94,23 @@ export function CalendarGcalReview({ coachId, bookings, clientsMap, eventTypesMa
 
   const { googleOnly, platformOnly } = useMemo(() => {
     const events = reviewQ.data ?? [];
-    // Set degli id Google referenziati dai booking dell'app.
     const bookedGoogleIds = new Set(
       bookings.map((b) => b.google_event_id).filter(Boolean) as string[],
     );
-    // Eventi su Google senza booking corrispondente.
     const gOnly = events.filter((e) => !bookedGoogleIds.has(e.id));
 
-    // Booking "vivi" (scheduled, non cancellati) DENTRO la stessa finestra letta
-    // da Google, che non hanno un evento Google corrispondente. Il bound
-    // superiore (~+89g) evita falsi positivi su sessioni oltre la finestra
-    // Google (+90g lato server): senza, un booking a +120g — il cui evento
-    // Google non e' stato letto — risulterebbe erroneamente "non su Google".
     const liveGoogleIds = new Set(events.map((e) => e.id));
     const now = Date.now();
-    const lowerMs = now - 24 * 60 * 60_000; // includi le ultime 24h
-    const upperMs = now + 89 * 24 * 60 * 60_000; // appena dentro la finestra Google (+90g)
+    const lowerMs = now - 24 * 60 * 60_000;
+    const upperMs = now + 89 * 24 * 60 * 60_000;
     const pOnly = bookings.filter((b) => {
       if (b.status === "cancelled") return false;
       if (b.deleted_at) return false;
-      // Promemoria interni (decisione utente 2026-06-06): gli eventi "tutto il
-      // giorno" (compleanni, promemoria Stripe, fine percorso) e i blocchi
-      // personali restano SOLO nell'app -> non vanno su Google e non sono
-      // "errori da rivedere". Li escludiamo dalla lista.
+      // Promemoria interni (decisione utente 2026-06-06): all-day + personali
+      // restano solo nell'app -> non sono "errori da rivedere".
       if (isAllDayEvent(b) || b.is_personal) return false;
       const ms = Date.parse(b.scheduled_at);
       if (!Number.isFinite(ms) || ms < lowerMs || ms > upperMs) return false;
-      // manca del tutto l'evento Google, oppure l'id non e' tra quelli vivi.
       return !b.google_event_id || !liveGoogleIds.has(b.google_event_id);
     });
     return { googleOnly: gOnly, platformOnly: pOnly };
@@ -97,6 +119,7 @@ export function CalendarGcalReview({ coachId, bookings, clientsMap, eventTypesMa
   const total = googleOnly.length + platformOnly.length;
   const loading = reviewQ.isLoading;
   const errored = reviewQ.isError;
+  const allSynced = !loading && !errored && total === 0;
 
   function bookingLabel(b: BookingRow): string {
     const et = b.event_type_id ? eventTypesMap.get(b.event_type_id) : undefined;
@@ -106,8 +129,52 @@ export function CalendarGcalReview({ coachId, bookings, clientsMap, eventTypesMa
     return clientName ? `${base} — ${clientName}` : base;
   }
 
-  // Stato "tutto ok": non mostriamo nulla di ingombrante.
-  const allSynced = !loading && !errored && total === 0;
+  function openImport(e: ReviewEvent) {
+    setImportTarget(e);
+    setMode("external");
+    setClientId("");
+    setEventTypeId("");
+  }
+
+  async function confirmImport() {
+    if (!importTarget) return;
+    if (mode === "client" && !clientId) {
+      toast.error("Seleziona un cliente.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const r = await gcalImportEvent({
+        data: {
+          googleEventId: importTarget.id,
+          summary: importTarget.summary || undefined,
+          startISO: new Date(importTarget.startMs ?? Date.now()).toISOString(),
+          endISO: importTarget.endMs ? new Date(importTarget.endMs).toISOString() : undefined,
+          mode,
+          clientId: mode === "client" ? clientId : undefined,
+          eventTypeId: mode === "client" && eventTypeId ? eventTypeId : undefined,
+        },
+      });
+      if (!r.ok) {
+        toast.error("Import non riuscito", { description: r.error });
+        return;
+      }
+      toast.success(
+        r.alreadyImported ? "Evento già presente in piattaforma" : "Evento importato",
+      );
+      setImportTarget(null);
+      // Aggiorna calendario + pannello.
+      qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(coachId) });
+      qc.invalidateQueries({ queryKey: ["gcal-review", coachId] });
+      reviewQ.refetch();
+    } catch (e) {
+      toast.error("Import non riuscito", {
+        description: e instanceof Error ? e.message : String(e),
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <div className="mb-4 rounded-2xl border border-surface-container bg-white shadow-soft-blue overflow-hidden">
@@ -169,8 +236,8 @@ export function CalendarGcalReview({ coachId, bookings, clientsMap, eventTypesMa
                 Su Google, non in piattaforma ({googleOnly.length})
               </h4>
               <p className="text-xs text-muted-foreground mb-2">
-                Eventi creati direttamente su Google Calendar. Non risultano come
-                sessioni nell'app NC Calendar.
+                Eventi creati direttamente su Google Calendar. Premi "Importa" per
+                aggiungerli all'app NC Calendar.
               </p>
               <ul className="space-y-1">
                 {googleOnly.map((e) => (
@@ -179,8 +246,11 @@ export function CalendarGcalReview({ coachId, bookings, clientsMap, eventTypesMa
                     className="flex items-center justify-between gap-3 rounded-lg bg-blue-50/60 px-3 py-2"
                   >
                     <span className="truncate">{e.summary || "(senza titolo)"}</span>
-                    <span className="shrink-0 text-xs text-muted-foreground">
-                      {fmtDateTime(e.startMs)}
+                    <span className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs text-muted-foreground">{fmtDateTime(e.startMs)}</span>
+                      <Button size="sm" variant="outline" onClick={() => openImport(e)}>
+                        Importa
+                      </Button>
                     </span>
                   </li>
                 ))}
@@ -217,6 +287,89 @@ export function CalendarGcalReview({ coachId, bookings, clientsMap, eventTypesMa
           )}
         </div>
       )}
+
+      {/* Dialogo import (FASE 2) */}
+      <Dialog open={!!importTarget} onOpenChange={(o) => !o && setImportTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Importa evento da Google</DialogTitle>
+            <DialogDescription>
+              {importTarget?.summary || "(senza titolo)"} · {fmtDateTime(importTarget?.startMs ?? null)}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <RadioGroup value={mode} onValueChange={(v) => setMode(v as "external" | "client")}>
+              <div className="flex items-start gap-2">
+                <RadioGroupItem value="external" id="imp-external" className="mt-1" />
+                <Label htmlFor="imp-external" className="font-normal cursor-pointer">
+                  <span className="font-medium">Evento esterno / mio impegno</span>
+                  <br />
+                  <span className="text-xs text-muted-foreground">
+                    Occupa lo slot nel calendario. Non collegato a un cliente, non
+                    scala crediti.
+                  </span>
+                </Label>
+              </div>
+              <div className="flex items-start gap-2">
+                <RadioGroupItem value="client" id="imp-client" className="mt-1" />
+                <Label htmlFor="imp-client" className="font-normal cursor-pointer">
+                  <span className="font-medium">Sessione di un cliente</span>
+                  <br />
+                  <span className="text-xs text-muted-foreground">
+                    Collegata a un cliente per lo storico. NON scala crediti
+                    (gestiscili a parte se serve).
+                  </span>
+                </Label>
+              </div>
+            </RadioGroup>
+
+            {mode === "client" && (
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-xs">Cliente</Label>
+                  <Select value={clientId} onValueChange={setClientId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Scegli un cliente…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {clients.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.full_name ?? c.email ?? c.id}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Tipo sessione (opzionale)</Label>
+                  <Select value={eventTypeId} onValueChange={setEventTypeId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Predefinito (PT Session)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {eventTypes.map((et) => (
+                        <SelectItem key={et.id} value={et.id}>
+                          {et.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setImportTarget(null)} disabled={submitting}>
+              Annulla
+            </Button>
+            <Button onClick={confirmImport} disabled={submitting}>
+              {submitting ? "Importo…" : "Importa"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

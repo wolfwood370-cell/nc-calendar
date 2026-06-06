@@ -687,3 +687,149 @@ export const gcalListEventsForReview = createServerFn({ method: "POST" })
       return { ok: false, error: e instanceof Error ? e.message : String(e) };
     }
   });
+
+// ----------------------------------------------------------------------------
+// gcalImportEvent — FASE 2: importa un evento Google come booking in piattaforma.
+// ----------------------------------------------------------------------------
+// SAFE-BY-CONSTRUCTION: l'INSERT NON imposta mai block_id -> il trigger
+// validate_booking_block_allocation ritorna subito (NESSUN consumo di crediti).
+// L'INSERT gira come service_role -> il trigger enforce_client_booking_insert
+// bypassa (auth.uid() IS NULL). Quindi nessun rischio crediti / authz.
+//
+// Due modalita' (scelta dall'utente "volta per volta"):
+//   - "external": evento/impegno del coach (client_id=coach_id, is_personal=true,
+//     category='personal'). NON consuma crediti, NON e' una sessione cliente.
+//   - "client": sessione collegata a un cliente (client_id=clientId, category=
+//     'client_session') MA SENZA scalare crediti (block_id null) -> import a
+//     scopo di archivio/visibilita'. Il credito si gestisce a parte se serve.
+//
+// google_event_id viene impostato all'id Google -> niente doppioni: un secondo
+// import dello stesso evento e' un no-op (gia' presente).
+// ----------------------------------------------------------------------------
+type ImportResult =
+  | { ok: true; bookingId: string; alreadyImported?: boolean }
+  | { ok: false; error: string };
+
+const ImportSchema = z.object({
+  googleEventId: z.string().min(1).max(1024),
+  summary: z.string().max(500).optional(),
+  startISO: z.string().datetime({ offset: true }),
+  endISO: z.string().datetime({ offset: true }).optional(),
+  mode: z.enum(["external", "client"]),
+  clientId: z.string().uuid().optional(),
+  eventTypeId: z.string().uuid().optional(),
+});
+
+export const gcalImportEvent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => ImportSchema.parse(input))
+  .handler(async ({ data, context }): Promise<ImportResult> => {
+    try {
+      // Authz: solo coach/admin.
+      const { data: roleRow } = await supabaseAdmin
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", context.userId)
+        .maybeSingle();
+      const role = (roleRow as { role?: string } | null)?.role;
+      if (role !== "coach" && role !== "admin") {
+        return { ok: false, error: "Permesso negato" };
+      }
+
+      const coachId = context.userId;
+
+      // Idempotenza / no doppioni: se esiste gia' un booking con questo
+      // google_event_id, non re-importiamo.
+      const { data: existing } = await supabaseAdmin
+        .from("bookings")
+        .select("id")
+        .eq("google_event_id", data.googleEventId)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (existing?.id) {
+        return { ok: true, bookingId: existing.id, alreadyImported: true };
+      }
+
+      // Modalita' client: valida che il cliente sia davvero del coach.
+      let clientId = coachId; // default: external -> evento del coach stesso
+      let eventTypeId: string | null = null;
+      let sessionType: "PT Session" | "BIA" | "Functional Test" = "PT Session";
+      let durationMin = 60;
+
+      if (data.mode === "client") {
+        if (!data.clientId) return { ok: false, error: "Cliente non specificato" };
+        const { data: clientProfile } = await supabaseAdmin
+          .from("profiles")
+          .select("id, coach_id")
+          .eq("id", data.clientId)
+          .maybeSingle();
+        if (!clientProfile) return { ok: false, error: "Cliente non trovato" };
+        if (role === "coach" && clientProfile.coach_id !== coachId) {
+          return { ok: false, error: "Il cliente non è assegnato a te" };
+        }
+        clientId = data.clientId;
+
+        // Tipo evento opzionale -> definisce session_type + durata.
+        if (data.eventTypeId) {
+          const { data: et } = await supabaseAdmin
+            .from("event_types")
+            .select("id, base_type, duration")
+            .eq("id", data.eventTypeId)
+            .maybeSingle();
+          if (et) {
+            eventTypeId = et.id;
+            sessionType = et.base_type as typeof sessionType;
+            if (et.duration) durationMin = et.duration;
+          }
+        }
+      }
+
+      const startMs = Date.parse(data.startISO);
+      const endMs = data.endISO ? Date.parse(data.endISO) : NaN;
+      if (Number.isFinite(endMs) && Number.isFinite(startMs)) {
+        durationMin = Math.max(1, Math.round((endMs - startMs) / 60_000));
+      }
+      const endISO = Number.isFinite(endMs)
+        ? new Date(endMs).toISOString()
+        : new Date(startMs + durationMin * 60_000).toISOString();
+
+      // Eventi passati -> 'completed' (archivio storico); futuri -> 'scheduled'.
+      const status: "scheduled" | "completed" = startMs < Date.now() ? "completed" : "scheduled";
+      const isExternal = data.mode === "external";
+
+      const insertRow = {
+        coach_id: coachId,
+        client_id: clientId,
+        scheduled_at: data.startISO,
+        end_at: endISO,
+        duration_min: durationMin,
+        session_type: sessionType,
+        event_type_id: eventTypeId,
+        status,
+        is_personal: isExternal,
+        category: isExternal ? "personal" : "client_session",
+        title: data.summary ?? null,
+        google_event_id: data.googleEventId, // LINK -> niente doppioni
+        // block_id NON impostato -> nessun consumo crediti (safe-by-construction)
+      };
+
+      const { data: inserted, error: insErr } = await supabaseAdmin
+        .from("bookings")
+        .insert(insertRow)
+        .select("id")
+        .single();
+
+      if (insErr) {
+        // 23P01 = sovrapposizione oraria con un altro booking dello stesso coach.
+        if (insErr.code === "23P01") {
+          return { ok: false, error: "Sovrapposizione: esiste già una sessione in questo orario." };
+        }
+        console.error("gcalImportEvent insert failed", insErr);
+        return { ok: false, error: "Import fallito. Riprova." };
+      }
+      return { ok: true, bookingId: (inserted as { id: string }).id };
+    } catch (e) {
+      console.error("gcalImportEvent failed", e);
+      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  });
