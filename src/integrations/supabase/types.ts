@@ -1175,6 +1175,16 @@ export type Database = {
           sequence_order: number
         }[]
       }
+      reschedule_booking: {
+        Args: { p_booking_id: string; p_new_scheduled_at: string }
+        Returns: {
+          client_id: string
+          coach_id: string
+          end_at: string
+          google_event_id: string
+          scheduled_at: string
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "coach" | "client"
