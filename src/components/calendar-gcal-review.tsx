@@ -131,9 +131,32 @@ export function CalendarGcalReview({ coachId, bookings, clientsMap, eventTypesMa
 
   function openImport(e: ReviewEvent) {
     setImportTarget(e);
-    setMode("external");
-    setClientId("");
-    setEventTypeId("");
+    // Riconoscimento automatico dal titolo Google (es. "Test Funzionali +
+    // Check Tecnico (Marco Golinelli)"): cerca il tipo sessione e il cliente
+    // i cui nomi compaiono nel titolo. Preferiamo il match piu' LUNGO (es.
+    // "PT-Pack" batte "PT"). Se trova un cliente -> modalita' "client".
+    const s = (e.summary ?? "").toLowerCase();
+    let etId = "";
+    let bestEt = 0;
+    for (const et of eventTypes) {
+      const n = (et.name ?? "").toLowerCase().trim();
+      if (n && s.includes(n) && n.length > bestEt) {
+        etId = et.id;
+        bestEt = n.length;
+      }
+    }
+    let cId = "";
+    let bestC = 0;
+    for (const c of clients) {
+      const n = (c.full_name ?? "").toLowerCase().trim();
+      if (n && s.includes(n) && n.length > bestC) {
+        cId = c.id;
+        bestC = n.length;
+      }
+    }
+    setMode(cId ? "client" : "external");
+    setClientId(cId);
+    setEventTypeId(etId);
   }
 
   async function confirmImport() {
