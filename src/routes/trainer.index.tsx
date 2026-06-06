@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,7 +17,6 @@ import {
   endOfToday,
   startOfMonth,
   endOfMonth,
-  sevenDaysAgo,
   thirtyDaysAgo,
 } from "@/lib/date-windows";
 import { iconForType } from "@/lib/session-type-icon";
@@ -25,11 +24,9 @@ import { QuickStat } from "@/components/quick-stat";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AuraCardSkeleton,
-  AuraAvatarSkeleton,
   AuraLineSkeleton,
   AuraPillSkeleton,
 } from "@/components/ui/aura-skeleton";
-import { SwipeableCard } from "@/components/ui/swipeable-card";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { TrainerNotificationsBell } from "@/components/trainer-notifications-bell";
@@ -39,7 +36,6 @@ import {
   CalendarCheck2,
   Wallet,
   UserPlus,
-  AlertTriangle,
   Hourglass,
   Sparkles,
   CheckCircle2,
@@ -84,75 +80,9 @@ function Overview() {
     return m;
   }, [eventTypes]);
 
-  // Centro Revisione: bookings with client_id NULL within last 7 days
-  // (active + ignored). Personal Blocks share the client_id IS NULL shape
-  // so without the is_personal filter they would re-appear in the
-  // "needs attention" list right after the coach converted them — the
-  // whole point of marking them personal is to clear them from this
-  // queue. The SELECT below uses the same defensive try-with-fallback
-  // pattern as queries.ts in case the migration hasn't shipped yet.
-  interface ReviewRow {
-    id: string;
-    scheduled_at: string;
-    title: string | null;
-    notes: string | null;
-    session_type: SessionType;
-    event_type_id: string | null;
-    ignored: boolean;
-    deleted_at: string | null;
-    is_personal?: boolean;
-  }
-  const reviewQ = useQuery<ReviewRow[]>({
-    queryKey: ["bookings", "unassigned-all", coachId],
-    enabled: !!coachId,
-    queryFn: async (): Promise<ReviewRow[]> => {
-      const baseCols =
-        "id, scheduled_at, title, notes, session_type, event_type_id, ignored, deleted_at";
-      const primary = await supabase
-        .from("bookings")
-        .select(`${baseCols}, is_personal`)
-        .eq("coach_id", coachId!)
-        .is("client_id", null)
-        .gte("scheduled_at", sevenDaysAgo().toISOString())
-        .order("scheduled_at", { ascending: false });
-      if (
-        primary.error &&
-        ((primary.error as { code?: string }).code === "42703" ||
-          (primary.error.message ?? "").includes("is_personal"))
-      ) {
-        const fallback = await supabase
-          .from("bookings")
-          .select(baseCols)
-          .eq("coach_id", coachId!)
-          .is("client_id", null)
-          .gte("scheduled_at", sevenDaysAgo().toISOString())
-          .order("scheduled_at", { ascending: false });
-        if (fallback.error) {
-          console.error("[Dashboard] review fetch failed", fallback.error);
-          return [];
-        }
-        return (fallback.data ?? []).map(
-          (r) => ({ ...(r as object), is_personal: false }) as ReviewRow,
-        );
-      }
-      if (primary.error) {
-        console.error("[Dashboard] review fetch failed", primary.error);
-        return [];
-      }
-      return (primary.data ?? []) as ReviewRow[];
-    },
-  });
-  const allReviewItems = reviewQ.data ?? [];
-  // Drop personal blocks from BOTH buckets: they're not "to review", and
-  // shouldn't be reachable from the "Ignorati" tab either — the coach
-  // already gave them a final classification.
-  const reviewItems = allReviewItems.filter(
-    (r) => !r.ignored && !r.deleted_at && r.is_personal !== true,
-  );
-  const ignoredItems = allReviewItems.filter(
-    (r) => (r.ignored || r.deleted_at) && r.is_personal !== true,
-  );
-  const [reviewTab, setReviewTab] = useState<"todo" | "ignored">("todo");
+  // Centro Revisione RIMOSSO (2026-06-06): la revisione/assegnazione degli
+  // eventi senza cliente avviene ora dal Calendario (filtro "Eventi da
+  // Assegnare" + dialog di review). La sezione qui era ridondante.
 
   // Today's appointments
   const todayItems = useMemo(() => {
@@ -280,71 +210,9 @@ function Overview() {
     onError: (e: Error) => toast.error("Errore", { description: e.message }),
   });
 
-  const ignoreBooking = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("bookings").update({ ignored: true }).eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Evento spostato negli ignorati");
-      qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(user?.id) });
-      qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(user?.id) });
-    },
-    onError: (e: Error) => toast.error("Errore", { description: e.message }),
-  });
-
-  const restoreBooking = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("bookings")
-        .update({ ignored: false, deleted_at: null })
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Evento ripristinato");
-      qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(user?.id) });
-      qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(user?.id) });
-    },
-    onError: (e: Error) => toast.error("Errore", { description: e.message }),
-  });
-
-  // P4: open the global ReviewBookingDialog by pushing `?reviewEventId=`
-  // into the URL. The dialog lives at the /trainer layout level (see
-  // src/routes/trainer.tsx) and handles assign / personal / consulenza
-  // server-side; this page just routes the user into it.
-  const navigate = useNavigate();
-  const openReview = (bookingId: string) => {
-    navigate({
-      to: "/trainer",
-      search: (prev: Record<string, unknown>) => ({ ...prev, reviewEventId: bookingId }),
-    });
-  };
-
-  // Mobile swipe-left shortcut: mark a Centro Revisione card as personal
-  // without opening the dialog. The RPC mark_booking_special refunds any
-  // consumed credit atomically + clears block/client/event_type links,
-  // so this is safe to fire without intermediate confirmation.
-  const markPersonalQuick = useMutation({
-    mutationFn: async (bookingId: string) => {
-      const { error } = await supabase.rpc("mark_booking_special", {
-        p_booking_id: bookingId,
-        p_category: "personal",
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Impegno personale segnato");
-      qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(user?.id) });
-      qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(user?.id) });
-    },
-    onError: (e: Error) => {
-      const message = /function .* does not exist/i.test(e.message)
-        ? "Aggiornamento DB necessario: applica la migration mark_booking_special."
-        : e.message;
-      toast.error("Errore", { description: message });
-    },
-  });
+  // ignoreBooking / restoreBooking / markPersonalQuick / openReview RIMOSSI
+  // insieme al Centro Revisione (2026-06-06): erano usati solo da quella
+  // sezione. L'assegnazione eventi avviene dal Calendario.
 
   const loading = clientsQ.isLoading || bookingsQ.isLoading || blocksQ.isLoading;
   const userName = (user?.user_metadata?.full_name as string) || user?.email || "Coach";
@@ -566,87 +434,7 @@ function Overview() {
             </section>
           ) : null}
 
-          {/* Centro Revisione preview on mobile — only if there's
-              something to act on. Cards are pill-edged + swipeable:
-              swipe right reveals "Assegna" (opens the global review
-              dialog), swipe left reveals "Personale" (fires the
-              mark_booking_special RPC directly, no extra dialog). */}
-          {loading ? (
-            <section className="flex flex-col gap-3">
-              <AuraLineSkeleton className="w-32 h-4 ml-1" />
-              <div className="flex flex-col gap-3">
-                {Array.from({ length: 2 }).map((_, i) => (
-                  <AuraCardSkeleton key={i} className="p-4 flex items-center gap-3 h-20">
-                    <AuraAvatarSkeleton size="sm" className="size-10" />
-                    <div className="flex-1 flex flex-col gap-2">
-                      <AuraLineSkeleton className="w-3/4 h-4" />
-                      <AuraLineSkeleton className="w-1/2 h-3" />
-                    </div>
-                  </AuraCardSkeleton>
-                ))}
-              </div>
-            </section>
-          ) : reviewItems.length > 0 ? (
-            <section className="flex flex-col gap-3">
-              <h3 className="text-base font-semibold text-on-surface px-1">Da revisionare</h3>
-              <p className="text-xs text-on-surface-variant px-1 -mt-1">
-                Scorri a destra per assegnare, a sinistra per impegno personale.
-              </p>
-              <div className="flex flex-col gap-3">
-                {reviewItems.slice(0, 3).map((r) => {
-                  const importedTitle =
-                    typeof r.notes === "string"
-                      ? r.notes.match(/^Importato da Google Calendar:\s*(.+)$/)?.[1]?.trim()
-                      : null;
-                  const eventName = r.title?.trim() || importedTitle || "Evento Google Calendar";
-                  const start = new Date(r.scheduled_at);
-                  return (
-                    <SwipeableCard
-                      key={r.id}
-                      rightAction={{
-                        label: "Assegna",
-                        className: "bg-primary-container text-on-primary-container",
-                        onFire: () => openReview(r.id),
-                      }}
-                      leftAction={{
-                        label: "Personale",
-                        className: "bg-surface-container-highest text-outline",
-                        onFire: () => markPersonalQuick.mutate(r.id),
-                      }}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => openReview(r.id)}
-                        className="w-full bg-surface-container-lowest rounded-[32px] border border-outline-variant/20 shadow-[0_12px_32px_rgba(0,0,0,0.04)] p-4 text-left flex items-center gap-3 active:scale-[0.99] transition-transform"
-                      >
-                        <span className="inline-flex size-10 items-center justify-center rounded-full bg-tertiary-container/20 text-tertiary">
-                          <AlertTriangle className="size-5" />
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-on-surface truncate">
-                            {eventName}
-                          </p>
-                          <p className="text-xs text-on-surface-variant capitalize">
-                            {start.toLocaleDateString("it-IT", {
-                              weekday: "short",
-                              day: "numeric",
-                              month: "short",
-                            })}{" "}
-                            ·{" "}
-                            {start.toLocaleTimeString("it-IT", {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </p>
-                        </div>
-                        <ArrowRight className="size-4 text-outline" aria-hidden />
-                      </button>
-                    </SwipeableCard>
-                  );
-                })}
-              </div>
-            </section>
-          ) : null}
+          {/* Centro Revisione mobile RIMOSSO (2026-06-06) — assegnazione dal Calendario. */}
         </main>
       </div>
 
@@ -670,131 +458,7 @@ function Overview() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
           {/* LEFT */}
           <div className="lg:col-span-7 flex flex-col gap-6">
-            {/* Centro Revisione */}
-            {(reviewItems.length > 0 || ignoredItems.length > 0) && (
-              <section
-                className={`${GLASS} rounded-[32px] p-6 shadow-soft-card border border-warning-border/40`}
-              >
-                <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-                  <div className="flex items-center gap-3">
-                    <AlertTriangle className="size-6 text-tertiary-container" />
-                    <h2 className="text-2xl font-manrope font-semibold">Centro Revisione</h2>
-                  </div>
-                  <div className="inline-flex rounded-full bg-surface-container-low p-1">
-                    <button
-                      type="button"
-                      onClick={() => setReviewTab("todo")}
-                      className={`px-4 py-1.5 text-sm font-semibold rounded-full transition-colors ${
-                        reviewTab === "todo"
-                          ? "bg-aura-primary text-white"
-                          : "text-on-surface-variant hover:bg-surface-container"
-                      }`}
-                    >
-                      Da Assegnare ({reviewItems.length})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setReviewTab("ignored")}
-                      className={`px-4 py-1.5 text-sm font-semibold rounded-full transition-colors ${
-                        reviewTab === "ignored"
-                          ? "bg-aura-primary text-white"
-                          : "text-on-surface-variant hover:bg-surface-container"
-                      }`}
-                    >
-                      Ignorati ({ignoredItems.length})
-                    </button>
-                  </div>
-                </div>
-                <div className="flex flex-col gap-3">
-                  {(reviewTab === "todo" ? reviewItems : ignoredItems).slice(0, 5).map((r) => {
-                    const start = new Date(r.scheduled_at);
-                    const dateLabel = start.toLocaleDateString("it-IT", {
-                      weekday: "long",
-                      day: "2-digit",
-                      month: "long",
-                      year: "numeric",
-                    });
-                    const timeLabel = start.toLocaleTimeString("it-IT", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    });
-                    const et = r.event_type_id ? eventTypeById.get(r.event_type_id) : null;
-                    const importedTitle =
-                      typeof r.notes === "string"
-                        ? r.notes.match(/^Importato da Google Calendar:\s*(.+)$/)?.[1]?.trim()
-                        : null;
-                    const googleTitle = r.title?.trim() || importedTitle || null;
-                    const eventName =
-                      googleTitle ||
-                      et?.name ||
-                      sessionLabel(r.session_type) ||
-                      "Evento Google Calendar";
-                    const typeLabel = et?.name ?? sessionLabel(r.session_type);
-                    const isIgnored = reviewTab === "ignored";
-                    return (
-                      <div
-                        key={r.id}
-                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-surface-container-low p-4 rounded-2xl"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p
-                            className={`text-xs font-semibold uppercase tracking-wider mb-1 ${
-                              isIgnored ? "text-on-surface-variant" : "text-error"
-                            }`}
-                          >
-                            {isIgnored ? "Ignorato" : "Cliente non assegnato"}
-                          </p>
-                          <p className="font-semibold text-on-background truncate">{eventName}</p>
-                          <p className="text-sm text-on-surface-variant capitalize">
-                            {dateLabel} · {timeLabel}
-                          </p>
-                          <p className="text-xs text-on-surface-variant mt-0.5">
-                            Tipologia: {typeLabel} · Origine: Google Calendar
-                          </p>
-                        </div>
-                        <div className="flex gap-2 shrink-0">
-                          {isIgnored ? (
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              className="rounded-full bg-surface-variant text-on-surface-variant hover:bg-surface-container-high"
-                              onClick={() => restoreBooking.mutate(r.id)}
-                              disabled={restoreBooking.isPending}
-                            >
-                              Ripristina
-                            </Button>
-                          ) : (
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              className="rounded-full bg-surface-variant text-on-surface-variant hover:bg-surface-container-high"
-                              onClick={() => ignoreBooking.mutate(r.id)}
-                              disabled={ignoreBooking.isPending}
-                            >
-                              Ignora
-                            </Button>
-                          )}
-                          <Button
-                            size="sm"
-                            className="rounded-full bg-aura-primary text-white hover:bg-aura-primary/90"
-                            onClick={() => openReview(r.id)}
-                          >
-                            Assegna
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {(reviewTab === "todo" ? reviewItems : ignoredItems).length === 0 && (
-                    <p className="text-sm text-on-surface-variant italic px-2 py-4 text-center">
-                      {reviewTab === "todo"
-                        ? "Nessun evento da revisionare."
-                        : "Nessun evento ignorato."}
-                    </p>
-                  )}
-                </div>
-              </section>
-            )}
+            {/* Centro Revisione desktop RIMOSSO (2026-06-06) — assegnazione dal Calendario. */}
 
             {/* Oggi */}
             <section className={`${GLASS} rounded-[32px] p-6 shadow-soft-card`}>
