@@ -12,9 +12,8 @@ import { setSentryUser, setSentryRoleTag } from "@/lib/sentry";
 // role === "coach" / "admin" guards.
 const roleSchema = z.enum(["admin", "coach", "client"]);
 export type Role = z.infer<typeof roleSchema>;
-export const ADMIN_EMAIL = "nctrainingsystems@gmail.com";
-// Backwards-compat export (used by some routes)
-export const TRAINER_EMAIL = ADMIN_EMAIL;
+// ADMIN_EMAIL / TRAINER_EMAIL RIMOSSI (audit 2026-06-06): export mai usati
+// altrove (il ruolo si legge da user_roles, non dall'email).
 
 interface AuthCtx {
   session: Session | null;

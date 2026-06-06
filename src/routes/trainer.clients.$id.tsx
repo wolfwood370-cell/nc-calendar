@@ -46,7 +46,7 @@ type EditableStatus = "scheduled" | "completed" | "cancelled" | "late_cancelled"
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useCoachEventTypes } from "@/lib/queries";
-import { gcalDeleteEvent } from "@/lib/gcal.functions";
+import { gcalDeleteEvent, gcalUpdateEvent } from "@/lib/gcal.functions";
 import { queryKeys } from "@/lib/query-keys";
 import type { SessionType } from "@/lib/mock-data";
 import { toast } from "sonner";
@@ -645,6 +645,35 @@ function ClientPathPage() {
           .from("extra_credits")
           .update({ quantity_booked: Math.max(0, ec.quantity_booked - 1) })
           .eq("id", ec.id);
+      }
+    }
+
+    // A3 (audit 2026-06-06): sincronizza Google Calendar. Prima saveBookingEdit
+    // aggiornava SOLO il DB -> spostare l'orario lasciava un promemoria Google
+    // sbagliato e annullare lasciava l'evento Google "fantasma" coi reminder.
+    // Fire-and-forget come gli altri call-site gcal: l'esito non blocca
+    // l'aggiornamento DB gia' riuscito.
+    const editedBk = clientBookings.find((x) => x.id === input.id);
+    const googleEventId = editedBk?.google_event_id ?? null;
+    if (googleEventId) {
+      if (input.status === "cancelled") {
+        void gcalDeleteEvent({ data: { googleEventId } }).catch((e) =>
+          console.error("gcalDeleteEvent (saveBookingEdit) failed", e),
+        );
+      } else {
+        const durationMin =
+          (input.event_type_id
+            ? eventTypes.find((et) => et.id === input.event_type_id)?.duration
+            : undefined) ??
+          editedBk?.duration_min ??
+          60;
+        const startISO = new Date(input.scheduled_at).toISOString();
+        const endISO = new Date(
+          new Date(input.scheduled_at).getTime() + durationMin * 60_000,
+        ).toISOString();
+        void gcalUpdateEvent({ data: { googleEventId, startISO, endISO } }).catch((e) =>
+          console.error("gcalUpdateEvent (saveBookingEdit) failed", e),
+        );
       }
     }
 

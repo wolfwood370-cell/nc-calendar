@@ -181,8 +181,8 @@ function ClientSettings() {
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPassword.length < 6) {
-      toast.error("La password deve contenere almeno 6 caratteri.");
+    if (newPassword.length < 8) {
+      toast.error("La password deve contenere almeno 8 caratteri.");
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -369,7 +369,7 @@ function ClientSettings() {
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  minLength={6}
+                  minLength={8}
                   required
                   autoComplete="new-password"
                   className="w-full rounded-2xl border border-outline-variant/60 bg-surface-container-lowest px-4 py-3 text-base text-on-surface focus:outline-none focus:ring-2 focus:ring-primary-container"

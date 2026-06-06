@@ -44,14 +44,6 @@ export interface BookingRow {
 
 export type BookingCategory = "client_session" | "personal" | "consulenza";
 
-// Human-readable Italian label per category. Exported so the calendar
-// + dashboard can render consistent badges without each call site
-// reimplementing the switch.
-export const BOOKING_CATEGORY_LABEL: Record<Exclude<BookingCategory, "client_session">, string> = {
-  personal: "Personale",
-  consulenza: "Consulenza",
-};
-
 export interface AvailabilityExceptionRow {
   id: string;
   coach_id: string;
@@ -558,79 +550,8 @@ export function useRescheduleBooking() {
   });
 }
 
-export function useCoachCancelBooking() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (booking: BookingRow) => {
-      // 1. Rimuovi evento da Google Calendar (se collegato)
-      if (booking.google_event_id) {
-        try {
-          await gcalDeleteEvent({ data: { googleEventId: booking.google_event_id } });
-        } catch (err) {
-          console.error("gcalDeleteEvent failed", err);
-        }
-      }
-
-      const { error } = await supabase
-        .from("bookings")
-        .update({ status: "cancelled" as BookingStatus, deleted_at: new Date().toISOString() })
-        .eq("id", booking.id);
-      if (error) throw error;
-
-      if (booking.block_id) {
-        // Refund via block_allocations
-        const { data: allocs } = await supabase
-          .from("block_allocations")
-          .select("id, event_type_id, session_type, quantity_booked")
-          .eq("block_id", booking.block_id);
-        const list = (allocs ?? []) as Array<{
-          id: string;
-          event_type_id: string | null;
-          session_type: SessionType;
-          quantity_booked: number;
-        }>;
-        const match =
-          list.find(
-            (a) =>
-              booking.event_type_id &&
-              a.event_type_id === booking.event_type_id &&
-              a.quantity_booked > 0,
-          ) ?? list.find((a) => a.session_type === booking.session_type && a.quantity_booked > 0);
-        if (match) {
-          await supabase
-            .from("block_allocations")
-            .update({ quantity_booked: Math.max(0, match.quantity_booked - 1) })
-            .eq("id", match.id);
-        }
-      } else if (booking.client_id && booking.event_type_id) {
-        // Refund via extra_credits (cliente indipendente / booster)
-        const { data: ecRows } = await supabase
-          .from("extra_credits")
-          .select("id, quantity_booked")
-          .eq("client_id", booking.client_id)
-          .eq("event_type_id", booking.event_type_id)
-          .gt("quantity_booked", 0)
-          .order("expires_at", { ascending: true })
-          .limit(1);
-        const ec = (ecRows ?? [])[0];
-        if (ec) {
-          await supabase
-            .from("extra_credits")
-            .update({ quantity_booked: Math.max(0, ec.quantity_booked - 1) })
-            .eq("id", ec.id);
-        }
-      }
-    },
-    onMutate: (booking) => optimisticBookingRemove(qc, booking.id)(),
-    onError: (_e, _vars, ctx) => rollbackSnapshots(qc, ctx?.snapshots),
-    onSuccess: (_data, booking) => {
-      invalidateBookingScope(qc, {
-        coachId: booking.coach_id,
-        clientId: booking.client_id,
-      });
-    },
-  });
-}
+// useCoachCancelBooking RIMOSSA (audit 2026-06-06): funzione mai importata,
+// duplicava la logica di cancellazione/refund gia' coperta dall'RPC server.
 
 export function useCoachAvailabilityExceptions(coachId?: string | null) {
   return useQuery({
