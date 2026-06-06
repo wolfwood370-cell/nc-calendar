@@ -187,12 +187,10 @@ export function ClientRescheduleSheet({
 
     setSubmitting(true);
     try {
-      // cast `as never`: reschedule_booking non è ancora nei tipi generati
-      // (Lovable rigenera i tipi dopo aver creato l'RPC).
-      const { error: updErr } = await supabase.rpc(
-        "reschedule_booking" as never,
-        { p_booking_id: booking.id, p_new_scheduled_at: selectedISO } as never,
-      );
+      const { error: updErr } = await supabase.rpc("reschedule_booking", {
+        p_booking_id: booking.id,
+        p_new_scheduled_at: selectedISO,
+      });
       if (updErr) {
         // Il RPC alza messaggi italiani (P0001: 24h / credito / finestra) e
         // 23P01 (overlap) arriva con messaggio già pronto. Li mostriamo diretti.

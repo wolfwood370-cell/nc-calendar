@@ -515,25 +515,14 @@ export function useRescheduleBooking() {
       // Reschedule via RPC atomico: valida finestra+24h, ri-alloca i crediti
       // (rilascia vecchia settimana, consuma nuova) e sposta scheduled_at.
       // Sostituisce l'UPDATE diretto + il trigger FIX D (rimosso).
-      // NB: cast `as never` perché reschedule_booking non è ancora nei tipi
-      // generati (verrà incluso quando Lovable rigenera supabase/types dopo
-      // aver creato l'RPC).
-      const { data, error } = await supabase.rpc(
-        "reschedule_booking" as never,
-        {
-          p_booking_id: input.bookingId,
-          p_new_scheduled_at: input.newScheduledISO,
-        } as never,
-      );
+      const { data, error } = await supabase.rpc("reschedule_booking", {
+        p_booking_id: input.bookingId,
+        p_new_scheduled_at: input.newScheduledISO,
+      });
       if (error) throw error;
       // reschedule_booking RETURNS TABLE(...) -> PostgREST serializza come array.
-      const row = (Array.isArray(data) ? data[0] : data) as unknown as {
-        coach_id: string;
-        client_id: string | null;
-        google_event_id: string | null;
-        scheduled_at: string;
-        end_at: string;
-      };
+      const row = data?.[0];
+      if (!row) throw new Error("reschedule_booking non ha restituito la riga aggiornata.");
       return row;
     },
     onMutate: async (vars) => {
