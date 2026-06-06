@@ -1163,6 +1163,14 @@ export type Database = {
         Returns: undefined
       }
       mark_notification_read: { Args: { p_id: string }; Returns: undefined }
+      reconcile_gcal_cancel: {
+        Args: { p_booking_id: string }
+        Returns: undefined
+      }
+      reconcile_gcal_move: {
+        Args: { p_booking_id: string; p_new_scheduled_at: string }
+        Returns: undefined
+      }
       repair_blocks_alignment: {
         Args: { p_client_id: string }
         Returns: {
