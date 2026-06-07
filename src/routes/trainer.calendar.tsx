@@ -68,8 +68,15 @@ function CalendarPage() {
   const qc = useQueryClient();
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()));
   const [showAvailability, setShowAvailability] = useState(false);
-  const [onlyPT, setOnlyPT] = useState(false);
+  const [onlyPersonal, setOnlyPersonal] = useState(false);
   const [onlyToAssign, setOnlyToAssign] = useState(false);
+  const [selectedTypeIds, setSelectedTypeIds] = useState<Set<string>>(new Set());
+  const [lastSyncAt, setLastSyncAt] = useState<number | null>(() => {
+    const raw = typeof window !== "undefined" ? localStorage.getItem("gcal_reconcile_last") : null;
+    return raw ? Number(raw) : null;
+  });
+  const [editBookingId, setEditBookingId] = useState<string | null>(null);
+
 
   const bookingsQ = useCoachBookings(user?.id);
   const clientsQ = useCoachClients(user?.id);
