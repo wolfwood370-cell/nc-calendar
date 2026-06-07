@@ -421,6 +421,15 @@ function CalendarPage() {
           in the /trainer layout (src/routes/trainer.tsx) and driven by the
           ?reviewEventId search param. openReview() above just navigates
           with that param; closing clears it. */}
+
+      {/* Dialog di modifica completo — aperto dal popover dei dettagli. */}
+      <CalendarEventEditDialog
+        booking={editingBooking}
+        clients={clients}
+        eventTypes={eventTypes}
+        coachId={user?.id}
+        onClose={() => setEditBookingId(null)}
+      />
     </div>
   );
 }
