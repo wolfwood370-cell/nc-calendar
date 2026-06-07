@@ -91,41 +91,14 @@ function Overview() {
       .slice(0, 5);
   }, [bookings]);
 
-  // Expiring credits (active block, remaining <= 2)
-  const expiring = useMemo(() => {
-    const now = startOfToday().getTime();
-    const map = new Map<string, number>();
-    for (const b of blocks) {
-      if (b.status !== "active") continue;
-      if (new Date(b.end_date).getTime() < now) continue;
-      const blockBookings = bookings.filter(
-        (bk) => bk.block_id === b.id && bk.status === "completed",
-      );
-      const dynamicCompleted = blockBookings.length;
-      const totalAssigned = b.allocations.reduce((s, a) => s + a.quantity_assigned, 0);
-      const rem = Math.max(0, totalAssigned - dynamicCompleted);
-
-      if (rem <= 2) map.set(b.client_id, (map.get(b.client_id) ?? 0) + rem);
-    }
-    return Array.from(map.entries())
-      .map(([clientId, remaining]) => ({
-        clientId,
-        name: clientById.get(clientId)?.full_name ?? clientById.get(clientId)?.email ?? "Cliente",
-        remaining,
-      }))
-      .sort((a, b) => a.remaining - b.remaining)
-      .slice(0, 6);
-  }, [blocks, bookings, clientById]);
-
-  // Service distribution this month
+  // Service distribution YTD (dal 1° gennaio dell'anno corrente)
   const distribution = useMemo(() => {
-    const s = startOfMonth().getTime(),
-      e = endOfMonth().getTime();
+    const s = startOfYear().getTime();
     const counts = new Map<string, { count: number; color: string }>();
     let total = 0;
     for (const b of bookings) {
       const t = new Date(b.scheduled_at).getTime();
-      if (t < s || t > e) continue;
+      if (t < s) continue;
       if (b.status === "cancelled") continue;
       const et = b.event_type_id ? eventTypeById.get(b.event_type_id) : null;
       const label = et?.name ?? sessionLabel(b.session_type);
@@ -139,51 +112,13 @@ function Overview() {
         key: label,
         label,
         color,
+        count,
         pct: total ? Math.round((count / total) * 100) : 0,
       }))
-      .sort((a, b) => b.pct - a.pct)
-      .slice(0, 5);
+      .sort((a, b) => b.count - a.count);
     return { items: arr, total };
   }, [bookings, eventTypeById]);
 
-  // New clients (last 30 days)
-  const newClientsQ = useQuery({
-    queryKey: ["profiles", "new-30d", coachId],
-    enabled: !!coachId,
-    queryFn: async () => {
-      const { count, error } = await supabase
-        .from("profiles")
-        .select("id", { count: "exact", head: true })
-        .eq("coach_id", coachId!)
-        .is("deleted_at", null)
-        .gte("created_at", thirtyDaysAgo().toISOString());
-      if (error) {
-        console.error("[Dashboard] new clients count failed", error);
-        return 0;
-      }
-      return count ?? 0;
-    },
-  });
-
-  // Quick stats
-  const stats = useMemo(() => {
-    const s = startOfMonth().getTime(),
-      e = endOfMonth().getTime();
-    const sessionsMonth = bookings.filter((b) => {
-      const t = new Date(b.scheduled_at).getTime();
-      return t >= s && t <= e && b.status === "completed";
-    }).length;
-    const creditsIssued = blocks
-      .flatMap((b) => b.allocations)
-      .reduce((s, a) => s + a.quantity_assigned, 0);
-    const activeClients = clients.filter((c) => c.status === "active").length;
-    return {
-      activeClients,
-      sessionsMonth,
-      creditsIssued,
-      newClients: newClientsQ.data ?? 0,
-    };
-  }, [bookings, blocks, clients, newClientsQ.data]);
 
   // Mutations
   const checkIn = useMutation({
