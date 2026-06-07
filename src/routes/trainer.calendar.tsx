@@ -425,7 +425,7 @@ function CalendarPage() {
                         const et = b.event_type_id ? eventTypesMap.get(b.event_type_id) : undefined;
                         const isPersonal = !!b.is_personal;
                         const isExternal =
-                          !isPersonal && !!b.client_id && b.client_id === b.coach_id;
+                          !isPersonal && !b.event_type_id && !!b.client_id && b.client_id === b.coach_id;
                         const client =
                           !isPersonal && b.client_id && !isExternal
                             ? clientsMap.get(b.client_id)
