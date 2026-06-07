@@ -20,11 +20,19 @@ dist-ssr
 .wrangler/
 .dev.vars
 
+# Secrets / config MCP (contengono token/PAT) — MAI committare
+.mcp.json
+.env
+.env.*
+!.env.example
+
 # Claude Code worktrees (created via `git worktree add .claude/worktrees/<branch>`).
 # Sono cartelle di lavoro temporanee dell'agente; il loro contenuto e' gia'
 # tracciato dal rispettivo branch git interno, non deve apparire come modifica
-# del main / di altri branch.
-.claude/
+# del main / di altri branch. NB: la config harness condivisa (.claude/settings.json,
+# .claude/hooks/) e' tracciata di proposito; restano ignorati solo worktree e settings locali.
+.claude/worktrees/
+.claude/settings.local.json
 
 # Editor directories and files
 .vscode/*
