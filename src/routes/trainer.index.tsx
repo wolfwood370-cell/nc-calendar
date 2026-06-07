@@ -15,12 +15,9 @@ import { initials } from "@/lib/initials";
 import {
   startOfToday,
   endOfToday,
-  startOfMonth,
-  endOfMonth,
-  thirtyDaysAgo,
+  startOfYear,
 } from "@/lib/date-windows";
 import { iconForType } from "@/lib/session-type-icon";
-import { QuickStat } from "@/components/quick-stat";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AuraCardSkeleton,
@@ -32,17 +29,13 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { TrainerNotificationsBell } from "@/components/trainer-notifications-bell";
 import { toast } from "sonner";
 import {
-  Users,
-  CalendarCheck2,
-  Wallet,
-  UserPlus,
-  Hourglass,
   Sparkles,
   CheckCircle2,
   Clock,
   ListChecks,
   ArrowRight,
 } from "lucide-react";
+
 
 export const Route = createFileRoute("/trainer/")({
   component: Overview,
