@@ -11,11 +11,11 @@ import {
 } from "@tanstack/react-router";
 
 import appCss from "../styles.css?url";
-import { AuthProvider, useAuth } from "@/lib/auth";
+import { AuthProvider } from "@/lib/auth";
 import { Toaster } from "@/components/ui/sonner";
 import { PwaRegister } from "@/components/pwa-register";
-import { BugReportFAB } from "@/components/bug-report-fab";
 import { initSentry, setSentryRouteTag } from "@/lib/sentry";
+
 
 function NotFoundComponent() {
   return (
