@@ -45,6 +45,7 @@ import {
   Edit3,
   CheckCircle2,
   Clock,
+  ChevronDown,
 } from "lucide-react";
 type EditableStatus = "scheduled" | "completed" | "cancelled" | "late_cancelled";
 import { supabase } from "@/integrations/supabase/client";
