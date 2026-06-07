@@ -31,7 +31,7 @@ import {
   UserPlus,
   Copy,
   Check,
-  MessageCircle,
+  // MessageCircle removed: phone shortcut moved to detail page
   Sparkles,
 } from "lucide-react";
 import {
