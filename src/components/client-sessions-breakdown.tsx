@@ -12,7 +12,8 @@
 // sempre completi alla loro larghezza naturale.
 // ----------------------------------------------------------------------------
 
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { iconForType } from "@/lib/session-type-icon";
 
 export interface SessionTypeBreakdownRow {
@@ -29,6 +30,12 @@ export interface SessionTypeBreakdownRow {
   booked: number;
   /** Totale assegnato dal coach per questa tipologia nel blocco. */
   total: number;
+  /** Crediti residui realmente prenotabili: somma di
+   *  (quantity_assigned - quantity_booked) sulle allocations di questa
+   *  tipologia. Fonte unica con la pagina /client/book per evitare che
+   *  la dashboard offra "Prenota" e la pagina booking nasconda il pool
+   *  (drift counter). Può essere <0 in caso di drift positivo. */
+  remaining: number;
 }
 
 interface Props {
@@ -36,9 +43,15 @@ interface Props {
   /** Totale somma di tutti i `total` — non più reso in UI ma mantenuto
    *  in firma per backward-compat col parent. */
   grandTotal?: number;
+  /** Set dei `event_types.name` per cui esiste un booster_pack attivo
+   *  (acquistabile dallo store). Se row.name è in questo set e i crediti
+   *  sono esauriti, mostriamo un toast che invita ad acquistare il booster
+   *  invece di disabilitare silenziosamente il bottone. */
+  boosterTitles?: Set<string>;
 }
 
-export function ClientSessionsBreakdown({ rows }: Props) {
+export function ClientSessionsBreakdown({ rows, boosterTitles }: Props) {
+  const navigate = useNavigate();
   return (
     // Card esterna Aura: bg-white (#ffffff), 32px radius, border outline-variant,
     // shadow soft. p-5 internal padding.
@@ -50,7 +63,17 @@ export function ClientSessionsBreakdown({ rows }: Props) {
       <div className="flex flex-col w-full">
         {rows.map((row, idx) => {
           const used = row.completed + row.booked;
+          // Lo stato del bottone è derivato dalla STESSA fonte di /client/book
+          // (allocation.quantity_assigned - quantity_booked) per evitare la
+          // divergenza dashboard↔booking. Tre stati:
+          //   1) used >= total → "Fatto" (tutto completato/prenotato)
+          //   2) remaining <= 0 (drift counter o booster già consumato) →
+          //      "Esauriti": se esiste booster_pack per questa tipologia,
+          //      click suggerisce l'acquisto; altrimenti disabilitato.
+          //   3) altrimenti → "Prenota" link normale.
           const isDone = used >= row.total && row.total > 0;
+          const isOutOfCredits = !isDone && row.remaining <= 0 && row.total > 0;
+          const hasBooster = isOutOfCredits && !!boosterTitles?.has(row.name);
           const Icon = iconForType(row.name);
           const isLast = idx === rows.length - 1;
 
@@ -75,7 +98,7 @@ export function ClientSessionsBreakdown({ rows }: Props) {
                 </span>
               </div>
 
-              {/* Colonna 3: Bottone Prenota pill (disabled se done) */}
+              {/* Colonna 3: Bottone Prenota / Esauriti / Fatto */}
               <div className="shrink-0">
                 {isDone ? (
                   <button
@@ -84,6 +107,31 @@ export function ClientSessionsBreakdown({ rows }: Props) {
                     className="border border-outline text-outline text-xs font-bold rounded-full px-4 py-1.5 opacity-50 cursor-not-allowed whitespace-nowrap"
                   >
                     Fatto
+                  </button>
+                ) : isOutOfCredits && hasBooster ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      toast.info("Crediti esauriti per questa tipologia", {
+                        description: "Acquista un Booster nello Store per prenotare ancora.",
+                        action: {
+                          label: "Vai allo Store",
+                          onClick: () => navigate({ to: "/client/store" }),
+                        },
+                      });
+                    }}
+                    className="border border-aura-primary text-aura-primary text-xs font-bold rounded-full px-4 py-1.5 transition-all hover:bg-aura-primary/5 active:scale-95 whitespace-nowrap"
+                  >
+                    Esauriti
+                  </button>
+                ) : isOutOfCredits ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="border border-outline text-outline text-xs font-bold rounded-full px-4 py-1.5 opacity-50 cursor-not-allowed whitespace-nowrap"
+                    title="Crediti esauriti per questa tipologia"
+                  >
+                    Esauriti
                   </button>
                 ) : (
                   <Link

@@ -191,7 +191,10 @@ function ClientHome() {
     const ets = eventTypesQ.data ?? [];
     const map = new Map<string, SessionTypeBreakdownRow>();
 
-    // 1. Inizializza dalle allocations (sourcetruth per total per type)
+    // 1. Inizializza dalle allocations (sourcetruth per total per type).
+    //    `remaining` = somma di (quantity_assigned - quantity_booked) — STESSA
+    //    fonte di /client/book pools, così il bottone Prenota e il pool sono
+    //    sempre coerenti (no drift dashboard↔booking).
     for (const a of resolvedCurrentBlock.allocations) {
       const key = a.event_type_id ?? a.session_type;
       const et = a.event_type_id ? ets.find((e) => e.id === a.event_type_id) : null;
@@ -202,8 +205,10 @@ function ClientHome() {
         completed: 0,
         booked: 0,
         total: 0,
+        remaining: 0,
       };
       cur.total += a.quantity_assigned;
+      cur.remaining += a.quantity_assigned - a.quantity_booked;
       map.set(key, cur);
     }
 
@@ -225,6 +230,23 @@ function ClientHome() {
     // 3. Ordina per total desc così le tipologie con più sessioni stanno in alto
     return [...map.values()].sort((a, b) => b.total - a.total);
   }, [resolvedCurrentBlock, eventTypesQ.data, bookingsQ.data]);
+
+  // Titoli (event_types.name = booster_packs.event_type_title) per cui esiste
+  // un booster attivo. Usato dal breakdown per offrire "Vai allo Store" quando
+  // i crediti di una tipologia sono esauriti. Query leggera, sempre la stessa
+  // per tutti i clienti → staleTime = 5 min.
+  const boosterTitlesQ = useQuery({
+    queryKey: ["booster_titles_active"],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("booster_packs")
+        .select("event_type_title")
+        .eq("active", true);
+      if (error) throw error;
+      return new Set((data ?? []).map((r) => r.event_type_title as string));
+    },
+  });
 
   // Data di fine blocco corrente formattata it-IT (es. "30 giugno"),
   // usata nel KPI box "...entro il 30 giugno".
@@ -470,7 +492,10 @@ function ClientHome() {
                     KPI box single-counter con visibilità granulare per
                     tipologia (PT, BIA, FMS, ...). */}
                 {currentBlockTypeBreakdown.length > 0 && (
-                  <ClientSessionsBreakdown rows={currentBlockTypeBreakdown} />
+                  <ClientSessionsBreakdown
+                    rows={currentBlockTypeBreakdown}
+                    boosterTitles={boosterTitlesQ.data}
+                  />
                 )}
 
                 {/* Hint scadenza blocco (sostituisce il sub-testo del vecchio
