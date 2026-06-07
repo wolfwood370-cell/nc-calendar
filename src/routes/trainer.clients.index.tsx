@@ -872,43 +872,30 @@ function ClientsPage() {
                 const pathLabel = c.pack_label
                   ? c.pack_label
                   : c.path_type === "recurring"
-                    ? "NC Performance"
-                    : "Percorso Fisso";
-                // Tertiary accent for non-recurring packs (matches the
-                // mockup's "NC Nutrition" orange chip for variety).
-                const isAccent = !!c.pack_label;
+                    ? "Abbonamento Mensile"
+                    : c.path_type === "free"
+                      ? "Cliente Libero"
+                      : "Percorso Fisso";
                 return (
-                  <article
+                  <Link
                     key={`m-${c.id}`}
-                    className="bg-surface-container-lowest rounded-[32px] border border-outline-variant/20 p-4 shadow-[0_12px_32px_rgba(0,0,0,0.04)] flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    to="/trainer/clients/$id"
+                    params={{ id: c.id }}
+                    className="bg-surface-container-lowest rounded-[28px] border border-outline-variant/20 p-4 shadow-[0_8px_24px_rgba(0,0,0,0.04)] flex items-center gap-4 active:scale-[0.99] transition-transform"
                   >
-                    <div className="flex items-center gap-4 min-w-0">
-                      <div className="w-16 h-16 rounded-full bg-surface-variant overflow-hidden flex-shrink-0 flex items-center justify-center text-lg font-bold text-on-surface-variant">
-                        {initials(c.full_name, c.email)}
-                      </div>
-                      <div className="min-w-0">
-                        <h2 className="text-lg font-semibold text-on-surface truncate">
-                          {c.full_name ?? "Senza nome"}
-                        </h2>
-                        <span
-                          className={`mt-1 inline-block px-3 py-1 rounded-full text-xs font-semibold ${
-                            isAccent
-                              ? "bg-tertiary-container/20 text-tertiary"
-                              : "bg-primary-container/10 text-primary-container"
-                          }`}
-                        >
-                          {pathLabel}
-                        </span>
-                      </div>
+                    <div className="w-14 h-14 rounded-full bg-surface-variant flex-shrink-0 flex items-center justify-center text-base font-bold text-on-surface-variant">
+                      {initials(c.full_name, c.email)}
                     </div>
-                    <Link
-                      to="/trainer/clients/$id"
-                      params={{ id: c.id }}
-                      className="self-end sm:self-auto border border-primary-container text-primary-container hover:bg-primary-container/10 transition-colors rounded-full px-6 py-2 font-semibold text-sm active:scale-95 text-center min-w-[110px]"
-                    >
-                      Dettagli
-                    </Link>
-                  </article>
+                    <div className="min-w-0 flex-1">
+                      <h2 className="text-base font-semibold text-on-surface truncate">
+                        {c.full_name ?? "Senza nome"}
+                      </h2>
+                      <p className="text-xs text-outline truncate">{c.email ?? "—"}</p>
+                      <span className="mt-1 inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-primary-container/10 text-primary-container">
+                        {pathLabel}
+                      </span>
+                    </div>
+                  </Link>
                 );
               })}
             </div>
