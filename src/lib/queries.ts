@@ -502,6 +502,10 @@ export function useRescheduleBooking() {
     mutationFn: async (input: {
       bookingId: string;
       newScheduledISO: string;
+      // M4 (audit): contesto opzionale per la notifica al coach (vedi onSuccess).
+      oldScheduledISO?: string;
+      sessionLabel?: string;
+      clientName?: string;
     }): Promise<{
       coach_id: string;
       client_id: string | null;
@@ -535,7 +539,7 @@ export function useRescheduleBooking() {
       return { snapshots };
     },
     onError: (_e, _vars, ctx) => rollbackSnapshots(qc, ctx?.snapshots),
-    onSuccess: (data) => {
+    onSuccess: (data, vars) => {
       invalidateBookingScope(qc, {
         coachId: data.coach_id,
         clientId: data.client_id,
@@ -551,6 +555,23 @@ export function useRescheduleBooking() {
           },
         }).catch((e) => console.error("gcalUpdateEvent failed", e));
       }
+      // M4 (audit): notifica il coach (booking.rescheduled) dalla mutation
+      // CONDIVISA, così OGNI percorso di reschedule cliente avvisa il coach.
+      // Prima solo client-reschedule-sheet (dal dettaglio) notificava;
+      // reschedule-drawer (dalla dashboard) no. Fire-and-forget.
+      void supabase.functions
+        .invoke("booking-notifications", {
+          body: {
+            event_type: "booking.rescheduled",
+            coach_id: data.coach_id,
+            client_name: vars.clientName ?? null,
+            scheduled_at: data.scheduled_at,
+            old_scheduled_at: vars.oldScheduledISO ?? null,
+            session_label: vars.sessionLabel ?? null,
+            booking_id: vars.bookingId,
+          },
+        })
+        .catch((e) => console.error("booking-notifications (rescheduled) failed", e));
     },
   });
 }

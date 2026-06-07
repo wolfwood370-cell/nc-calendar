@@ -187,10 +187,18 @@ export function RescheduleDrawer({
     // google_event_id → same meeting_link preserved across the shift.
     // Google Calendar event PATCH fires inside the hook's onSuccess.
     rescheduleMut.mutate(
-      { bookingId: booking.id, newScheduledISO: selectedISO },
+      {
+        bookingId: booking.id,
+        newScheduledISO: selectedISO,
+        // M4 (audit): contesto per notificare il coach dalla mutation condivisa.
+        oldScheduledISO: booking.scheduled_at,
+        sessionLabel: booking.session_type,
+      },
       {
         onSuccess: () => {
-          toast.success("Sessione riprogrammata");
+          toast.success("Sessione riprogrammata", {
+            description: "Il coach è stato notificato.",
+          });
           onOpenChange(false);
         },
         onError: (err) => {
