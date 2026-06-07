@@ -734,6 +734,11 @@ function ClientsPage() {
         // Persist path metadata on profile
         const nextBilling = new Date(today);
         nextBilling.setDate(today.getDate() + 30);
+        // path_start_date e' l'ancora che `repair_blocks_alignment` e
+        // `ensure_client_block_state` usano per riallineare/seedare i blocchi.
+        // Senza, le RPC ritornano `no_anchor` e il cron auto-renew skippa il
+        // cliente. Lo settiamo a `today` (= start_date del blocco 1).
+        const pathStartIso = today.toISOString().slice(0, 10);
         const { error: pErr } = await supabase
           .from("profiles")
           .update({
@@ -745,6 +750,7 @@ function ClientsPage() {
             // recurring clients created today behave correctly.
             auto_renew_blocks: data.autoRenew,
             pack_label: data.packLabel,
+            path_start_date: pathStartIso,
             next_billing_date:
               data.pathType === "recurring" ? nextBilling.toISOString().slice(0, 10) : null,
           })
