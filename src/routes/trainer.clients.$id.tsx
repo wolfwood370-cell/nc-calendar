@@ -176,9 +176,32 @@ function ClientPathPage() {
     const isStale = () => loadGenRef.current !== gen;
     setLoading(true);
 
-    const { data: profile } = await supabase
+    // M5 (audit): UNA sola lettura del profilo (prima erano due query separate
+    // sulla stessa riga). auto_renew_blocks via cast — colonna aggiunta da
+    // 20260524110000_block_auto_renew.sql, non ancora nei tipi generati.
+    const sbProfile = supabase as unknown as {
+      from: (t: "profiles") => {
+        select: (cols: string) => {
+          eq: (
+            col: string,
+            val: string,
+          ) => {
+            maybeSingle: () => Promise<{
+              data: {
+                id: string;
+                full_name: string | null;
+                email: string | null;
+                path_start_date: string | null;
+                auto_renew_blocks: boolean | null;
+              } | null;
+            }>;
+          };
+        };
+      };
+    };
+    const { data: profile } = await sbProfile
       .from("profiles")
-      .select("id, full_name, email, path_start_date")
+      .select("id, full_name, email, path_start_date, auto_renew_blocks")
       .eq("id", clientId)
       .maybeSingle();
     if (isStale()) return;
@@ -194,32 +217,8 @@ function ClientPathPage() {
     const parts = (profile.full_name ?? "").trim().split(/\s+/);
     setFirstName(parts[0] ?? "");
     setLastName(parts.slice(1).join(" "));
-    setPathStart(profile.path_start_date ? parseISO(profile.path_start_date as string) : undefined);
-
-    // Fetch auto_renew_blocks via cast — column added by
-    // 20260524110000_block_auto_renew.sql, may not be in generated types yet.
-    const sb = supabase as unknown as {
-      from: (t: "profiles") => {
-        select: (cols: string) => {
-          eq: (
-            col: string,
-            val: string,
-          ) => {
-            maybeSingle: () => Promise<{
-              data: { auto_renew_blocks: boolean | null } | null;
-              error: { message: string } | null;
-            }>;
-          };
-        };
-      };
-    };
-    const { data: arRow } = await sb
-      .from("profiles")
-      .select("auto_renew_blocks")
-      .eq("id", clientId)
-      .maybeSingle();
-    if (isStale()) return;
-    setAutoRenewBlocks(arRow?.auto_renew_blocks ?? true);
+    setPathStart(profile.path_start_date ? parseISO(profile.path_start_date) : undefined);
+    setAutoRenewBlocks(profile.auto_renew_blocks ?? true);
 
     const { data: bls } = await supabase
       .from("training_blocks")
@@ -244,28 +243,11 @@ function ClientPathPage() {
         .in("block_id", blockIds);
       if (isStale()) return;
       setAllocations((allocs ?? []) as AllocationRecord[]);
-
-      const { data: bks } = await supabase
-        .from("bookings")
-        .select("id, block_id, status, event_type_id, session_type")
-        .in("block_id", blockIds)
-        .is("deleted_at", null);
-      if (isStale()) return;
-      const counts: Record<string, Record<string, number>> = {};
-      (bks ?? []).forEach((b) => {
-        const bid = b.block_id as string | null;
-        if (!bid) return;
-        if (b.status === "completed") {
-          const key = (b.event_type_id as string | null) ?? (b.session_type as string);
-          counts[bid] ||= {};
-          counts[bid][key] = (counts[bid][key] ?? 0) + 1;
-        }
-      });
-      setCompletedByBlockType(counts);
     } else {
       setAllocations([]);
-      setCompletedByBlockType({});
     }
+    // M5 (audit): completedByBlockType viene calcolato piu' sotto dai booking
+    // del cliente gia' caricati (clientBookings), evitando una seconda query.
 
     const { data: existing } = await supabase
       .from("weekly_schedule")
@@ -316,6 +298,19 @@ function ClientPathPage() {
     if (isStale()) return;
     const bookingsList = (cbs ?? []) as ClientBooking[];
     setClientBookings(bookingsList);
+
+    // M5 (audit): completati per blocco/tipo calcolati dai booking gia' caricati
+    // (bookingsList include block_id/status/event_type_id/session_type), invece
+    // di una seconda query dedicata su bookings.
+    const completedCounts: Record<string, Record<string, number>> = {};
+    bookingsList.forEach((b) => {
+      const bid = b.block_id;
+      if (!bid || b.status !== "completed") return;
+      const key = b.event_type_id ?? b.session_type;
+      const bucket = (completedCounts[bid] ||= {});
+      bucket[key] = (bucket[key] ?? 0) + 1;
+    });
+    setCompletedByBlockType(completedCounts);
 
     // Toast: nuove sessioni auto-assegnate negli ultimi 5 minuti
     const fiveMinAgo = Date.now() - 5 * 60 * 1000;
