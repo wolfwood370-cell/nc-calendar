@@ -36,10 +36,11 @@ export const Route = createFileRoute("/trainer/calendar")({
   component: CalendarPage,
 });
 
-const HOUR_HEIGHT = 64; // px
+const HOUR_HEIGHT = 44; // px — vista compatta
 const START_HOUR = 7;
 const END_HOUR = 22;
 const HOURS = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
+
 
 function startOfWeek(d: Date): Date {
   const x = new Date(d);
@@ -67,8 +68,15 @@ function CalendarPage() {
   const qc = useQueryClient();
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()));
   const [showAvailability, setShowAvailability] = useState(false);
-  const [onlyPT, setOnlyPT] = useState(false);
+  const [onlyPersonal, setOnlyPersonal] = useState(false);
   const [onlyToAssign, setOnlyToAssign] = useState(false);
+  const [selectedTypeIds, setSelectedTypeIds] = useState<Set<string>>(new Set());
+  const [lastSyncAt, setLastSyncAt] = useState<number | null>(() => {
+    const raw = typeof window !== "undefined" ? localStorage.getItem("gcal_reconcile_last") : null;
+    return raw ? Number(raw) : null;
+  });
+  const [editBookingId, setEditBookingId] = useState<string | null>(null);
+
 
   const bookingsQ = useCoachBookings(user?.id);
   const clientsQ = useCoachClients(user?.id);
@@ -188,13 +196,13 @@ function CalendarPage() {
     const allDay: BookingRow[][] = Array.from({ length: 7 }, () => []);
     for (const b of bookings) {
       if (b.status === "cancelled") continue;
-      // Personal blocks are their own category — never "unassigned" (no
-      // client to pick), never "external" (the coach owns them), never PT.
       const isPersonal = !!b.is_personal;
       const isUnassigned = !isPersonal && !b.client_id;
-      const isExternal = !isPersonal && !!b.client_id && b.client_id === b.coach_id;
       if (onlyToAssign && !isUnassigned) continue;
-      if (onlyPT && (isExternal || isPersonal || b.session_type !== "PT Session")) continue;
+      if (onlyPersonal && !isPersonal) continue;
+      if (selectedTypeIds.size > 0) {
+        if (!b.event_type_id || !selectedTypeIds.has(b.event_type_id)) continue;
+      }
       const d = new Date(b.scheduled_at);
       for (let i = 0; i < 7; i++) {
         const dayDate = weekDays[i];
@@ -209,7 +217,8 @@ function CalendarPage() {
       }
     }
     return { timedByDay: timed, allDayByDay: allDay };
-  }, [bookings, weekDays, onlyToAssign, onlyPT]);
+  }, [bookings, weekDays, onlyToAssign, onlyPersonal, selectedTypeIds]);
+
 
   const layoutByDay = useMemo(() => {
     // H3: per-booking snapshot wins so changing an event type's duration
@@ -230,12 +239,11 @@ function CalendarPage() {
       allDayByDay.reduce((s, day) => s + day.length, 0),
     [timedByDay, allDayByDay],
   );
-  const filtersActive = onlyPT || onlyToAssign;
-
-  // ----- Sync flows: rimossi. L'app è la sorgente di verità; Google
-  // Calendar riceve solo le scritture (create/update/cancel) tramite
-  // il connettore Lovable. Niente import_history, mirror_check, webhook
-  // realtime: l'integrazione è unidirezionale e on-write.
+  const filtersActive = onlyPersonal || onlyToAssign || selectedTypeIds.size > 0;
+  const editingBooking = useMemo(
+    () => (editBookingId ? bookings.find((b) => b.id === editBookingId) ?? null : null),
+    [editBookingId, bookings],
+  );
 
   // ----- Render helpers -----
   const today = new Date();
@@ -253,22 +261,36 @@ function CalendarPage() {
           onNextWeek={() => setWeekStart(addDays(weekStart, 7))}
           showAvailability={showAvailability}
           onToggleAvailability={() => setShowAvailability((v) => !v)}
-          onlyPT={onlyPT}
-          onToggleOnlyPT={() => setOnlyPT((v) => !v)}
+          onlyPersonal={onlyPersonal}
+          onTogglePersonal={() => setOnlyPersonal((v) => !v)}
           onlyToAssign={onlyToAssign}
           onToggleOnlyToAssign={() => setOnlyToAssign((v) => !v)}
+          eventTypes={eventTypes}
+          selectedTypeIds={selectedTypeIds}
+          onToggleType={(id) =>
+            setSelectedTypeIds((prev) => {
+              const next = new Set(prev);
+              if (next.has(id)) next.delete(id);
+              else next.add(id);
+              return next;
+            })
+          }
+          onClearTypes={() => setSelectedTypeIds(new Set())}
           onRefresh={() => {
             qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(user?.id) });
             qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(user?.id) });
             qc.invalidateQueries({ queryKey: queryKeys.clients.coach(user?.id) });
-            void runReconcile(); // forza la sync Google -> app (oltre al refresh locale)
+            void runReconcile();
+            setLastSyncAt(Date.now());
             toast.success("Calendario aggiornato");
           }}
+          lastSyncAt={lastSyncAt}
           hasBookingsError={bookingsQ.isError}
           onRetryBookings={() => bookingsQ.refetch()}
           filtersActive={filtersActive}
           totalVisible={totalVisible}
         />
+
 
         {/* Riconciliazione bidirezionale Google <-> app (sola lettura) */}
         <CalendarGcalReview

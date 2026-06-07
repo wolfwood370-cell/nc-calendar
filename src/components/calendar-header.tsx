@@ -2,6 +2,12 @@ import { Loader2, ChevronLeft, ChevronRight, RefreshCw, AlertCircle } from "luci
 import { Button } from "@/components/ui/button";
 import { FilterChip } from "@/components/filter-chip";
 
+export interface CalendarHeaderEventType {
+  id: string;
+  name: string;
+  color: string | null;
+}
+
 export interface CalendarHeaderProps {
   /** True quando lo sync con Google Calendar è in corso (mostra spinner). */
   mirroring: boolean;
@@ -16,34 +22,42 @@ export interface CalendarHeaderProps {
   /** Filter toggle: mostra fasce di disponibilità in trasparenza. */
   showAvailability: boolean;
   onToggleAvailability: () => void;
-  /** Filter toggle: mostra solo bookings di tipo PT. */
-  onlyPT: boolean;
-  onToggleOnlyPT: () => void;
   /** Filter toggle: mostra solo eventi senza client (imported da GCal). */
   onlyToAssign: boolean;
   onToggleOnlyToAssign: () => void;
+  /** Filter toggle: mostra solo eventi personali del coach. */
+  onlyPersonal: boolean;
+  onTogglePersonal: () => void;
+  /** Filtri per tipo evento del coach. Set vuoto = mostra tutto. */
+  eventTypes: CalendarHeaderEventType[];
+  selectedTypeIds: Set<string>;
+  onToggleType: (id: string) => void;
+  onClearTypes: () => void;
   /** Click "Refresh" → forza refetch dei booking. */
   onRefresh: () => void;
+  /** Timestamp ISO dell'ultima sincronizzazione Google (null = mai). */
+  lastSyncAt: number | null;
   /** Errore sulla query principale dei booking (mostra banner rosso). */
   hasBookingsError: boolean;
   /** Callback per retry quando hasBookingsError è true. */
   onRetryBookings: () => void;
-  /** Filtri attivi che potrebbero nascondere tutti gli eventi (per banner empty-state). */
+  /** Filtri attivi che potrebbero nascondere tutti gli eventi. */
   filtersActive: boolean;
   /** Conteggio eventi visibili dopo filtri (banner se 0 + filtersActive). */
   totalVisible: number;
 }
 
-/**
- * Header completo della pagina calendario coach:
- *   - title + spinner mirroring
- *   - week navigation (Oggi + prev/next + range label)
- *   - 3 FilterChip toggles + RefreshCw button
- *   - banner errore caricamento booking + banner empty-with-filters
- *
- * Estratto da trainer.calendar.tsx. Stateless: lo stato vive nel parent
- * (CalendarPage) che passa value + handlers per ogni controllo.
- */
+function fmtLastSync(ts: number | null): string {
+  if (!ts) return "mai";
+  const now = Date.now();
+  const diff = now - ts;
+  if (diff < 60_000) return "ora";
+  const mins = Math.round(diff / 60_000);
+  if (mins < 60) return `${mins} min fa`;
+  const d = new Date(ts);
+  return d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+}
+
 export function CalendarHeader({
   mirroring,
   weekRangeLabel,
@@ -52,11 +66,16 @@ export function CalendarHeader({
   onNextWeek,
   showAvailability,
   onToggleAvailability,
-  onlyPT,
-  onToggleOnlyPT,
   onlyToAssign,
   onToggleOnlyToAssign,
+  onlyPersonal,
+  onTogglePersonal,
+  eventTypes,
+  selectedTypeIds,
+  onToggleType,
+  onClearTypes,
   onRefresh,
+  lastSyncAt,
   hasBookingsError,
   onRetryBookings,
   filtersActive,
@@ -103,15 +122,9 @@ export function CalendarHeader({
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <FilterChip active={showAvailability} onClick={onToggleAvailability}>
-            Mostra Disponibilità
-          </FilterChip>
-          <FilterChip active={onlyPT} onClick={onToggleOnlyPT}>
-            Solo Sessioni PT
-          </FilterChip>
-          <FilterChip active={onlyToAssign} onClick={onToggleOnlyToAssign}>
-            Eventi da Assegnare
-          </FilterChip>
+          <span className="text-xs text-outline" title="Ora dell'ultima sincronizzazione con Google Calendar">
+            Ultima sync: {fmtLastSync(lastSyncAt)}
+          </span>
           <button
             onClick={onRefresh}
             className="size-8 rounded-full hover:bg-surface-container flex items-center justify-center text-on-surface-variant"
@@ -122,6 +135,37 @@ export function CalendarHeader({
           </button>
         </div>
       </div>
+
+      {/* Filtri per tipo evento + categorie speciali */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <FilterChip active={selectedTypeIds.size === 0} onClick={onClearTypes}>
+          Tutti
+        </FilterChip>
+        {eventTypes.map((et) => {
+          const active = selectedTypeIds.has(et.id);
+          return (
+            <FilterChip key={et.id} active={active} onClick={() => onToggleType(et.id)}>
+              <span
+                aria-hidden
+                className="inline-block size-2 rounded-full mr-1.5 align-middle"
+                style={{ backgroundColor: et.color ?? "#003e62" }}
+              />
+              {et.name}
+            </FilterChip>
+          );
+        })}
+        <span className="mx-1 h-5 w-px bg-outline-variant" aria-hidden />
+        <FilterChip active={showAvailability} onClick={onToggleAvailability}>
+          Disponibilità
+        </FilterChip>
+        <FilterChip active={onlyPersonal} onClick={onTogglePersonal}>
+          Personali
+        </FilterChip>
+        <FilterChip active={onlyToAssign} onClick={onToggleOnlyToAssign}>
+          Da assegnare
+        </FilterChip>
+      </div>
+
       {hasBookingsError && (
         <div className="flex items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           <div className="flex items-center gap-2">

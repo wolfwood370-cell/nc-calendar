@@ -15,12 +15,9 @@ import { initials } from "@/lib/initials";
 import {
   startOfToday,
   endOfToday,
-  startOfMonth,
-  endOfMonth,
-  thirtyDaysAgo,
+  startOfYear,
 } from "@/lib/date-windows";
 import { iconForType } from "@/lib/session-type-icon";
-import { QuickStat } from "@/components/quick-stat";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AuraCardSkeleton,
@@ -32,17 +29,13 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { TrainerNotificationsBell } from "@/components/trainer-notifications-bell";
 import { toast } from "sonner";
 import {
-  Users,
-  CalendarCheck2,
-  Wallet,
-  UserPlus,
-  Hourglass,
   Sparkles,
   CheckCircle2,
   Clock,
   ListChecks,
   ArrowRight,
 } from "lucide-react";
+
 
 export const Route = createFileRoute("/trainer/")({
   component: Overview,
@@ -98,41 +91,14 @@ function Overview() {
       .slice(0, 5);
   }, [bookings]);
 
-  // Expiring credits (active block, remaining <= 2)
-  const expiring = useMemo(() => {
-    const now = startOfToday().getTime();
-    const map = new Map<string, number>();
-    for (const b of blocks) {
-      if (b.status !== "active") continue;
-      if (new Date(b.end_date).getTime() < now) continue;
-      const blockBookings = bookings.filter(
-        (bk) => bk.block_id === b.id && bk.status === "completed",
-      );
-      const dynamicCompleted = blockBookings.length;
-      const totalAssigned = b.allocations.reduce((s, a) => s + a.quantity_assigned, 0);
-      const rem = Math.max(0, totalAssigned - dynamicCompleted);
-
-      if (rem <= 2) map.set(b.client_id, (map.get(b.client_id) ?? 0) + rem);
-    }
-    return Array.from(map.entries())
-      .map(([clientId, remaining]) => ({
-        clientId,
-        name: clientById.get(clientId)?.full_name ?? clientById.get(clientId)?.email ?? "Cliente",
-        remaining,
-      }))
-      .sort((a, b) => a.remaining - b.remaining)
-      .slice(0, 6);
-  }, [blocks, bookings, clientById]);
-
-  // Service distribution this month
+  // Service distribution YTD (dal 1° gennaio dell'anno corrente)
   const distribution = useMemo(() => {
-    const s = startOfMonth().getTime(),
-      e = endOfMonth().getTime();
+    const s = startOfYear().getTime();
     const counts = new Map<string, { count: number; color: string }>();
     let total = 0;
     for (const b of bookings) {
       const t = new Date(b.scheduled_at).getTime();
-      if (t < s || t > e) continue;
+      if (t < s) continue;
       if (b.status === "cancelled") continue;
       const et = b.event_type_id ? eventTypeById.get(b.event_type_id) : null;
       const label = et?.name ?? sessionLabel(b.session_type);
@@ -146,51 +112,13 @@ function Overview() {
         key: label,
         label,
         color,
+        count,
         pct: total ? Math.round((count / total) * 100) : 0,
       }))
-      .sort((a, b) => b.pct - a.pct)
-      .slice(0, 5);
+      .sort((a, b) => b.count - a.count);
     return { items: arr, total };
   }, [bookings, eventTypeById]);
 
-  // New clients (last 30 days)
-  const newClientsQ = useQuery({
-    queryKey: ["profiles", "new-30d", coachId],
-    enabled: !!coachId,
-    queryFn: async () => {
-      const { count, error } = await supabase
-        .from("profiles")
-        .select("id", { count: "exact", head: true })
-        .eq("coach_id", coachId!)
-        .is("deleted_at", null)
-        .gte("created_at", thirtyDaysAgo().toISOString());
-      if (error) {
-        console.error("[Dashboard] new clients count failed", error);
-        return 0;
-      }
-      return count ?? 0;
-    },
-  });
-
-  // Quick stats
-  const stats = useMemo(() => {
-    const s = startOfMonth().getTime(),
-      e = endOfMonth().getTime();
-    const sessionsMonth = bookings.filter((b) => {
-      const t = new Date(b.scheduled_at).getTime();
-      return t >= s && t <= e && b.status === "completed";
-    }).length;
-    const creditsIssued = blocks
-      .flatMap((b) => b.allocations)
-      .reduce((s, a) => s + a.quantity_assigned, 0);
-    const activeClients = clients.filter((c) => c.status === "active").length;
-    return {
-      activeClients,
-      sessionsMonth,
-      creditsIssued,
-      newClients: newClientsQ.data ?? 0,
-    };
-  }, [bookings, blocks, clients, newClientsQ.data]);
 
   // Mutations
   const checkIn = useMutation({
@@ -545,85 +473,33 @@ function Overview() {
 
           {/* RIGHT */}
           <div className="lg:col-span-5 flex flex-col gap-6">
-            {/* Crediti in Scadenza */}
+            {/* Distribuzione Servizi (dal 1° gennaio) */}
             <section className={`${GLASS} rounded-[32px] p-6 shadow-soft-card`}>
-              <div className="flex items-center gap-2 mb-5">
-                <Hourglass className="size-5 text-aura-primary" />
-                <h2 className="text-2xl font-manrope font-semibold">Crediti in Scadenza</h2>
+              <div className="flex items-baseline justify-between mb-5 gap-3 flex-wrap">
+                <h2 className="text-2xl font-manrope font-semibold">Distribuzione Servizi</h2>
+                <span className="text-xs text-on-surface-variant">
+                  Dal 1° gen · {distribution.total}{" "}
+                  {distribution.total === 1 ? "evento" : "eventi"}
+                </span>
               </div>
-              {loading ? (
-                <Skeleton className="h-12 w-full" />
-              ) : expiring.length === 0 ? (
-                <p className="text-sm text-on-surface-variant py-2">
-                  Nessun pacchetto in scadenza imminente.
-                </p>
-              ) : (
-                <ul className="flex flex-col gap-2">
-                  {expiring.map((c) => {
-                    const isZero = c.remaining === 0;
-                    const isOne = c.remaining === 1;
-                    const rowBg = isZero
-                      ? "bg-error-container/30"
-                      : isOne
-                        ? "bg-tertiary-container/10"
-                        : "bg-surface-container-low";
-                    const badgeBg = isZero
-                      ? "bg-error-container text-on-error-container"
-                      : isOne
-                        ? "bg-warning-container text-tertiary-container"
-                        : "bg-surface-variant text-on-surface-variant";
-                    const avatarBg = isZero
-                      ? "bg-error text-white"
-                      : isOne
-                        ? "bg-tertiary text-white"
-                        : "bg-surface-variant text-on-surface-variant";
-                    return (
-                      <li
-                        key={c.clientId}
-                        className={`flex items-center justify-between p-3 rounded-2xl ${rowBg}`}
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div
-                            className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs ${avatarBg}`}
-                          >
-                            {initials(c.name)}
-                          </div>
-                          <Link
-                            to="/trainer/clients/$id"
-                            params={{ id: c.clientId }}
-                            className="font-semibold truncate hover:underline"
-                          >
-                            {c.name}
-                          </Link>
-                        </div>
-                        <span
-                          className={`text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap ${badgeBg}`}
-                        >
-                          {c.remaining} {c.remaining === 1 ? "rimanente" : "rimanenti"}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </section>
-
-            {/* Distribuzione Servizi */}
-            <section className={`${GLASS} rounded-[32px] p-6 shadow-soft-card`}>
-              <h2 className="text-2xl font-manrope font-semibold mb-5">Distribuzione Servizi</h2>
               {loading ? (
                 <Skeleton className="h-20 w-full" />
               ) : distribution.items.length === 0 ? (
                 <p className="text-sm text-on-surface-variant">
-                  Nessuna sessione registrata questo mese.
+                  Nessuna sessione registrata da inizio anno.
                 </p>
               ) : (
                 <div className="flex flex-col gap-4">
                   {distribution.items.map((d) => (
                     <div key={d.key}>
-                      <div className="flex justify-between text-sm font-semibold mb-1.5">
-                        <span className="text-on-background">{d.label}</span>
-                        <span style={{ color: d.color }}>{d.pct}%</span>
+                      <div className="flex justify-between text-sm font-semibold mb-1.5 gap-2">
+                        <span className="text-on-background truncate">{d.label}</span>
+                        <span
+                          className="tabular-nums whitespace-nowrap"
+                          style={{ color: d.color }}
+                        >
+                          {d.count} ({d.pct}%)
+                        </span>
                       </div>
                       <div className="w-full h-2 bg-surface-variant rounded-full overflow-hidden">
                         <div
@@ -639,14 +515,6 @@ function Overview() {
           </div>
         </div>
 
-        {/* Quick Stats */}
-        <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <QuickStat icon={Users} label="Clienti Attivi" value={stats.activeClients} />
-          <QuickStat icon={CalendarCheck2} label="Sessioni Mese" value={stats.sessionsMonth} />
-          <QuickStat icon={Wallet} label="Crediti Emessi" value={stats.creditsIssued} />
-          <QuickStat icon={UserPlus} label="Nuovi (30gg)" value={stats.newClients} />
-        </section>
-
         {/* The Assign / Personal / Consulenza dialog is now mounted globally
           at the /trainer layout (src/routes/trainer.tsx) and driven by
           ?reviewEventId. openReview() just navigates. */}
@@ -654,4 +522,5 @@ function Overview() {
     </>
   );
 }
+
 
