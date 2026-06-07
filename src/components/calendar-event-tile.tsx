@@ -163,6 +163,8 @@ export function CalendarEventTile({
     ? `https://calendar.google.com/calendar/u/0/r/eventedit/${booking.google_event_id}`
     : null;
 
+  const clientName = client?.full_name?.trim() || null;
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -176,12 +178,18 @@ export function CalendarEventTile({
           <h4 className="text-[12px] leading-tight font-semibold text-white truncate drop-shadow-sm">
             {typeLabel}
           </h4>
+          {clientName && (
+            <p className="text-[11px] leading-tight font-medium text-white/95 truncate">
+              {clientName}
+            </p>
+          )}
           <p className="text-[10px] text-white/85 mt-0.5 truncate">
             {d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
           </p>
 
         </button>
       </PopoverTrigger>
+
       <PopoverContent
         side="right"
         align="start"
