@@ -325,6 +325,17 @@ function BookFlow() {
         setSelectedPoolKey(match.key);
         return;
       }
+      // BUGFIX (2026-06-07): il deep-link è specificato (il cliente ha cliccato
+      // "Prenota" su una tipologia, es. Sessione PT) ma il suo pool NON è ancora
+      // caricato. I pool si popolano in più fasi: il blocco corrente si risolve
+      // via RPC asincrona (ensure_client_block_state) + i crediti extra da una
+      // query separata. Se qui ripiegassimo su pools[0], bloccheremmo la
+      // selezione sul PRIMO pool disponibile (es. "Call di consulenza") mentre
+      // il pool della tipologia cliccata arriva subito dopo — e il guard
+      // `if (selectedPoolKey) return` impedirebbe poi la correzione. Quindi NON
+      // facciamo fallback: aspettiamo. L'effetto ri-parte quando `pools` cambia
+      // e, appena compare il pool deep-linkato, selezioniamo quello giusto.
+      return;
     }
     const first = pools[0];
     if (first) setSelectedPoolKey(first.key);
