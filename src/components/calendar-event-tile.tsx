@@ -94,8 +94,10 @@ export function CalendarEventTile({
   // I booking con is_personal=true ma client_id valorizzato (es. import da Google) sono trattati come sessioni cliente.
   const isPersonal = !!booking.is_personal && !booking.client_id;
   const isUnassigned = !isPersonal && !booking.client_id;
+  // "External" = evento importato da Google senza tipologia assegnata (client_id==coach_id come placeholder).
+  // Se ha già un event_type_id valido, lo trattiamo come sessione certificata con colore della tipologia.
   const isExternal =
-    !isPersonal && !!booking.client_id && booking.client_id === booking.coach_id;
+    !isPersonal && !booking.event_type_id && !!booking.client_id && booking.client_id === booking.coach_id;
 
   const typeLabel =
     eventType?.name ?? (booking.session_type ? sessionLabel(booking.session_type) : "Sessione");
