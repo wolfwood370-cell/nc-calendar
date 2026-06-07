@@ -36,10 +36,11 @@ export const Route = createFileRoute("/trainer/calendar")({
   component: CalendarPage,
 });
 
-const HOUR_HEIGHT = 64; // px
+const HOUR_HEIGHT = 44; // px — vista compatta
 const START_HOUR = 7;
 const END_HOUR = 22;
 const HOURS = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
+
 
 function startOfWeek(d: Date): Date {
   const x = new Date(d);
