@@ -1042,7 +1042,7 @@ function ClientPathPage() {
           now >= b.dateRange.start.getTime() &&
           now < b.dateRange.end.getTime(),
       );
-      return (current ?? blockAggregates[0]).id;
+      return (current ?? blockAggregates[0]!).id;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [blockAggregates.length]);
