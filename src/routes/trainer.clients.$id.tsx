@@ -10,6 +10,10 @@ import { OrphanBookingsCard } from "@/components/orphan-bookings-card";
 import { PathStartDateCard } from "@/components/path-start-date-card";
 import { AutoRenewToggleCard } from "@/components/auto-renew-toggle-card";
 import { TimelineWeekRow } from "@/components/timeline-week-row";
+import {
+  AssignPackageDialog,
+  type AssignPackagePayload,
+} from "@/components/assign-package-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -151,6 +155,12 @@ function ClientPathPage() {
   // in the Supabase types yet.
   const [autoRenewBlocks, setAutoRenewBlocks] = useState<boolean | null>(null);
   const [autoRenewSaving, setAutoRenewSaving] = useState(false);
+  // "Assegna pacchetto" — configura percorso/crediti su un cliente esistente
+  // (es. invitato, mai configurato). hasExtraCredits + blocks.length servono
+  // come guardia: in v1 non sovrascriviamo un pacchetto già attivo.
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [hasExtraCredits, setHasExtraCredits] = useState(false);
+  const [assigning, setAssigning] = useState(false);
 
   const totalBlocks = blocks.length;
   const totalWeeks = totalBlocks * WEEKS_PER_BLOCK;
@@ -246,6 +256,16 @@ function ClientPathPage() {
     } else {
       setAllocations([]);
     }
+
+    // Conteggio crediti extra (per la guardia di "Assegna pacchetto": un
+    // cliente Libero non ha blocchi ma può avere extra_credits già assegnati).
+    const { data: ec } = await supabase
+      .from("extra_credits")
+      .select("id")
+      .eq("client_id", clientId)
+      .limit(1);
+    if (isStale()) return;
+    setHasExtraCredits((ec ?? []).length > 0);
     // M5 (audit): completedByBlockType viene calcolato piu' sotto dai booking
     // del cliente gia' caricati (clientBookings), evitando una seconda query.
 
@@ -794,6 +814,147 @@ function ClientPathPage() {
     }
   }
 
+  // Assegna un pacchetto a QUESTO cliente (esistente). Replica la logica di
+  // onboarding di trainer.clients.index.tsx (createClientAccount) ma senza
+  // creare l'utente: si limita a creare blocchi+allocations oppure
+  // extra_credits e a impostare i metadati del profilo (incl. path_start_date,
+  // la cui assenza lasciava i clienti invitati "vuoti").
+  // GUARDIA: il dialog è in sola lettura se il cliente ha già blocchi o crediti;
+  // ricontrolliamo anche qui server-side-ish prima di scrivere.
+  async function assignPackage(data: AssignPackagePayload) {
+    if (!user) return;
+    if (blocks.length > 0 || hasExtraCredits) {
+      toast.error("Il cliente ha già un pacchetto attivo", {
+        description: "Ricarica la pagina: l'assegnazione è consentita solo a clienti senza percorso/crediti.",
+      });
+      return;
+    }
+    setAssigning(true);
+    try {
+      if (data.pathType === "free") {
+        // Cliente Libero / PT Pack: crediti extra (validità 1 anno), nessun blocco.
+        const qty = Math.max(0, data.freeSessions ?? 0);
+        const eventTypeId = data.freeEventTypeId ?? "";
+        if (qty > 0 && eventTypeId) {
+          const expires = new Date();
+          expires.setFullYear(expires.getFullYear() + 1);
+          const { error: ecErr } = await supabase.from("extra_credits").insert({
+            client_id: clientId,
+            event_type_id: eventTypeId,
+            quantity: qty,
+            quantity_booked: 0,
+            expires_at: expires.toISOString(),
+          });
+          if (ecErr) throw ecErr;
+        }
+        const { error: pErr } = await supabase
+          .from("profiles")
+          .update({
+            path_type: "free",
+            auto_renew: false,
+            auto_renew_blocks: false,
+            pack_label: data.packLabel,
+            next_billing_date: null,
+          })
+          .eq("id", clientId);
+        if (pErr) throw pErr;
+      } else {
+        // Percorso Fisso / Abbonamento: blocchi + allocations a partire da oggi.
+        const today = new Date();
+        const blocksToInsert = Array.from({ length: data.totalBlocks }, (_, i) => {
+          const start = new Date(today);
+          start.setDate(today.getDate() + i * 30);
+          const end = new Date(today);
+          end.setDate(today.getDate() + (i + 1) * 30 - 1);
+          return {
+            client_id: clientId,
+            coach_id: user.id,
+            start_date: start.toISOString().slice(0, 10),
+            end_date: end.toISOString().slice(0, 10),
+            status: "active" as const,
+            sequence_order: i + 1,
+          };
+        });
+        const { data: blocksRes, error: bErr } = await supabase
+          .from("training_blocks")
+          .insert(blocksToInsert)
+          .select("id, sequence_order, end_date");
+        if (bErr) throw bErr;
+        const blockBySeq = new Map<number, { id: string; end_date: string }>();
+        (blocksRes ?? []).forEach((b) =>
+          blockBySeq.set(b.sequence_order as number, {
+            id: b.id as string,
+            end_date: b.end_date as string,
+          }),
+        );
+
+        const allocsToInsert: Array<{
+          block_id: string;
+          week_number: number;
+          session_type: SessionType;
+          event_type_id: string;
+          quantity_assigned: number;
+          quantity_booked: number;
+          valid_until: string;
+        }> = [];
+        for (const rule of data.rules) {
+          for (let m = rule.startBlock; m <= rule.endBlock; m++) {
+            const b = blockBySeq.get(m);
+            if (!b) continue;
+            allocsToInsert.push({
+              block_id: b.id,
+              week_number: 1,
+              session_type: rule.sessionType,
+              event_type_id: rule.eventTypeId,
+              quantity_assigned: rule.quantityPerBlock,
+              quantity_booked: 0,
+              valid_until: b.end_date,
+            });
+          }
+        }
+        if (allocsToInsert.length > 0) {
+          const { error: aErr } = await supabase.from("block_allocations").insert(allocsToInsert);
+          if (aErr) throw aErr;
+        }
+
+        // path_start_date = oggi (= start del blocco 1). Senza, repair/ensure
+        // ritornano no_anchor e il cron auto-renew salta il cliente.
+        const today2 = new Date();
+        const nextBilling = new Date(today2);
+        nextBilling.setDate(today2.getDate() + 30);
+        const pathStartIso = today2.toISOString().slice(0, 10);
+        const { error: pErr } = await supabase
+          .from("profiles")
+          .update({
+            path_type: data.pathType,
+            auto_renew: data.autoRenew,
+            auto_renew_blocks: data.autoRenew,
+            pack_label: data.packLabel,
+            path_start_date: pathStartIso,
+            next_billing_date:
+              data.pathType === "recurring" ? nextBilling.toISOString().slice(0, 10) : null,
+          })
+          .eq("id", clientId);
+        if (pErr) throw pErr;
+      }
+
+      toast.success("Pacchetto assegnato", {
+        description:
+          data.pathType === "free"
+            ? "Crediti accreditati al cliente."
+            : `Creati ${data.totalBlocks} blocchi con i crediti impostati.`,
+      });
+      setAssignOpen(false);
+      qc.invalidateQueries({ queryKey: queryKeys.clients.coach(user.id) });
+      qc.invalidateQueries({ queryKey: queryKeys.blocks.coach(user.id) });
+      await load();
+    } catch (e) {
+      toast.error("Assegnazione non riuscita", { description: errorMessage(e) });
+    } finally {
+      setAssigning(false);
+    }
+  }
+
   const dirty = useMemo(() => {
     if (rows.length !== originalRows.length) return true;
     return rows.some(
@@ -896,6 +1057,13 @@ function ClientPathPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setAssignOpen(true)}
+            disabled={loading || assigning}
+          >
+            <Plus className="size-4" /> Assegna pacchetto
+          </Button>
           <Button variant="outline" onClick={resetSchedule} disabled={!pathStart || loading}>
             <RotateCcw className="size-4" /> Ricalcola
           </Button>
@@ -945,9 +1113,22 @@ function ClientPathPage() {
             <Loader2 className="size-5 animate-spin" />
           </div>
         ) : totalBlocks === 0 ? (
-          <div className="p-8 text-center text-sm text-muted-foreground rounded-2xl border border-dashed">
-            Nessun blocco assegnato a questo cliente. Crea il cliente con un percorso dalla pagina
-            Clienti.
+          <div className="p-8 text-center rounded-2xl border border-dashed space-y-3">
+            {hasExtraCredits ? (
+              <p className="text-sm text-muted-foreground">
+                Cliente Libero: ha crediti extra ma nessun percorso a blocchi. La Timeline mostra
+                solo i percorsi strutturati (Fisso / Abbonamento).
+              </p>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Questo cliente non ha ancora un pacchetto assegnato.
+                </p>
+                <Button onClick={() => setAssignOpen(true)} disabled={assigning}>
+                  <Plus className="size-4" /> Assegna pacchetto
+                </Button>
+              </>
+            )}
           </div>
         ) : (
           <div className="space-y-10">
@@ -1036,6 +1217,16 @@ function ClientPathPage() {
         }
         onDeleteEverywhere={(b: EditableBooking) => deleteBookingEverywhere(b as ClientBooking)}
       />
+
+      <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
+        <AssignPackageDialog
+          open={assignOpen}
+          clientName={clientName}
+          eventTypes={eventTypes.map((e) => ({ id: e.id, name: e.name, base_type: e.base_type }))}
+          hasExistingPackage={blocks.length > 0 || hasExtraCredits}
+          onAssign={assignPackage}
+        />
+      </Dialog>
 
       {/* Suppress unused warning */}
       <span className="hidden">
