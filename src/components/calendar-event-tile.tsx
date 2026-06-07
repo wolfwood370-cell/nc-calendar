@@ -165,6 +165,9 @@ export function CalendarEventTile({
 
   const clientName = client?.full_name?.trim() || null;
 
+  const startTime = d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+  const compact = height < 52;
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -173,20 +176,27 @@ export function CalendarEventTile({
             ...laneStyle,
             backgroundColor: eventColor,
           }}
-          className="absolute z-10 rounded-xl px-2 py-1.5 flex flex-col justify-start text-left shadow-sm hover:shadow-md hover:scale-[1.02] hover:z-20 transition-all cursor-pointer ring-1 ring-black/5"
+          className="absolute z-10 rounded-xl px-2 py-1 flex flex-col justify-start text-left shadow-sm hover:shadow-md hover:scale-[1.02] hover:z-20 transition-all cursor-pointer ring-1 ring-black/5 overflow-hidden"
         >
-          <h4 className="text-[12px] leading-tight font-semibold text-white truncate drop-shadow-sm">
+          <h4 className="text-[11px] leading-[1.15] font-semibold text-white truncate drop-shadow-sm">
             {typeLabel}
           </h4>
-          {clientName && (
-            <p className="text-[11px] leading-tight font-medium text-white/95 truncate">
-              {clientName}
+          {compact ? (
+            <p className="text-[10px] leading-[1.15] text-white/90 truncate">
+              {clientName ? `${clientName} · ${startTime}` : startTime}
             </p>
+          ) : (
+            <>
+              {clientName && (
+                <p className="text-[10px] leading-[1.15] font-medium text-white/95 truncate">
+                  {clientName}
+                </p>
+              )}
+              <p className="text-[10px] leading-[1.15] text-white/85 truncate">
+                {startTime}
+              </p>
+            </>
           )}
-          <p className="text-[10px] text-white/85 mt-0.5 truncate">
-            {d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
-          </p>
-
         </button>
       </PopoverTrigger>
 
