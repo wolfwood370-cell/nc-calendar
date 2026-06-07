@@ -159,7 +159,7 @@ export function CalendarEventTile({
   }
 
   // ----- Certified: colored tile + Google-Calendar-style popover -----
-  const eventColor = eventType?.color || "#003e62";
+  const eventColor = eventType?.color || "#9AA0A6";
   const isOnline = eventType?.location_type === "online" || !!booking.meeting_link;
   const gcalUrl = booking.google_event_id
     ? `https://calendar.google.com/calendar/u/0/r/eventedit/${booking.google_event_id}`
