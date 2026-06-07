@@ -381,6 +381,19 @@ function CalendarPage() {
                             endHour={END_HOUR}
                             onOpenReview={openReview}
                             onFocusClient={setFocusClientId}
+                            onEdit={(id) => setEditBookingId(id)}
+                            onCancel={async (id) => {
+                              const { error } = await supabase
+                                .from("bookings")
+                                .update({ status: "cancelled" })
+                                .eq("id", id);
+                              if (error) {
+                                toast.error("Errore", { description: error.message });
+                              } else {
+                                toast.success("Evento annullato");
+                                qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(user?.id) });
+                              }
+                            }}
                           />
                         );
                       })}
