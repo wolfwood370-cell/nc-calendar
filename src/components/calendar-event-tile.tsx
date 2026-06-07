@@ -100,7 +100,9 @@ export function CalendarEventTile({
     !isPersonal && !booking.event_type_id && !!booking.client_id && booking.client_id === booking.coach_id;
 
   const typeLabel =
-    eventType?.name ?? (booking.session_type ? sessionLabel(booking.session_type) : "Sessione");
+    (booking.title?.trim()) ||
+    eventType?.name ||
+    (booking.session_type ? sessionLabel(booking.session_type) : "Sessione");
   const safeDuration = duration > 0 ? duration : 60;
   const endDate = new Date(d.getTime() + safeDuration * 60000);
   const timeLabel = `${d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })} - ${endDate.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}`;
