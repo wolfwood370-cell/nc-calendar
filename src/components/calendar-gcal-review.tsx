@@ -204,10 +204,17 @@ export function CalendarGcalReview({ coachId, bookings, clientsMap, eventTypesMa
 
   return (
     <div className="mb-4 rounded-2xl border border-surface-container bg-white shadow-soft-blue overflow-hidden">
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setOpen((v) => !v);
+          }
+        }}
+        className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left cursor-pointer select-none"
       >
         <span className="flex items-center gap-2 font-medium text-sm">
           {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
@@ -239,7 +246,7 @@ export function CalendarGcalReview({ coachId, bookings, clientsMap, eventTypesMa
         >
           <RefreshCw className="h-4 w-4" />
         </Button>
-      </button>
+      </div>
 
       {open && (
         <div className="border-t border-surface-container px-4 py-3 space-y-4 text-sm">
