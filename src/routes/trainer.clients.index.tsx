@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
+
 import {
   Table,
   TableBody,
@@ -31,7 +31,7 @@ import {
   UserPlus,
   Copy,
   Check,
-  MessageCircle,
+  // MessageCircle removed: phone shortcut moved to detail page
   Sparkles,
 } from "lucide-react";
 import {
@@ -872,43 +872,30 @@ function ClientsPage() {
                 const pathLabel = c.pack_label
                   ? c.pack_label
                   : c.path_type === "recurring"
-                    ? "NC Performance"
-                    : "Percorso Fisso";
-                // Tertiary accent for non-recurring packs (matches the
-                // mockup's "NC Nutrition" orange chip for variety).
-                const isAccent = !!c.pack_label;
+                    ? "Abbonamento Mensile"
+                    : c.path_type === "free"
+                      ? "Cliente Libero"
+                      : "Percorso Fisso";
                 return (
-                  <article
+                  <Link
                     key={`m-${c.id}`}
-                    className="bg-surface-container-lowest rounded-[32px] border border-outline-variant/20 p-4 shadow-[0_12px_32px_rgba(0,0,0,0.04)] flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    to="/trainer/clients/$id"
+                    params={{ id: c.id }}
+                    className="bg-surface-container-lowest rounded-[28px] border border-outline-variant/20 p-4 shadow-[0_8px_24px_rgba(0,0,0,0.04)] flex items-center gap-4 active:scale-[0.99] transition-transform"
                   >
-                    <div className="flex items-center gap-4 min-w-0">
-                      <div className="w-16 h-16 rounded-full bg-surface-variant overflow-hidden flex-shrink-0 flex items-center justify-center text-lg font-bold text-on-surface-variant">
-                        {initials(c.full_name, c.email)}
-                      </div>
-                      <div className="min-w-0">
-                        <h2 className="text-lg font-semibold text-on-surface truncate">
-                          {c.full_name ?? "Senza nome"}
-                        </h2>
-                        <span
-                          className={`mt-1 inline-block px-3 py-1 rounded-full text-xs font-semibold ${
-                            isAccent
-                              ? "bg-tertiary-container/20 text-tertiary"
-                              : "bg-primary-container/10 text-primary-container"
-                          }`}
-                        >
-                          {pathLabel}
-                        </span>
-                      </div>
+                    <div className="w-14 h-14 rounded-full bg-surface-variant flex-shrink-0 flex items-center justify-center text-base font-bold text-on-surface-variant">
+                      {initials(c.full_name, c.email)}
                     </div>
-                    <Link
-                      to="/trainer/clients/$id"
-                      params={{ id: c.id }}
-                      className="self-end sm:self-auto border border-primary-container text-primary-container hover:bg-primary-container/10 transition-colors rounded-full px-6 py-2 font-semibold text-sm active:scale-95 text-center min-w-[110px]"
-                    >
-                      Dettagli
-                    </Link>
-                  </article>
+                    <div className="min-w-0 flex-1">
+                      <h2 className="text-base font-semibold text-on-surface truncate">
+                        {c.full_name ?? "Senza nome"}
+                      </h2>
+                      <p className="text-xs text-outline truncate">{c.email ?? "—"}</p>
+                      <span className="mt-1 inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-primary-container/10 text-primary-container">
+                        {pathLabel}
+                      </span>
+                    </div>
+                  </Link>
                 );
               })}
             </div>
@@ -1029,35 +1016,20 @@ function ClientsPage() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {visibleCards.map((d) => {
               const c = d.client;
               const isExpiring = d.status === "expiring";
               const isArchived = d.status === "archived";
               const isCompleted = d.status === "completed";
-              const phoneDigits = (c.phone ?? "").replace(/\D/g, "");
 
-              // Predictive exhaustion analytics (computed server-side via
-              // client_exhaustion_forecast view).
-              const fc = forecasts.get(c.id);
-              const showForecast =
-                !isArchived &&
-                !isCompleted &&
-                fc &&
-                fc.daysLeft !== null &&
-                fc.daysLeft <= 14 &&
-                fc.daysLeft >= 0;
-              const isCritical = !!fc && fc.daysLeft !== null && fc.daysLeft < 7;
-              const formattedExhaustion = fc?.date
-                ? new Intl.DateTimeFormat("it-IT", {
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
-                  }).format(new Date(fc.date + "T00:00:00"))
-                : null;
-              const reminderText = encodeURIComponent(
-                `Ciao ${(c.full_name ?? "").split(" ")[0] || ""}! Sto pianificando le prossime sessioni — vedo che i tuoi crediti stanno per esaurirsi. Vuoi rinnovare?`,
-              );
+              const pathLabel = c.pack_label
+                ? c.pack_label
+                : c.path_type === "recurring"
+                  ? "Abbonamento Mensile"
+                  : c.path_type === "free"
+                    ? "Cliente Libero"
+                    : "Percorso Fisso";
 
               const badgeClass = isArchived
                 ? "bg-surface-container text-on-surface-variant"
@@ -1077,153 +1049,37 @@ function ClientsPage() {
               return (
                 <div
                   key={c.id}
-                  className="bg-white rounded-[32px] p-6 shadow-[0px_4px_20px_rgba(0,86,133,0.05)] hover:shadow-[0px_8px_30px_rgba(0,86,133,0.08)] transition-all flex flex-col"
+                  className="relative group bg-white rounded-[28px] p-5 shadow-[0px_4px_20px_rgba(0,86,133,0.05)] hover:shadow-[0px_8px_30px_rgba(0,86,133,0.08)] transition-all"
                 >
-                  <div className="flex justify-between items-start mb-6">
-                    <div className="flex items-center gap-4 min-w-0">
-                      <div className="w-12 h-12 shrink-0 rounded-full bg-avatar-placeholder text-on-avatar-placeholder flex items-center justify-center text-base font-bold">
-                        {initials(c.full_name, c.email)}
-                      </div>
-                      <div className="min-w-0">
-                        <h3 className="text-lg leading-6 font-bold text-on-surface truncate">
-                          {c.full_name ?? "Senza nome"}
-                        </h3>
-                        <p className="text-sm text-outline truncate">
-                          {c.pack_label
-                            ? "PT Pack"
-                            : c.path_type === "recurring"
-                              ? "Abbonamento Mensile"
-                              : d.totalBlocks > 0
-                                ? `Percorso ${d.totalBlocks} ${d.totalBlocks === 1 ? "Blocco" : "Blocchi"}`
-                                : (c.email ?? "—")}
-                        </p>
-                        {c.pack_label && (
-                          <span className="inline-flex items-center mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-aura-primary/10 text-aura-primary">
-                            {c.pack_label}
-                          </span>
-                        )}
-                      </div>
+                  <Link
+                    to="/trainer/clients/$id"
+                    params={{ id: c.id }}
+                    className="flex items-center gap-4 min-w-0"
+                  >
+                    <div className="w-14 h-14 shrink-0 rounded-full bg-avatar-placeholder text-on-avatar-placeholder flex items-center justify-center text-base font-bold">
+                      {initials(c.full_name, c.email)}
                     </div>
-                    <span
-                      className={`shrink-0 ml-2 px-3 py-1 rounded-full text-xs font-semibold ${badgeClass}`}
-                    >
-                      {badgeLabel}
-                    </span>
-                  </div>
-
-                  <div className="mb-6 flex-1">
-                    {d.summary.length > 0 ? (
-                      <div className="space-y-3">
-                        <p className="text-[11px] uppercase tracking-wide font-semibold text-outline">
-                          Riepilogo Sessioni
-                        </p>
-                        {d.summary.map((row) => {
-                          const pct =
-                            row.total > 0
-                              ? Math.min(100, Math.round((row.used / row.total) * 100))
-                              : 0;
-                          return (
-                            <div key={row.type}>
-                              <div className="flex items-baseline justify-between gap-2">
-                                <span className="text-xs font-medium text-on-surface-variant truncate">
-                                  {row.type}
-                                </span>
-                                <span className="text-sm font-bold text-aura-primary tabular-nums shrink-0">
-                                  {row.used} / {row.total}
-                                </span>
-                              </div>
-                              {/* Aura-themed shadcn Progress — h-1 keeps the
-                                bar compact inside the card, and the
-                                arbitrary child selector overrides the
-                                default primary color to match the rest
-                                of the dashboard. */}
-                              <Progress
-                                value={pct}
-                                className="mt-1 h-1 bg-surface-variant [&>div]:bg-aura-primary"
-                              />
-                            </div>
-                          );
-                        })}
-                        {c.path_type === "recurring" && d.daysToBilling !== null && (
-                          <p className="text-[11px] text-outline pt-1">
-                            {d.daysToBilling >= 0
-                              ? `Rinnovo tra ${d.daysToBilling} ${d.daysToBilling === 1 ? "giorno" : "giorni"}`
-                              : "Rinnovo scaduto"}
-                          </p>
-                        )}
-                        {d.previousBlockResiduals > 0 && (
-                          <p className="text-[11px] text-warning pt-1">
-                            +{d.previousBlockResiduals}{" "}
-                            {d.previousBlockResiduals === 1 ? "sessione" : "sessioni"} dal blocco
-                            precedente (scadenza in pochi giorni)
-                          </p>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-outline italic">Nessun pacchetto assegnato.</p>
-                    )}
-                  </div>
-
-                  {showForecast && formattedExhaustion && (
-                    // Discreet exhaustion forecast line — replaces the
-                    // earlier tertiary/error container card per UX
-                    // feedback. The information stays (date + critical
-                    // accent + WhatsApp shortcut when <7 days) but the
-                    // visual weight is dropped so it doesn't compete with
-                    // the session counter above.
-                    <div className="mb-4 -mt-2 flex items-center gap-2 text-[11px] text-on-surface-variant">
-                      <span
-                        aria-hidden
-                        className={`inline-block w-1.5 h-1.5 rounded-full ${
-                          isCritical ? "bg-destructive" : "bg-outline"
-                        }`}
-                      />
-                      <span className={isCritical ? "font-semibold text-destructive" : ""}>
-                        Esaurimento previsto: {formattedExhaustion}
-                      </span>
-                      {isCritical && phoneDigits && (
-                        <a
-                          href={`https://wa.me/${phoneDigits}?text=${reminderText}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="ml-auto text-[11px] font-semibold text-destructive underline-offset-2 hover:underline"
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-base leading-5 font-bold text-on-surface truncate">
+                        {c.full_name ?? "Senza nome"}
+                      </h3>
+                      <p className="text-xs text-outline truncate mt-0.5">
+                        {c.email ?? "—"}
+                      </p>
+                      <div className="mt-2 flex items-center gap-2 flex-wrap">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-aura-primary/10 text-aura-primary">
+                          {pathLabel}
+                        </span>
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${badgeClass}`}
                         >
-                          Promemoria
-                        </a>
-                      )}
+                          {badgeLabel}
+                        </span>
+                      </div>
                     </div>
-                  )}
+                  </Link>
 
-                  <div className="pt-4 border-t border-surface-variant flex items-center gap-2">
-                    <Button
-                      asChild
-                      className="flex-1 rounded-full bg-aura-primary/10 text-aura-primary hover:bg-aura-primary/20 shadow-none"
-                    >
-                      <Link to="/trainer/clients/$id" params={{ id: c.id }}>
-                        {isExpiring ? "Rinnova" : "Pianifica"}
-                      </Link>
-                    </Button>
-
-                    {phoneDigits ? (
-                      <a
-                        href={`https://wa.me/${phoneDigits}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        title="Apri WhatsApp"
-                        className="w-10 h-10 flex items-center justify-center rounded-full border border-outline-variant text-on-surface-variant hover:bg-surface-container transition-colors"
-                      >
-                        <MessageCircle className="size-4" />
-                      </a>
-                    ) : (
-                      <button
-                        disabled
-                        title="Telefono non disponibile"
-                        className="w-10 h-10 flex items-center justify-center rounded-full border border-surface-variant text-outline-variant cursor-not-allowed"
-                      >
-                        <MessageCircle className="size-4" />
-                      </button>
-                    )}
-
+                  <div className="absolute top-3 right-3">
                     <ClientCardMenu
                       client={c}
                       isArchived={isArchived}
