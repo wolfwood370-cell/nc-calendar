@@ -9,6 +9,7 @@ import { CalendarAllDayStrip } from "@/components/calendar-all-day-strip";
 import { CalendarEventTile } from "@/components/calendar-event-tile";
 import { CalendarContextPanel } from "@/components/calendar-context-panel";
 import { CalendarGcalReview } from "@/components/calendar-gcal-review";
+import { CalendarEventEditDialog } from "@/components/calendar-event-edit-dialog";
 import { layoutDay } from "@/lib/calendar-layout";
 import { MessageCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
