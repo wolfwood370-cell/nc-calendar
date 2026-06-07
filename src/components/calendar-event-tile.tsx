@@ -90,7 +90,9 @@ export function CalendarEventTile({
     width: `calc(${widthPct}% - 8px)`,
   } as const;
 
-  const isPersonal = !!booking.is_personal;
+  // Un evento è "puramente personale" solo se non ha cliente associato.
+  // I booking con is_personal=true ma client_id valorizzato (es. import da Google) sono trattati come sessioni cliente.
+  const isPersonal = !!booking.is_personal && !booking.client_id;
   const isUnassigned = !isPersonal && !booking.client_id;
   const isExternal =
     !isPersonal && !!booking.client_id && booking.client_id === booking.coach_id;
@@ -105,18 +107,20 @@ export function CalendarEventTile({
   if (isPersonal) {
     const title = personalBlockTitle(booking);
     return (
-      <div
+      <button
         style={laneStyle}
-        className="absolute z-10 bg-surface-container-high border border-outline-variant/40 rounded-2xl p-2 cursor-default"
-        aria-label={`Impegno personale: ${title}`}
+        onClick={() => onEdit?.(booking.id)}
+        className="absolute z-10 bg-surface-container-high border border-outline-variant/40 rounded-2xl p-2 text-left hover:bg-surface-container transition-colors cursor-pointer"
+        aria-label={`Impegno personale: ${title} — modifica`}
       >
         <h4 className="text-[12px] leading-tight font-semibold text-on-surface truncate">
           {title}
         </h4>
-        <p className="text-[10px] text-outline mt-0.5">Personale · {timeLabel}</p>
-      </div>
+        <p className="text-[10px] text-outline mt-0.5">Personale · {d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</p>
+      </button>
     );
   }
+
 
   if (isUnassigned) {
     return (
