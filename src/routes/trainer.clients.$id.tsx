@@ -45,6 +45,7 @@ import {
   Edit3,
   CheckCircle2,
   Clock,
+  ChevronDown,
 } from "lucide-react";
 type EditableStatus = "scheduled" | "completed" | "cancelled" | "late_cancelled";
 import { supabase } from "@/integrations/supabase/client";
@@ -1019,9 +1020,32 @@ function ClientPathPage() {
         });
       });
       const pills = Array.from(grouped.values());
-      return { ...b, allocations: allocs, pills };
+      return { ...b, allocations: allocs, pills, dateRange };
     });
   }, [blocks, allocations, clientBookings, rowsByBlock, eventTypes]);
+
+  // Accordion state — solo un blocco aperto alla volta. Default: il blocco
+  // corrente (today nel range) o il primo se non c'è nessun match.
+  const [openBlockId, setOpenBlockId] = useState<string | null>(null);
+  useEffect(() => {
+    if (blockAggregates.length === 0) {
+      setOpenBlockId(null);
+      return;
+    }
+    setOpenBlockId((prev) => {
+      if (prev && blockAggregates.some((b) => b.id === prev)) return prev;
+      const now = today.getTime();
+      const current = blockAggregates.find(
+        (b) =>
+          b.dateRange.start &&
+          b.dateRange.end &&
+          now >= b.dateRange.start.getTime() &&
+          now < b.dateRange.end.getTime(),
+      );
+      return (current ?? blockAggregates[0]!).id;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blockAggregates.length]);
 
   // Group client bookings by row index (week)
   const bookingsByRowIdx = useMemo(() => {
@@ -1131,18 +1155,68 @@ function ClientPathPage() {
             )}
           </div>
         ) : (
-          <div className="space-y-10">
+          <div className="space-y-3">
             {blockAggregates.map((b) => {
               const blockRows = rowsByBlock.get(b.sequence_order) ?? [];
+              const isOpen = openBlockId === b.id;
+              const totalAssigned = b.pills.reduce((s, p) => s + p.assigned, 0);
+              const totalCompleted = b.pills.reduce((s, p) => s + p.completed, 0);
+              const rangeLabel =
+                b.dateRange.start && b.dateRange.end
+                  ? `${format(b.dateRange.start, "d MMM", { locale: it })} – ${format(
+                      addDays(b.dateRange.end, -1),
+                      "d MMM",
+                      { locale: it },
+                    )}`
+                  : null;
+              const now = today.getTime();
+              const isCurrent =
+                b.dateRange.start &&
+                b.dateRange.end &&
+                now >= b.dateRange.start.getTime() &&
+                now < b.dateRange.end.getTime();
               return (
-                <section key={b.id}>
-                  {/* Block header */}
-                  <div className="bg-card rounded-[32px] shadow-[0_4px_20px_rgba(0,86,133,0.05)] hover:shadow-[0_8px_24px_rgba(0,86,133,0.08)] transition-shadow duration-300 p-6 mb-4">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                      <h3 className="text-2xl font-semibold text-foreground">
+                <section
+                  key={b.id}
+                  className="bg-card rounded-2xl shadow-[0_2px_12px_rgba(0,86,133,0.04)] overflow-hidden border border-border/40"
+                >
+                  {/* Compact header — toggle */}
+                  <button
+                    type="button"
+                    onClick={() => setOpenBlockId(isOpen ? null : b.id)}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted/40 transition-colors"
+                    aria-expanded={isOpen}
+                  >
+                    <ChevronDown
+                      className={cn(
+                        "size-4 text-muted-foreground shrink-0 transition-transform",
+                        isOpen && "rotate-180",
+                      )}
+                    />
+                    <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
+                      <span className="text-sm font-semibold text-foreground">
                         Blocco {b.sequence_order}
-                      </h3>
-                      <div className="flex flex-wrap items-center gap-2">
+                      </span>
+                      {isCurrent && (
+                        <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                          In corso
+                        </span>
+                      )}
+                      {rangeLabel && (
+                        <span className="text-xs text-muted-foreground">· {rangeLabel}</span>
+                      )}
+                    </div>
+                    {totalAssigned > 0 && (
+                      <span className="text-xs font-medium text-muted-foreground shrink-0">
+                        {totalCompleted}/{totalAssigned}
+                      </span>
+                    )}
+                  </button>
+
+                  {/* Expanded body */}
+                  {isOpen && (
+                    <div className="px-4 pb-5 pt-1 space-y-4 border-t border-border/30">
+                      <div className="flex flex-wrap items-center gap-2 pt-3">
                         {b.pills.length === 0 ? (
                           <span className="text-xs text-muted-foreground italic">
                             Nessun credito impostato
@@ -1154,18 +1228,18 @@ function ClientPathPage() {
                               <span
                                 key={i}
                                 className={cn(
-                                  "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold",
+                                  "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold",
                                   done
                                     ? "bg-primary/10 text-primary"
                                     : "bg-surface-container-low text-primary",
                                 )}
                               >
                                 {done ? (
-                                  <CheckCircle2 className="size-3.5" />
+                                  <CheckCircle2 className="size-3" />
                                 ) : (
-                                  <Clock className="size-3.5" />
+                                  <Clock className="size-3" />
                                 )}
-                                {p.name}: {p.completed}/{p.assigned} completate
+                                {p.name}: {p.completed}/{p.assigned}
                               </span>
                             );
                           })
@@ -1182,24 +1256,23 @@ function ClientPathPage() {
                           onSaved={() => void load()}
                         />
                       </div>
-                    </div>
-                  </div>
 
-                  {/* 4-week grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                    {blockRows.map(({ row, idx }) => (
-                      <TimelineWeekRow
-                        key={row.week_number}
-                        row={row}
-                        idx={idx}
-                        today={today}
-                        weekBookings={bookingsByRowIdx[idx] ?? []}
-                        eventTypes={eventTypes}
-                        onWeekDateChange={handleWeekDateChange}
-                        onBookingClick={setEditingBooking}
-                      />
-                    ))}
-                  </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                        {blockRows.map(({ row, idx }) => (
+                          <TimelineWeekRow
+                            key={row.week_number}
+                            row={row}
+                            idx={idx}
+                            today={today}
+                            weekBookings={bookingsByRowIdx[idx] ?? []}
+                            eventTypes={eventTypes}
+                            onWeekDateChange={handleWeekDateChange}
+                            onBookingClick={setEditingBooking}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </section>
               );
             })}

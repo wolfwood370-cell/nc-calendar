@@ -177,9 +177,9 @@ function EventTypesPage() {
       </div>
 
       {listQ.isLoading ? (
-        <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-56 w-full rounded-[32px]" />
+        <div className="grid gap-3 grid-cols-1 lg:grid-cols-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-20 w-full rounded-2xl" />
           ))}
         </div>
       ) : listQ.isError ? (
@@ -215,7 +215,7 @@ function EventTypesPage() {
           </Button>
         </div>
       ) : (
-        <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 grid-cols-1 lg:grid-cols-2">
           {types.map((t) => (
             <EventTypeServiceCard
               key={t.id}

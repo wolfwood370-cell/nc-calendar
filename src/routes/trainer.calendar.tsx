@@ -71,10 +71,14 @@ function CalendarPage() {
   const [onlyPersonal, setOnlyPersonal] = useState(false);
   const [onlyToAssign, setOnlyToAssign] = useState(false);
   const [selectedTypeIds, setSelectedTypeIds] = useState<Set<string>>(new Set());
-  const [lastSyncAt, setLastSyncAt] = useState<number | null>(() => {
-    const raw = typeof window !== "undefined" ? localStorage.getItem("gcal_reconcile_last") : null;
-    return raw ? Number(raw) : null;
-  });
+  // Defer localStorage read to useEffect — leggerlo nell'initializer di
+  // useState provoca un hydration mismatch quando il valore esiste solo
+  // sul client.
+  const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
+  useEffect(() => {
+    const raw = localStorage.getItem("gcal_reconcile_last");
+    if (raw) setLastSyncAt(Number(raw));
+  }, []);
   const [editBookingId, setEditBookingId] = useState<string | null>(null);
 
 
