@@ -1,77 +1,78 @@
+# Piano: refactor area Trainer
 
-# Pulizia + reimplementazione Google Calendar via connettore Lovable
+Lavoro suddiviso in 6 interventi indipendenti. Ognuno è una piccola PR mentale: posso eseguirli in sequenza nello stesso turno di build o splittare. Niente modifiche al backend tranne dove indicato (nessuna serve davvero).
 
-Scenario scelto: **tu sei l'unico coach** → tutti gli eventi finiscono sul tuo unico Google Calendar (quello collegato al connettore `NC Personal Trainer - Calendar`). Niente più OAuth per-coach.
+## 1. Panoramica (`/trainer`) — semplificata
 
-## 1. Linkare il connettore al progetto
+File: `src/routes/trainer.index.tsx`
 
-Connettore `google_calendar` già esistente in workspace (`std_01kt1tt1ztexybz3t2gp3fm1y1`), non ancora linkato → linkarlo per esporre `GOOGLE_CALENDAR_API_KEY` + `LOVABLE_API_KEY` al server runtime.
+Cambiamenti:
+- **Rimuovo** la sezione "Crediti in Scadenza" (blocco `expiring` + JSX, e l'intero `useMemo` collegato).
+- **Rimuovo** la striscia "Quick Stats" in basso (Clienti Attivi / Sessioni Mese / Crediti Emessi / Nuovi 30gg) e con essa: `QuickStat` import, `useQuery newClientsQ`, `stats` useMemo, import `thirtyDaysAgo`, `Users/CalendarCheck2/Wallet/UserPlus`.
+- **Cambio finestra "Distribuzione Servizi"**: oggi è "questo mese", diventa **dal 1° gennaio dell'anno corrente** (YTD). Aggiungo helper `startOfYear()` in `src/lib/date-windows.ts` (o inline) e aggiorno l'etichetta della card in "Distribuzione Servizi (dal 1° gen)".
+- **Mostra anche il numero di eventi**, non solo la percentuale: per ogni voce rendo `Nome — N eventi (XX%)` e tolgo il limite `.slice(0, 5)` (oppure lo alzo a 10) così si vede la distribuzione completa.
+- Layout: la colonna destra resta con la sola card "Distribuzione Servizi"; sinistra resta la lista "Oggi" (appuntamenti del giorno) invariata. Su mobile la vista resta com'è (già mostra solo today + next event, niente quick stats).
 
-## 2. Codice da rimuovere
+## 2. Calendario (`/trainer/calendar`) — versione compatta + dialog inline
 
-**Edge function**
-- `supabase/functions/sync-calendar/` (1594 righe) → `delete_edge_functions(["sync-calendar"])`
+File principali: `src/routes/trainer.calendar.tsx`, `src/components/calendar-event-tile.tsx`, `src/components/calendar-header.tsx`. Nuovo: `src/components/calendar-event-dialog.tsx`.
 
-**File frontend / shared**
-- `src/lib/sync-calendar.ts`
-- `src/hooks/use-gcal-watch-renewal.ts`
-- `src/routes/api/public/webhooks/gcal-watch.ts` (più nessun push: il calendario è tuo, la app è la sola sorgente di verità)
-- `src/lib/calendar-utils.ts` (duplicato di `src/lib/calendar.ts`)
-- Componente `TokenExpiryBadge` e blocco "Connetti / Disconnetti Google" in `src/routes/trainer.integrations.tsx`
+Cambiamenti:
+- **Vista compatta**: riduco `HOUR_HEIGHT` da 64→44px e abbasso l'altezza minima della tile; il colore di sfondo della tile resta quello dell'event type (`et.color`) — già supportato.
+- **Hover tooltip**: avvolgo `CalendarEventTile` in un `Tooltip` (shadcn `tooltip` già installato) che mostra ora inizio/fine, cliente, tipo evento, durata, note rapide.
+- **Filtri per tipo evento sopra il calendario**: estendo `CalendarHeader` con una riga di chip/toggle che elenca gli `eventTypes` del coach + le categorie speciali ("Personali", "Esterni Google", "Da assegnare"). Stato `selectedTypeIds: Set<string>` nel parent. Sostituisce/affianca gli attuali toggle `onlyPT` / `onlyToAssign`. La logica filtro nel `useMemo` di `timedByDay/allDayByDay` viene aggiornata di conseguenza.
+- **Dialog di modifica inline**: cliccando su una tile **non** si naviga via, si apre un `Dialog` shadcn sopra il calendario con form completo (data/ora, durata, tipo evento, cliente, note coach, status, link meet). On save → `supabase.from("bookings").update(...)` + `qc.invalidateQueries`. Sostituisce l'attuale `openReview` che usava `?reviewEventId` (lo lascio funzionante in parallelo per la riconciliazione Google, oppure rinomino il dialog di review come "dialog assegnazione" e aggiungo un nuovo "dialog modifica" per click su evento già assegnato).
+- **Mantengo**: la card `CalendarGcalReview` (riconciliazione eventi sincronizzati) e il bottone refresh nell'header che già forza `runReconcile()`.
+- **Aggiungo nell'header l'orario dell'ultima sincronizzazione**: leggo `localStorage.getItem("gcal_reconcile_last")` (già usato per il throttle) e lo mostro come "Ultima sync: HH:MM" accanto al bottone refresh. Aggiorno il valore ad ogni `runReconcile` riuscito (già fatto via `setItem`).
 
-**Tutte le chiamate**: `syncCalendar(...)` / `syncCalendarAwait(...)` / `useGcalWatchRenewal(...)` in:
-`hooks/use-book-confirm.ts`, `lib/queries.ts`, `routes/trainer.calendar.tsx`, `routes/trainer.integrations.tsx`, `components/calendar-manage-sheet.tsx`, `components/client-reschedule-sheet.tsx`, `components/reschedule-drawer.tsx`, `components/edit-booking-dialog.tsx`, `components/review-booking-dialog.tsx` → sostituite con i nuovi server fn (vedi §4) o rimosse (`register_watch`, `mirror_check`, `import_history` non servono più).
+## 3. Clienti (`/trainer/clients`) — schede invece di tabella
 
-**Secrets Supabase obsoleti** (chiedo conferma prima di cancellarli): `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`.
+File: `src/routes/trainer.clients.index.tsx`, `src/routes/trainer.clients.$id.tsx`.
 
-## 3. Migration database
+Cambiamenti su `/trainer/clients`:
+- Sostituisco la `Table` principale con una **grid di card cliente** (CSS grid responsive 1/2/3 colonne). Ogni card: avatar/initiali, nome, email, badge stato (active/paused), una riga riassuntiva "Percorso: 6 mesi · 3 sessioni residue" o "Free Session — 1 credito" (calcolata dai dati già caricati da `useCoachBlocks` / `useCoachExtraCredits`), e menu `ClientCardMenu` (già esistente) nell'angolo.
+- Tutta la card è cliccabile → `<Link to="/trainer/clients/$id" params={{ id }}>`. Mantengo ricerca + tab status già presenti.
+- Mantengo `PendingInvitationsCard`, `CreateClientDialog`, `InviteClientDialog`, `CredentialsDialog`.
 
-Drop di tutte le colonne/tabelle dedicate all'OAuth per-coach:
+Cambiamenti su `/trainer/clients/$id` (già esiste, 1238 righe — verifico cosa mostra già):
+- **Audit veloce in build mode** poi miglioro per assicurare la presenza di queste sezioni:
+  1. Anagrafica (nome, email, telefono, data inizio percorso, auto-renew).
+  2. **Servizi attivi** raggruppati per tipo:
+     - Percorsi a durata fissa (3/6/12 mesi o custom) → `training_blocks` con `path_type` di profilo `fixed`.
+     - Programmazioni avanzate con rinnovo mensile → `path_type='recurring'`.
+     - Clienti liberi: Free Session + PT Pack (3 sessioni) → `path_type='free'` + `extra_credits` (event_type_id corrispondente).
+     - Crediti extra per qualsiasi event_type creato in `event_types`.
+  3. **Appuntamenti**: due liste — passati (status `completed`/`cancelled`) e futuri (`scheduled`), ordinati per data, con tipo evento + colore.
+- Per ogni riga, link/click apre lo stesso dialog di modifica costruito al punto 2.
 
-- `integration_settings`: drop colonne `gcal_enabled`, `gcal_refresh_token`, `gcal_access_token`, `gcal_token_expiry`, `gcal_calendar_id`, `gcal_channel_id`, `gcal_channel_token`, `gcal_channel_expires_at`, `gcal_resource_id`, `gcal_last_sync_at`, ecc.
-- `profiles.gcal_invite_enabled` → drop (l'invito attendee sarà sempre disponibile, gestito lato server fn con email del cliente).
-- Tabella `gcal_sync_signals` → drop (era il watermark per i push webhook, ora superfluo).
-- Colonna `bookings.google_event_id` → **mantenuta** (serve per update/cancel sull'evento giusto).
+## 4-6. Tipologie evento, Disponibilità, Integrazioni
+Nessuna modifica.
 
-## 4. Nuova architettura (TanStack server functions)
+## 7. Rimozione pagina Segnalazioni
 
-File `src/lib/gcal.functions.ts` (server-only, importa `@/integrations/lovable/...` no: usiamo direttamente fetch al gateway).
+- Cancello `src/routes/trainer.bug-reports.tsx`.
+- Rimuovo la voce `{ title: "Segnalazioni", url: "/trainer/bug-reports", icon: Bug }` da `src/components/trainer-sidebar.tsx` (e l'import `Bug` se non usato altrove).
+- Il routeTree viene rigenerato automaticamente da Vite.
 
-Gateway: `https://connector-gateway.lovable.dev/google_calendar/calendar/v3/calendars/primary/events`
-Headers: `Authorization: Bearer ${LOVABLE_API_KEY}`, `X-Connection-Api-Key: ${GOOGLE_CALENDAR_API_KEY}`.
+## 8. Rimozione bottone FAB segnalazione bug
 
-Server functions esposte (con `requireSupabaseAuth` middleware):
+- Rimuovo `import { BugReportFAB }` e il rispettivo `<BugReportFAB />` da `src/routes/__root.tsx`.
+- Cancello `src/components/bug-report-fab.tsx`.
+- Lascio la tabella `bug_reports` nel DB intatta (nessuna migration) — storico preservato; se vuoi posso aggiungere uno step di drop table.
 
-| Nome | Cosa fa | Chiamata da |
-|------|---------|-------------|
-| `gcalCreateEvent` | POST `/events?conferenceDataVersion=1&sendUpdates=all` — crea evento, opz. richiede Google Meet (`request_meet`), aggiunge attendee (email cliente), reminders golden (online=30m+24h, presenza=2h+24h). Scrive `bookings.google_event_id` e `bookings.meeting_link`. | conferma prenotazione, creazione manuale |
-| `gcalUpdateEvent` | PATCH `/events/{id}?sendUpdates=all` — aggiorna start/end/summary/colore quando si sposta o modifica un booking. | reschedule, edit booking |
-| `gcalCancelEvent` | DELETE `/events/{id}?sendUpdates=all` — cancella evento Google, distinguendo "late" solo nel testo. Null-safe se `google_event_id` mancante. | cancellazione, late cancel |
+## Note tecniche
 
-Tutte le server fn:
-- validano input con Zod
-- restituiscono DTO (no `Response` raw)
-- in caso di errore loggano + ritornano `{ok:false, error}` così le UI mostrano il toast non-bloccante esistente
+- Nessuna migration SQL richiesta per i punti 1-3, 7, 8. Tutti i dati necessari (blocks, allocations, extra_credits, bookings, event_types) sono già esposti dalle query esistenti (`useCoachBlocks`, `useCoachBookings`, `useCoachExtraCredits` se esiste, altrimenti la aggiungo lato client).
+- Il dialog di modifica evento usa solo `supabase.from('bookings').update(...)` — RLS già permette al coach proprietario.
+- Per gli helper `startOfYear` aggiungo una funzione pura in `src/lib/date-windows.ts`.
+- Tooltip su mobile: il `Tooltip` shadcn non funziona bene al tap; su mobile il tap apre direttamente il dialog di modifica, quindi nessun tooltip serve sotto md.
 
-Helper client `src/lib/gcal-client.ts` con wrapper `useServerFn(gcalCreateEvent)` ecc., così le call site cambiano solo nome funzione (da `syncCalendar({action:"create",...})` a `gcalCreate.mutate(...)`).
+## Domande aperte prima di implementare
 
-## 5. UI `/trainer/integrations`
+Una sola, per non sbagliare scope sul punto 3:
 
-- Rimuovo card "Google Calendar" con Connect/Disconnect/refresh-token/TokenExpiryBadge.
-- Sostituisco con card statica: "Google Calendar collegato via Lovable Cloud — gli eventi vengono sincronizzati automaticamente sul calendario del coach."
-- Rimuovo bottoni "Sincronizza ora" / "Diagnostica sync" / "Importa storico" (azioni non più disponibili nel nuovo modello pull-based su singolo calendario).
+**Sul dettaglio cliente** (`/trainer/clients/$id`) preferisci che:
+- (a) faccia un **audit** della pagina esistente e tocchi solo quello che manca rispetto ai requisiti (anagrafica + servizi attivi raggruppati + appuntamenti passati/futuri), oppure
+- (b) la **ricostruisca da zero** con un layout pulito a sezioni, anche se significa perdere alcune view già presenti?
 
-## 6. Verifica finale
-
-- Build pulita (tsc + vite).
-- Test manuale flusso: prenotazione client → evento creato sul calendario condiviso, reschedule → evento spostato, cancel → evento eliminato.
-- Niente più referenze a `sync-calendar`, `gcal_*`, `useGcalWatchRenewal`, `integration_settings.gcal_*`.
-
-## Note tecniche per chi legge
-
-- Tutto è server-side: `LOVABLE_API_KEY` e `GOOGLE_CLIENT_*` non finiscono nel bundle client.
-- L'autorizzazione resta `requireSupabaseAuth`: solo coach autenticati possono triggerare le server fn (anche se in pratica c'è un solo coach).
-- Niente push notifications: il calendario è di proprietà dell'app, niente reconciliation bidirezionale.
-- `bookings.google_event_id` resta la chiave per update/cancel.
-
-Una volta approvato passo in build mode ed eseguo nell'ordine: link connettore → migration drop colonne → cancellazione file + edge function → nuove server fn → refactor call sites → cleanup `/trainer/integrations`.
+Se non specifichi, vado con (a) — meno invasivo.
