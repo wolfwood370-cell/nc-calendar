@@ -1020,9 +1020,32 @@ function ClientPathPage() {
         });
       });
       const pills = Array.from(grouped.values());
-      return { ...b, allocations: allocs, pills };
+      return { ...b, allocations: allocs, pills, dateRange };
     });
   }, [blocks, allocations, clientBookings, rowsByBlock, eventTypes]);
+
+  // Accordion state — solo un blocco aperto alla volta. Default: il blocco
+  // corrente (today nel range) o il primo se non c'è nessun match.
+  const [openBlockId, setOpenBlockId] = useState<string | null>(null);
+  useEffect(() => {
+    if (blockAggregates.length === 0) {
+      setOpenBlockId(null);
+      return;
+    }
+    setOpenBlockId((prev) => {
+      if (prev && blockAggregates.some((b) => b.id === prev)) return prev;
+      const now = today.getTime();
+      const current = blockAggregates.find(
+        (b) =>
+          b.dateRange.start &&
+          b.dateRange.end &&
+          now >= b.dateRange.start.getTime() &&
+          now < b.dateRange.end.getTime(),
+      );
+      return (current ?? blockAggregates[0]).id;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blockAggregates.length]);
 
   // Group client bookings by row index (week)
   const bookingsByRowIdx = useMemo(() => {
