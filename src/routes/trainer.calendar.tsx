@@ -196,13 +196,13 @@ function CalendarPage() {
     const allDay: BookingRow[][] = Array.from({ length: 7 }, () => []);
     for (const b of bookings) {
       if (b.status === "cancelled") continue;
-      // Personal blocks are their own category — never "unassigned" (no
-      // client to pick), never "external" (the coach owns them), never PT.
       const isPersonal = !!b.is_personal;
       const isUnassigned = !isPersonal && !b.client_id;
-      const isExternal = !isPersonal && !!b.client_id && b.client_id === b.coach_id;
       if (onlyToAssign && !isUnassigned) continue;
-      if (onlyPT && (isExternal || isPersonal || b.session_type !== "PT Session")) continue;
+      if (onlyPersonal && !isPersonal) continue;
+      if (selectedTypeIds.size > 0) {
+        if (!b.event_type_id || !selectedTypeIds.has(b.event_type_id)) continue;
+      }
       const d = new Date(b.scheduled_at);
       for (let i = 0; i < 7; i++) {
         const dayDate = weekDays[i];
@@ -217,7 +217,8 @@ function CalendarPage() {
       }
     }
     return { timedByDay: timed, allDayByDay: allDay };
-  }, [bookings, weekDays, onlyToAssign, onlyPT]);
+  }, [bookings, weekDays, onlyToAssign, onlyPersonal, selectedTypeIds]);
+
 
   const layoutByDay = useMemo(() => {
     // H3: per-booking snapshot wins so changing an event type's duration
