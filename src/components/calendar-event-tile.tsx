@@ -168,11 +168,12 @@ export function CalendarEventTile({
           className="absolute z-10 rounded-xl px-2 py-1.5 flex flex-col justify-start text-left shadow-sm hover:shadow-md hover:scale-[1.02] hover:z-20 transition-all cursor-pointer ring-1 ring-black/5"
         >
           <h4 className="text-[12px] leading-tight font-semibold text-white truncate drop-shadow-sm">
-            {client?.full_name || "Cliente"}
+            {typeLabel}
           </h4>
           <p className="text-[10px] text-white/85 mt-0.5 truncate">
-            {timeLabel} · {typeLabel}
+            {d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
           </p>
+
         </button>
       </PopoverTrigger>
       <PopoverContent
