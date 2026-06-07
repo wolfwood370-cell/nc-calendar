@@ -263,7 +263,7 @@ const UpdateSchema = z.object({
 async function assertGoogleEventOwnership(googleEventId: string, userId: string): Promise<void> {
   const { data, error } = await supabaseAdmin
     .from("bookings")
-    .select("coach_id")
+    .select("coach_id, client_id")
     .eq("google_event_id", googleEventId)
     .maybeSingle();
   if (error) throw new Error("Booking lookup failed");
@@ -279,7 +279,14 @@ async function assertGoogleEventOwnership(googleEventId: string, userId: string)
     if (!roleRow) throw new Error("Permesso negato sull'evento");
     return;
   }
-  if (data.coach_id !== userId) {
+  // BUGFIX (2026-06-07): autorizzato anche il CLIENTE proprietario del booking,
+  // oltre al coach assegnato e all'admin. Prima solo coach/admin: le
+  // riprogrammazioni fatte dal CLIENTE non riuscivano a spostare l'evento Google
+  // (qui veniva lanciato "Permesso negato"), quindi l'evento restava al vecchio
+  // orario e la riconciliazione Google->app riportava poi la sessione indietro
+  // ("snap back"). Il lookup è per google_event_id -> il cliente può toccare
+  // SOLO l'evento del proprio booking, quindi resta sicuro.
+  if (data.coach_id !== userId && data.client_id !== userId) {
     const { data: roleRow } = await supabaseAdmin
       .from("user_roles")
       .select("role")
