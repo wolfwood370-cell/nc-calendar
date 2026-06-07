@@ -76,22 +76,22 @@ export function CalendarEventEditDialog({
       const endAt = new Date(
         new Date(scheduledAt).getTime() + durationMin * 60000,
       ).toISOString();
-      const patch: Record<string, unknown> = {
-        scheduled_at: isoStart,
-        end_at: endAt,
-        duration_min: durationMin,
-        event_type_id: eventTypeId === "none" ? null : eventTypeId,
-        client_id: clientId === "none" ? null : clientId,
-        status,
-        trainer_notes: trainerNotes || null,
-        meeting_link: meetingLink || null,
-      };
       const { error } = await supabase
         .from("bookings")
-        .update(patch)
+        .update({
+          scheduled_at: isoStart,
+          end_at: endAt,
+          duration_min: durationMin,
+          event_type_id: eventTypeId === "none" ? null : eventTypeId,
+          client_id: clientId === "none" ? null : clientId,
+          status: status as "scheduled" | "completed" | "cancelled",
+          trainer_notes: trainerNotes || null,
+          meeting_link: meetingLink || null,
+        })
         .eq("id", booking.id);
       if (error) throw error;
     },
+
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(coachId) });
       toast.success("Evento aggiornato");
