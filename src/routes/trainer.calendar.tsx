@@ -239,12 +239,11 @@ function CalendarPage() {
       allDayByDay.reduce((s, day) => s + day.length, 0),
     [timedByDay, allDayByDay],
   );
-  const filtersActive = onlyPT || onlyToAssign;
-
-  // ----- Sync flows: rimossi. L'app è la sorgente di verità; Google
-  // Calendar riceve solo le scritture (create/update/cancel) tramite
-  // il connettore Lovable. Niente import_history, mirror_check, webhook
-  // realtime: l'integrazione è unidirezionale e on-write.
+  const filtersActive = onlyPersonal || onlyToAssign || selectedTypeIds.size > 0;
+  const editingBooking = useMemo(
+    () => (editBookingId ? bookings.find((b) => b.id === editBookingId) ?? null : null),
+    [editBookingId, bookings],
+  );
 
   // ----- Render helpers -----
   const today = new Date();
@@ -262,22 +261,36 @@ function CalendarPage() {
           onNextWeek={() => setWeekStart(addDays(weekStart, 7))}
           showAvailability={showAvailability}
           onToggleAvailability={() => setShowAvailability((v) => !v)}
-          onlyPT={onlyPT}
-          onToggleOnlyPT={() => setOnlyPT((v) => !v)}
+          onlyPersonal={onlyPersonal}
+          onTogglePersonal={() => setOnlyPersonal((v) => !v)}
           onlyToAssign={onlyToAssign}
           onToggleOnlyToAssign={() => setOnlyToAssign((v) => !v)}
+          eventTypes={eventTypes}
+          selectedTypeIds={selectedTypeIds}
+          onToggleType={(id) =>
+            setSelectedTypeIds((prev) => {
+              const next = new Set(prev);
+              if (next.has(id)) next.delete(id);
+              else next.add(id);
+              return next;
+            })
+          }
+          onClearTypes={() => setSelectedTypeIds(new Set())}
           onRefresh={() => {
             qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(user?.id) });
             qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(user?.id) });
             qc.invalidateQueries({ queryKey: queryKeys.clients.coach(user?.id) });
-            void runReconcile(); // forza la sync Google -> app (oltre al refresh locale)
+            void runReconcile();
+            setLastSyncAt(Date.now());
             toast.success("Calendario aggiornato");
           }}
+          lastSyncAt={lastSyncAt}
           hasBookingsError={bookingsQ.isError}
           onRetryBookings={() => bookingsQ.refetch()}
           filtersActive={filtersActive}
           totalVisible={totalVisible}
         />
+
 
         {/* Riconciliazione bidirezionale Google <-> app (sola lettura) */}
         <CalendarGcalReview
