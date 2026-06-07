@@ -1016,35 +1016,20 @@ function ClientsPage() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {visibleCards.map((d) => {
               const c = d.client;
               const isExpiring = d.status === "expiring";
               const isArchived = d.status === "archived";
               const isCompleted = d.status === "completed";
-              const phoneDigits = (c.phone ?? "").replace(/\D/g, "");
 
-              // Predictive exhaustion analytics (computed server-side via
-              // client_exhaustion_forecast view).
-              const fc = forecasts.get(c.id);
-              const showForecast =
-                !isArchived &&
-                !isCompleted &&
-                fc &&
-                fc.daysLeft !== null &&
-                fc.daysLeft <= 14 &&
-                fc.daysLeft >= 0;
-              const isCritical = !!fc && fc.daysLeft !== null && fc.daysLeft < 7;
-              const formattedExhaustion = fc?.date
-                ? new Intl.DateTimeFormat("it-IT", {
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
-                  }).format(new Date(fc.date + "T00:00:00"))
-                : null;
-              const reminderText = encodeURIComponent(
-                `Ciao ${(c.full_name ?? "").split(" ")[0] || ""}! Sto pianificando le prossime sessioni — vedo che i tuoi crediti stanno per esaurirsi. Vuoi rinnovare?`,
-              );
+              const pathLabel = c.pack_label
+                ? c.pack_label
+                : c.path_type === "recurring"
+                  ? "Abbonamento Mensile"
+                  : c.path_type === "free"
+                    ? "Cliente Libero"
+                    : "Percorso Fisso";
 
               const badgeClass = isArchived
                 ? "bg-surface-container text-on-surface-variant"
@@ -1064,153 +1049,37 @@ function ClientsPage() {
               return (
                 <div
                   key={c.id}
-                  className="bg-white rounded-[32px] p-6 shadow-[0px_4px_20px_rgba(0,86,133,0.05)] hover:shadow-[0px_8px_30px_rgba(0,86,133,0.08)] transition-all flex flex-col"
+                  className="relative group bg-white rounded-[28px] p-5 shadow-[0px_4px_20px_rgba(0,86,133,0.05)] hover:shadow-[0px_8px_30px_rgba(0,86,133,0.08)] transition-all"
                 >
-                  <div className="flex justify-between items-start mb-6">
-                    <div className="flex items-center gap-4 min-w-0">
-                      <div className="w-12 h-12 shrink-0 rounded-full bg-avatar-placeholder text-on-avatar-placeholder flex items-center justify-center text-base font-bold">
-                        {initials(c.full_name, c.email)}
-                      </div>
-                      <div className="min-w-0">
-                        <h3 className="text-lg leading-6 font-bold text-on-surface truncate">
-                          {c.full_name ?? "Senza nome"}
-                        </h3>
-                        <p className="text-sm text-outline truncate">
-                          {c.pack_label
-                            ? "PT Pack"
-                            : c.path_type === "recurring"
-                              ? "Abbonamento Mensile"
-                              : d.totalBlocks > 0
-                                ? `Percorso ${d.totalBlocks} ${d.totalBlocks === 1 ? "Blocco" : "Blocchi"}`
-                                : (c.email ?? "—")}
-                        </p>
-                        {c.pack_label && (
-                          <span className="inline-flex items-center mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-aura-primary/10 text-aura-primary">
-                            {c.pack_label}
-                          </span>
-                        )}
-                      </div>
+                  <Link
+                    to="/trainer/clients/$id"
+                    params={{ id: c.id }}
+                    className="flex items-center gap-4 min-w-0"
+                  >
+                    <div className="w-14 h-14 shrink-0 rounded-full bg-avatar-placeholder text-on-avatar-placeholder flex items-center justify-center text-base font-bold">
+                      {initials(c.full_name, c.email)}
                     </div>
-                    <span
-                      className={`shrink-0 ml-2 px-3 py-1 rounded-full text-xs font-semibold ${badgeClass}`}
-                    >
-                      {badgeLabel}
-                    </span>
-                  </div>
-
-                  <div className="mb-6 flex-1">
-                    {d.summary.length > 0 ? (
-                      <div className="space-y-3">
-                        <p className="text-[11px] uppercase tracking-wide font-semibold text-outline">
-                          Riepilogo Sessioni
-                        </p>
-                        {d.summary.map((row) => {
-                          const pct =
-                            row.total > 0
-                              ? Math.min(100, Math.round((row.used / row.total) * 100))
-                              : 0;
-                          return (
-                            <div key={row.type}>
-                              <div className="flex items-baseline justify-between gap-2">
-                                <span className="text-xs font-medium text-on-surface-variant truncate">
-                                  {row.type}
-                                </span>
-                                <span className="text-sm font-bold text-aura-primary tabular-nums shrink-0">
-                                  {row.used} / {row.total}
-                                </span>
-                              </div>
-                              {/* Aura-themed shadcn Progress — h-1 keeps the
-                                bar compact inside the card, and the
-                                arbitrary child selector overrides the
-                                default primary color to match the rest
-                                of the dashboard. */}
-                              <Progress
-                                value={pct}
-                                className="mt-1 h-1 bg-surface-variant [&>div]:bg-aura-primary"
-                              />
-                            </div>
-                          );
-                        })}
-                        {c.path_type === "recurring" && d.daysToBilling !== null && (
-                          <p className="text-[11px] text-outline pt-1">
-                            {d.daysToBilling >= 0
-                              ? `Rinnovo tra ${d.daysToBilling} ${d.daysToBilling === 1 ? "giorno" : "giorni"}`
-                              : "Rinnovo scaduto"}
-                          </p>
-                        )}
-                        {d.previousBlockResiduals > 0 && (
-                          <p className="text-[11px] text-warning pt-1">
-                            +{d.previousBlockResiduals}{" "}
-                            {d.previousBlockResiduals === 1 ? "sessione" : "sessioni"} dal blocco
-                            precedente (scadenza in pochi giorni)
-                          </p>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-outline italic">Nessun pacchetto assegnato.</p>
-                    )}
-                  </div>
-
-                  {showForecast && formattedExhaustion && (
-                    // Discreet exhaustion forecast line — replaces the
-                    // earlier tertiary/error container card per UX
-                    // feedback. The information stays (date + critical
-                    // accent + WhatsApp shortcut when <7 days) but the
-                    // visual weight is dropped so it doesn't compete with
-                    // the session counter above.
-                    <div className="mb-4 -mt-2 flex items-center gap-2 text-[11px] text-on-surface-variant">
-                      <span
-                        aria-hidden
-                        className={`inline-block w-1.5 h-1.5 rounded-full ${
-                          isCritical ? "bg-destructive" : "bg-outline"
-                        }`}
-                      />
-                      <span className={isCritical ? "font-semibold text-destructive" : ""}>
-                        Esaurimento previsto: {formattedExhaustion}
-                      </span>
-                      {isCritical && phoneDigits && (
-                        <a
-                          href={`https://wa.me/${phoneDigits}?text=${reminderText}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="ml-auto text-[11px] font-semibold text-destructive underline-offset-2 hover:underline"
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-base leading-5 font-bold text-on-surface truncate">
+                        {c.full_name ?? "Senza nome"}
+                      </h3>
+                      <p className="text-xs text-outline truncate mt-0.5">
+                        {c.email ?? "—"}
+                      </p>
+                      <div className="mt-2 flex items-center gap-2 flex-wrap">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-aura-primary/10 text-aura-primary">
+                          {pathLabel}
+                        </span>
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${badgeClass}`}
                         >
-                          Promemoria
-                        </a>
-                      )}
+                          {badgeLabel}
+                        </span>
+                      </div>
                     </div>
-                  )}
+                  </Link>
 
-                  <div className="pt-4 border-t border-surface-variant flex items-center gap-2">
-                    <Button
-                      asChild
-                      className="flex-1 rounded-full bg-aura-primary/10 text-aura-primary hover:bg-aura-primary/20 shadow-none"
-                    >
-                      <Link to="/trainer/clients/$id" params={{ id: c.id }}>
-                        {isExpiring ? "Rinnova" : "Pianifica"}
-                      </Link>
-                    </Button>
-
-                    {phoneDigits ? (
-                      <a
-                        href={`https://wa.me/${phoneDigits}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        title="Apri WhatsApp"
-                        className="w-10 h-10 flex items-center justify-center rounded-full border border-outline-variant text-on-surface-variant hover:bg-surface-container transition-colors"
-                      >
-                        <MessageCircle className="size-4" />
-                      </a>
-                    ) : (
-                      <button
-                        disabled
-                        title="Telefono non disponibile"
-                        className="w-10 h-10 flex items-center justify-center rounded-full border border-surface-variant text-outline-variant cursor-not-allowed"
-                      >
-                        <MessageCircle className="size-4" />
-                      </button>
-                    )}
-
+                  <div className="absolute top-3 right-3">
                     <ClientCardMenu
                       client={c}
                       isArchived={isArchived}
