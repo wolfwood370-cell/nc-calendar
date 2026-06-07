@@ -349,7 +349,8 @@ type ReconcileResult = {
 
 export const gcalReconcileEvents = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }): Promise<ReconcileResult> => {
+  .inputValidator((input): { timeMinISO?: string; timeMaxISO?: string } => (input ?? {}) as { timeMinISO?: string; timeMaxISO?: string })
+  .handler(async ({ data, context }): Promise<ReconcileResult> => {
     try {
       // Authz: solo coach/admin (operazione su tutte le sessioni del workspace).
       const { data: roleRow } = await supabaseAdmin
@@ -363,8 +364,12 @@ export const gcalReconcileEvents = createServerFn({ method: "POST" })
       }
 
       const now = Date.now();
-      const timeMinISO = new Date(now - 60 * 60_000).toISOString(); // now - 1h
-      const timeMaxISO = new Date(now + 16 * 24 * 60 * 60_000).toISOString(); // now + 16g
+      // Finestra di default: -1h .. +16g (sync incrementale a ogni apertura).
+      // Quando il caller passa timeMinISO/timeMaxISO espliciti -> forza sync
+      // su una finestra arbitraria (es. dal 1° gennaio per allineare tutto
+      // lo storico Google -> DB).
+      const timeMinISO = typeof data.timeMinISO === "string" ? data.timeMinISO : new Date(now - 60 * 60_000).toISOString();
+      const timeMaxISO = typeof data.timeMaxISO === "string" ? data.timeMaxISO : new Date(now + 16 * 24 * 60 * 60_000).toISOString();
 
       // Sessioni candidate: scheduled, non cancellate, con evento Google, nella finestra.
       const { data: bookings, error: bErr } = await supabaseAdmin
@@ -381,6 +386,7 @@ export const gcalReconcileEvents = createServerFn({ method: "POST" })
       }
       const rows = bookings ?? [];
       if (rows.length === 0) return { ok: true, cancelled: 0, moved: 0, conflicts: 0 };
+
 
       const byEventId = new Map<string, { id: string; scheduledMs: number }>();
       for (const b of rows) {

@@ -119,6 +119,53 @@ function CalendarPage() {
     }
   }, [qc, user?.id]);
 
+  // Forza sync completo dal 1° gennaio dell'anno corrente -> +90g.
+  // Allinea TUTTE le sessioni storiche dell'anno con lo stato attuale del
+  // Google Calendar condiviso (spostamenti / annullamenti fatti su Google).
+  // Esegue anche il repair DB->Google per ricreare eventuali eventi mancanti.
+  const [forceSyncing, setForceSyncing] = useState(false);
+  const runForceSync = useCallback(async () => {
+    if (forceSyncing) return;
+    setForceSyncing(true);
+    const tId = toast.loading("Sincronizzazione completa in corso…", {
+      description: "Allineamento dal 1° gennaio con Google Calendar",
+    });
+    try {
+      const yearStart = `${new Date().getFullYear()}-01-01T00:00:00.000Z`;
+      const yearMax = new Date(Date.now() + 90 * 24 * 60 * 60_000).toISOString();
+      // Repair (DB -> Google) gira a passate da 50 finché non resta nulla.
+      let totalCreated = 0;
+      let safety = 20;
+      // eslint-disable-next-line no-constant-condition
+      while (safety-- > 0) {
+        const r = await gcalRepairMissingEvents();
+        if (!r.ok) break;
+        totalCreated += r.created ?? 0;
+        if ((r.total ?? 0) === 0) break;
+      }
+      // Reconcile (Google -> DB) sull'intero range annuale, in un colpo.
+      const pull = await gcalReconcileEvents({ data: { timeMinISO: yearStart, timeMaxISO: yearMax } });
+      qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(user?.id) });
+      qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(user?.id) });
+      setLastSyncAt(Date.now());
+      try { localStorage.setItem("gcal_reconcile_last", String(Date.now())); } catch { /* noop */ }
+      const parts: string[] = [];
+      if (pull.ok && (pull.cancelled ?? 0) > 0) parts.push(`${pull.cancelled} annullate`);
+      if (pull.ok && (pull.moved ?? 0) > 0) parts.push(`${pull.moved} spostate`);
+      if (totalCreated > 0) parts.push(`${totalCreated} create su Google`);
+      toast.success("Sincronizzazione completata", {
+        id: tId,
+        description: parts.length ? parts.join(" · ") : "Tutto già allineato",
+      });
+    } catch (e) {
+      console.error("forceSync failed", e);
+      toast.error("Sincronizzazione fallita", { id: tId, description: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setForceSyncing(false);
+    }
+  }, [forceSyncing, qc, user?.id]);
+
+
   // Al mount: riconcilia una volta, con throttle (max 1 ogni 10 min) per non
   // interrogare Google a ogni navigazione.
   useEffect(() => {
@@ -304,6 +351,19 @@ function CalendarPage() {
           clientsMap={clientsMap}
           eventTypesMap={eventTypesMap}
         />
+
+        {/* Sync forzato sull'intero anno corrente */}
+        <div className="mt-2 mb-3 flex items-center justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={runForceSync}
+            disabled={forceSyncing}
+            className="gap-2"
+          >
+            {forceSyncing ? "Sincronizzazione…" : `Sincronizza tutto dal 1° gen ${new Date().getFullYear()}`}
+          </Button>
+        </div>
 
         {/* Mobile agenda view (audit H5) — replaces the 7-column grid below md */}
         <MobileAgendaView
