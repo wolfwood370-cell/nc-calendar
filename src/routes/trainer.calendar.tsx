@@ -9,6 +9,7 @@ import { CalendarAllDayStrip } from "@/components/calendar-all-day-strip";
 import { CalendarEventTile } from "@/components/calendar-event-tile";
 import { CalendarContextPanel } from "@/components/calendar-context-panel";
 import { CalendarGcalReview } from "@/components/calendar-gcal-review";
+import { CalendarEventEditDialog } from "@/components/calendar-event-edit-dialog";
 import { layoutDay } from "@/lib/calendar-layout";
 import { MessageCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -381,6 +382,19 @@ function CalendarPage() {
                             endHour={END_HOUR}
                             onOpenReview={openReview}
                             onFocusClient={setFocusClientId}
+                            onEdit={(id) => setEditBookingId(id)}
+                            onCancel={async (id) => {
+                              const { error } = await supabase
+                                .from("bookings")
+                                .update({ status: "cancelled" })
+                                .eq("id", id);
+                              if (error) {
+                                toast.error("Errore", { description: error.message });
+                              } else {
+                                toast.success("Evento annullato");
+                                qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(user?.id) });
+                              }
+                            }}
                           />
                         );
                       })}
@@ -407,6 +421,15 @@ function CalendarPage() {
           in the /trainer layout (src/routes/trainer.tsx) and driven by the
           ?reviewEventId search param. openReview() above just navigates
           with that param; closing clears it. */}
+
+      {/* Dialog di modifica completo — aperto dal popover dei dettagli. */}
+      <CalendarEventEditDialog
+        booking={editingBooking}
+        clients={clients}
+        eventTypes={eventTypes}
+        coachId={user?.id}
+        onClose={() => setEditBookingId(null)}
+      />
     </div>
   );
 }
