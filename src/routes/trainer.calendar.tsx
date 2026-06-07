@@ -352,6 +352,19 @@ function CalendarPage() {
           eventTypesMap={eventTypesMap}
         />
 
+        {/* Sync forzato sull'intero anno corrente */}
+        <div className="mt-2 mb-3 flex items-center justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={runForceSync}
+            disabled={forceSyncing}
+            className="gap-2"
+          >
+            {forceSyncing ? "Sincronizzazione…" : `Sincronizza tutto dal 1° gen ${new Date().getFullYear()}`}
+          </Button>
+        </div>
+
         {/* Mobile agenda view (audit H5) — replaces the 7-column grid below md */}
         <MobileAgendaView
           weekDays={weekDays}
