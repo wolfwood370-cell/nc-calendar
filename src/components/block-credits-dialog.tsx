@@ -145,7 +145,16 @@ export function BlockCreditsDialog({
       setOpen(false);
       onSaved();
     } catch (e) {
-      toast.error("Salvataggio non riuscito", { description: errorMessage(e) });
+      // B14 (audit): il salvataggio non è transazionale (delete + insert/update
+      // in sequenza), quindi un errore a metà può lasciare il DB in stato
+      // parziale. Ricarichiamo lo stato reale (onSaved -> load del parent) e
+      // chiudiamo, così il coach vede cosa è stato effettivamente salvato invece
+      // di un draft potenzialmente disallineato.
+      toast.error("Salvataggio non riuscito", {
+        description: `${errorMessage(e)} Alcune modifiche potrebbero non essere state salvate: ho ricaricato lo stato attuale.`,
+      });
+      setOpen(false);
+      onSaved();
     } finally {
       setSaving(false);
     }

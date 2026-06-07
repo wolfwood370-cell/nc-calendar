@@ -1,5 +1,22 @@
-import { createFileRoute, Outlet, useNavigate, Navigate } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Outlet,
+  useNavigate,
+  Navigate,
+  Link,
+  useRouterState,
+} from "@tanstack/react-router";
 import { LogOut } from "lucide-react";
+
+// B18 (audit): su desktop il cliente non aveva navigazione tra le sezioni
+// (ClientBottomNav è md:hidden). Stessi link della bottom nav, mostrati
+// nell'header desktop.
+const DESKTOP_TABS = [
+  { to: "/client", label: "Home", exact: true },
+  { to: "/client/book", label: "Calendario", exact: false },
+  { to: "/client/store", label: "Booster", exact: false },
+  { to: "/client/settings", label: "Profilo", exact: false },
+] as const;
 import { useAuth } from "@/lib/auth";
 import nccLogo from "@/assets/ncc-logo.png";
 import { Button } from "@/components/ui/button";
@@ -14,6 +31,7 @@ export const Route = createFileRoute("/client")({
 function ClientLayout() {
   const { session, role, loading, signOut } = useAuth();
   const navigate = useNavigate();
+  const path = useRouterState({ select: (s) => s.location.pathname });
 
   if (loading) return null;
   if (!session) return <Navigate to="/auth" />;
@@ -36,6 +54,24 @@ function ClientLayout() {
             </div>
             <span className="font-display font-semibold">NC Calendar</span>
           </div>
+          <nav className="flex items-center gap-1">
+            {DESKTOP_TABS.map((t) => {
+              const active = t.exact ? path === t.to : path.startsWith(t.to);
+              return (
+                <Link
+                  key={t.to}
+                  to={t.to}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                    active
+                      ? "bg-primary-container text-on-primary-container"
+                      : "text-on-surface-variant hover:bg-surface-container-highest"
+                  }`}
+                >
+                  {t.label}
+                </Link>
+              );
+            })}
+          </nav>
           <div className="flex items-center gap-2">
             <InstallPwaButton />
             <Button
