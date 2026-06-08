@@ -522,7 +522,26 @@ function BookFlow() {
           onSelectPoolKey={setSelectedPoolKey}
         />
 
+        {poolBlocked && (
+          <div className="bg-aura-primary/5 border border-aura-primary/30 rounded-[24px] px-5 py-4 shadow-[0_8px_30px_rgba(0,0,0,0.04)]">
+            <div className="flex items-start gap-3">
+              <div className="size-9 rounded-full bg-aura-primary/10 flex items-center justify-center shrink-0">
+                <Info className="size-4 text-aura-primary" aria-hidden />
+              </div>
+              <div className="flex-1 min-w-0 flex flex-col gap-1">
+                <p className="text-sm font-semibold text-on-surface">
+                  Prenotazione non disponibile dall'app
+                </p>
+                <p className="text-xs text-on-surface-variant leading-relaxed whitespace-pre-line">
+                  {poolBlockedMessage}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Date Selector Card */}
+        {!poolBlocked && (
         <BookCalendarGrid
           calendarMonth={calendarMonth}
           onMonthChange={setCalendarMonth}
