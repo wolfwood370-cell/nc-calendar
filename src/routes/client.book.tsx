@@ -611,6 +611,8 @@ function BookFlow() {
           selectedISO={selectedISO}
           onSelectISO={setSelectedISO}
         />
+        </>
+        )}
       </main>
 
       {/* Bottom Action Bar — MED-E1 (audit 2026-05-26): mobile bottom anchor
