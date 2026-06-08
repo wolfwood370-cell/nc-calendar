@@ -633,7 +633,7 @@ function BookFlow() {
         </div>
         <button
           onClick={confirm}
-          disabled={!selectedISO || !selectedPoolKey || confirming}
+          disabled={!selectedISO || !selectedPoolKey || confirming || poolBlocked}
           className="bg-primary-container text-on-primary rounded-full px-8 py-4 text-sm font-semibold shadow-md active:scale-95 transition-transform hover:bg-primary disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
         >
           {confirming && <Loader2 className="size-4 animate-spin" />}
