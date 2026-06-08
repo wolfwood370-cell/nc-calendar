@@ -393,6 +393,34 @@ function EventTypeDialog({
             Selezionato: <span className="font-medium">{nameForColor(color) ?? color}</span>
           </p>
         </div>
+        <div className="space-y-3 rounded-[16px] border p-4">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={!clientBookable}
+              onChange={(e) => setClientBookable(!e.target.checked)}
+              className="mt-1 size-4 rounded border-input"
+            />
+            <div className="space-y-1">
+              <div className="text-sm font-medium">Blocca prenotazione lato cliente</div>
+              <p className="text-xs text-muted-foreground">
+                Se attivo, i clienti non potranno prenotare questa tipologia dall'app.
+              </p>
+            </div>
+          </label>
+          {!clientBookable && (
+            <div className="space-y-2">
+              <Label>Messaggio mostrato al cliente</Label>
+              <Textarea
+                value={unavailableMessage}
+                onChange={(e) => setUnavailableMessage(e.target.value)}
+                maxLength={500}
+                rows={3}
+                placeholder="Es. Per prenotare questa sessione passa in reception."
+              />
+            </div>
+          )}
+        </div>
         <DialogFooter>
           <Button type="submit" disabled={submitting}>
             {submitting && <Loader2 className="size-4 animate-spin" />}
