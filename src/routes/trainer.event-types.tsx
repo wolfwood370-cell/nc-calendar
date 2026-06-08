@@ -46,6 +46,8 @@ const schema = z.object({
   location_type: z.enum(["physical", "online"]),
   buffer_minutes: z.number().int().min(0).max(240),
   location_address: z.string().trim().max(255).optional().or(z.literal("")),
+  client_bookable: z.boolean(),
+  unavailable_message: z.string().trim().max(500).optional().or(z.literal("")),
 });
 
 export interface EventTypeRow {
@@ -59,6 +61,8 @@ export interface EventTypeRow {
   location_type: "physical" | "online";
   buffer_minutes: number;
   location_address: string | null;
+  client_bookable: boolean;
+  unavailable_message: string | null;
 }
 
 function EventTypesPage() {
@@ -73,7 +77,7 @@ function EventTypesPage() {
       const { data, error } = await supabase
         .from("event_types")
         .select(
-          "id, coach_id, name, description, color, duration, base_type, location_type, buffer_minutes, location_address",
+          "id, coach_id, name, description, color, duration, base_type, location_type, buffer_minutes, location_address, client_bookable, unavailable_message",
         )
         .eq("coach_id", coachId!)
         .order("name", { ascending: true });
@@ -100,6 +104,10 @@ function EventTypesPage() {
             buffer_minutes: input.buffer_minutes,
             location_address:
               input.location_type === "physical" ? input.location_address || null : null,
+            client_bookable: input.client_bookable,
+            unavailable_message: input.client_bookable
+              ? null
+              : input.unavailable_message || null,
           })
           .eq("id", input.id);
         if (error) throw error;
@@ -114,6 +122,10 @@ function EventTypesPage() {
           buffer_minutes: input.buffer_minutes,
           location_address:
             input.location_type === "physical" ? input.location_address || null : null,
+          client_bookable: input.client_bookable,
+          unavailable_message: input.client_bookable
+            ? null
+            : input.unavailable_message || null,
         });
         if (error) throw error;
       }
@@ -252,6 +264,10 @@ function EventTypeDialog({
   );
   const [bufferMinutes, setBufferMinutes] = useState<number>(initial?.buffer_minutes ?? 0);
   const [locationAddress, setLocationAddress] = useState<string>(initial?.location_address ?? "");
+  const [clientBookable, setClientBookable] = useState<boolean>(initial?.client_bookable ?? true);
+  const [unavailableMessage, setUnavailableMessage] = useState<string>(
+    initial?.unavailable_message ?? "",
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -263,6 +279,8 @@ function EventTypeDialog({
       location_type: locationType,
       buffer_minutes: bufferMinutes,
       location_address: locationAddress,
+      client_bookable: clientBookable,
+      unavailable_message: unavailableMessage,
     });
     if (!parsed.success) {
       toast.error("Dati non validi", { description: parsed.error.issues[0]?.message });
@@ -374,6 +392,34 @@ function EventTypeDialog({
           <p className="text-xs text-muted-foreground">
             Selezionato: <span className="font-medium">{nameForColor(color) ?? color}</span>
           </p>
+        </div>
+        <div className="space-y-3 rounded-[16px] border p-4">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={!clientBookable}
+              onChange={(e) => setClientBookable(!e.target.checked)}
+              className="mt-1 size-4 rounded border-input"
+            />
+            <div className="space-y-1">
+              <div className="text-sm font-medium">Blocca prenotazione lato cliente</div>
+              <p className="text-xs text-muted-foreground">
+                Se attivo, i clienti non potranno prenotare questa tipologia dall'app.
+              </p>
+            </div>
+          </label>
+          {!clientBookable && (
+            <div className="space-y-2">
+              <Label>Messaggio mostrato al cliente</Label>
+              <Textarea
+                value={unavailableMessage}
+                onChange={(e) => setUnavailableMessage(e.target.value)}
+                maxLength={500}
+                rows={3}
+                placeholder="Es. Per prenotare questa sessione passa in reception."
+              />
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button type="submit" disabled={submitting}>

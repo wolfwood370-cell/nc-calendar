@@ -406,6 +406,13 @@ function BookFlow() {
 
   const selectedSlot = selectedISO ? (slots.find((s) => s.iso === selectedISO) ?? null) : null;
   const selectedPool = pools.find((p) => p.key === selectedPoolKey) ?? null;
+  const selectedEventType = selectedPool?.eventTypeId
+    ? customTypes.find((e) => e.id === selectedPool.eventTypeId) ?? null
+    : null;
+  const poolBlocked = selectedEventType ? selectedEventType.client_bookable === false : false;
+  const poolBlockedMessage =
+    selectedEventType?.unavailable_message?.trim() ||
+    "Per prenotare questa sessione è necessario passare in reception.";
   // Scadenza pool corrente, usata sia per filtrare i giorni del calendario
   // sia per il messaggio testuale:
   // - source="block"  → limite più stringente = fine del blocco corrente
@@ -515,7 +522,27 @@ function BookFlow() {
           onSelectPoolKey={setSelectedPoolKey}
         />
 
+        {poolBlocked && (
+          <div className="bg-aura-primary/5 border border-aura-primary/30 rounded-[24px] px-5 py-4 shadow-[0_8px_30px_rgba(0,0,0,0.04)]">
+            <div className="flex items-start gap-3">
+              <div className="size-9 rounded-full bg-aura-primary/10 flex items-center justify-center shrink-0">
+                <Info className="size-4 text-aura-primary" aria-hidden />
+              </div>
+              <div className="flex-1 min-w-0 flex flex-col gap-1">
+                <p className="text-sm font-semibold text-on-surface">
+                  Prenotazione non disponibile dall'app
+                </p>
+                <p className="text-xs text-on-surface-variant leading-relaxed whitespace-pre-line">
+                  {poolBlockedMessage}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Date Selector Card */}
+        {!poolBlocked && (
+        <>
         <BookCalendarGrid
           calendarMonth={calendarMonth}
           onMonthChange={setCalendarMonth}
@@ -585,6 +612,8 @@ function BookFlow() {
           selectedISO={selectedISO}
           onSelectISO={setSelectedISO}
         />
+        </>
+        )}
       </main>
 
       {/* Bottom Action Bar — MED-E1 (audit 2026-05-26): mobile bottom anchor
@@ -604,7 +633,7 @@ function BookFlow() {
         </div>
         <button
           onClick={confirm}
-          disabled={!selectedISO || !selectedPoolKey || confirming}
+          disabled={!selectedISO || !selectedPoolKey || confirming || poolBlocked}
           className="bg-primary-container text-on-primary rounded-full px-8 py-4 text-sm font-semibold shadow-md active:scale-95 transition-transform hover:bg-primary disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
         >
           {confirming && <Loader2 className="size-4 animate-spin" />}
