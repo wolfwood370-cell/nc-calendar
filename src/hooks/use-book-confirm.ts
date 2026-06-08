@@ -22,7 +22,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { gcalCreateEvent } from "@/lib/gcal.functions";
 import { generateGoogleCalendarLink } from "@/lib/calendar";
-import { sendBookingConfirmationEmail } from "@/lib/email";
+
 import { sendPush } from "@/lib/push";
 import { invalidateBookingScope } from "@/lib/query-keys";
 import { sessionLabel, type SessionType } from "@/lib/mock-data";
@@ -261,22 +261,8 @@ export function useBookConfirm(input: UseBookConfirmInput): UseBookConfirmReturn
       } else {
         console.error("gcalCreateEvent skipped: booking insert returned no id");
       }
-      // Avviamo l'invio email + la notifica al coach in parallelo. L'esito
-      // dell'email serve a personalizzare il toast in modo non contraddittorio:
-      // se la consegna fallisce, NON diciamo "Email inviata".
-      const emailPromise: Promise<{ ok: boolean }> = emailNotificationsEnabled
-        ? sendBookingConfirmationEmail({
-            to: meEmail,
-            recipientName: meName,
-            sessionLabel: displayLabel,
-            scheduledAt: new Date(iso),
-            coachName,
-            clientName: meName,
-          }).catch((e) => {
-            console.error("email failed", e);
-            return { ok: false };
-          })
-        : Promise.resolve({ ok: true });
+      // Email di conferma al cliente: NON inviata dalla piattaforma.
+      // L'invito Google Calendar (sendUpdates=all) recapita già la mail al cliente.
 
       void supabase.functions
         .invoke("booking-notifications", {
@@ -298,19 +284,13 @@ export function useBookConfirm(input: UseBookConfirmInput): UseBookConfirmReturn
         url: "/client",
       });
 
-      const emailResult = await emailPromise;
-      const emailOk = emailResult?.ok !== false;
       const usedExtra = !!extraId;
-      const emailNote = emailNotificationsEnabled
-        ? emailOk
-          ? " Email di conferma inviata."
-          : " Email di conferma non disponibile al momento."
-        : "";
       const meetNote = " I link videochiamata sono generati automaticamente per le sessioni online.";
       toast.success("Sessione prenotata", {
         description: usedExtra
-          ? `Scalata da credito omaggio/extra.${emailNote}`
-          : `${emailNote.trim()}${emailNote ? " " : ""}${meetNote.trim()}`.trim(),
+          ? `Scalata da credito omaggio/extra.`
+          : meetNote.trim(),
+
         action: calendarUrl
           ? {
               label: "Aggiungi al Calendario",
