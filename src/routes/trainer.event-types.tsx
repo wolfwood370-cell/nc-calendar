@@ -77,7 +77,7 @@ function EventTypesPage() {
       const { data, error } = await supabase
         .from("event_types")
         .select(
-          "id, coach_id, name, description, color, duration, base_type, location_type, buffer_minutes, location_address",
+          "id, coach_id, name, description, color, duration, base_type, location_type, buffer_minutes, location_address, client_bookable, unavailable_message",
         )
         .eq("coach_id", coachId!)
         .order("name", { ascending: true });
