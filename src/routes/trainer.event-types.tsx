@@ -104,6 +104,10 @@ function EventTypesPage() {
             buffer_minutes: input.buffer_minutes,
             location_address:
               input.location_type === "physical" ? input.location_address || null : null,
+            client_bookable: input.client_bookable,
+            unavailable_message: input.client_bookable
+              ? null
+              : input.unavailable_message || null,
           })
           .eq("id", input.id);
         if (error) throw error;
@@ -118,6 +122,10 @@ function EventTypesPage() {
           buffer_minutes: input.buffer_minutes,
           location_address:
             input.location_type === "physical" ? input.location_address || null : null,
+          client_bookable: input.client_bookable,
+          unavailable_message: input.client_bookable
+            ? null
+            : input.unavailable_message || null,
         });
         if (error) throw error;
       }
