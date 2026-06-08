@@ -406,6 +406,13 @@ function BookFlow() {
 
   const selectedSlot = selectedISO ? (slots.find((s) => s.iso === selectedISO) ?? null) : null;
   const selectedPool = pools.find((p) => p.key === selectedPoolKey) ?? null;
+  const selectedEventType = selectedPool?.eventTypeId
+    ? customTypes.find((e) => e.id === selectedPool.eventTypeId) ?? null
+    : null;
+  const poolBlocked = selectedEventType ? selectedEventType.client_bookable === false : false;
+  const poolBlockedMessage =
+    selectedEventType?.unavailable_message?.trim() ||
+    "Per prenotare questa sessione è necessario passare in reception.";
   // Scadenza pool corrente, usata sia per filtrare i giorni del calendario
   // sia per il messaggio testuale:
   // - source="block"  → limite più stringente = fine del blocco corrente
