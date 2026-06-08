@@ -478,12 +478,10 @@ type RepairResult = {
   error?: string;
 };
 
-// Google Calendar accetta colorId solo 1..11 (max 2 char numerici). L'app
-// salva event_types.color come hex per il display in-app -> qui lo droppiamo
-// se non e' un colorId Google valido (stessa logica del fix booking flow).
-function toGoogleColorId(raw: string | null | undefined): string | undefined {
-  return typeof raw === "string" && /^\d{1,2}$/.test(raw) ? raw : undefined;
-}
+// Google Calendar accetta colorId solo 1..11. event_types.color e' un hex
+// (palette Google) per il display in-app -> mappiamo l'hex al colorId Google
+// così l'evento creato mantiene lo stesso colore della tipologia configurata.
+import { toGoogleColorId } from "@/lib/gcal-colors";
 
 export const gcalRepairMissingEvents = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
