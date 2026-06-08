@@ -604,6 +604,7 @@ export const gcalRepairMissingEvents = createServerFn({ method: "POST" })
 
           const r = await gcalCreate({
             summary,
+            description: et?.description ?? undefined,
             startISO,
             endISO,
             attendeeEmail,
