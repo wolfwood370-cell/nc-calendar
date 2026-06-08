@@ -264,6 +264,10 @@ function EventTypeDialog({
   );
   const [bufferMinutes, setBufferMinutes] = useState<number>(initial?.buffer_minutes ?? 0);
   const [locationAddress, setLocationAddress] = useState<string>(initial?.location_address ?? "");
+  const [clientBookable, setClientBookable] = useState<boolean>(initial?.client_bookable ?? true);
+  const [unavailableMessage, setUnavailableMessage] = useState<string>(
+    initial?.unavailable_message ?? "",
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -275,6 +279,8 @@ function EventTypeDialog({
       location_type: locationType,
       buffer_minutes: bufferMinutes,
       location_address: locationAddress,
+      client_bookable: clientBookable,
+      unavailable_message: unavailableMessage,
     });
     if (!parsed.success) {
       toast.error("Dati non validi", { description: parsed.error.issues[0]?.message });
