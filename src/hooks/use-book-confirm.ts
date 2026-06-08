@@ -22,7 +22,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { gcalCreateEvent } from "@/lib/gcal.functions";
 import { generateGoogleCalendarLink } from "@/lib/calendar";
-import { sendBookingConfirmationEmail } from "@/lib/email";
+
 import { sendPush } from "@/lib/push";
 import { invalidateBookingScope } from "@/lib/query-keys";
 import { sessionLabel, type SessionType } from "@/lib/mock-data";
