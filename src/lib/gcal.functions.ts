@@ -478,12 +478,10 @@ type RepairResult = {
   error?: string;
 };
 
-// Google Calendar accetta colorId solo 1..11 (max 2 char numerici). L'app
-// salva event_types.color come hex per il display in-app -> qui lo droppiamo
-// se non e' un colorId Google valido (stessa logica del fix booking flow).
-function toGoogleColorId(raw: string | null | undefined): string | undefined {
-  return typeof raw === "string" && /^\d{1,2}$/.test(raw) ? raw : undefined;
-}
+// Google Calendar accetta colorId solo 1..11. event_types.color e' un hex
+// (palette Google) per il display in-app -> mappiamo l'hex al colorId Google
+// così l'evento creato mantiene lo stesso colore della tipologia configurata.
+import { toGoogleColorId } from "@/lib/gcal-colors";
 
 export const gcalRepairMissingEvents = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -549,11 +547,11 @@ export const gcalRepairMissingEvents = createServerFn({ method: "POST" })
       const eventTypeIds = [...new Set(bookings.map((b) => b.event_type_id).filter(Boolean) as string[])];
       const clientIds = [...new Set(bookings.map((b) => b.client_id).filter(Boolean) as string[])];
 
-      const eventTypeMap = new Map<string, { name: string; color: string; location_type: string; duration: number }>();
+      const eventTypeMap = new Map<string, { name: string; color: string; location_type: string; duration: number; description: string | null }>();
       if (eventTypeIds.length > 0) {
         const { data: ets } = await supabaseAdmin
           .from("event_types")
-          .select("id, name, color, location_type, duration")
+          .select("id, name, color, location_type, duration, description")
           .in("id", eventTypeIds);
         for (const et of ets ?? []) {
           eventTypeMap.set(et.id, {
@@ -561,6 +559,7 @@ export const gcalRepairMissingEvents = createServerFn({ method: "POST" })
             color: et.color,
             location_type: et.location_type,
             duration: et.duration,
+            description: et.description ?? null,
           });
         }
       }
@@ -605,6 +604,7 @@ export const gcalRepairMissingEvents = createServerFn({ method: "POST" })
 
           const r = await gcalCreate({
             summary,
+            description: et?.description ?? undefined,
             startISO,
             endISO,
             attendeeEmail,
