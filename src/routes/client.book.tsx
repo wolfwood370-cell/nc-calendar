@@ -542,6 +542,7 @@ function BookFlow() {
 
         {/* Date Selector Card */}
         {!poolBlocked && (
+        <>
         <BookCalendarGrid
           calendarMonth={calendarMonth}
           onMonthChange={setCalendarMonth}
