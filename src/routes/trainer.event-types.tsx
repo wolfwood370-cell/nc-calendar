@@ -46,6 +46,8 @@ const schema = z.object({
   location_type: z.enum(["physical", "online"]),
   buffer_minutes: z.number().int().min(0).max(240),
   location_address: z.string().trim().max(255).optional().or(z.literal("")),
+  client_bookable: z.boolean(),
+  unavailable_message: z.string().trim().max(500).optional().or(z.literal("")),
 });
 
 export interface EventTypeRow {
@@ -59,6 +61,8 @@ export interface EventTypeRow {
   location_type: "physical" | "online";
   buffer_minutes: number;
   location_address: string | null;
+  client_bookable: boolean;
+  unavailable_message: string | null;
 }
 
 function EventTypesPage() {
