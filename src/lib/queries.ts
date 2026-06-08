@@ -333,6 +333,8 @@ export interface EventTypeRow {
   location_type: "physical" | "online";
   buffer_minutes: number;
   location_address: string | null;
+  client_bookable: boolean;
+  unavailable_message: string | null;
 }
 
 export function useCoachEventTypes(coachId?: string | null) {
@@ -344,7 +346,7 @@ export function useCoachEventTypes(coachId?: string | null) {
       const { data, error } = await supabase
         .from("event_types")
         .select(
-          "id, coach_id, name, description, color, duration, base_type, location_type, buffer_minutes, location_address",
+          "id, coach_id, name, description, color, duration, base_type, location_type, buffer_minutes, location_address, client_bookable, unavailable_message",
         )
         .eq("coach_id", coachId!)
         .order("created_at", { ascending: true });
