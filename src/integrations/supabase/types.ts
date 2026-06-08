@@ -433,6 +433,7 @@ export type Database = {
         Row: {
           base_type: Database["public"]["Enums"]["session_type"]
           buffer_minutes: number
+          client_bookable: boolean
           coach_id: string
           color: string
           created_at: string
@@ -442,11 +443,13 @@ export type Database = {
           location_address: string | null
           location_type: string
           name: string
+          unavailable_message: string | null
           updated_at: string
         }
         Insert: {
           base_type?: Database["public"]["Enums"]["session_type"]
           buffer_minutes?: number
+          client_bookable?: boolean
           coach_id: string
           color?: string
           created_at?: string
@@ -456,11 +459,13 @@ export type Database = {
           location_address?: string | null
           location_type?: string
           name: string
+          unavailable_message?: string | null
           updated_at?: string
         }
         Update: {
           base_type?: Database["public"]["Enums"]["session_type"]
           buffer_minutes?: number
+          client_bookable?: boolean
           coach_id?: string
           color?: string
           created_at?: string
@@ -470,6 +475,7 @@ export type Database = {
           location_address?: string | null
           location_type?: string
           name?: string
+          unavailable_message?: string | null
           updated_at?: string
         }
         Relationships: []
