@@ -82,7 +82,7 @@ function Overview() {
     const s = startOfToday().getTime(),
       e = endOfToday().getTime();
     return bookings
-      .filter((b) => b.client_id && b.status === "scheduled")
+      .filter((b) => b.client_id && b.client_id !== b.coach_id && !b.is_personal && b.status === "scheduled")
       .filter((b) => {
         const t = new Date(b.scheduled_at).getTime();
         return t >= s && t <= e;
