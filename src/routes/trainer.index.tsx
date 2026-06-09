@@ -156,7 +156,7 @@ function Overview() {
   const nextBooking = useMemo(() => {
     const now = Date.now();
     return bookings
-      .filter((b) => b.client_id && b.status === "scheduled")
+      .filter((b) => b.client_id && b.client_id !== b.coach_id && !b.is_personal && b.status === "scheduled")
       .filter((b) => new Date(b.scheduled_at).getTime() >= now)
       .sort((a, b) => +new Date(a.scheduled_at) - +new Date(b.scheduled_at))[0];
   }, [bookings]);
