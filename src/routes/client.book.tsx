@@ -143,6 +143,27 @@ function BookFlow() {
     },
   });
 
+  // A3: regole di prenotazione del coach (min_notice_hours, booking_horizon_days).
+  // Lette qui per allineare gli slot mostrati al cliente con il trigger
+  // server-side `enforce_client_booking_rules`. Default 24h / 60gg se manca
+  // la riga trainer_settings.
+  const trainerSettingsQ = useQuery({
+    queryKey: ["coach-booking-rules", coachIdForAvail],
+    enabled: !!coachIdForAvail,
+    queryFn: async () => {
+      if (!coachIdForAvail) return null;
+      const { data } = await supabase
+        .from("trainer_settings")
+        .select("min_notice_hours, booking_horizon_days")
+        .eq("coach_id", coachIdForAvail)
+        .maybeSingle();
+      return data;
+    },
+  });
+  const minNoticeHours = trainerSettingsQ.data?.min_notice_hours ?? 24;
+  const horizonDays = trainerSettingsQ.data?.booking_horizon_days ?? 14;
+
+
   // Tipologie evento personalizzate del coach (fallback alle 3 default se vuoto).
   const customTypes: EventTypeRow[] = eventTypesQ.data ?? [];
 
