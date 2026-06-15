@@ -143,6 +143,27 @@ function BookFlow() {
     },
   });
 
+  // A3: regole di prenotazione del coach (min_notice_hours, booking_horizon_days).
+  // Lette qui per allineare gli slot mostrati al cliente con il trigger
+  // server-side `enforce_client_booking_rules`. Default 24h / 60gg se manca
+  // la riga trainer_settings.
+  const trainerSettingsQ = useQuery({
+    queryKey: ["coach-booking-rules", coachIdForAvail],
+    enabled: !!coachIdForAvail,
+    queryFn: async () => {
+      if (!coachIdForAvail) return null;
+      const { data } = await supabase
+        .from("trainer_settings")
+        .select("min_notice_hours, booking_horizon_days")
+        .eq("coach_id", coachIdForAvail)
+        .maybeSingle();
+      return data;
+    },
+  });
+  const minNoticeHours = trainerSettingsQ.data?.min_notice_hours ?? 24;
+  const horizonDays = trainerSettingsQ.data?.booking_horizon_days ?? 14;
+
+
   // Tipologie evento personalizzate del coach (fallback alle 3 default se vuoto).
   const customTypes: EventTypeRow[] = eventTypesQ.data ?? [];
 
@@ -216,10 +237,13 @@ function BookFlow() {
     const start = block
       ? new Date(Math.max(today.getTime(), new Date(block.start_date).getTime()))
       : today;
-    const end = addDays(today, 14);
+    // A3: il limite massimo è min(14gg finestra blocco, booking_horizon_days
+    // del coach). Così rispettiamo il trigger enforce_client_booking_rules.
+    const horizonCap = Math.max(1, Math.min(14, horizonDays));
+    const end = addDays(today, horizonCap);
     end.setHours(23, 59, 59, 999);
     return generateSlots(
-      block ? 15 : 60, // oggi..oggi+14 = 15 giorni
+      block ? horizonCap + 1 : Math.max(1, Math.min(60, horizonDays)),
       blockedRanges,
       availQ.data ?? [],
       exceptionsQ.data ?? [],
@@ -227,8 +251,10 @@ function BookFlow() {
       start,
       end,
       { enabled: optimizationQ.data ?? true },
+      minNoticeHours,
     );
-  }, [block, blockedRanges, availQ.data, exceptionsQ.data, optimizationQ.data, candidateMinutes]);
+  }, [block, blockedRanges, availQ.data, exceptionsQ.data, optimizationQ.data, candidateMinutes, minNoticeHours, horizonDays]);
+
   const grouped = useMemo(() => {
     const m = new Map<string, Slot[]>();
     for (const s of slots) {

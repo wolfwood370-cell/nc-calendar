@@ -76,10 +76,14 @@ export function generateSlots(
   rangeStart?: Date,
   rangeEnd?: Date,
   optimization?: { enabled: boolean },
+  // Preavviso minimo (ore) configurato dal coach in trainer_settings.
+  // Default 24h per coerenza con il trigger DB legacy.
+  minNoticeHours: number = 24,
 ): Slot[] {
   const slots: Slot[] = [];
   const now = new Date();
   const candidateMs = candidateMinutes * 60_000;
+
   // Pre-index exceptions by YYYY-MM-DD
   const excByDate = new Map<string, AvailabilityExceptionRow[]>();
   for (const ex of exceptions) {
@@ -142,7 +146,7 @@ export function generateSlots(
         return ms < exEnd.getTime() && endMs > exStart.getTime();
       });
 
-    const minLeadMs = 24 * 60 * 60 * 1000;
+    const minLeadMs = Math.max(0, minNoticeHours) * 60 * 60 * 1000;
     const candidates = new Map<number, { injected: boolean }>();
 
     // 1) Hourly grid candidates from working windows.
