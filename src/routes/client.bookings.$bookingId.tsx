@@ -19,14 +19,30 @@ function BookingDetailPage() {
   const q = useQuery({
     queryKey: ["booking-detail", bookingId],
     queryFn: async (): Promise<ClientBookingDetail | null> => {
-      const { data: booking, error } = await supabase
+      const BASE_COLS =
+        "id, scheduled_at, status, session_type, trainer_notes, meeting_link, coach_id, client_id, event_type_id, block_id, duration_min, google_event_id";
+      // Design handoff: client_confirmed_at con fallback difensivo finché la
+      // migrazione 20260703090000 non è applicata (stesso pattern di queries.ts).
+      type BookingDetailRow = Omit<ClientBookingDetail, "event_type" | "coach">;
+      let booking: BookingDetailRow | null;
+      const wide = await supabase
         .from("bookings")
-        .select(
-          "id, scheduled_at, status, session_type, trainer_notes, meeting_link, coach_id, client_id, event_type_id, block_id, duration_min, google_event_id",
-        )
+        .select(`${BASE_COLS}, client_confirmed_at`)
         .eq("id", bookingId)
         .maybeSingle();
-      if (error) throw error;
+      if (!wide.error) {
+        booking = wide.data as unknown as BookingDetailRow | null;
+      } else {
+        const base = await supabase
+          .from("bookings")
+          .select(BASE_COLS)
+          .eq("id", bookingId)
+          .maybeSingle();
+        if (base.error) throw base.error;
+        booking = base.data
+          ? ({ ...base.data, client_confirmed_at: null } as unknown as BookingDetailRow)
+          : null;
+      }
       if (!booking) return null;
 
       const [etRes, coachRes] = await Promise.all([

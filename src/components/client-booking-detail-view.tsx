@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { format, differenceInHours } from "date-fns";
 import { it } from "date-fns/locale";
-import { CalendarDays, MapPin, Timer, Video, User, CalendarPlus, Info } from "lucide-react";
+import { CalendarDays, Check, MapPin, Timer, Video, User, CalendarPlus, Info } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -20,6 +20,7 @@ import { useCancelBooking } from "@/lib/queries";
 import { errorMessage } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import { ClientRescheduleSheet } from "@/components/client-reschedule-sheet";
+import { useConfirmAttendance } from "@/hooks/use-confirm-attendance";
 
 export interface ClientBookingDetail {
   id: string;
@@ -33,6 +34,9 @@ export interface ClientBookingDetail {
   block_id: string | null;
   event_type_id: string | null;
   google_event_id: string | null;
+  /** Design handoff: timestamp "Conferma presenza" (null = non confermata,
+   *  assente pre-migrazione 20260703090000). */
+  client_confirmed_at?: string | null;
   /** H3: per-booking snapshot, see queries.ts BookingRow. */
   duration_min: number;
   event_type: {
@@ -134,6 +138,9 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
   const hoursUntil = differenceInHours(start, new Date());
   const within24h = hoursUntil < 24;
   const canManage = booking.status === "scheduled" && isFuture;
+  // Design handoff: conferma presenza (RPC dedicata, vedi use-confirm-attendance)
+  const confirmAttendance = useConfirmAttendance();
+  const isConfirmed = !!booking.client_confirmed_at;
 
   function showCancelToast(wasLate: boolean) {
     if (wasLate) {
@@ -177,12 +184,20 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
       <section className="bg-surface-container-lowest rounded-[32px] p-stack-lg shadow-[0_8px_30px_rgba(0,0,0,0.04)]">
         <div className="flex flex-col gap-stack-md">
           <div>
-            <span
-              className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold mb-stack-sm"
-              style={{ backgroundColor: status.bg, color: status.fg }}
-            >
-              {status.label}
-            </span>
+            <div className="flex items-center gap-2 flex-wrap mb-stack-sm">
+              <span
+                className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold"
+                style={{ backgroundColor: status.bg, color: status.fg }}
+              >
+                {status.label}
+              </span>
+              {isConfirmed && canManage && (
+                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-success-strong/12 text-success-strong">
+                  <Check className="size-3.5" strokeWidth={2.5} aria-hidden />
+                  Presenza confermata
+                </span>
+              )}
+            </div>
             <h1 className="text-2xl font-semibold text-on-surface">{title}</h1>
           </div>
           <div className="space-y-stack-sm mt-stack-sm">
@@ -282,6 +297,20 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
 
       {/* Action buttons */}
       <div className="pt-stack-lg pb-stack-lg space-y-stack-md">
+        {canManage && !isConfirmed && (
+          <button
+            type="button"
+            disabled={confirmAttendance.isPending}
+            onClick={() =>
+              confirmAttendance.mutate({ bookingId: booking.id, clientId: booking.client_id })
+            }
+            className="flex items-center justify-center gap-2 w-full py-4 rounded-full bg-success-strong text-white font-semibold shadow-md hover:opacity-90 active:scale-95 transition disabled:opacity-60"
+          >
+            <Check className="size-5" aria-hidden />
+            Conferma presenza
+          </button>
+        )}
+
         {canManage && (
           <a
             href={generateGoogleCalendarLink(

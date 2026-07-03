@@ -40,6 +40,10 @@ export interface BookingRow {
   // Optional in BookingRow so frontend code written before the column
   // shipped keeps working under the defensive fallback.
   category?: BookingCategory;
+  // Design handoff: timestamp della "Conferma presenza" del cliente
+  // (migrazione 20260703090000). Optional + fallback difensivo finché la
+  // migrazione non è applicata; null = non ancora confermata.
+  client_confirmed_at?: string | null;
 }
 
 export type BookingCategory = "client_session" | "personal" | "consulenza";
@@ -135,6 +139,9 @@ const BOOKINGS_BASE_COLS =
 // project hasn't applied the relevant migration yet.
 const BOOKINGS_COLS_WITH_PERSONAL = `${BOOKINGS_BASE_COLS}, is_personal`;
 const BOOKINGS_COLS_FULL = `${BOOKINGS_COLS_WITH_PERSONAL}, category`;
+// Design handoff: client_confirmed_at (conferma presenza) — stessa strategia
+// difensiva delle colonne precedenti finché la migrazione non è applicata.
+const BOOKINGS_COLS_FULL_CONFIRM = `${BOOKINGS_COLS_FULL}, client_confirmed_at`;
 
 function isMissingColumnError(
   err: { code?: string; message?: string } | null,
@@ -156,6 +163,7 @@ function withBookingDefaults(b: Record<string, unknown>): BookingRow {
     ...b,
     is_personal: row.is_personal ?? false,
     category: row.category ?? "client_session",
+    client_confirmed_at: row.client_confirmed_at ?? null,
   } as BookingRow;
 }
 
@@ -169,10 +177,19 @@ async function loadBookingsWithFallback(
     error: { code?: string; message?: string } | null;
   }>,
 ): Promise<BookingRow[]> {
+  // Attempt 0: widest+confirm (design handoff). Se client_confirmed_at non
+  // esiste ancora (migrazione non applicata) si scende nella scala normale.
+  const confirm = await build(BOOKINGS_COLS_FULL_CONFIRM);
+  if (!confirm.error) {
+    return (confirm.data as BookingRow[] | null) ?? [];
+  }
+  // Qualunque sia la colonna mancante, la scala esistente sotto ritenta con
+  // SELECT progressivamente più stretti e diagnostica correttamente.
+
   // Attempt 1: widest schema (category + is_personal).
   const wide = await build(BOOKINGS_COLS_FULL);
   if (!wide.error) {
-    return (wide.data as BookingRow[] | null) ?? [];
+    return ((wide.data as Record<string, unknown>[] | null) ?? []).map(withBookingDefaults);
   }
   if (!isMissingColumnError(wide.error, "category")) {
     // Maybe is_personal is missing too — try base.

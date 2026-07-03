@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Calendar, Clock } from "lucide-react";
+import { Calendar, Check, Clock } from "lucide-react";
 import type { BookingRow } from "@/lib/queries";
 import { JoinVideoCallButton } from "@/components/join-video-call-button";
 import { RescheduleDrawer } from "@/components/reschedule-drawer";
+import { useConfirmAttendance } from "@/hooks/use-confirm-attendance";
 
 export interface ClientLiveBookingCardProps {
   /** Booking da renderizzare come "next session" card. */
@@ -66,6 +67,26 @@ export function ClientLiveBookingCard({
   // source of truth; this UI guard mirrors it so the button visibly
   // disables before the user wastes a tap.
   const canReschedule = minutesUntil >= 60 * 24;
+  // Design handoff: chip "Conferma presenza" / "Presenza confermata".
+  const confirmAttendance = useConfirmAttendance();
+  const isConfirmed = !!booking.client_confirmed_at;
+  const confirmChip = isConfirmed ? (
+    <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-success-strong/12 text-success-strong text-xs font-bold">
+      <Check className="size-3.5" strokeWidth={2.5} aria-hidden />
+      Presenza confermata
+    </span>
+  ) : (
+    <button
+      type="button"
+      disabled={confirmAttendance.isPending}
+      onClick={() =>
+        confirmAttendance.mutate({ bookingId: booking.id, clientId: booking.client_id })
+      }
+      className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-primary-container text-white text-xs font-semibold active:scale-95 transition-transform disabled:opacity-60"
+    >
+      Conferma presenza
+    </button>
+  );
 
   return (
     <>
@@ -142,6 +163,7 @@ export function ClientLiveBookingCard({
             card compact. */}
         {isLive && (
           <div className="mt-5 flex flex-col gap-2">
+            <div className="flex justify-center">{confirmChip}</div>
             {meetingLink ? (
               <a
                 href={meetingLink}
@@ -175,6 +197,7 @@ export function ClientLiveBookingCard({
         {/* Default-state reschedule pill (smaller, less prominent). */}
         {!isLive && (
           <div className="mt-4 flex flex-wrap gap-2 items-center">
+            {confirmChip}
             <button
               type="button"
               onClick={() => setRescheduleOpen(true)}
