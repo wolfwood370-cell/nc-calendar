@@ -1,7 +1,14 @@
-import { createFileRoute, Outlet, Navigate, useNavigate } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Outlet,
+  Navigate,
+  useNavigate,
+  useRouterState,
+} from "@tanstack/react-router";
 import { useEffect } from "react";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { TrainerSidebar } from "@/components/trainer-sidebar";
+import { TrainerNotificationsBell } from "@/components/trainer-notifications-bell";
 import { TrainerBottomNav } from "@/components/trainer-bottom-nav";
 import { ReviewBookingDialog } from "@/components/review-booking-dialog";
 import { useAuth, pathForRole } from "@/lib/auth";
@@ -34,6 +41,7 @@ function TrainerLayout() {
   const allowed = role === "coach" || role === "admin";
   const navigate = useNavigate();
   const { reviewEventId } = Route.useSearch();
+  const path = useRouterState({ select: (s) => s.location.pathname });
 
   useEffect(() => {
     if (!loading && session && !allowed) {
@@ -75,10 +83,20 @@ function TrainerLayout() {
             <SidebarTrigger />
             <div className="h-5 w-px bg-border/40" />
             <p className="text-sm text-muted-foreground">Studio Trainer</p>
+            {/* Design handoff: campanella "Attività clienti" nell'header
+                globale, visibile da ogni pagina /trainer (su mobile resta
+                quella nella testata della Panoramica). */}
+            <div className="ml-auto">
+              <TrainerNotificationsBell />
+            </div>
           </header>
           {/* pb on mobile clears the bottom nav (64px nav + safe-area). */}
           <main className="p-0 md:p-6 pb-[88px] md:pb-6">
-            <Outlet />
+            {/* key sul pathname: rimonta la vista a ogni navigazione così
+                l'animazione page-enter (design handoff) riparte. */}
+            <div key={path} className="page-enter">
+              <Outlet />
+            </div>
           </main>
           {/* Global review modal — reachable from any /trainer/* page via
               navigate({ search: { reviewEventId: bookingId } }). One

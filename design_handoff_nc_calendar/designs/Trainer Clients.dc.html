@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { margin:0; background:#eceef2; font-family:"Manrope", ui-sans-serif, system-ui, sans-serif; }
+    .fdisp { font-family:"Sora", ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.02em; }
+  </style>
+  <script src="./coach-clients.js"></script>
+</helmet>
+<div ref="{{ root }}" style="display:flex; width:1440px; min-height:900px; background:linear-gradient(135deg,#f2f3f8,#e7e8ec);">
+
+  <!-- Sidebar -->
+  <aside style="width:256px; flex-shrink:0; background:rgba(255,255,255,0.4); backdrop-filter:blur(32px); border-right:1px solid rgba(255,255,255,0.2); display:flex; flex-direction:column; padding:8px;">
+    <div style="display:flex; align-items:center; gap:8px; padding:8px;">
+      <div style="width:32px; height:32px; border-radius:8px; background:#003e62; color:#fff; display:grid; place-items:center; font-weight:800; font-size:13px; flex-shrink:0;">NC</div>
+      <div><p class="fdisp" style="font-size:14px; font-weight:600; margin:0; line-height:1;">NC Calendar</p><p style="font-size:12px; color:#717880; margin:4px 0 0;">Studio</p></div>
+    </div>
+    <div style="padding:16px 8px 4px;"><span style="font-size:11px; font-weight:600; color:#717880; text-transform:uppercase; letter-spacing:0.05em;">Area di lavoro</span></div>
+    <nav style="display:flex; flex-direction:column; gap:2px; padding:4px;">
+      <a href="#" style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:9999px; color:#41474f; font-size:14px; font-weight:500; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>Panoramica</a>
+      <a href="#" style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:9999px; color:#41474f; font-size:14px; font-weight:500; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4M16 2v4M3 10h18"/><rect width="18" height="18" x="3" y="4" rx="2"/></svg>Calendario</a>
+      <a href="#" style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:9999px; background:rgba(0,62,98,0.1); color:#003e62; font-size:14px; font-weight:600; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>Clienti</a>
+      <a href="#" style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:9999px; color:#41474f; font-size:14px; font-weight:500; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/></svg>Tipologie evento</a>
+      <a href="#" style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:9999px; color:#41474f; font-size:14px; font-weight:500; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Disponibilità</a>
+      <a href="#" style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:9999px; color:#41474f; font-size:14px; font-weight:500; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v6M15 2v6M12 17v5M5 8h14a2 2 0 0 1 2 2v2a7 7 0 0 1-14 0v-2a2 2 0 0 1 2-2Z"/></svg>Integrazioni</a>
+    </nav>
+    <div style="margin-top:auto; padding:8px;"><div style="border-radius:12px; border:1px solid #c1c7d0; background:#fff; padding:12px;"><p style="font-size:14px; font-weight:500; margin:0;">Marco Rossi</p><p style="font-size:12px; color:#717880; margin:2px 0 0;">marco@ncstudio.it</p></div></div>
+  </aside>
+
+  <!-- Main -->
+  <div style="flex:1; display:flex; flex-direction:column; min-width:0;">
+    <header style="height:56px; display:flex; align-items:center; gap:12px; border-bottom:1px solid rgba(255,255,255,0.2); padding:0 16px; background:rgba(255,255,255,0.4); backdrop-filter:blur(32px);">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#41474f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg>
+      <div style="height:20px; width:1px; background:rgba(0,0,0,0.15);"></div>
+      <p style="font-size:14px; color:#717880; margin:0;">Studio Trainer</p>
+    </header>
+
+    <main style="flex:1; background:#f8f9fe; padding:40px;">
+      <div style="display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:12px; margin-bottom:32px;">
+        <div>
+          <h1 class="fdisp" style="font-size:36px; font-weight:700; color:#003e62; letter-spacing:-0.02em; margin:0;">I tuoi Clienti</h1>
+          <p style="font-size:14px; color:#41474f; margin:4px 0 0;">Invita nuovi clienti e gestisci il roster.</p>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <button style="display:flex; align-items:center; gap:8px; border-radius:9999px; padding:12px 24px; background:#003e62; color:#fff; font-size:14px; font-weight:600; border:none; box-shadow:0 4px 20px rgba(0,86,133,0.05); cursor:pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg>Aggiungi Cliente</button>
+          <button style="display:flex; align-items:center; gap:8px; border-radius:9999px; padding:12px 20px; background:#eceef2; color:#191c1f; font-size:14px; font-weight:600; border:none; cursor:pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5v14"/></svg>Invita</button>
+        </div>
+      </div>
+
+      <!-- Summary strip -->
+      <div id="csummary" style="display:flex; align-items:center; gap:24px; flex-wrap:wrap; margin-bottom:20px; background:#fff; border-radius:20px; padding:16px 24px; box-shadow:0px 4px 20px rgba(0,86,133,0.05);"></div>
+
+      <!-- Toolbar: search + sort -->
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:24px;">
+        <div style="position:relative; width:384px; max-width:100%;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#717880" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute; left:16px; top:50%; transform:translateY(-50%);"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input placeholder="Cerca per nome o email…" style="width:100%; padding:12px 16px 12px 44px; background:#f2f3f8; border:none; border-radius:9999px; font-size:14px; color:#191c1f; box-sizing:border-box; outline:none;" />
+        </div>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div id="viewtoggle" style="display:flex; background:#eceef2; border-radius:9999px; padding:3px;">
+            <button data-view="grid" title="Griglia" style="width:38px; height:32px; border-radius:9999px; border:none; background:#fff; color:#003e62; display:grid; place-items:center; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,0.08);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></button>
+            <button data-view="table" title="Tabella" style="width:38px; height:32px; border-radius:9999px; border:none; background:transparent; color:#717880; display:grid; place-items:center; cursor:pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" x2="21" y1="6" y2="6"/><line x1="3" x2="21" y1="12" y2="12"/><line x1="3" x2="21" y1="18" y2="18"/></svg></button>
+          </div>
+          <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:#717880;">Ordina
+            <select id="csort" style="border:1px solid #e1e2e7; border-radius:9999px; padding:8px 14px; font-size:13px; font-family:inherit; background:#fff; color:#191c1f; cursor:pointer;">
+              <option value="name">Nome (A–Z)</option>
+              <option value="expiry">Scadenza pacchetto</option>
+              <option value="recent">Attività recente</option>
+              <option value="att">Presenza</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div id="clienttabs" style="display:flex; gap:8px; margin-bottom:24px; flex-wrap:wrap;">
+        <button style="display:flex; align-items:center; gap:6px; padding:8px 16px; border-radius:9999px; background:#003e62; color:#fff; border:none; font-size:14px; font-weight:600; cursor:pointer;">Tutti <span style="background:rgba(255,255,255,0.2); border-radius:9999px; padding:0 8px; font-size:12px;">8</span></button>
+        <button style="display:flex; align-items:center; gap:6px; padding:8px 16px; border-radius:9999px; background:#fff; color:#41474f; border:1px solid #c1c7d0; font-size:14px; font-weight:500; cursor:pointer;">Attivi <span style="color:#717880; font-size:12px;">5</span></button>
+        <button style="display:flex; align-items:center; gap:6px; padding:8px 16px; border-radius:9999px; background:#fff; color:#41474f; border:1px solid #c1c7d0; font-size:14px; font-weight:500; cursor:pointer;">In Scadenza <span style="color:#717880; font-size:12px;">2</span></button>
+        <button style="display:flex; align-items:center; gap:6px; padding:8px 16px; border-radius:9999px; background:#fff; color:#41474f; border:1px solid #c1c7d0; font-size:14px; font-weight:500; cursor:pointer;">Archiviati <span style="color:#717880; font-size:12px;">0</span></button>
+      </div>
+
+      <!-- Cards grid -->
+      <div id="clientgrid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:16px; align-items:start;">
+        <div style="position:relative; background:#fff; border-radius:28px; padding:20px; box-shadow:0px 4px 20px rgba(0,86,133,0.05);"><div style="display:flex; align-items:center; gap:16px; min-width:0;"><div style="width:56px; height:56px; flex-shrink:0; border-radius:9999px; background:#d6e5ec; color:#3b494f; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:700;">GB</div><div style="min-width:0; flex:1;"><h3 style="font-size:16px; line-height:20px; font-weight:700; color:#191c1f; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Giulia Bianchi</h3><p style="font-size:12px; color:#717880; margin:2px 0 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">giulia.b@email.it</p><div style="margin-top:8px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;"><span style="padding:2px 10px; border-radius:9999px; font-size:11px; font-weight:600; background:rgba(0,62,98,0.1); color:#003e62;">Percorso Fisso</span><span style="padding:2px 10px; border-radius:9999px; font-size:11px; font-weight:600; background:#ecfdf5; color:#059669;">Attivo</span></div></div></div><div style="position:absolute; top:12px; right:12px; color:#717880;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg></div></div>
+        <div style="position:relative; background:#fff; border-radius:28px; padding:20px; box-shadow:0px 4px 20px rgba(0,86,133,0.05);"><div style="display:flex; align-items:center; gap:16px; min-width:0;"><div style="width:56px; height:56px; flex-shrink:0; border-radius:9999px; background:#d6e5ec; color:#3b494f; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:700;">LV</div><div style="min-width:0; flex:1;"><h3 style="font-size:16px; line-height:20px; font-weight:700; color:#191c1f; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Luca Verdi</h3><p style="font-size:12px; color:#717880; margin:2px 0 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">luca.verdi@email.it</p><div style="margin-top:8px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;"><span style="padding:2px 10px; border-radius:9999px; font-size:11px; font-weight:600; background:rgba(0,62,98,0.1); color:#003e62;">Abbonamento Mensile</span><span style="padding:2px 10px; border-radius:9999px; font-size:11px; font-weight:600; background:#ecfdf5; color:#059669;">Attivo</span></div></div></div><div style="position:absolute; top:12px; right:12px; color:#717880;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg></div></div>
+        <div style="position:relative; background:#fff; border-radius:28px; padding:20px; box-shadow:0px 4px 20px rgba(0,86,133,0.05);"><div style="display:flex; align-items:center; gap:16px; min-width:0;"><div style="width:56px; height:56px; flex-shrink:0; border-radius:9999px; background:#d6e5ec; color:#3b494f; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:700;">SN</div><div style="min-width:0; flex:1;"><h3 style="font-size:16px; line-height:20px; font-weight:700; color:#191c1f; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Sara Neri</h3><p style="font-size:12px; color:#717880; margin:2px 0 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">sara.neri@email.it</p><div style="margin-top:8px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;"><span style="padding:2px 10px; border-radius:9999px; font-size:11px; font-weight:600; background:rgba(0,62,98,0.1); color:#003e62;">Percorso Fisso</span><span style="padding:2px 10px; border-radius:9999px; font-size:11px; font-weight:600; background:#fff7ed; color:#ea580c;">In Scadenza</span></div></div></div><div style="position:absolute; top:12px; right:12px; color:#717880;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg></div></div>
+        <div style="position:relative; background:#fff; border-radius:28px; padding:20px; box-shadow:0px 4px 20px rgba(0,86,133,0.05);"><div style="display:flex; align-items:center; gap:16px; min-width:0;"><div style="width:56px; height:56px; flex-shrink:0; border-radius:9999px; background:#d6e5ec; color:#3b494f; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:700;">AG</div><div style="min-width:0; flex:1;"><h3 style="font-size:16px; line-height:20px; font-weight:700; color:#191c1f; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Andrea Gallo</h3><p style="font-size:12px; color:#717880; margin:2px 0 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">a.gallo@email.it</p><div style="margin-top:8px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;"><span style="padding:2px 10px; border-radius:9999px; font-size:11px; font-weight:600; background:rgba(0,62,98,0.1); color:#003e62;">PT Pack 12</span><span style="padding:2px 10px; border-radius:9999px; font-size:11px; font-weight:600; background:#ecfdf5; color:#059669;">Attivo</span></div></div></div><div style="position:absolute; top:12px; right:12px; color:#717880;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg></div></div>
+        <div style="position:relative; background:#fff; border-radius:28px; padding:20px; box-shadow:0px 4px 20px rgba(0,86,133,0.05);"><div style="display:flex; align-items:center; gap:16px; min-width:0;"><div style="width:56px; height:56px; flex-shrink:0; border-radius:9999px; background:#d6e5ec; color:#3b494f; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:700;">MC</div><div style="min-width:0; flex:1;"><h3 style="font-size:16px; line-height:20px; font-weight:700; color:#191c1f; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Marta Conti</h3><p style="font-size:12px; color:#717880; margin:2px 0 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">marta.c@email.it</p><div style="margin-top:8px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;"><span style="padding:2px 10px; border-radius:9999px; font-size:11px; font-weight:600; background:rgba(0,62,98,0.1); color:#003e62;">Abbonamento Mensile</span><span style="padding:2px 10px; border-radius:9999px; font-size:11px; font-weight:600; background:#fff7ed; color:#ea580c;">In Scadenza</span></div></div></div><div style="position:absolute; top:12px; right:12px; color:#717880;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg></div></div>
+        <div style="position:relative; background:#fff; border-radius:28px; padding:20px; box-shadow:0px 4px 20px rgba(0,86,133,0.05);"><div style="display:flex; align-items:center; gap:16px; min-width:0;"><div style="width:56px; height:56px; flex-shrink:0; border-radius:9999px; background:#d6e5ec; color:#3b494f; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:700;">DF</div><div style="min-width:0; flex:1;"><h3 style="font-size:16px; line-height:20px; font-weight:700; color:#191c1f; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Davide Ferrari</h3><p style="font-size:12px; color:#717880; margin:2px 0 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">d.ferrari@email.it</p><div style="margin-top:8px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;"><span style="padding:2px 10px; border-radius:9999px; font-size:11px; font-weight:600; background:rgba(0,62,98,0.1); color:#003e62;">Percorso Fisso</span><span style="padding:2px 10px; border-radius:9999px; font-size:11px; font-weight:600; background:#eceef2; color:#41474f;">Completato</span></div></div></div><div style="position:absolute; top:12px; right:12px; color:#717880;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg></div></div>
+        <div style="position:relative; background:#fff; border-radius:28px; padding:20px; box-shadow:0px 4px 20px rgba(0,86,133,0.05);"><div style="display:flex; align-items:center; gap:16px; min-width:0;"><div style="width:56px; height:56px; flex-shrink:0; border-radius:9999px; background:#d6e5ec; color:#3b494f; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:700;">ER</div><div style="min-width:0; flex:1;"><h3 style="font-size:16px; line-height:20px; font-weight:700; color:#191c1f; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Elena Ricci</h3><p style="font-size:12px; color:#717880; margin:2px 0 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">elena.ricci@email.it</p><div style="margin-top:8px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;"><span style="padding:2px 10px; border-radius:9999px; font-size:11px; font-weight:600; background:rgba(0,62,98,0.1); color:#003e62;">Cliente Libero</span><span style="padding:2px 10px; border-radius:9999px; font-size:11px; font-weight:600; background:#ecfdf5; color:#059669;">Attivo</span></div></div></div><div style="position:absolute; top:12px; right:12px; color:#717880;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg></div></div>
+        <div style="position:relative; background:#fff; border-radius:28px; padding:20px; box-shadow:0px 4px 20px rgba(0,86,133,0.05);"><div style="display:flex; align-items:center; gap:16px; min-width:0;"><div style="width:56px; height:56px; flex-shrink:0; border-radius:9999px; background:#d6e5ec; color:#3b494f; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:700;">PM</div><div style="min-width:0; flex:1;"><h3 style="font-size:16px; line-height:20px; font-weight:700; color:#191c1f; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Paolo Moretti</h3><p style="font-size:12px; color:#717880; margin:2px 0 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">p.moretti@email.it</p><div style="margin-top:8px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;"><span style="padding:2px 10px; border-radius:9999px; font-size:11px; font-weight:600; background:rgba(0,62,98,0.1); color:#003e62;">Percorso Fisso</span><span style="padding:2px 10px; border-radius:9999px; font-size:11px; font-weight:600; background:#ecfdf5; color:#059669;">Attivo</span></div></div></div><div style="position:absolute; top:12px; right:12px; color:#717880;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg></div></div>
+      </div>
+
+      <!-- Table view -->
+      <div id="clienttable" style="display:none; background:#fff; border-radius:20px; box-shadow:0px 4px 20px rgba(0,86,133,0.05); overflow:hidden;"></div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
+
+class Component extends DCLogic {
+  root = React.createRef();
+  renderVals() { return { root: this.root }; }
+
+  componentDidMount() {
+    const el = this.root.current;
+    if (!el) return;
+    el.querySelectorAll("aside nav a").forEach((a)=>{ const m={"Panoramica":"Trainer%20Dashboard.dc.html","Calendario":"Trainer%20Calendar.dc.html","Clienti":"Trainer%20Clients.dc.html","Tipologie evento":"Trainer%20Event%20Types.dc.html","Disponibilità":"Trainer%20Availability.dc.html","Integrazioni":"Trainer%20Integrations.dc.html"}; const t=a.textContent.trim(); if(m[t]) a.setAttribute("href",m[t]); });
+    const grid = el.querySelector("#clientgrid");
+    var afterApply = null;
+    const tabsWrap = el.querySelector("#clienttabs");
+    const input = el.querySelector("input");
+    if (!grid) return;
+
+    const cards = [...grid.children].map((c) => {
+      const status = (c.querySelectorAll("span")[1] || c.querySelector("span")).textContent.trim();
+      const dispName = c.querySelector("h3").textContent;
+      const cslug = (window.COACHData ? window.COACHData.slug(dispName) : dispName.toLowerCase().replace(/[^a-z]+/g,"-"));
+      const archived = window.COACHData ? window.COACHData.isArchived(cslug) : false;
+      return { node:c, dispName, cslug, name:dispName.toLowerCase(), email:c.querySelector("p").textContent.toLowerCase(), status, archived };
+    });
+
+    // per-client snapshot data for richer cards
+    const DATA = {};
+    (window.COACHData ? window.COACHData.withLive() : []).forEach((c)=>{
+      DATA[c.name.toLowerCase()] = {
+        pu: c.credits.PT[0], pt: c.credits.PT[1],
+        next: c.next, lastDays: c.lastDays, att: c.att, exp: c.expDays,
+        nextConfirmed: c.nextConfirmed
+      };
+    });
+    const STC = { "Attivo":"#059669", "In Scadenza":"#ea580c", "Completato":"#94a3b8" };
+    cards.forEach((c)=>{
+      const d = DATA[c.name] || { pu:0,pt:0,att:0,next:null,last:"—",lastDays:999,exp:999 };
+      c.data = d;
+      c.node.style.borderLeft = `5px solid ${STC[c.status]||"#c1c7d0"}`;
+      const pct = d.pt ? Math.round(d.pu/d.pt*100) : 0;
+      const foot = document.createElement("div");
+      foot.style.cssText = "margin-top:16px; padding-top:14px; border-top:1px solid #f1f5f9; display:flex; flex-direction:column; gap:10px;";
+      foot.innerHTML = `
+        <div>
+          <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:5px;"><span style="color:#717880; font-weight:600;">Pacchetto PT</span><span class="tnum" style="color:#003e62; font-weight:600;">${d.pu}/${d.pt}</span></div>
+          <div style="width:100%; height:6px; background:#eceef2; border-radius:9999px; overflow:hidden;"><div style="height:100%; border-radius:9999px; background:#003e62; width:${pct}%;"></div></div>
+        </div>
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:12px;">
+          <span style="display:flex; align-items:center; gap:5px; color:${d.next?"#191c1f":"#717880"}; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M8 2v4M16 2v4M3 10h18"/><rect width="18" height="18" x="3" y="4" rx="2"/></svg>${d.next||"Nessuna in agenda"}</span>
+          <span title="Presenza" style="flex-shrink:0; display:flex; align-items:center; gap:4px; color:${d.att>=80?"#059669":d.att>=60?"#ea580c":"#dc2626"}; font-weight:600;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>${d.att}%</span>
+        </div>`;
+      c.node.appendChild(foot);
+    });
+
+    const renderSummary = () => {
+      const summ = el.querySelector("#csummary"); if(!summ) return;
+      const live = cards.filter((c)=>!c.archived);
+      const tot=live.length, act=live.filter((c)=>c.status==="Attivo").length, exp=live.filter((c)=>c.status==="In Scadenza").length;
+      const chip=(n,l,col)=>`<div style="display:flex; align-items:baseline; gap:8px;"><span class="tnum fdisp" style="font-size:26px; font-weight:700; color:${col};">${n}</span><span style="font-size:13px; color:#717880;">${l}</span></div>`;
+      const dv=`<div style="width:1px;height:28px;background:#e7e8ec;"></div>`;
+      summ.innerHTML = chip(tot,"clienti","#191c1f")+dv+chip(act,"attivi","#059669")+dv+chip(exp,"in scadenza","#ea580c");
+    };
+    const tabs = [...tabsWrap.querySelectorAll("button")];
+    const TABDEF = ["Tutti","Attivi","In Scadenza","Archiviati"];
+    let active = "Tutti";
+    let query = "";
+
+    const matchTab = (c) =>
+      c.archived ? active==="Archiviati" :
+      active==="Archiviati" ? false :
+      active==="Tutti" ? true :
+      active==="Attivi" ? c.status==="Attivo" :
+      active==="In Scadenza" ? c.status==="In Scadenza" :
+      false;
+
+    const empty = document.createElement("p");
+    empty.style.cssText = "grid-column:1/-1; text-align:center; color:#717880; font-size:14px; padding:32px 0; margin:0;";
+    empty.textContent = "Nessun cliente trovato.";
+    grid.appendChild(empty);
+
+    const apply = () => {
+      let shown = 0;
+      cards.forEach((c) => {
+        const vis = matchTab(c) && (c.name.includes(query) || c.email.includes(query));
+        c.node.style.display = vis ? "" : "none";
+        if (vis) shown++;
+      });
+      empty.style.display = shown ? "none" : "";
+      // tab counts (respect current search)
+      const q = query;
+      const count = (label) => cards.filter((c) =>
+        (c.name.includes(q)||c.email.includes(q)) && (
+          label==="Archiviati"?c.archived:
+          c.archived?false:
+          label==="Tutti"?true:
+          label==="Attivi"?c.status==="Attivo":
+          label==="In Scadenza"?c.status==="In Scadenza":false)).length;
+      tabs.forEach((b,i) => {
+        const label = TABDEF[i];
+        const badge = b.querySelector("span");
+        if (badge) badge.textContent = count(label);
+        const on = label===active;
+        b.style.background = on ? "#003e62" : "#fff";
+        b.style.color = on ? "#fff" : "#41474f";
+        b.style.border = on ? "none" : "1px solid #c1c7d0";
+        b.style.fontWeight = on ? "600" : "500";
+        if (badge){ badge.style.background = on ? "rgba(255,255,255,0.2)" : "transparent"; badge.style.color = on ? "#fff" : "#717880"; badge.style.borderRadius="9999px"; badge.style.padding = on ? "0 8px" : "0"; }
+      });
+      renderSummary();
+      if (typeof afterApply === "function") afterApply();
+    };
+
+    tabs.forEach((b,i) => b.onclick = () => { active = TABDEF[i]; apply(); });
+    if (input) input.oninput = () => { query = input.value.trim().toLowerCase(); apply(); };
+
+    // --- card click -> profile, + ⋮ quick menu ---
+    const slug = (n)=>n.toLowerCase().replace(/[^a-z]+/g,"-");
+    const goProfile = (c)=>{ location.href = "Trainer%20Client%20Detail.dc.html#"+slug(c.dispName); };
+    const toast = (msg,color)=>{
+      const t=document.createElement("div"); t.textContent=msg;
+      t.style.cssText=`position:fixed; left:50%; bottom:28px; transform:translateX(-50%); background:${color||"#003e62"}; color:#fff; padding:12px 22px; border-radius:9999px; font-size:14px; font-weight:600; box-shadow:0 8px 30px rgba(0,0,0,0.2); z-index:9999; opacity:0; transition:opacity .2s;`;
+      el.appendChild(t); requestAnimationFrame(()=>t.style.opacity="1");
+      setTimeout(()=>{ t.style.opacity="0"; setTimeout(()=>t.remove(),250); },1600);
+    };
+    let curMenu=null;
+    const closeMenu=()=>{ if(curMenu){ curMenu.remove(); curMenu=null; } };
+    document.addEventListener("click", closeMenu);
+    const openMenu=(c)=>{
+      closeMenu();
+      const m=document.createElement("div");
+      m.style.cssText="position:absolute; top:38px; right:12px; z-index:60; background:#fff; border-radius:14px; box-shadow:0 8px 30px rgba(0,0,0,0.18); border:1px solid #eceef2; padding:6px; width:170px;";
+      const item=(label,color)=>`<button data-i="${label}" style="display:block; width:100%; text-align:left; border:none; background:none; padding:9px 12px; border-radius:9px; font-size:13px; font-weight:500; color:${color||"#191c1f"}; cursor:pointer; font-family:inherit;">${label}</button>`;
+      m.innerHTML=item("Apri profilo")+item(c.archived?"Ripristina":"Rinnova")+item("Messaggio")+item(c.archived?"Elimina":"Archivia","#dc2626");
+      m.querySelectorAll("[data-i]").forEach((b)=>{ b.onmouseenter=()=>b.style.background="#f2f3f8"; b.onmouseleave=()=>b.style.background="none"; b.onclick=(e)=>{
+        e.stopPropagation();
+        const a=b.dataset.i;
+        if (a==="Apri profilo") goProfile(c);
+        else if (a==="Rinnova"){ c.status="Attivo"; toast("Rinnovo inviato a "+c.dispName,"#0b8043"); apply(); }
+        else if (a==="Messaggio") toast("Messaggio inviato a "+c.dispName);
+        else if (a==="Archivia"){ c.archived=true; if(window.COACHData) window.COACHData.setArchived(c.cslug,true); toast(c.dispName+" archiviato/a"); apply(); }
+        else if (a==="Ripristina"){ c.archived=false; if(window.COACHData) window.COACHData.setArchived(c.cslug,false); toast(c.dispName+" ripristinato/a","#0b8043"); apply(); }
+        else if (a==="Elimina"){ c.node.remove(); const i=cards.indexOf(c); if(i>=0) cards.splice(i,1); toast(c.dispName+" eliminato/a","#dc2626"); apply(); }
+        closeMenu();
+      }; });
+      c.node.appendChild(m); curMenu=m;
+    };
+    cards.forEach((c)=>{
+      c.node.style.cursor="pointer";
+      c.node.onclick=()=>goProfile(c);
+      const dots=c.node.querySelector('div[style*="absolute"]');
+      if (dots){ dots.style.cursor="pointer"; dots.onclick=(e)=>{ e.stopPropagation(); openMenu(c); }; }
+    });
+
+    // sorting
+    const sortSel = el.querySelector("#csort");
+    const applySort = () => {
+      const key = sortSel ? sortSel.value : "name";
+      [...cards].sort((a,b)=>{
+        if(key==="expiry") return (a.data.exp??999)-(b.data.exp??999);
+        if(key==="recent") return (a.data.lastDays??999)-(b.data.lastDays??999);
+        if(key==="att") return (b.data.att??0)-(a.data.att??0);
+        return a.dispName.localeCompare(b.dispName);
+      }).forEach((c)=>grid.appendChild(c.node));
+      grid.appendChild(empty);
+    };
+    if (sortSel) sortSel.onchange = ()=>{ applySort(); apply(); };
+    applySort();
+
+    // ---- View toggle (grid / table) ----
+    const tableWrap = el.querySelector("#clienttable");
+    const vt = el.querySelector("#viewtoggle");
+    let view = "grid";
+    const planOf = {};
+    (window.COACHData ? window.COACHData.clients : []).forEach((c)=>{ planOf[c.name.toLowerCase()] = c.plan; });
+    const STCOL = { "Attivo":["#ecfdf5","#059669"], "In Scadenza":["#fff7ed","#ea580c"], "Completato":["#eceef2","#41474f"] };
+    const renderTable = () => {
+      const visible = [...cards].filter((c)=>c.node.style.display!=="none");
+      // preserve current DOM (sorted) order
+      const order = [...grid.children].filter((n)=>n.querySelector && n.querySelector("h3"));
+      const ordered = order.map((n)=>cards.find((c)=>c.node===n)).filter((c)=>c && c.node.style.display!=="none");
+      const rows = ordered.map((c)=>{
+        const d=c.data, sc=STCOL[c.status]||["#eceef2","#41474f"], pct=d.pt?Math.round(d.pu/d.pt*100):0;
+        const conf = d.nextConfirmed ? ` <span title="Presenza confermata" style="color:#059669;">✓</span>` : "";
+        return `<tr data-slug="${slug(c.dispName)}" tabindex="0" role="button" style="cursor:pointer; border-top:1px solid #f1f5f9;" style-hover="background:#f8fafc;">
+          <td style="padding:14px 16px;"><div style="display:flex; align-items:center; gap:12px;"><div style="width:36px; height:36px; border-radius:9999px; background:#d6e5ec; color:#3b494f; display:grid; place-items:center; font-size:13px; font-weight:700; flex-shrink:0;">${c.dispName.split(" ").map((w)=>w[0]).join("")}</div><div style="min-width:0;"><p style="margin:0; font-size:14px; font-weight:600; color:#191c1f;">${c.dispName}</p><p style="margin:1px 0 0; font-size:12px; color:#717880;">${c.email}</p></div></div></td>
+          <td style="padding:14px 16px; font-size:13px; color:#41474f;">${planOf[c.name]||"—"}</td>
+          <td style="padding:14px 16px;"><span style="padding:3px 10px; border-radius:9999px; font-size:11px; font-weight:600; background:${sc[0]}; color:${sc[1]};">${c.status}</span></td>
+          <td style="padding:14px 16px; min-width:120px;"><div style="display:flex; align-items:center; gap:8px;"><div style="flex:1; height:6px; background:#eceef2; border-radius:9999px; overflow:hidden;"><div style="height:100%; background:#003e62; width:${pct}%;"></div></div><span class="tnum" style="font-size:12px; font-weight:600; color:#003e62;">${d.pu}/${d.pt}</span></div></td>
+          <td style="padding:14px 16px; font-size:13px; color:${d.next?"#191c1f":"#717880"};">${d.next||"—"}${conf}</td>
+          <td style="padding:14px 16px; font-size:13px; font-weight:600; color:${d.att>=80?"#059669":d.att>=60?"#ea580c":"#dc2626"};">${d.att}%</td>
+        </tr>`;
+      }).join("");
+      tableWrap.innerHTML = `<table style="width:100%; border-collapse:collapse; font-family:'Manrope',sans-serif;">
+        <thead><tr style="text-align:left; background:#f8f9fe;">
+          <th style="padding:12px 16px; font-size:11px; font-weight:700; color:#717880; text-transform:uppercase; letter-spacing:0.04em;">Cliente</th>
+          <th style="padding:12px 16px; font-size:11px; font-weight:700; color:#717880; text-transform:uppercase; letter-spacing:0.04em;">Piano</th>
+          <th style="padding:12px 16px; font-size:11px; font-weight:700; color:#717880; text-transform:uppercase; letter-spacing:0.04em;">Stato</th>
+          <th style="padding:12px 16px; font-size:11px; font-weight:700; color:#717880; text-transform:uppercase; letter-spacing:0.04em;">Pacchetto PT</th>
+          <th style="padding:12px 16px; font-size:11px; font-weight:700; color:#717880; text-transform:uppercase; letter-spacing:0.04em;">Prossima</th>
+          <th style="padding:12px 16px; font-size:11px; font-weight:700; color:#717880; text-transform:uppercase; letter-spacing:0.04em;">Pres.</th>
+        </tr></thead>
+        <tbody>${rows || `<tr><td colspan="6" style="padding:32px; text-align:center; color:#717880; font-size:14px;">Nessun cliente trovato.</td></tr>`}</tbody>
+      </table>`;
+      tableWrap.querySelectorAll("tr[data-slug]").forEach((tr)=>{
+        const goSlug=()=>{ location.href="Trainer%20Client%20Detail.dc.html#"+tr.dataset.slug; };
+        tr.onclick=goSlug;
+        tr.onkeydown=(e)=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); goSlug(); } };
+      });
+    };
+    const setView = (v) => {
+      view = v;
+      grid.style.display = v==="grid" ? "grid" : "none";
+      tableWrap.style.display = v==="table" ? "block" : "none";
+      vt.querySelectorAll("[data-view]").forEach((b)=>{
+        const on=b.dataset.view===v;
+        b.style.background = on ? "#fff" : "transparent";
+        b.style.color = on ? "#003e62" : "#717880";
+        b.style.boxShadow = on ? "0 1px 2px rgba(0,0,0,0.08)" : "none";
+      });
+      if (v==="table") renderTable();
+    };
+    vt.querySelectorAll("[data-view]").forEach((b)=>b.onclick=()=>setView(b.dataset.view));
+    afterApply = () => { if (view === "table") renderTable(); };
+
+    // live cross-tab sync: client bookings or archive changes elsewhere
+    window.addEventListener("storage", (e)=>{ if (e.key==="ncbookings-v1" || e.key==="nccoach-archived") location.reload(); });
+
+    apply();
+  }
+}</script>
+</body>
+</html>

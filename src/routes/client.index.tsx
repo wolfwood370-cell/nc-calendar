@@ -21,6 +21,15 @@ import {
   ClientSessionsBreakdown,
   type SessionTypeBreakdownRow,
 } from "@/components/client-sessions-breakdown";
+import { useBiaMeasurements } from "@/hooks/use-bia";
+import { useClientFeedback } from "@/hooks/use-session-feedback";
+import { ClientBiaProgress } from "@/components/client-bia-progress";
+import {
+  ClientNotificationsBell,
+  type ClientNotificationItem,
+} from "@/components/client-notifications-bell";
+import { ClientReminderBanner } from "@/components/client-reminder-banner";
+import { ClientFeedbackCard } from "@/components/client-feedback-card";
 
 export const Route = createFileRoute("/client/")({
   component: ClientHome,
@@ -139,11 +148,9 @@ function ClientHome() {
   // la propria data (dd/MM). Ordine fisso: completed → booked → open
   // così la "rampa" cresce sempre da sinistra a destra.
   const currentBlockSlots = useMemo(() => {
-    if (!resolvedCurrentBlock) return [] as Array<{ state: "completed" | "booked" | "open"; date?: Date }>;
-    const total = resolvedCurrentBlock.allocations.reduce(
-      (s, a) => s + a.quantity_assigned,
-      0,
-    );
+    if (!resolvedCurrentBlock)
+      return [] as Array<{ state: "completed" | "booked" | "open"; date?: Date }>;
+    const total = resolvedCurrentBlock.allocations.reduce((s, a) => s + a.quantity_assigned, 0);
     if (total === 0) return [];
     const startMs = new Date(resolvedCurrentBlock.start_date).getTime();
     const endMs = new Date(resolvedCurrentBlock.end_date).getTime() + 24 * 60 * 60 * 1000 - 1;
@@ -214,8 +221,7 @@ function ClientHome() {
 
     // 2. Cross-referencia bookings dentro la finestra del blocco
     const startMs = new Date(resolvedCurrentBlock.start_date).getTime();
-    const endMs =
-      new Date(resolvedCurrentBlock.end_date).getTime() + 24 * 60 * 60 * 1000 - 1;
+    const endMs = new Date(resolvedCurrentBlock.end_date).getTime() + 24 * 60 * 60 * 1000 - 1;
     for (const b of bookingsQ.data ?? []) {
       const t = new Date(b.scheduled_at).getTime();
       if (t < startMs || t > endMs) continue;
@@ -323,6 +329,127 @@ function ClientHome() {
     ? (eventTypesQ.data ?? []).find((e) => e.id === nextBooking.event_type_id)
     : null;
 
+  // ---- Design handoff: dati derivati per campanella, banner e card nuove ----
+  const biaQ = useBiaMeasurements(meId);
+  const feedbackQ = useClientFeedback(meId);
+
+  const nextBookingLabel = nextBooking
+    ? (nextEventType?.name ?? sessionLabel(nextBooking.session_type))
+    : "";
+
+  // Ultima sessione completata di recente (14 giorni) ancora senza feedback.
+  // La finestra evita di chiedere feedback su sessioni storiche al primo
+  // deploy della feature.
+  const pendingFeedback = useMemo(() => {
+    const rated = new Set((feedbackQ.data ?? []).map((f) => f.booking_id));
+    const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000;
+    return (bookingsQ.data ?? [])
+      .filter(
+        (b) =>
+          b.status === "completed" &&
+          !rated.has(b.id) &&
+          new Date(b.scheduled_at).getTime() >= cutoff,
+      )
+      .sort((a, b) => +new Date(b.scheduled_at) - +new Date(a.scheduled_at))[0];
+  }, [bookingsQ.data, feedbackQ.data]);
+
+  const pendingFeedbackLabel = pendingFeedback
+    ? ((eventTypesQ.data ?? []).find((e) => e.id === pendingFeedback.event_type_id)?.name ??
+      sessionLabel(pendingFeedback.session_type))
+    : "";
+
+  // Banner promemoria: prossima sessione entro 48h e non ancora confermata.
+  const reminderBooking = useMemo(() => {
+    if (!nextBooking || nextBooking.client_confirmed_at) return null;
+    const ms = new Date(nextBooking.scheduled_at).getTime() - Date.now();
+    return ms <= 48 * 60 * 60 * 1000 ? nextBooking : null;
+  }, [nextBooking]);
+
+  // Voci campanella, derivate come NC.notifications() del prototipo.
+  const notificationItems = useMemo<ClientNotificationItem[]>(() => {
+    const items: ClientNotificationItem[] = [];
+    if (nextBooking && !nextBooking.client_confirmed_at) {
+      const when = new Date(nextBooking.scheduled_at);
+      items.push({
+        id: `confirm-${nextBooking.id}`,
+        kind: "confirm",
+        title: "Conferma la tua presenza",
+        sub: `${nextBookingLabel} · ${when.toLocaleDateString("it-IT", {
+          weekday: "long",
+          day: "numeric",
+        })} alle ${when.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}`,
+        onClick: () =>
+          navigate({ to: "/client/bookings/$bookingId", params: { bookingId: nextBooking.id } }),
+      });
+    }
+    if (currentBlockBreakdown.open > 0 && currentBlockEndLabel) {
+      items.push({
+        id: `block-open-${resolvedCurrentBlock?.id ?? "n"}-${currentBlockBreakdown.open}`,
+        kind: "block",
+        title: "Sessioni da prenotare",
+        sub: `Hai ${currentBlockBreakdown.open} ${
+          currentBlockBreakdown.open === 1 ? "sessione" : "sessioni"
+        } da prenotare entro il ${currentBlockEndLabel}`,
+        onClick: () => navigate({ to: "/client/book" }),
+      });
+    }
+    const bia = biaQ.data ?? [];
+    const lastBia = bia[bia.length - 1];
+    if (lastBia) {
+      items.push({
+        id: `bia-${lastBia.measured_on}`,
+        kind: "bia",
+        title: "Nuova misurazione BIA",
+        sub: `Peso ${lastBia.weight_kg} kg · massa ${lastBia.muscle_kg} kg`,
+      });
+    }
+    for (const row of currentBlockTypeBreakdown) {
+      if (row.total > 0 && row.remaining <= 0) {
+        items.push({
+          id: `credit-${row.key}`,
+          kind: "credit",
+          title: `Pool ${row.name} esaurito`,
+          sub: "Acquista un Booster per prenotare ancora",
+          onClick: () => navigate({ to: "/client/store" }),
+        });
+      }
+    }
+    if (pendingFeedback) {
+      items.push({
+        id: `fb-${pendingFeedback.id}`,
+        kind: "feedback",
+        title: "Com'è andata?",
+        sub: `Lascia un feedback sulla sessione del ${new Date(
+          pendingFeedback.scheduled_at,
+        ).toLocaleDateString("it-IT", { day: "numeric", month: "short" })}`,
+      });
+    }
+    return items;
+  }, [
+    nextBooking,
+    nextBookingLabel,
+    currentBlockBreakdown,
+    currentBlockEndLabel,
+    resolvedCurrentBlock,
+    biaQ.data,
+    currentBlockTypeBreakdown,
+    pendingFeedback,
+    navigate,
+  ]);
+
+  // Card benvenuto (design handoff): percorso attivo ma nessuna sessione mai
+  // prenotata → gradiente brand con CTA "Prenota la prima sessione".
+  const showWelcome = pathStats.total > 0 && (bookingsQ.data ?? []).length === 0;
+
+  // Card rinnovo (design handoff): percorso fisso, blocco corrente completato
+  // e nessun blocco futuro già pianificato. Nessuna azione automatica: il
+  // rinnovo lo gestisce il coach, la card invita a parlargli.
+  const showRenewal = useMemo(() => {
+    if (isRecurring || currentBlockSlots.length === 0) return false;
+    if (currentBlockBreakdown.completed !== currentBlockSlots.length) return false;
+    return !pathBlocks.some((b) => b.state === "future");
+  }, [isRecurring, currentBlockSlots.length, currentBlockBreakdown.completed, pathBlocks]);
+
   const isLoading =
     blocksQ.isLoading || bookingsQ.isLoading || profileQ.isLoading || extraCreditsQ.isLoading;
 
@@ -336,13 +463,58 @@ function ClientHome() {
             </div>
             <h1 className="text-2xl font-bold text-aura-primary">Ciao {firstName}</h1>
           </div>
-          {/* B12 (audit): rimossa la campanella notifiche inerte (nessuna azione
-              collegata). Da reintrodurre solo quando esistera' un pannello
-              notifiche cliente funzionante. */}
+          {/* Design handoff: campanella con pannello notifiche derivate
+              (sostituisce quella inerte rimossa dall'audit B12). */}
+          {meId && <ClientNotificationsBell userId={meId} items={notificationItems} />}
         </div>
       </header>
 
       <main className="px-margin-mobile pt-stack-md flex flex-col gap-stack-lg">
+        {/* Design handoff: banner promemoria (sessione ≤48h non confermata) */}
+        {!isLoading && reminderBooking && (
+          <ClientReminderBanner
+            bookingId={reminderBooking.id}
+            clientId={meId}
+            scheduledAt={reminderBooking.scheduled_at}
+            typeLabel={nextBookingLabel}
+          />
+        )}
+
+        {/* Design handoff: card benvenuto (primo accesso, nessuna prenotazione) */}
+        {!isLoading && showWelcome && (
+          <section
+            className="rounded-[28px] p-7 text-white flex flex-col gap-3.5 shadow-[0_8px_30px_rgba(0,62,98,0.2)]"
+            style={{ background: "linear-gradient(135deg,#003e62,#005685)" }}
+          >
+            <div>
+              <h2 className="font-display text-[22px] font-bold m-0">Benvenuto, {firstName}!</h2>
+              <p className="text-sm text-white/80 m-0 mt-2 leading-relaxed">
+                Il tuo percorso inizia qui. Prenota la tua prima sessione per cominciare.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate({ to: "/client/book" })}
+              className="self-start bg-on-primary-container text-[#00344f] rounded-full px-6 py-3 text-sm font-bold active:scale-95 transition"
+            >
+              Prenota la prima sessione
+            </button>
+          </section>
+        )}
+
+        {/* Design handoff: card rinnovo (blocco completato, niente blocchi futuri) */}
+        {!isLoading && showRenewal && (
+          <section className="bg-surface-container-lowest border-2 border-on-status-success rounded-[28px] p-7 shadow-[0_8px_30px_rgba(11,128,67,0.12)] flex flex-col gap-3.5">
+            <h2 className="font-display text-[22px] font-bold text-on-surface m-0">
+              Blocco completato!
+            </h2>
+            <p className="text-sm text-on-surface-variant m-0 leading-relaxed">
+              Hai completato tutte le sessioni del blocco. Parla con il tuo coach per pianificare il
+              prossimo percorso su misura per i tuoi obiettivi.
+            </p>
+          </section>
+        )}
+
         {/* Card 1: Blocco corrente — segment visual + KPI + secondary row */}
         <section className="bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-stack-lg border border-outline-variant/30 relative overflow-hidden">
           <div className="absolute -top-10 -right-10 w-32 h-32 bg-aura-primary/5 rounded-full blur-3xl pointer-events-none" />
@@ -526,10 +698,7 @@ function ClientHome() {
                     </span>
                   </div>
                   <div className="flex flex-col items-center gap-1 text-center px-2">
-                    <CalendarCheck
-                      className="size-6 text-primary-fixed-dim"
-                      aria-hidden
-                    />
+                    <CalendarCheck className="size-6 text-primary-fixed-dim" aria-hidden />
                     <span className="text-sm font-semibold text-on-surface tabular-nums">
                       {currentBlockBreakdown.booked}{" "}
                       {currentBlockBreakdown.booked === 1 ? "prenotata" : "prenotate"}
@@ -546,6 +715,9 @@ function ClientHome() {
             )}
           </div>
         </section>
+
+        {/* Design handoff: card "I tuoi progressi" (BIA) — dati dal coach */}
+        {!isLoading && pathStats.total > 0 && <ClientBiaProgress clientId={meId} />}
 
         {/* Card 2: Percorso complessivo — lista blocchi (skip se < 2 blocchi
             o se l'utente non ha ancora un percorso attivo) */}
@@ -655,13 +827,30 @@ function ClientHome() {
           )}
         </section>
 
+        {/* Design handoff: feedback stelle sull'ultima sessione completata */}
+        {!isLoading && pendingFeedback && meId && (
+          <ClientFeedbackCard
+            bookingId={pendingFeedback.id}
+            clientId={meId}
+            typeLabel={pendingFeedbackLabel}
+            dateLabel={new Date(pendingFeedback.scheduled_at).toLocaleDateString("it-IT", {
+              weekday: "short",
+              day: "numeric",
+              month: "short",
+            })}
+          />
+        )}
+
         {/* Fitness Journey Timeline */}
         <section className="flex flex-col gap-stack-md">
           <h3 className="text-xl font-semibold text-on-surface ml-1">Il Tuo Percorso Recente</h3>
           {isLoading ? (
             <AuraCardSkeleton className="h-40" />
           ) : (
-            <ClientSessionTimeline bookings={bookingsQ.data ?? []} eventTypes={eventTypesQ.data ?? []} />
+            <ClientSessionTimeline
+              bookings={bookingsQ.data ?? []}
+              eventTypes={eventTypesQ.data ?? []}
+            />
           )}
         </section>
 
@@ -688,4 +877,3 @@ function ClientHome() {
 // Otherwise it renders the regular Aura white card with the date label.
 // In both states a small "Riprogramma" pill opens the RescheduleDrawer
 // inline — no navigation, no desktop AlertDialog detour on mobile.
-

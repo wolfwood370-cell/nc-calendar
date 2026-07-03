@@ -189,6 +189,32 @@ function StorePage() {
         </h1>
       </div>
 
+      {/* Design handoff: bilancio crediti Booster (barra scura brand) */}
+      <div className="flex items-center gap-4 rounded-3xl px-5 py-4 text-white bg-aura-primary">
+        <div className="w-11 h-11 rounded-xl bg-white/15 grid place-items-center shrink-0">
+          <Sparkles className="size-[22px] text-on-primary-container" aria-hidden />
+        </div>
+        {ownedCredits.length === 0 ? (
+          <div>
+            <p className="m-0 text-[13px] font-semibold text-on-primary-container">
+              Nessun credito Booster
+            </p>
+            <p className="m-0 mt-0.5 text-xs text-white/70">
+              Acquista per sbloccare sessioni extra.
+            </p>
+          </div>
+        ) : (
+          <div className="min-w-0">
+            <p className="m-0 text-xs font-semibold text-on-primary-container uppercase tracking-wider">
+              Crediti Booster attivi
+            </p>
+            <p className="m-0 mt-0.5 text-[15px] font-bold tabular-nums">
+              {ownedCredits.map((c) => `+${c.remaining} ${c.eventName}`).join(" · ")}
+            </p>
+          </div>
+        )}
+      </div>
+
       {/* Glass Hub container */}
       <section
         aria-label="NC Add-on"

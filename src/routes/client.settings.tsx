@@ -1,14 +1,16 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
 import {
   Bell,
   Calendar,
+  ChevronRight,
   LogOut,
   Mail,
   Link as LinkIcon,
   CheckCircle,
   Loader2,
   Lock,
+  Sparkles,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -23,6 +25,8 @@ import {
 } from "@/lib/push";
 import { toast } from "sonner";
 import { SettingsRow, SettingsDivider } from "@/components/settings-row";
+import { useClientBlocks, useClientBookings, useCoachEventTypes } from "@/lib/queries";
+import { sessionLabel } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/client/settings")({
   component: ClientSettings,
@@ -33,6 +37,8 @@ interface ProfileRow {
   email: string | null;
   email_notifications: boolean;
   avatar_url?: string | null;
+  coach_id?: string | null;
+  path_type?: string;
 }
 
 function getInitials(name?: string | null, email?: string | null): string {
@@ -77,7 +83,7 @@ function ClientSettings() {
       try {
         const { data } = await supabase
           .from("profiles")
-          .select("full_name, email, email_notifications")
+          .select("full_name, email, email_notifications, coach_id, path_type")
           .eq("id", user.id)
           .maybeSingle();
         if (data) {
@@ -113,7 +119,6 @@ function ClientSettings() {
       toast.success(next ? "Email di conferma attivate" : "Email di conferma disattivate");
     }
   };
-
 
   const togglePush = async (next: boolean) => {
     if (!user) return;
@@ -204,6 +209,59 @@ function ClientSettings() {
   const fullName = profile?.full_name ?? user?.email ?? "Cliente";
   const email = profile?.email ?? user?.email ?? "";
 
+  // ---- Design handoff: statistiche, badge percorso e sessioni residue ----
+  const blocksQ = useClientBlocks(user?.id);
+  const bookingsQ = useClientBookings(user?.id);
+  const eventTypesQ = useCoachEventTypes(profile?.coach_id ?? undefined);
+
+  const stats = useMemo(() => {
+    const done = (bookingsQ.data ?? []).filter((b) => b.status === "completed").length;
+    const booked = (bookingsQ.data ?? []).filter(
+      (b) => b.status === "scheduled" && new Date(b.scheduled_at).getTime() > Date.now(),
+    ).length;
+    return { done, booked };
+  }, [bookingsQ.data]);
+
+  // Blocco che contiene "oggi" (per pool residui e scadenza percorso).
+  const activeBlock = useMemo(() => {
+    const now = Date.now();
+    return (blocksQ.data ?? []).find((b) => {
+      const start = new Date(b.start_date).getTime();
+      const end = new Date(b.end_date).getTime() + 24 * 60 * 60 * 1000;
+      return now >= start && now <= end;
+    });
+  }, [blocksQ.data]);
+
+  const pathEndLabel = useMemo(() => {
+    const ends = (blocksQ.data ?? []).map((b) => new Date(b.end_date).getTime());
+    if (ends.length === 0) return null;
+    const last = new Date(Math.max(...ends));
+    if (last.getTime() < Date.now()) return null;
+    return last.toLocaleDateString("it-IT", { day: "numeric", month: "long" });
+  }, [blocksQ.data]);
+
+  // Pool residui del blocco corrente, aggregati per tipologia.
+  const pools = useMemo(() => {
+    if (!activeBlock) return [];
+    const ets = eventTypesQ.data ?? [];
+    const map = new Map<string, { name: string; used: number; total: number }>();
+    for (const a of activeBlock.allocations) {
+      const key = a.event_type_id ?? a.session_type;
+      const et = a.event_type_id ? ets.find((e) => e.id === a.event_type_id) : null;
+      const cur = map.get(key) ?? {
+        name: et?.name ?? sessionLabel(a.session_type),
+        used: 0,
+        total: 0,
+      };
+      cur.total += a.quantity_assigned;
+      cur.used += a.quantity_booked;
+      map.set(key, cur);
+    }
+    return [...map.values()].sort((a, b) => b.total - a.total);
+  }, [activeBlock, eventTypesQ.data]);
+
+  const currentBlockSeq = activeBlock?.sequence_order ?? null;
+
   return (
     <div className="max-w-md mx-auto bg-surface min-h-screen">
       {/* Top App Bar */}
@@ -237,9 +295,95 @@ function ClientSettings() {
               <div className="flex-1 min-w-0">
                 <p className="text-lg font-semibold text-on-surface truncate">{fullName}</p>
                 <p className="text-sm text-on-surface-variant truncate">{email}</p>
+                {/* Design handoff: badge stato percorso */}
+                {profile?.path_type === "recurring" ? (
+                  <span className="inline-flex items-center gap-1 mt-1.5 px-2.5 py-0.5 rounded-full bg-success-strong/12 text-success-strong text-[11px] font-bold">
+                    Abbonamento attivo
+                  </span>
+                ) : pathEndLabel ? (
+                  <span className="inline-flex items-center gap-1 mt-1.5 px-2.5 py-0.5 rounded-full bg-success-strong/12 text-success-strong text-[11px] font-bold">
+                    Percorso attivo · scade il {pathEndLabel}
+                  </span>
+                ) : null}
               </div>
             </>
           )}
+        </section>
+
+        {/* Design handoff: riga statistiche (fatte / blocco / prenotate) */}
+        {!loading && (
+          <section className="bg-surface-container-lowest rounded-[1.5rem] shadow-soft-card border border-outline-variant/30 grid grid-cols-3 divide-x divide-surface-container-high py-4">
+            <div className="flex flex-col items-center gap-0.5 px-2 text-center">
+              <span className="font-display text-2xl font-bold text-on-surface tabular-nums">
+                {stats.done}
+              </span>
+              <span className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wide">
+                Fatte
+              </span>
+            </div>
+            <div className="flex flex-col items-center gap-0.5 px-2 text-center">
+              <span className="font-display text-2xl font-bold text-on-surface tabular-nums">
+                {currentBlockSeq ?? "—"}
+              </span>
+              <span className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wide">
+                Blocco
+              </span>
+            </div>
+            <div className="flex flex-col items-center gap-0.5 px-2 text-center">
+              <span className="font-display text-2xl font-bold text-on-surface tabular-nums">
+                {stats.booked}
+              </span>
+              <span className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wide">
+                Prenotate
+              </span>
+            </div>
+          </section>
+        )}
+
+        {/* Design handoff: sessioni residue per pool con barre */}
+        {!loading && pools.length > 0 && (
+          <section className="bg-surface-container-lowest rounded-[1.5rem] shadow-soft-card border border-outline-variant/30 p-5 flex flex-col gap-4">
+            <h3 className="text-sm font-semibold text-on-surface m-0">Sessioni residue</h3>
+            {pools.map((p) => {
+              const left = Math.max(0, p.total - p.used);
+              const pct = p.total > 0 ? Math.round((p.used / p.total) * 100) : 0;
+              return (
+                <div key={p.name} className="flex flex-col gap-1.5">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-sm font-medium text-on-surface">{p.name}</span>
+                    <span className="text-xs font-semibold text-on-surface-variant tabular-nums">
+                      {left} {left === 1 ? "residua" : "residue"} · {p.used}/{p.total}
+                    </span>
+                  </div>
+                  <div className="w-full h-2 rounded-full bg-surface-container-high overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-aura-primary transition-[width] duration-500"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </section>
+        )}
+
+        {/* Design handoff: menu — Acquista Booster */}
+        <section className="bg-surface-container-lowest rounded-[1.5rem] shadow-soft-card border border-outline-variant/30 overflow-hidden">
+          <Link
+            to="/client/store"
+            className="flex items-center gap-4 px-5 py-4 active:bg-surface-container-low transition-colors"
+          >
+            <span className="size-10 rounded-full bg-primary-container/10 text-primary-container grid place-items-center">
+              <Sparkles className="size-5" aria-hidden />
+            </span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-base font-medium text-on-surface">Acquista Booster</span>
+              <span className="block text-sm text-on-surface-variant">
+                Sessioni extra e add-on premium
+              </span>
+            </span>
+            <ChevronRight className="size-5 text-outline" aria-hidden />
+          </Link>
         </section>
 
         {/* Notifiche */}
@@ -421,4 +565,3 @@ function ClientSettings() {
     </div>
   );
 }
-

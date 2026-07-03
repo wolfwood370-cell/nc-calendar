@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { margin:0; background:#eceef2; font-family:"Manrope", ui-sans-serif, system-ui, sans-serif; }
+    .fdisp { font-family:"Sora", ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.02em; }
+    :focus-visible{ outline:2px solid #005685; outline-offset:2px; }
+  </style>
+</helmet>
+<div ref="{{ root }}" style="display:flex; width:1440px; min-height:900px; background:linear-gradient(135deg,#f2f3f8,#e7e8ec);">
+
+  <aside style="width:256px; flex-shrink:0; background:rgba(255,255,255,0.4); backdrop-filter:blur(32px); border-right:1px solid rgba(255,255,255,0.2); display:flex; flex-direction:column; padding:8px;">
+    <div style="display:flex; align-items:center; gap:8px; padding:8px;">
+      <div style="width:32px; height:32px; border-radius:8px; background:#003e62; color:#fff; display:grid; place-items:center; font-weight:800; font-size:13px; flex-shrink:0;">NC</div>
+      <div><p class="fdisp" style="font-size:14px; font-weight:600; margin:0; line-height:1;">NC Calendar</p><p style="font-size:12px; color:#717880; margin:4px 0 0;">Studio</p></div>
+    </div>
+    <div style="padding:16px 8px 4px;"><span style="font-size:11px; font-weight:600; color:#717880; text-transform:uppercase; letter-spacing:0.05em;">Area di lavoro</span></div>
+    <nav style="display:flex; flex-direction:column; gap:2px; padding:4px;">
+      <a href="Trainer%20Dashboard.dc.html" style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:9999px; color:#41474f; font-size:14px; font-weight:500; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>Panoramica</a>
+      <a href="Trainer%20Calendar.dc.html" style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:9999px; color:#41474f; font-size:14px; font-weight:500; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4M16 2v4M3 10h18"/><rect width="18" height="18" x="3" y="4" rx="2"/></svg>Calendario</a>
+      <a href="Trainer%20Clients.dc.html" style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:9999px; color:#41474f; font-size:14px; font-weight:500; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>Clienti</a>
+      <a href="Trainer%20Event%20Types.dc.html" style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:9999px; color:#41474f; font-size:14px; font-weight:500; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/></svg>Tipologie evento</a>
+      <a href="Trainer%20Availability.dc.html" style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:9999px; color:#41474f; font-size:14px; font-weight:500; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Disponibilità</a>
+      <a href="Trainer%20Integrations.dc.html" style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:9999px; background:rgba(0,62,98,0.1); color:#003e62; font-size:14px; font-weight:600; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v6M15 2v6M12 17v5M5 8h14a2 2 0 0 1 2 2v2a7 7 0 0 1-14 0v-2a2 2 0 0 1 2-2Z"/></svg>Integrazioni</a>
+    </nav>
+    <div style="margin-top:auto; padding:8px;"><div style="border-radius:12px; border:1px solid #c1c7d0; background:#fff; padding:12px;"><p style="font-size:14px; font-weight:500; margin:0;">Marco Rossi</p><p style="font-size:12px; color:#717880; margin:2px 0 0;">marco@ncstudio.it</p></div></div>
+  </aside>
+
+  <div style="flex:1; display:flex; flex-direction:column; min-width:0;">
+    <header style="height:56px; display:flex; align-items:center; gap:12px; border-bottom:1px solid rgba(255,255,255,0.2); padding:0 16px; background:rgba(255,255,255,0.4); backdrop-filter:blur(32px);">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#41474f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg>
+      <div style="height:20px; width:1px; background:rgba(0,0,0,0.15);"></div>
+      <p style="font-size:14px; color:#717880; margin:0;">Studio Trainer</p>
+    </header>
+
+    <main style="flex:1; background:#f8f9fe; padding:40px;">
+      <div style="max-width:920px; margin:0 auto; display:flex; flex-direction:column; gap:24px;">
+        <div>
+          <h1 class="fdisp" style="font-size:36px; font-weight:700; color:#003e62; letter-spacing:-0.02em; margin:0;">Integrazioni</h1>
+          <p style="font-size:14px; color:#41474f; margin:4px 0 0;">Collega gli strumenti che usi ogni giorno. <span id="conncount" style="font-weight:600; color:#003e62;">2</span> attive.</p>
+        </div>
+
+        <div id="intlist" style="display:flex; flex-direction:column; gap:12px;"></div>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  root = React.createRef();
+  renderVals() { return { root: this.root }; }
+
+  componentDidMount() {
+    const el = this.root.current;
+    if (!el) return;
+    const list = el.querySelector("#intlist");
+    const countEl = el.querySelector("#conncount");
+
+    const DATA = [
+      { key:"GC", name:"Google Calendar", desc:"Sincronizzazione bidirezionale degli eventi in tempo reale.", bg:"#4285F4", on:true },
+      { key:"ZM", name:"Zoom",            desc:"Genera automaticamente il link riunione per le sessioni online.", bg:"#2D8CFF", on:true },
+      { key:"ST", name:"Stripe",          desc:"Incassa pagamenti e gestisci rinnovi dei pacchetti.", bg:"#635BFF", on:false },
+      { key:"AC", name:"Apple Calendar",  desc:"Mantieni il calendario allineato sui dispositivi iOS.", bg:"#191c1f", on:false },
+      { key:"WA", name:"WhatsApp Business",desc:"Invia promemoria e conferme automatiche ai clienti.", bg:"#25D366", on:false },
+      { key:"MC", name:"Mailchimp",       desc:"Sincronizza i contatti per campagne email ai clienti.", bg:"#FFE01B", fg:"#191c1f", on:false },
+    ];
+
+    let count = DATA.filter((d)=>d.on).length;
+    const refresh = () => countEl.textContent = count;
+
+    DATA.forEach((d)=>{
+      const row = document.createElement("div");
+      row.style.cssText = "display:flex; align-items:center; justify-content:space-between; gap:16px; background:#fff; border-radius:24px; box-shadow:0px 4px 20px rgba(0,86,133,0.05); padding:20px 24px;";
+      const render = () => {
+        row.innerHTML = `
+          <div style="display:flex; align-items:center; gap:16px; min-width:0;">
+            <div style="width:48px; height:48px; border-radius:14px; background:${d.bg}; color:${d.fg||"#fff"}; display:grid; place-items:center; font-weight:800; font-size:16px; flex-shrink:0;">${d.key}</div>
+            <div style="min-width:0;">
+              <div style="display:flex; align-items:center; gap:10px;"><h3 style="font-size:16px; font-weight:700; color:#191c1f; margin:0;">${d.name}</h3>
+              <span style="display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600; padding:2px 10px; border-radius:9999px; background:${d.on?"#ecfdf5":"#eceef2"}; color:${d.on?"#059669":"#717880"};">${d.on?'<span style="width:6px;height:6px;border-radius:9999px;background:#059669;display:inline-block;"></span>Connesso':"Non connesso"}</span></div>
+              <p style="font-size:13px; color:#717880; margin:4px 0 0;">${d.desc}</p>
+            </div>
+          </div>
+          <button data-btn style="flex-shrink:0; border-radius:9999px; padding:10px 22px; font-size:13px; font-weight:600; cursor:pointer; border:${d.on?"1px solid #c1c7d0":"none"}; background:${d.on?"#fff":"#003e62"}; color:${d.on?"#41474f":"#fff"};">${d.on?"Disconnetti":"Connetti"}</button>`;
+        row.querySelector("[data-btn]").onclick = ()=>{
+          d.on = !d.on; count += d.on ? 1 : -1; refresh(); render();
+        };
+      };
+      render();
+      list.appendChild(row);
+    });
+    refresh();
+  }
+}
+</script>
+</body>
+</html>

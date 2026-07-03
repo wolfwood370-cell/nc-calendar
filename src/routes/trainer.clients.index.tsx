@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,8 @@ import {
   Check,
   // MessageCircle removed: phone shortcut moved to detail page
   Sparkles,
+  LayoutGrid,
+  List,
 } from "lucide-react";
 import {
   Select,
@@ -59,10 +61,7 @@ import {
   AuraPillSkeleton,
 } from "@/components/ui/aura-skeleton";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  CreateClientDialog,
-  type CreateClientPayload,
-} from "@/components/create-client-dialog";
+import { CreateClientDialog, type CreateClientPayload } from "@/components/create-client-dialog";
 import { InviteClientDialog } from "@/components/invite-client-dialog";
 import { CredentialsDialog } from "@/components/credentials-dialog";
 import { ClientCardMenu } from "@/components/client-card-menu";
@@ -146,6 +145,36 @@ interface ClientCardData {
   // 0 when no grace overlap is active. Shown as a secondary badge so
   // the coach knows the cliente has soon-expiring credits.
   previousBlockResiduals: number;
+  // Design handoff: semaforo presenza, prossima sessione e ultima attività.
+  attendancePct: number | null;
+  nextSessionMs: number | null;
+  lastActivityMs: number | null;
+}
+
+// Design handoff: semaforo presenza (≥80% verde, ≥60% arancio, <60% rosso).
+function AttendanceBadge({ pct }: { pct: number | null }) {
+  if (pct === null) return <span className="text-xs text-outline">—</span>;
+  const cls =
+    pct >= 80
+      ? "text-success-strong bg-success-strong/10"
+      : pct >= 60
+        ? "text-warning-strong bg-warning-strong/10"
+        : "text-error-strong bg-error-strong/10";
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold tabular-nums ${cls}`}
+    >
+      {pct}%
+    </span>
+  );
+}
+
+function fmtNextSession(ms: number | null): string {
+  if (!ms) return "—";
+  const d = new Date(ms);
+  const day = d.toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short" });
+  const time = d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+  return `${day} · ${time}`;
 }
 
 // Pick the "current" block for the given client: the most recent
@@ -191,6 +220,10 @@ function ClientsPage() {
   const [open, setOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"all" | ClientStatus>("all");
+  // Design handoff: toggle griglia/tabella + ordinamento del roster.
+  const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+  const [sortBy, setSortBy] = useState<"name" | "expiry" | "activity" | "attendance">("name");
+  const navigate = useNavigate();
 
   const isAdmin = role === "admin";
   const eventTypesQ = useCoachEventTypes(user?.id);
@@ -297,7 +330,10 @@ function ClientsPage() {
         )
         .in("client_id", ids)
         .is("deleted_at", null)
-        .in("status", ["scheduled", "completed", "late_cancelled"]);
+        // no_show incluso SOLO per il semaforo presenza (design handoff):
+        // il loop dei contatori "used" filtra di nuovo per status, quindi
+        // le righe no_show non alterano i conteggi dei pacchetti.
+        .in("status", ["scheduled", "completed", "late_cancelled", "no_show"]);
       if (!isAdmin && user) bookQ = bookQ.eq("coach_id", user.id);
       const { data: bks } = await bookQ;
       if (signal.cancelled) return;
@@ -502,6 +538,30 @@ function ClientsPage() {
         daysToBilling = Math.ceil((nb.getTime() - today.getTime()) / 86400000);
       }
 
+      // Design handoff: % presenza = completate / (completate + mancate).
+      // null finché il cliente non ha almeno una sessione conclusa.
+      const doneCount = cBookings.filter((b) => b.status === "completed").length;
+      const missedCount = cBookings.filter(
+        (b) => b.status === "no_show" || b.status === "late_cancelled",
+      ).length;
+      const attendancePct =
+        doneCount + missedCount > 0
+          ? Math.round((doneCount / (doneCount + missedCount)) * 100)
+          : null;
+
+      // Design handoff: prossima sessione programmata + ultima attività
+      // (per la colonna "Prossima" e l'ordinamento per Attività).
+      const nowMs = today.getTime();
+      let nextSessionMs: number | null = null;
+      let lastActivityMs: number | null = null;
+      for (const bk of cBookings) {
+        const t = new Date(bk.scheduled_at).getTime();
+        if (bk.status === "scheduled" && t > nowMs && (nextSessionMs === null || t < nextSessionMs))
+          nextSessionMs = t;
+        if (bk.status === "completed" && (lastActivityMs === null || t > lastActivityMs))
+          lastActivityMs = t;
+      }
+
       let status: ClientStatus;
       if (c.status === "archived") status = "archived";
       else if (totalQty > 0 && totalUsed >= totalQty) status = "completed";
@@ -522,6 +582,9 @@ function ClientsPage() {
         totalQty,
         daysToBilling,
         previousBlockResiduals,
+        attendancePct,
+        nextSessionMs,
+        lastActivityMs,
       };
     });
   }, [clients, blocks, allocs, bookings, eventTypeById]);
@@ -534,7 +597,7 @@ function ClientsPage() {
 
   const visibleCards = useMemo(() => {
     const term = q.toLowerCase();
-    return cardData.filter((d) => {
+    const filtered = cardData.filter((d) => {
       if (activeTab !== "all" && d.status !== activeTab) return false;
       if (activeTab === "all" && d.status === "archived") return false;
       if (!term) return true;
@@ -543,7 +606,33 @@ function ClientsPage() {
         (d.client.email ?? "").toLowerCase().includes(term)
       );
     });
-  }, [cardData, activeTab, q]);
+    // Design handoff: ordinamento Nome / Scadenza / Attività / Presenza.
+    const sorted = [...filtered];
+    switch (sortBy) {
+      case "name":
+        sorted.sort((a, b) =>
+          (a.client.full_name ?? "").localeCompare(b.client.full_name ?? "", "it"),
+        );
+        break;
+      case "expiry":
+        // Prima chi ha meno sessioni residue (o fattura più vicina).
+        sorted.sort((a, b) => {
+          const ra = a.daysToBilling ?? a.totalQty - a.totalUsed;
+          const rb = b.daysToBilling ?? b.totalQty - b.totalUsed;
+          return ra - rb;
+        });
+        break;
+      case "activity":
+        // Attività più recente in alto; chi non ha mai completato in fondo.
+        sorted.sort((a, b) => (b.lastActivityMs ?? 0) - (a.lastActivityMs ?? 0));
+        break;
+      case "attendance":
+        // Presenza più bassa in alto (chi ha bisogno di attenzione).
+        sorted.sort((a, b) => (a.attendancePct ?? 101) - (b.attendancePct ?? 101));
+        break;
+    }
+    return sorted;
+  }, [cardData, activeTab, q, sortBy]);
 
   const pending = invitations.filter((i) => i.status === "pending");
 
@@ -949,15 +1038,79 @@ function ClientsPage() {
 
         <CredentialsDialog creds={credentials} onClose={() => setCredentials(null)} />
 
-        {/* Search */}
-        <div className="mb-6 relative w-full md:w-96">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-outline" />
-          <Input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Cerca per nome o email…"
-            className="pl-12 pr-4 py-3 h-auto bg-surface-container-low border-none rounded-full focus-visible:ring-2 focus-visible:ring-aura-primary focus-visible:bg-white"
-          />
+        {/* Design handoff: barra riepilogo roster */}
+        <div className="grid grid-cols-3 gap-4 mb-6 max-w-xl">
+          {(
+            [
+              { label: "Totali", value: counts.all },
+              { label: "Attivi", value: counts.active },
+              { label: "In Scadenza", value: counts.expiring },
+            ] as const
+          ).map((s) => (
+            <div
+              key={s.label}
+              className="bg-white rounded-3xl shadow-soft-blue px-5 py-4 flex flex-col gap-0.5"
+            >
+              <span className="font-display text-3xl font-bold tabular-nums text-on-surface">
+                {s.value}
+              </span>
+              <span className="text-xs font-semibold text-on-surface-variant uppercase tracking-wide">
+                {s.label}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Toolbar: ricerca + toggle vista + ordinamento (design handoff) */}
+        <div className="mb-6 flex flex-wrap items-center gap-3">
+          <div className="relative w-full md:w-96">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-outline" />
+            <Input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Cerca per nome o email…"
+              className="pl-12 pr-4 py-3 h-auto bg-surface-container-low border-none rounded-full focus-visible:ring-2 focus-visible:ring-aura-primary focus-visible:bg-white"
+            />
+          </div>
+          <div className="flex items-center gap-1 bg-surface-container-low rounded-full p-1">
+            <button
+              type="button"
+              aria-label="Vista griglia"
+              aria-pressed={viewMode === "grid"}
+              onClick={() => setViewMode("grid")}
+              className={`w-9 h-9 rounded-full grid place-items-center transition-colors ${
+                viewMode === "grid"
+                  ? "bg-white text-aura-primary shadow-sm"
+                  : "text-on-surface-variant"
+              }`}
+            >
+              <LayoutGrid className="size-4" aria-hidden />
+            </button>
+            <button
+              type="button"
+              aria-label="Vista tabella"
+              aria-pressed={viewMode === "table"}
+              onClick={() => setViewMode("table")}
+              className={`w-9 h-9 rounded-full grid place-items-center transition-colors ${
+                viewMode === "table"
+                  ? "bg-white text-aura-primary shadow-sm"
+                  : "text-on-surface-variant"
+              }`}
+            >
+              <List className="size-4" aria-hidden />
+            </button>
+          </div>
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+            <SelectTrigger className="w-44 rounded-full bg-surface-container-low border-none h-11">
+              <SelectValue placeholder="Ordina per" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="name">Nome</SelectItem>
+              <SelectItem value="expiry">Scadenza</SelectItem>
+              <SelectItem value="activity">Attività recente</SelectItem>
+              <SelectItem value="attendance">Presenza</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Tabs */}
@@ -1015,7 +1168,7 @@ function ClientsPage() {
               <p className="text-outline">Nessun cliente in questa categoria.</p>
             )}
           </div>
-        ) : (
+        ) : viewMode === "grid" ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {visibleCards.map((d) => {
               const c = d.client;
@@ -1046,10 +1199,19 @@ function ClientsPage() {
                     ? "In Scadenza"
                     : "Attivo";
 
+              // Design handoff: accento colore per stato sul bordo sinistro.
+              const accentClass = isArchived
+                ? "border-l-outline-variant"
+                : isCompleted
+                  ? "border-l-outline-variant"
+                  : isExpiring
+                    ? "border-l-warning-strong"
+                    : "border-l-success-strong";
+
               return (
                 <div
                   key={c.id}
-                  className="relative group bg-white rounded-[28px] p-5 shadow-[0px_4px_20px_rgba(0,86,133,0.05)] hover:shadow-[0px_8px_30px_rgba(0,86,133,0.08)] transition-all"
+                  className={`relative group bg-white rounded-[28px] p-5 border-l-4 ${accentClass} shadow-[0px_4px_20px_rgba(0,86,133,0.05)] hover:shadow-[0px_8px_30px_rgba(0,86,133,0.08)] transition-all`}
                 >
                   <Link
                     to="/trainer/clients/$id"
@@ -1063,9 +1225,7 @@ function ClientsPage() {
                       <h3 className="text-base leading-5 font-bold text-on-surface truncate">
                         {c.full_name ?? "Senza nome"}
                       </h3>
-                      <p className="text-xs text-outline truncate mt-0.5">
-                        {c.email ?? "—"}
-                      </p>
+                      <p className="text-xs text-outline truncate mt-0.5">{c.email ?? "—"}</p>
                       <div className="mt-2 flex items-center gap-2 flex-wrap">
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-aura-primary/10 text-aura-primary">
                           {pathLabel}
@@ -1078,6 +1238,39 @@ function ClientsPage() {
                       </div>
                     </div>
                   </Link>
+
+                  {/* Design handoff: pacchetto con barra, prossima sessione,
+                      semaforo presenza. */}
+                  <div className="mt-4 pt-4 border-t border-surface-variant/60 space-y-2.5">
+                    {d.totalQty > 0 && (
+                      <div>
+                        <div className="flex justify-between text-[11px] text-outline mb-1">
+                          <span>Pacchetto</span>
+                          <span className="tabular-nums font-semibold text-on-surface-variant">
+                            {d.totalUsed}/{d.totalQty}
+                          </span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-surface-container-high overflow-hidden">
+                          <div
+                            className="h-full bg-aura-primary rounded-full transition-[width] duration-500"
+                            style={{
+                              width: `${Math.min(100, Math.round((d.totalUsed / d.totalQty) * 100))}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-outline">Prossima</span>
+                      <span className="font-semibold text-on-surface tabular-nums">
+                        {fmtNextSession(d.nextSessionMs)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-outline">Presenza</span>
+                      <AttendanceBadge pct={d.attendancePct} />
+                    </div>
+                  </div>
 
                   <div className="absolute top-3 right-3">
                     <ClientCardMenu
@@ -1092,9 +1285,110 @@ function ClientsPage() {
               );
             })}
           </div>
+        ) : (
+          /* Design handoff: vista tabella — stesse colonne delle card,
+             righe attivabili anche da tastiera (Enter/Spazio). */
+          <div className="bg-white rounded-[28px] shadow-[0px_4px_20px_rgba(0,86,133,0.05)] overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Pacchetto</TableHead>
+                  <TableHead>Prossima sessione</TableHead>
+                  <TableHead>Presenza</TableHead>
+                  <TableHead>Stato</TableHead>
+                  <TableHead className="w-12" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {visibleCards.map((d) => {
+                  const c = d.client;
+                  const isArchived = d.status === "archived";
+                  const statusLabel =
+                    d.status === "archived"
+                      ? "Archiviato"
+                      : d.status === "completed"
+                        ? "Completato"
+                        : d.status === "expiring"
+                          ? "In Scadenza"
+                          : "Attivo";
+                  const goToClient = () =>
+                    navigate({ to: "/trainer/clients/$id", params: { id: c.id } });
+                  return (
+                    <TableRow
+                      key={c.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={goToClient}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          goToClient();
+                        }
+                      }}
+                      className="cursor-pointer"
+                    >
+                      <TableCell>
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-9 h-9 shrink-0 rounded-full bg-avatar-placeholder text-on-avatar-placeholder flex items-center justify-center text-xs font-bold">
+                            {initials(c.full_name, c.email)}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-on-surface truncate">
+                              {c.full_name ?? "Senza nome"}
+                            </p>
+                            <p className="text-xs text-outline truncate">{c.email ?? "—"}</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {d.totalQty > 0 ? (
+                          <div className="min-w-28">
+                            <span className="text-xs font-semibold tabular-nums text-on-surface-variant">
+                              {d.totalUsed}/{d.totalQty}
+                            </span>
+                            <div className="mt-1 h-1.5 w-24 rounded-full bg-surface-container-high overflow-hidden">
+                              <div
+                                className="h-full bg-aura-primary rounded-full"
+                                style={{
+                                  width: `${Math.min(100, Math.round((d.totalUsed / d.totalQty) * 100))}%`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-outline">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-sm tabular-nums">
+                        {fmtNextSession(d.nextSessionMs)}
+                      </TableCell>
+                      <TableCell>
+                        <AttendanceBadge pct={d.attendancePct} />
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-xs font-semibold">{statusLabel}</span>
+                      </TableCell>
+                      <TableCell
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                      >
+                        <ClientCardMenu
+                          client={c}
+                          isArchived={isArchived}
+                          onArchive={() => setClientStatus(c.id, "archived")}
+                          onRestore={() => setClientStatus(c.id, "active")}
+                          onDelete={() => deleteClient(c.id, c.full_name ?? c.email ?? "Cliente")}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </div>
     </>
   );
 }
-

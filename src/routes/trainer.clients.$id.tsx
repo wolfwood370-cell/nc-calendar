@@ -2,18 +2,14 @@ import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-r
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { BlockCreditsDialog } from "@/components/block-credits-dialog";
-import {
-  EditBookingDialog,
-  type EditableBooking,
-} from "@/components/edit-booking-dialog";
+import { EditBookingDialog, type EditableBooking } from "@/components/edit-booking-dialog";
 import { OrphanBookingsCard } from "@/components/orphan-bookings-card";
 import { PathStartDateCard } from "@/components/path-start-date-card";
+import { TrainerBiaPanel } from "@/components/trainer-bia-panel";
+import { CoachNotesCard } from "@/components/coach-notes-card";
 import { AutoRenewToggleCard } from "@/components/auto-renew-toggle-card";
 import { TimelineWeekRow } from "@/components/timeline-week-row";
-import {
-  AssignPackageDialog,
-  type AssignPackagePayload,
-} from "@/components/assign-package-dialog";
+import { AssignPackageDialog, type AssignPackagePayload } from "@/components/assign-package-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -826,7 +822,8 @@ function ClientPathPage() {
     if (!user) return;
     if (blocks.length > 0 || hasExtraCredits) {
       toast.error("Il cliente ha già un pacchetto attivo", {
-        description: "Ricarica la pagina: l'assegnazione è consentita solo a clienti senza percorso/crediti.",
+        description:
+          "Ricarica la pagina: l'assegnazione è consentita solo a clienti senza percorso/crediti.",
       });
       return;
     }
@@ -1109,11 +1106,7 @@ function ClientPathPage() {
         onChange={toggleAutoRenew}
       />
 
-      <OrphanBookingsCard
-        orphans={orphans}
-        onConfirm={confirmOrphan}
-        onDiscard={discardOrphan}
-      />
+      <OrphanBookingsCard orphans={orphans} onConfirm={confirmOrphan} onDiscard={discardOrphan} />
 
       <PathStartDateCard
         pathStart={pathStart}
@@ -1122,6 +1115,14 @@ function ClientPathPage() {
         totalBlocks={totalBlocks}
         weeksPerBlock={WEEKS_PER_BLOCK}
       />
+
+      {/* Design handoff: Andamento BIA + Note & obiettivi (privati coach) */}
+      {user?.id && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <TrainerBiaPanel clientId={clientId} coachId={user.id} />
+          <CoachNotesCard coachId={user.id} clientId={clientId} />
+        </div>
+      )}
 
       {/* Timeline del Percorso */}
       <div>

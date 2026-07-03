@@ -105,6 +105,30 @@ function AvailabilityPage() {
   const [minNotice, setMinNotice] = useState(24);
   const [horizon, setHorizon] = useState(60);
 
+  // Design handoff: "Anteprima settimana" — stima live degli slot prenotabili
+  // (sessioni da 60 min + buffer) ricalcolata a ogni modifica di orari/buffer.
+  // Funzione pura sullo stato del form: nessuna scrittura, nessuna query.
+  const slotPreview = useMemo(() => {
+    const toMin = (t: string) => {
+      const parts = t.split(":");
+      return Number(parts[0] ?? 0) * 60 + Number(parts[1] ?? 0);
+    };
+    const perDay = DAYS.map((d) => {
+      const ds = dayOf(week, d.dow);
+      let count = 0;
+      if (ds.active) {
+        for (const b of ds.blocks) {
+          const mins = toMin(b.end) - toMin(b.start);
+          if (mins > 0) count += Math.floor(mins / (60 + bufferMin));
+        }
+      }
+      return { short: d.short, count };
+    });
+    const total = perDay.reduce((s, x) => s + x.count, 0);
+    const max = Math.max(1, ...perDay.map((x) => x.count));
+    return { perDay, total, max };
+  }, [week, bufferMin]);
+
   // M2: hydrate local form state from the query ONCE, on first arrival of
   // the data. Subsequent background refetches (window focus, mutations
   // elsewhere) would otherwise overwrite the user's unsaved edits — the
@@ -467,9 +491,8 @@ function AvailabilityPage() {
                   orizzonte 14 giorni sono per ora fissi). Avviso onesto finche'
                   non vengono collegati, per non promettere un controllo inattivo. */}
               <div className="mb-6 rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3 text-xs text-amber-800">
-                ⚠️ Funzione in arrivo: al momento i clienti possono prenotare con
-                24h di preavviso fino a 2 settimane in avanti. Questi valori
-                vengono salvati ma non ancora applicati.
+                ⚠️ Funzione in arrivo: al momento i clienti possono prenotare con 24h di preavviso
+                fino a 2 settimane in avanti. Questi valori vengono salvati ma non ancora applicati.
               </div>
 
               <div className="space-y-5">
@@ -506,6 +529,34 @@ function AvailabilityPage() {
               </div>
             </div>
 
+            {/* Design handoff: anteprima live slot prenotabili */}
+            <div className="bg-white rounded-[32px] shadow-[0px_4px_20px_rgba(0,86,133,0.05)] p-6 sm:p-8">
+              <h2 className="font-display text-xl font-semibold mb-1">Anteprima settimana</h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                Stima degli slot prenotabili (sessioni da 60 min + buffer) con l'orario attuale.
+              </p>
+              <div className="flex items-baseline gap-2 mb-5">
+                <span className="font-display text-4xl font-bold tabular-nums">
+                  {slotPreview.total}
+                </span>
+                <span className="text-sm text-muted-foreground">slot a settimana</span>
+              </div>
+              <div className="grid grid-cols-7 gap-1.5">
+                {slotPreview.perDay.map((d) => (
+                  <div key={d.short} className="flex flex-col items-center gap-1">
+                    <div className="w-full rounded-lg bg-surface-container-low h-16 flex items-end overflow-hidden">
+                      <div
+                        className="w-full bg-aura-primary/80 rounded-lg transition-[height] duration-300"
+                        style={{ height: `${(d.count / slotPreview.max) * 100}%` }}
+                      />
+                    </div>
+                    <span className="text-[10px] text-muted-foreground">{d.short}</span>
+                    <span className="text-[11px] font-semibold tabular-nums">{d.count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <AvailabilityExceptionsCard coachId={meId} />
           </div>
         </div>
@@ -513,4 +564,3 @@ function AvailabilityPage() {
     </div>
   );
 }
-

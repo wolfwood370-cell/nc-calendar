@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { margin:0; background:#eceef2; font-family:"Manrope", ui-sans-serif, system-ui, sans-serif; }
+    .fdisp { font-family:"Sora", ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.02em; }
+    .tnum { font-variant-numeric: tabular-nums; }
+  </style>
+  <script src="./client-store.js"></script>
+</helmet>
+<div ref="{{ root }}" style="position:relative; width:430px; margin:0 auto; background:#f8f9fe; min-height:932px; box-shadow:0 20px 60px rgba(0,0,0,0.12); overflow:hidden;">
+
+  <header style="position:sticky; top:0; z-index:40; background:rgba(248,249,254,0.8); backdrop-filter:blur(20px); box-shadow:0 8px 30px rgba(0,0,0,0.04);">
+    <div style="display:flex; align-items:center; gap:12px; padding:16px 20px;">
+      <button id="backbtn" style="width:40px; height:40px; display:flex; align-items:center; justify-content:center; border-radius:9999px; background:#ffffff; box-shadow:0 4px 12px rgba(0,0,0,0.05); color:#005685; border:none; cursor:pointer;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+      </button>
+      <h1 class="fdisp" style="font-size:24px; font-weight:700; color:#003e62; margin:0;">Profilo</h1>
+    </div>
+  </header>
+
+  <main style="padding:24px 20px 120px; display:flex; flex-direction:column; gap:24px;">
+
+    <!-- Identity -->
+    <section style="display:flex; flex-direction:column; align-items:center; gap:12px; text-align:center;">
+      <div style="width:88px; height:88px; border-radius:9999px; background:#005685; color:#91cbff; display:grid; place-items:center; font-size:36px; font-weight:700; border:3px solid #fff; box-shadow:0 8px 30px rgba(0,0,0,0.1);" class="fdisp">G</div>
+      <div>
+        <h2 class="fdisp" style="font-size:22px; font-weight:700; color:#191c1f; margin:0;">Giulia Bianchi</h2>
+        <p style="font-size:14px; color:#717880; margin:4px 0 0;">giulia.bianchi@email.it</p>
+      </div>
+      <span id="planbadge" style="display:inline-flex; align-items:center; gap:6px; padding:6px 16px; border-radius:9999px; background:rgba(0,62,98,0.08); color:#003e62; font-size:13px; font-weight:600;">Percorso attivo</span>
+    </section>
+
+    <!-- Stats -->
+    <section id="statgrid" style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px;"></section>
+
+    <!-- Pools -->
+    <section style="background:#ffffff; border-radius:24px; box-shadow:0 8px 30px rgba(0,0,0,0.04); border:1px solid rgba(193,199,208,0.3); padding:20px;">
+      <h3 style="font-size:16px; font-weight:700; color:#191c1f; margin:0 0 12px;">Le tue sessioni residue</h3>
+      <div id="poolsbox" style="display:flex; flex-direction:column; gap:12px;"></div>
+    </section>
+
+    <!-- Menu -->
+    <section style="background:#ffffff; border-radius:24px; box-shadow:0 8px 30px rgba(0,0,0,0.04); border:1px solid rgba(193,199,208,0.3); overflow:hidden;">
+      <div id="menu"></div>
+    </section>
+
+    <section style="background:#ffffff; border-radius:24px; box-shadow:0 8px 30px rgba(0,0,0,0.04); border:1px solid rgba(193,199,208,0.3); padding:20px;">
+      <h3 style="font-size:14px; font-weight:700; color:#191c1f; margin:0 0 4px;">Scenari demo</h3>
+      <p style="font-size:12px; color:#717880; margin:0 0 12px;">Anteprima degli stati dell'app per la revisione.</p>
+      <div id="scenari" style="display:flex; gap:8px;"></div>
+    </section>
+
+    <button id="resetbtn" style="align-self:center; background:none; border:none; color:#717880; font-size:13px; text-decoration:underline; text-underline-offset:2px; cursor:pointer;">Ripristina dati dimostrativi</button>
+  </main>
+
+  <nav id="botnav" style="position:absolute; bottom:0; left:0; width:100%; z-index:40; border-radius:32px 32px 0 0; background:rgba(255,255,255,0.7); backdrop-filter:blur(20px); border-top:1px solid rgba(255,255,255,0.2); box-shadow:0 -8px 30px rgba(0,0,0,0.04); display:flex; justify-content:space-around; align-items:center; padding:16px 24px 32px; box-sizing:border-box;">
+    <a href="#" style="display:flex; align-items:center; justify-content:center; border-radius:9999px; padding:12px; color:#41474f;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></a>
+    <a href="#" style="display:flex; align-items:center; justify-content:center; border-radius:9999px; padding:12px; color:#41474f;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4M16 2v4M3 10h18"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/></svg></a>
+    <a href="#" style="display:flex; align-items:center; justify-content:center; border-radius:9999px; padding:12px; color:#41474f;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0z"/></svg></a>
+    <a href="#" style="display:flex; align-items:center; justify-content:center; border-radius:9999px; padding:12px; color:#41474f;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:430,&quot;height&quot;:932}}">
+class Component extends DCLogic {
+  root = React.createRef();
+  renderVals() { return { root: this.root }; }
+
+  componentDidMount() {
+    const el = this.root.current;
+    const NC = window.NCClient;
+    if (!el || !NC) return;
+    NC.load();
+    const $ = (s) => el.querySelector(s);
+
+    const toast = (msg, color) => {
+      const t = document.createElement("div");
+      t.textContent = msg;
+      t.style.cssText = `position:absolute; left:50%; bottom:104px; transform:translateX(-50%); background:${color||"#0f172a"}; color:#fff; padding:12px 22px; border-radius:9999px; font-size:13px; font-weight:600; box-shadow:0 8px 30px rgba(0,0,0,0.2); z-index:60; opacity:0; transition:opacity .2s; white-space:nowrap;`;
+      el.appendChild(t);
+      requestAnimationFrame(() => t.style.opacity = "1");
+      setTimeout(() => { t.style.opacity = "0"; setTimeout(() => t.remove(), 250); }, 1600);
+    };
+
+    const bs = NC.blockStats();
+    const doneAll = (bs.n-1)*bs.size + bs.done;
+    const stat = (num, label) => `<div style="background:#ffffff; border-radius:20px; box-shadow:0 8px 30px rgba(0,0,0,0.04); border:1px solid rgba(193,199,208,0.3); padding:16px 8px; text-align:center;"><p class="tnum fdisp" style="font-size:24px; font-weight:700; color:#003e62; margin:0;">${num}</p><p style="font-size:11px; color:#717880; margin:4px 0 0;">${label}</p></div>`;
+    $("#statgrid").innerHTML = stat(doneAll, "sessioni fatte") + stat("Blocco "+bs.n, "in corso") + stat(NC.upcoming().length, "prenotate");
+    $("#planbadge").innerHTML = `<span style="width:7px; height:7px; border-radius:9999px; background:#059669; display:inline-block;"></span>Percorso attivo \u00b7 scade ${bs.deadline}`;
+
+    // pools
+    const LABELS = { PT:"Sessione PT", BIA:"BIA", TEST:"Test Funzionale" };
+    const box = $("#poolsbox");
+    ["PT","BIA","TEST"].forEach((k)=>{
+      const p = NC.poolFor(k);
+      const pct = p.total ? Math.round(p.left/p.total*100) : 0;
+      const row = document.createElement("div");
+      row.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;">
+          <span style="font-size:14px; font-weight:600; color:#191c1f;">${LABELS[k]}${p.credits>0?` <span style="font-size:11px; color:#3b5bde; font-weight:700;">+${p.credits} booster</span>`:""}</span>
+          <span class="tnum" style="font-size:13px; font-weight:700; color:${p.left>0?"#003e62":"#717880"};">${p.left} disponibili</span>
+        </div>
+        <div style="width:100%; height:8px; background:#eceef2; border-radius:9999px; overflow:hidden;"><div style="height:100%; border-radius:9999px; background:#003e62; width:${pct}%;"></div></div>`;
+      box.appendChild(row);
+    });
+
+    // menu
+    const item = (icon, label, sub) => `<div data-mi style="display:flex; align-items:center; gap:14px; padding:16px 20px; border-bottom:1px solid #f1f5f9; cursor:pointer;"><div style="width:36px; height:36px; border-radius:10px; background:rgba(0,62,98,0.06); color:#003e62; display:grid; place-items:center; flex-shrink:0;">${icon}</div><div style="flex:1; min-width:0;"><p style="font-size:14px; font-weight:600; color:#191c1f; margin:0;">${label}</p>${sub?`<p style="font-size:12px; color:#717880; margin:2px 0 0;">${sub}</p>`:""}</div><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c1c7d0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>`;
+    const iBell = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg>`;
+    const iCard = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20"/></svg>`;
+    const iStore = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0z"/></svg>`;
+    const iHelp = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>`;
+    $("#menu").innerHTML =
+      item(iStore, "Acquista Booster", "Sessioni e test aggiuntivi") +
+      item(iBell, "Notifiche e promemoria", "Email e push") +
+      item(iCard, "Metodo di pagamento", "Visa •••• 4242") +
+      item(iHelp, "Assistenza", "Scrivi al tuo studio").replace(";border-bottom:1px solid #f1f5f9","");
+    const items = [...$("#menu").querySelectorAll("[data-mi]")];
+    items[items.length-1].style.borderBottom = "none";
+    items[0].onclick = () => NC.go("store");
+    items.slice(1).forEach((it)=> it.onclick = () => toast("Presto disponibile"));
+
+    // demo scenario switcher
+    const scen = $("#scenari");
+    if (scen && NC.scenario){
+      const opts = [["normal","Normale"],["endblock","Blocco finito"],["empty","Nuovo cliente"]];
+      scen.innerHTML = opts.map(([k,l])=>`<button data-sc="${k}" style="flex:1; border:1px solid #c1c7d0; background:#fff; color:#41474f; border-radius:12px; padding:10px 0; font-size:12px; font-weight:600; cursor:pointer;">${l}</button>`).join("");
+      scen.querySelectorAll("[data-sc]").forEach((b)=>b.onclick=()=>{ NC.scenario(b.dataset.sc); toast("Scenario applicato \u00b7 vai alla Home", "#003e62"); setTimeout(()=>NC.go("home"), 800); });
+    }
+
+    $("#backbtn").onclick = () => NC.go("home");
+    $("#resetbtn").onclick = () => { NC.resetAll(); toast("Dati ripristinati", "#0b8043"); setTimeout(()=>location.reload(), 700); };
+    NC.wireNav($("#botnav"), "profile");
+  }
+}
+</script>
+</body>
+</html>

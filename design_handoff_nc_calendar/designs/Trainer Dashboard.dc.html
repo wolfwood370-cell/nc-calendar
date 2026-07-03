@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { margin:0; background:#eceef2; font-family:"Manrope", ui-sans-serif, system-ui, sans-serif; }
+    .fdisp { font-family:"Sora", ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.02em; }
+    .tnum { font-variant-numeric: tabular-nums; }
+  </style>
+  <script src="./client-store.js"></script>
+</helmet>
+<div ref="{{ root }}" style="display:flex; width:1440px; min-height:900px; background:linear-gradient(135deg,#f2f3f8,#e7e8ec); font-family:'Manrope',sans-serif;">
+
+  <!-- Sidebar -->
+  <aside style="width:256px; flex-shrink:0; background:rgba(255,255,255,0.4); backdrop-filter:blur(32px); border-right:1px solid rgba(255,255,255,0.2); display:flex; flex-direction:column; padding:8px;">
+    <div style="display:flex; align-items:center; gap:8px; padding:8px;">
+      <div style="width:32px; height:32px; border-radius:8px; background:#003e62; color:#fff; display:grid; place-items:center; font-weight:800; font-size:13px; flex-shrink:0;">NC</div>
+      <div>
+        <p class="fdisp" style="font-size:14px; font-weight:600; margin:0; line-height:1;">NC Calendar</p>
+        <p style="font-size:12px; color:#717880; margin:4px 0 0;">Studio</p>
+      </div>
+    </div>
+    <div style="padding:16px 8px 4px;"><span style="font-size:11px; font-weight:600; color:#717880; text-transform:uppercase; letter-spacing:0.05em;">Area di lavoro</span></div>
+    <nav style="display:flex; flex-direction:column; gap:2px; padding:4px;">
+      <a href="#" style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:9999px; background:rgba(0,62,98,0.1); color:#003e62; font-size:14px; font-weight:600; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>Panoramica</a>
+      <a href="#" style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:9999px; color:#41474f; font-size:14px; font-weight:500; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4M16 2v4M3 10h18"/><rect width="18" height="18" x="3" y="4" rx="2"/></svg>Calendario</a>
+      <a href="#" style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:9999px; color:#41474f; font-size:14px; font-weight:500; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>Clienti</a>
+      <a href="#" style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:9999px; color:#41474f; font-size:14px; font-weight:500; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/></svg>Tipologie evento</a>
+      <a href="#" style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:9999px; color:#41474f; font-size:14px; font-weight:500; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Disponibilità</a>
+      <a href="#" style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:9999px; color:#41474f; font-size:14px; font-weight:500; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v6M15 2v6M12 17v5M5 8h14a2 2 0 0 1 2 2v2a7 7 0 0 1-14 0v-2a2 2 0 0 1 2-2Z"/></svg>Integrazioni</a>
+    </nav>
+    <div style="margin-top:auto; padding:8px;">
+      <div style="border-radius:12px; border:1px solid #c1c7d0; background:#fff; padding:12px;">
+        <p style="font-size:14px; font-weight:500; margin:0;">Marco Rossi</p>
+        <p style="font-size:12px; color:#717880; margin:2px 0 0;">marco@ncstudio.it</p>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div style="flex:1; display:flex; flex-direction:column; min-width:0;">
+    <header style="height:56px; display:flex; align-items:center; gap:12px; border-bottom:1px solid rgba(255,255,255,0.2); padding:0 16px; background:rgba(255,255,255,0.4); backdrop-filter:blur(32px);">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#41474f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg>
+      <div style="height:20px; width:1px; background:rgba(0,0,0,0.15);"></div>
+      <p style="font-size:14px; color:#717880; margin:0;">Studio Trainer</p>
+      <button id="cnotif" aria-label="Notifiche e attività clienti" style="position:relative; margin-left:auto; width:38px; height:38px; border-radius:9999px; background:#fff; border:1px solid rgba(193,199,208,0.4); display:grid; place-items:center; color:#41474f; cursor:pointer;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg>
+      </button>
+    </header>
+
+    <main style="flex:1; background:#f8f9fe; padding:40px;">
+      <!-- Header -->
+      <header style="margin-bottom:40px;">
+        <h1 class="fdisp" style="font-size:48px; font-weight:700; color:#191c1f; letter-spacing:-0.02em; margin:0;">Bentornato, Marco</h1>
+        <p style="color:#41474f; margin:8px 0 0; font-size:18px;">Oggi è <span style="text-transform:capitalize;">giovedì 2 luglio</span>. Hai <strong id="sesscount" style="color:#003e62;">4</strong> sessioni da svolgere.</p>
+      </header>
+
+      <div style="display:grid; grid-template-columns:7fr 5fr; gap:24px;">
+        <!-- LEFT: Oggi -->
+        <section style="background:rgba(255,255,255,0.6); backdrop-filter:blur(20px); border:1px solid rgba(255,255,255,0.4); border-radius:32px; padding:24px; box-shadow:0 8px 30px rgba(0,0,0,0.04);">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
+            <h2 style="font-size:24px; font-weight:600; margin:0;">Oggi</h2>
+            <a href="#" style="font-size:14px; font-weight:600; color:#003e62; text-decoration:none;">Vedi tutto</a>
+          </div>
+          <div id="todaylist" style="display:flex; flex-direction:column;">
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 0; border-bottom:1px solid rgba(225,226,231,0.6);">
+              <div style="display:flex; align-items:center; gap:16px; min-width:0;">
+                <div style="width:64px; text-align:center; flex-shrink:0;"><p style="font-weight:600; color:#191c1f; margin:0;">09:00</p><p style="font-size:12px; color:#41474f; margin:0;">1h</p></div>
+                <div style="width:4px; height:48px; background:#003e62; border-radius:9999px; flex-shrink:0;"></div>
+                <div style="display:flex; align-items:center; gap:12px; min-width:0;">
+                  <div style="width:40px; height:40px; border-radius:9999px; background:#b2d8ff; display:flex; align-items:center; justify-content:center; flex-shrink:0;"><span style="font-weight:700; color:#385f81; font-size:14px;">GB</span></div>
+                  <div style="min-width:0;"><p style="font-weight:600; color:#191c1f; margin:0;">Giulia Bianchi</p><div style="display:flex; align-items:center; gap:4px; color:#41474f;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.4 14.4 9.6 9.6"/><path d="M18.657 21.485a2 2 0 1 1-2.829-2.828l-1.767 1.768a2 2 0 1 1-2.829-2.829l6.364-6.364a2 2 0 1 1 2.829 2.829l-1.768 1.767a2 2 0 1 1 2.828 2.829z"/><path d="m21.5 21.5-1.4-1.4"/><path d="M3.9 3.9 2.5 2.5"/><path d="M6.404 12.768a2 2 0 1 1-2.829-2.829l1.768-1.767a2 2 0 1 1-2.828-2.829l2.828-2.828a2 2 0 1 1 2.829 2.828l1.767-1.768a2 2 0 1 1 2.829 2.829z"/></svg><span style="font-size:12px;">Sessione PT</span></div></div>
+                </div>
+              </div>
+              <button style="display:flex; align-items:center; gap:6px; border-radius:9999px; background:#005685; color:#91cbff; border:none; padding:8px 16px; font-size:14px; font-weight:600; cursor:pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>Check-in</button>
+            </div>
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 0; border-bottom:1px solid rgba(225,226,231,0.6);">
+              <div style="display:flex; align-items:center; gap:16px; min-width:0;">
+                <div style="width:64px; text-align:center; flex-shrink:0;"><p style="font-weight:600; color:#191c1f; margin:0;">10:30</p><p style="font-size:12px; color:#41474f; margin:0;">1h</p></div>
+                <div style="width:4px; height:48px; background:#003e62; border-radius:9999px; flex-shrink:0;"></div>
+                <div style="display:flex; align-items:center; gap:12px; min-width:0;">
+                  <div style="width:40px; height:40px; border-radius:9999px; background:#b2d8ff; display:flex; align-items:center; justify-content:center; flex-shrink:0;"><span style="font-weight:700; color:#385f81; font-size:14px;">LV</span></div>
+                  <div style="min-width:0;"><p style="font-weight:600; color:#191c1f; margin:0;">Luca Verdi</p><div style="display:flex; align-items:center; gap:4px; color:#41474f;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg><span style="font-size:12px;">BIA</span></div></div>
+                </div>
+              </div>
+              <button style="display:flex; align-items:center; gap:6px; border-radius:9999px; background:#005685; color:#91cbff; border:none; padding:8px 16px; font-size:14px; font-weight:600; cursor:pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>Check-in</button>
+            </div>
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 0; border-bottom:1px solid rgba(225,226,231,0.6);">
+              <div style="display:flex; align-items:center; gap:16px; min-width:0;">
+                <div style="width:64px; text-align:center; flex-shrink:0;"><p style="font-weight:600; color:#191c1f; margin:0;">15:00</p><p style="font-size:12px; color:#41474f; margin:0;">45m</p></div>
+                <div style="width:4px; height:48px; background:#003e62; border-radius:9999px; flex-shrink:0;"></div>
+                <div style="display:flex; align-items:center; gap:12px; min-width:0;">
+                  <div style="width:40px; height:40px; border-radius:9999px; background:#b2d8ff; display:flex; align-items:center; justify-content:center; flex-shrink:0;"><span style="font-weight:700; color:#385f81; font-size:14px;">SN</span></div>
+                  <div style="min-width:0;"><p style="font-weight:600; color:#191c1f; margin:0;">Sara Neri</p><div style="display:flex; align-items:center; gap:4px; color:#41474f;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/><path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/></svg><span style="font-size:12px;">Test Funzionale</span></div></div>
+                </div>
+              </div>
+              <button style="display:flex; align-items:center; gap:6px; border-radius:9999px; background:#005685; color:#91cbff; border:none; padding:8px 16px; font-size:14px; font-weight:600; cursor:pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>Check-in</button>
+            </div>
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 0;">
+              <div style="display:flex; align-items:center; gap:16px; min-width:0;">
+                <div style="width:64px; text-align:center; flex-shrink:0;"><p style="font-weight:600; color:#191c1f; margin:0;">18:00</p><p style="font-size:12px; color:#41474f; margin:0;">1h</p></div>
+                <div style="width:4px; height:48px; background:#003e62; border-radius:9999px; flex-shrink:0;"></div>
+                <div style="display:flex; align-items:center; gap:12px; min-width:0;">
+                  <div style="width:40px; height:40px; border-radius:9999px; background:#b2d8ff; display:flex; align-items:center; justify-content:center; flex-shrink:0;"><span style="font-weight:700; color:#385f81; font-size:14px;">AG</span></div>
+                  <div style="min-width:0;"><p style="font-weight:600; color:#191c1f; margin:0;">Andrea Gallo</p><div style="display:flex; align-items:center; gap:4px; color:#41474f;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.4 14.4 9.6 9.6"/><path d="M18.657 21.485a2 2 0 1 1-2.829-2.828l-1.767 1.768a2 2 0 1 1-2.829-2.829l6.364-6.364a2 2 0 1 1 2.829 2.829l-1.768 1.767a2 2 0 1 1 2.828 2.829z"/><path d="m21.5 21.5-1.4-1.4"/><path d="M3.9 3.9 2.5 2.5"/><path d="M6.404 12.768a2 2 0 1 1-2.829-2.829l1.768-1.767a2 2 0 1 1-2.828-2.829l2.828-2.828a2 2 0 1 1 2.829 2.828l1.767-1.768a2 2 0 1 1 2.829 2.829z"/></svg><span style="font-size:12px;">Sessione PT</span></div></div>
+                </div>
+              </div>
+              <button style="display:flex; align-items:center; gap:6px; border-radius:9999px; background:#005685; color:#91cbff; border:none; padding:8px 16px; font-size:14px; font-weight:600; cursor:pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>Check-in</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- RIGHT: Distribuzione Servizi -->
+        <section style="background:rgba(255,255,255,0.6); backdrop-filter:blur(20px); border:1px solid rgba(255,255,255,0.4); border-radius:32px; padding:24px; box-shadow:0 8px 30px rgba(0,0,0,0.04); align-self:flex-start;">
+          <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:20px; gap:12px; flex-wrap:wrap;">
+            <h2 style="font-size:24px; font-weight:600; margin:0;">Distribuzione Servizi</h2>
+            <span style="font-size:12px; color:#41474f;">Dal 1° gen · 128 eventi</span>
+          </div>
+          <div id="distrib" style="display:flex; flex-direction:column; gap:16px;">
+            <div>
+              <div style="display:flex; justify-content:space-between; font-size:14px; font-weight:600; margin-bottom:6px; gap:8px;"><span style="color:#191c1f;">Sessione PT</span><span class="tnum" style="color:#003e62;">78 (61%)</span></div>
+              <div style="width:100%; height:8px; background:#e1e2e7; border-radius:9999px; overflow:hidden;"><div style="height:100%; border-radius:9999px; width:61%; background:#003e62;"></div></div>
+            </div>
+            <div>
+              <div style="display:flex; justify-content:space-between; font-size:14px; font-weight:600; margin-bottom:6px; gap:8px;"><span style="color:#191c1f;">BIA</span><span class="tnum" style="color:#039BE5;">24 (19%)</span></div>
+              <div style="width:100%; height:8px; background:#e1e2e7; border-radius:9999px; overflow:hidden;"><div style="height:100%; border-radius:9999px; width:19%; background:#039BE5;"></div></div>
+            </div>
+            <div>
+              <div style="display:flex; justify-content:space-between; font-size:14px; font-weight:600; margin-bottom:6px; gap:8px;"><span style="color:#191c1f;">Test Funzionale</span><span class="tnum" style="color:#0b8043;">16 (12%)</span></div>
+              <div style="width:100%; height:8px; background:#e1e2e7; border-radius:9999px; overflow:hidden;"><div style="height:100%; border-radius:9999px; width:12%; background:#0b8043;"></div></div>
+            </div>
+            <div>
+              <div style="display:flex; justify-content:space-between; font-size:14px; font-weight:600; margin-bottom:6px; gap:8px;"><span style="color:#191c1f;">Consulenza</span><span class="tnum" style="color:#8E24AA;">10 (8%)</span></div>
+              <div style="width:100%; height:8px; background:#e1e2e7; border-radius:9999px; overflow:hidden;"><div style="height:100%; border-radius:9999px; width:8%; background:#8E24AA;"></div></div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Widgets row: rinnovi + coda da assegnare -->
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-top:24px;">
+        <!-- Rinnovi in scadenza -->
+        <section style="background:rgba(255,255,255,0.6); backdrop-filter:blur(20px); border:1px solid rgba(255,255,255,0.4); border-radius:32px; padding:24px; box-shadow:0 8px 30px rgba(0,0,0,0.04);">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; gap:12px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div style="width:36px; height:36px; border-radius:9999px; background:#fff7ed; color:#ea580c; display:grid; place-items:center; flex-shrink:0;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg></div>
+              <h2 style="font-size:20px; font-weight:600; margin:0;">Rinnovi in scadenza</h2>
+            </div>
+            <span id="renewbadge" style="font-size:12px; font-weight:700; color:#ea580c; background:#fff7ed; border-radius:9999px; padding:4px 12px;">2</span>
+          </div>
+          <div id="renewlist" style="display:flex; flex-direction:column; gap:10px;">
+            <div data-renew style="display:flex; align-items:center; justify-content:space-between; gap:12px; border-radius:20px; border:1px solid #e1e2e7; background:#fff; padding:12px 16px;">
+              <div style="display:flex; align-items:center; gap:12px; min-width:0;">
+                <div style="width:40px; height:40px; border-radius:9999px; background:#d6e5ec; color:#3b494f; display:grid; place-items:center; font-size:13px; font-weight:700; flex-shrink:0;">SN</div>
+                <div style="min-width:0;"><p style="font-weight:600; color:#191c1f; margin:0;">Sara Neri</p><p style="font-size:12px; color:#ea580c; margin:2px 0 0;">Percorso Fisso · 1 sessione rimasta</p></div>
+              </div>
+              <button data-renewbtn style="flex-shrink:0; border-radius:9999px; background:#003e62; color:#fff; border:none; padding:8px 18px; font-size:13px; font-weight:600; cursor:pointer;">Rinnova</button>
+            </div>
+            <div data-renew style="display:flex; align-items:center; justify-content:space-between; gap:12px; border-radius:20px; border:1px solid #e1e2e7; background:#fff; padding:12px 16px;">
+              <div style="display:flex; align-items:center; gap:12px; min-width:0;">
+                <div style="width:40px; height:40px; border-radius:9999px; background:#d6e5ec; color:#3b494f; display:grid; place-items:center; font-size:13px; font-weight:700; flex-shrink:0;">MC</div>
+                <div style="min-width:0;"><p style="font-weight:600; color:#191c1f; margin:0;">Marta Conti</p><p style="font-size:12px; color:#ea580c; margin:2px 0 0;">Abbonamento Mensile · scade tra 4 giorni</p></div>
+              </div>
+              <button data-renewbtn style="flex-shrink:0; border-radius:9999px; background:#003e62; color:#fff; border:none; padding:8px 18px; font-size:13px; font-weight:600; cursor:pointer;">Rinnova</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Da assegnare -->
+        <section style="background:rgba(255,255,255,0.6); backdrop-filter:blur(20px); border:1px solid rgba(255,255,255,0.4); border-radius:32px; padding:24px; box-shadow:0 8px 30px rgba(0,0,0,0.04);">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; gap:12px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div style="width:36px; height:36px; border-radius:9999px; background:rgba(255,220,194,0.6); color:#7c4302; display:grid; place-items:center; flex-shrink:0;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg></div>
+              <h2 style="font-size:20px; font-weight:600; margin:0;">Da assegnare</h2>
+            </div>
+            <span id="assignbadge" style="font-size:12px; font-weight:700; color:#7c4302; background:rgba(255,220,194,0.6); border-radius:9999px; padding:4px 12px;">3</span>
+          </div>
+          <div id="assignlist" style="display:flex; flex-direction:column; gap:10px;">
+            <div data-assign style="display:flex; align-items:center; justify-content:space-between; gap:12px; border-radius:20px; border:1px dashed #ffb77b; background:rgba(255,220,194,0.25); padding:12px 16px;">
+              <div style="min-width:0;"><p style="font-weight:600; color:#191c1f; margin:0;">Sessione PT · ven 3 lug</p><p style="font-size:12px; color:#7c4302; margin:2px 0 0;">Richiesta da Elena Ricci · 16:00</p></div>
+              <button data-assignbtn style="flex-shrink:0; border-radius:9999px; background:#7c4302; color:#fff; border:none; padding:8px 18px; font-size:13px; font-weight:600; cursor:pointer;">Assegna</button>
+            </div>
+            <div data-assign style="display:flex; align-items:center; justify-content:space-between; gap:12px; border-radius:20px; border:1px dashed #ffb77b; background:rgba(255,220,194,0.25); padding:12px 16px;">
+              <div style="min-width:0;"><p style="font-weight:600; color:#191c1f; margin:0;">BIA · lun 6 lug</p><p style="font-size:12px; color:#7c4302; margin:2px 0 0;">Richiesta da Paolo Moretti · 09:30</p></div>
+              <button data-assignbtn style="flex-shrink:0; border-radius:9999px; background:#7c4302; color:#fff; border:none; padding:8px 18px; font-size:13px; font-weight:600; cursor:pointer;">Assegna</button>
+            </div>
+            <div data-assign style="display:flex; align-items:center; justify-content:space-between; gap:12px; border-radius:20px; border:1px dashed #ffb77b; background:rgba(255,220,194,0.25); padding:12px 16px;">
+              <div style="min-width:0;"><p style="font-weight:600; color:#191c1f; margin:0;">Consulenza · mer 8 lug</p><p style="font-size:12px; color:#7c4302; margin:2px 0 0;">Richiesta da Andrea Gallo · 18:00</p></div>
+              <button data-assignbtn style="flex-shrink:0; border-radius:9999px; background:#7c4302; color:#fff; border:none; padding:8px 18px; font-size:13px; font-weight:600; cursor:pointer;">Assegna</button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">class Component extends DCLogic {
+  root = React.createRef();
+  renderVals() { return { root: this.root }; }
+
+  componentDidMount() {
+    const el = this.root.current;
+    if (!el) return;
+    el.querySelectorAll("aside nav a").forEach((a)=>{ const m={"Panoramica":"Trainer%20Dashboard.dc.html","Calendario":"Trainer%20Calendar.dc.html","Clienti":"Trainer%20Clients.dc.html","Tipologie evento":"Trainer%20Event%20Types.dc.html","Disponibilità":"Trainer%20Availability.dc.html","Integrazioni":"Trainer%20Integrations.dc.html"}; const t=a.textContent.trim(); if(m[t]) a.setAttribute("href",m[t]); });
+    // ---- Coach notifications (client activity from the shared channel) ----
+    (function(){
+      const btn = el.querySelector("#cnotif"); if (!btn) return;
+      const MSHORT=["gen","feb","mar","apr","mag","giu","lug","ago","set","ott","nov","dic"], DOW=["dom","lun","mar","mer","gio","ven","sab"];
+      const TL={PT:"Sessione PT",BIA:"BIA",TEST:"Test Funzionale"};
+      const fmt=(iso)=>{const p=String(iso).split("-");const d=new Date(+p[0],+p[1]-1,+p[2]);return DOW[d.getDay()]+" "+d.getDate()+" "+MSHORT[d.getMonth()];};
+      const READ="nccoachnotif-read";
+      const readSet=()=>{try{return JSON.parse(localStorage.getItem(READ)||"[]");}catch(e){return[];}};
+      const build=()=>{
+        let book=[]; try{book=JSON.parse(localStorage.getItem("ncbookings-v1")||"[]");}catch(e){}
+        let cli=null; try{cli=JSON.parse(localStorage.getItem("ncapp-giulia-v1")||"null");}catch(e){}
+        const out=[];
+        book.forEach((b)=>{
+          out.push({ id:"bk-"+b.id+"-"+b.date+b.time, color:"#003e62", icon:"cal",
+            title:(b.clientName||"Cliente")+(b.confirmed?" ha confermato":" ha prenotato"),
+            sub:TL[b.type]+" · "+fmt(b.date)+" · "+b.time });
+        });
+        if (cli && Array.isArray(cli.sessions)) cli.sessions.filter((s)=>s.feedback).forEach((s)=>{
+          out.push({ id:"fb-"+s.id, color:"#4361ee", icon:"star",
+            title:"Giulia ha valutato una sessione", sub:TL[s.type]+" · "+fmt(s.date)+" · "+"★".repeat(s.feedback) });
+        });
+        const read=readSet(); out.forEach((x)=>x.unread=read.indexOf(x.id)<0);
+        return out;
+      };
+      const NIC={cal:`<path d="M8 2v4M16 2v4M3 10h18"/><rect width="18" height="18" x="3" y="4" rx="2"/>`, star:`<path d="M11.5 3.2 13.4 7l4.2.6-3 3 .7 4.2-3.8-2-3.7 2 .7-4.2-3-3 4.1-.6z"/>`};
+      const paint=()=>{ let d=btn.querySelector("[data-dot]"); const n=build().filter((x)=>x.unread).length;
+        if(n>0){ if(!d){d=document.createElement("span");d.setAttribute("data-dot","");btn.appendChild(d);} d.style.cssText="position:absolute; top:-4px; right:-4px; min-width:16px; height:16px; padding:0 4px; box-sizing:border-box; border-radius:9999px; background:#e53935; color:#fff; font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; border:2px solid #fff;"; d.textContent=n; } else if(d) d.remove(); };
+      paint();
+      let panel=null; const close=()=>{if(panel){panel.remove();panel=null;}};
+      btn.onclick=(e)=>{ e.stopPropagation(); if(panel){close();return;} const items=build();
+        panel=document.createElement("div");
+        panel.style.cssText="position:absolute; top:48px; right:12px; width:340px; z-index:80; background:#fff; border-radius:18px; box-shadow:0 20px 60px rgba(0,0,0,0.2); border:1px solid #eceef2; overflow:hidden;";
+        const head=`<div style="display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid #f1f5f9;"><span class="fdisp" style="font-size:15px; font-weight:700; color:#191c1f;">Attività clienti</span>${items.length?`<button data-read style="background:none;border:none;color:#005685;font-size:12px;font-weight:600;cursor:pointer;">Segna lette</button>`:""}</div>`;
+        const body=items.length?items.map((it)=>`<div style="display:flex; gap:12px; padding:13px 16px; border-bottom:1px solid #f6f7f9; ${it.unread?"background:rgba(0,62,98,0.04);":""}"><div style="width:34px;height:34px;border-radius:9px;flex-shrink:0;background:${it.color}1a;color:${it.color};display:grid;place-items:center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${NIC[it.icon]}</svg></div><div style="flex:1;min-width:0;"><p style="margin:0;font-size:13px;font-weight:700;color:#191c1f;">${it.title}</p><p style="margin:3px 0 0;font-size:12px;color:#717880;">${it.sub}</p></div>${it.unread?`<span style="width:8px;height:8px;border-radius:9999px;background:#003e62;flex-shrink:0;margin-top:4px;"></span>`:""}</div>`).join(""):`<div style="padding:28px 16px;text-align:center;color:#717880;font-size:13px;">Nessuna attività recente</div>`;
+        panel.innerHTML=head+`<div style="max-height:380px;overflow-y:auto;">${body}</div>`;
+        const foot=document.createElement("div"); foot.style.cssText="padding:10px 16px; border-top:1px solid #f1f5f9;"; foot.innerHTML=`<button data-cal style="width:100%; background:#003e62; color:#fff; border:none; border-radius:9999px; padding:9px 0; font-size:13px; font-weight:600; cursor:pointer;">Apri calendario</button>`;
+        panel.appendChild(foot);
+        btn.parentElement.appendChild(panel);
+        const rb=panel.querySelector("[data-read]"); if(rb) rb.onclick=(ev)=>{ev.stopPropagation(); localStorage.setItem(READ, JSON.stringify(build().map((x)=>x.id))); paint(); close();};
+        panel.querySelector("[data-cal]").onclick=()=>{ location.href="Trainer%20Calendar.dc.html"; };
+        document.addEventListener("click", function onDoc(ev){ if(panel&&!panel.contains(ev.target)&&ev.target!==btn){close();document.removeEventListener("click",onDoc);} });
+      };
+    })();
+
+    const list = el.querySelector("#todaylist");
+    const countEl = el.querySelector("#sesscount");
+
+    const rows = list ? [...list.children] : [];
+    let pending = rows.length;
+    const refresh = () => { if (countEl) countEl.textContent = pending; };
+
+    const slugify=(n)=>n.toLowerCase().replace(/[^a-z]+/g,"-").replace(/^-|-$/g,"");
+    const clientOf=(row)=>{
+      const nameEl=[...row.querySelectorAll("p")].find((p)=>/^[A-Za-zÀ-ÿ]+\s+[A-Za-zÀ-ÿ]/.test(p.textContent.trim()));
+      const typeTxt=[...row.querySelectorAll("span")].map((s)=>s.textContent.trim()).find((t)=>["Sessione PT","BIA","Test Funzionale"].includes(t))||"Sessione PT";
+      const t = typeTxt==="BIA"?"BIA":typeTxt==="Test Funzionale"?"Test":"PT";
+      return { name:nameEl?nameEl.textContent.trim():"Cliente", t };
+    };
+    const openNote=(row)=>{
+      if (row.__noteEl) return;
+      const c=clientOf(row);
+      const box=document.createElement("div");
+      box.style.cssText="padding:0 0 12px; display:flex; gap:8px; align-items:center;";
+      box.innerHTML=`<input placeholder="Nota sessione per ${c.name} (opzionale)…" style="flex:1; border:1px solid #e1e2e7; border-radius:9999px; padding:8px 14px; font-size:13px; font-family:inherit; outline:none;" /><button data-s style="border:none; background:#003e62; color:#fff; border-radius:9999px; padding:8px 16px; font-size:13px; font-weight:600; cursor:pointer;">Salva</button>`;
+      row.parentElement.insertBefore(box, row.nextSibling);
+      row.__noteEl=box;
+      const inp=box.querySelector("input");
+      const save=()=>{
+        const note=inp.value.trim();
+        try{ const k="ncpending-"+slugify(c.name); const arr=JSON.parse(localStorage.getItem(k)||"[]"); arr.unshift({ d:"gio 2 lug", t:c.t, s:"done", note: note||"Sessione completata." }); localStorage.setItem(k, JSON.stringify(arr)); }catch(e){}
+        toast("Sessione aggiunta al profilo di "+c.name, "#0b8043");
+        box.innerHTML='<span style="font-size:12px; color:#0b8043; font-weight:600; padding:2px 0;">✓ Registrata nel profilo cliente</span>';
+      };
+      box.querySelector("[data-s]").onclick=save;
+      inp.addEventListener("keydown",(e)=>{ if(e.key==="Enter") save(); });
+      inp.focus();
+    };
+    const closeNote=(row)=>{ if(row.__noteEl){ row.__noteEl.remove(); row.__noteEl=null; } };
+
+    rows.forEach((row) => {
+      const btn = row.querySelector("button");
+      if (!btn) return;
+      let done = false;
+      btn.onclick = () => {
+        done = !done;
+        if (done) {
+          pending--;
+          row.style.opacity = "0.6";
+          btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Fatto`;
+          btn.style.background = "rgba(11,128,67,0.12)";
+          btn.style.color = "#0b8043";
+          toast("Check-in registrato · pacchetto aggiornato", "#0b8043");
+          openNote(row);
+        } else {
+          pending++;
+          row.style.opacity = "1";
+          closeNote(row);
+          btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>Check-in`;
+          btn.style.background = "#005685";
+          btn.style.color = "#91cbff";
+        }
+        refresh();
+      };
+    });
+    refresh();
+
+    // animate distribution bars in from 0
+    const bars = el.querySelectorAll("#distrib > div > div:last-child > div");
+    bars.forEach((bar) => {
+      const target = bar.style.width;
+      bar.style.width = "0%";
+      bar.style.transition = "width 0.9s cubic-bezier(0.22,1,0.36,1)";
+      setTimeout(() => { bar.style.width = target; }, 80);
+    });
+
+    // live cross-tab sync: refresh notifications when a client books/confirms elsewhere
+    window.addEventListener("storage", (e)=>{ if (e.key==="ncbookings-v1" || e.key==="ncapp-giulia-v1") location.reload(); });
+
+    // Rinnovi in scadenza
+    const renewBadge = el.querySelector("#renewbadge");
+    let renewN = 2;
+    el.querySelectorAll("[data-renewbtn]").forEach((b)=>{
+      b.onclick = () => {
+        const row = b.closest("[data-renew]");
+        const sub = row.querySelector("p:last-child");
+        sub.textContent = "Rinnovato · nuovo blocco attivo"; sub.style.color = "#059669";
+        b.textContent = "Rinnovato ✓"; b.style.background = "#ecfdf5"; b.style.color = "#059669"; b.disabled = true; b.style.cursor = "default";
+        renewN = Math.max(0, renewN-1); renewBadge.textContent = renewN;
+        toast("Rinnovo inviato a "+row.querySelector("p").textContent);
+      };
+    });
+
+    // Coda da assegnare
+    const assignBadge = el.querySelector("#assignbadge");
+    let assignN = 3;
+    el.querySelectorAll("[data-assignbtn]").forEach((b)=>{
+      b.onclick = () => {
+        const row = b.closest("[data-assign]");
+        row.style.borderStyle = "solid"; row.style.borderColor = "#003e62"; row.style.background = "#fff";
+        b.textContent = "Assegnato ✓"; b.style.background = "rgba(0,62,98,0.1)"; b.style.color = "#003e62"; b.disabled = true; b.style.cursor = "default";
+        assignN = Math.max(0, assignN-1); assignBadge.textContent = assignN;
+        toast("Sessione assegnata e aggiunta al calendario", "#0b8043");
+      };
+    });
+
+    // toast helper
+    function toast(msg, color){
+      const t = document.createElement("div");
+      t.textContent = msg;
+      t.style.cssText = `position:fixed; left:50%; bottom:28px; transform:translateX(-50%); background:${color||"#003e62"}; color:#fff; padding:12px 22px; border-radius:9999px; font-size:14px; font-weight:600; box-shadow:0 8px 30px rgba(0,0,0,0.2); z-index:9999; opacity:0; transition:opacity .2s;`;
+      el.appendChild(t);
+      requestAnimationFrame(()=>t.style.opacity="1");
+      setTimeout(()=>{ t.style.opacity="0"; setTimeout(()=>t.remove(),250); }, 1600);
+    }
+  }
+}</script>
+</body>
+</html>
