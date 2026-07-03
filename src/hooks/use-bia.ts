@@ -34,6 +34,12 @@ export function isMissingMigration(error: { code?: string; message?: string } | 
   );
 }
 
+// Suffisso univoco per istanza: la dashboard cliente monta due
+// useBiaMeasurements (voci campanella + card progressi) e supabase.channel
+// riusa il canale a parità di nome → crash "cannot add callbacks after
+// subscribe()". Vedi stesso pattern in use-notifications.ts.
+let biaChannelSeq = 0;
+
 /** Misurazioni del cliente in ordine cronologico (per grafici e liste). */
 export function useBiaMeasurements(clientId: string | null | undefined) {
   const qc = useQueryClient();
@@ -63,7 +69,7 @@ export function useBiaMeasurements(clientId: string | null | undefined) {
   useEffect(() => {
     if (!clientId) return;
     const channel = supabase
-      .channel(`bia:${clientId}`)
+      .channel(`bia:${clientId}:${++biaChannelSeq}`)
       .on(
         "postgres_changes",
         {
