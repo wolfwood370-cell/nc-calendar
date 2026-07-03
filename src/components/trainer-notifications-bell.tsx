@@ -207,7 +207,14 @@ function NotificationsList({
 export function TrainerNotificationsBell() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [open, setOpen] = React.useState(false);
+  // Sheet (mobile) e Popover (desktop) portalano entrambi in <body> a
+  // prescindere dal wrapper `md:hidden` / `hidden md:block`: con un
+  // singolo `open` condiviso il click sulla campanella apriva ANCHE il
+  // widget del viewport opposto, il cui overlay/outside-click chiudeva
+  // subito tutto — sintomo utente: "notifiche appaiono e spariscono".
+  // Stato separato → solo il widget della fascia attiva reagisce.
+  const [sheetOpen, setSheetOpen] = React.useState(false);
+  const [popoverOpen, setPopoverOpen] = React.useState(false);
 
   const userId = user?.id ?? null;
   const { data: notifications, isLoading } = useNotifications(userId);
@@ -216,6 +223,7 @@ export function TrainerNotificationsBell() {
 
   const unread = unreadCount(notifications);
   const canMarkAll = unread > 0;
+
 
   const handleItemClick = (n: NotificationRow) => {
     if (n.read_at == null) markRead.mutate(n.id);
