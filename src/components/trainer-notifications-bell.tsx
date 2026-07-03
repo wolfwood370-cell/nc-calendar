@@ -274,7 +274,7 @@ export function TrainerNotificationsBell() {
 
       {/* Desktop: popover */}
       <div className="hidden md:block">
-        <Popover open={open} onOpenChange={setOpen}>
+        <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
           <PopoverTrigger asChild>
             <BellButton unread={unread} />
           </PopoverTrigger>
