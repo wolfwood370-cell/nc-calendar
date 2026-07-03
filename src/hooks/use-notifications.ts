@@ -56,6 +56,13 @@ export interface NotificationRow {
 const PAGE_SIZE = 30;
 const notificationsKey = (userId: string) => ["notifications", userId] as const;
 
+// Suffisso univoco per istanza di hook: supabase.channel(nome) RIUSA il
+// canale se il nome coincide, e aggiungere .on() a un canale già
+// sottoscritto lancia "cannot add postgres_changes callbacks after
+// subscribe()". Con due bell montate (header globale + testata mobile
+// della Panoramica) il nome condiviso `notifications:<uid>` crashava.
+let notifChannelSeq = 0;
+
 /**
  * Fetches the recipient's latest notifications and keeps them in sync via
  * a Realtime channel. Re-fetches on any INSERT / UPDATE / DELETE.
@@ -108,7 +115,7 @@ export function useNotifications(userId: string | null | undefined) {
   useEffect(() => {
     if (!userId) return;
     const channel = supabase
-      .channel(`notifications:${userId}`)
+      .channel(`notifications:${userId}:${++notifChannelSeq}`)
       .on(
         "postgres_changes",
         {
