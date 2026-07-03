@@ -24,13 +24,21 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { TrainerNotificationsBell } from "@/components/trainer-notifications-bell";
 import { toast } from "sonner";
-import { Sparkles, CheckCircle2, Clock, ListChecks, ArrowRight } from "lucide-react";
+import {
+  Sparkles,
+  CheckCircle2,
+  Clock,
+  ListChecks,
+  ArrowRight,
+  TriangleAlert,
+  CircleHelp,
+} from "lucide-react";
 
 export const Route = createFileRoute("/trainer/")({
   component: Overview,
 });
 
-const GLASS = "bg-white/60 backdrop-blur-xl border border-white/40";
+const GLASS = "bg-white/60 backdrop-blur-[20px] border border-white/40";
 
 function Overview() {
   const { user } = useAuth();
@@ -159,6 +167,44 @@ function Overview() {
     day: "numeric",
     month: "long",
   });
+
+  // Rinnovi in scadenza — derivato dai blocchi già caricati (useCoachBlocks):
+  // clienti con crediti quasi esauriti o con l'ultimo blocco attivo che
+  // termina entro 7 giorni. Nessuna query nuova.
+  const renewals = useMemo(() => {
+    const now = Date.now();
+    const byClient = new Map<string, { remaining: number; end: number }>();
+    for (const bl of blocks) {
+      if (bl.status !== "active") continue;
+      const end = new Date(bl.end_date).getTime();
+      const cur = byClient.get(bl.client_id) ?? { remaining: 0, end: 0 };
+      cur.remaining += bl.allocations.reduce(
+        (s, a) => s + Math.max(0, a.quantity_assigned - a.quantity_booked),
+        0,
+      );
+      cur.end = Math.max(cur.end, end);
+      byClient.set(bl.client_id, cur);
+    }
+    return Array.from(byClient.entries())
+      .map(([clientId, v]) => ({
+        clientId,
+        remaining: v.remaining,
+        days: Math.ceil((v.end - now) / 86_400_000),
+      }))
+      .filter((r) => r.days >= 0 && (r.remaining <= 1 || r.days <= 7))
+      .sort((a, b) => a.days - b.days)
+      .slice(0, 4);
+  }, [blocks]);
+
+  // Da assegnare — eventi esterni senza cliente, stesso criterio del filtro
+  // "Eventi da Assegnare" del Calendario. Il bottone apre il dialog di
+  // review (montato nel layout /trainer) via ?reviewEventId.
+  const toAssign = useMemo(() => {
+    return bookings
+      .filter((b) => !b.is_personal && !b.client_id && b.status === "scheduled")
+      .sort((a, b) => +new Date(a.scheduled_at) - +new Date(b.scheduled_at))
+      .slice(0, 4);
+  }, [bookings]);
 
   return (
     <>
@@ -367,12 +413,13 @@ function Overview() {
       <div className="hidden md:block bg-surface text-on-background -m-6 p-6 md:p-10 min-h-[calc(100vh-3.5rem)]">
         {/* Header */}
         <header className="mb-10">
-          <h1 className="font-display text-4xl md:text-5xl font-bold text-on-background tracking-tight">
+          <h1 className="font-display text-4xl md:text-5xl font-bold text-on-background tracking-[-0.02em]">
             Bentornato, {userName.split(" ")[0]}
           </h1>
           <p className="text-on-surface-variant mt-2 text-lg">
-            Oggi è <span className="capitalize">{todayLabel}</span>. Hai {todayItems.length}{" "}
-            {todayItems.length === 1 ? "sessione programmata" : "sessioni programmate"}.
+            Oggi è <span className="capitalize">{todayLabel}</span>. Hai{" "}
+            <strong className="text-aura-primary">{todayItems.length}</strong>{" "}
+            {todayItems.length === 1 ? "sessione da svolgere" : "sessioni da svolgere"}.
           </p>
         </header>
 
@@ -450,8 +497,7 @@ function Overview() {
                           </div>
                         </div>
                         <Button
-                          size="sm"
-                          className="rounded-full bg-primary-container text-on-primary-container hover:bg-primary-container/85 ml-2 shrink-0"
+                          className="rounded-full h-auto px-4 py-2 text-sm font-semibold gap-1.5 bg-primary-container text-on-primary-container hover:bg-primary-container/85 ml-2 shrink-0"
                           onClick={() => checkIn.mutate(b.id)}
                           disabled={checkIn.isPending}
                         >
@@ -503,6 +549,129 @@ function Overview() {
               )}
             </section>
           </div>
+        </div>
+
+        {/* Riga widget inferiore: Rinnovi in scadenza + Da assegnare */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Rinnovi in scadenza */}
+          <section className={`${GLASS} rounded-[32px] p-6 shadow-soft-card`}>
+            <div className="flex items-center justify-between mb-5 gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-full bg-[#fff7ed] text-warning-strong grid place-items-center shrink-0">
+                  <TriangleAlert className="size-[18px]" />
+                </div>
+                <h2 className="text-xl font-manrope font-semibold">Rinnovi in scadenza</h2>
+              </div>
+              <span className="text-xs font-bold text-warning-strong bg-[#fff7ed] rounded-full px-3 py-1">
+                {renewals.length}
+              </span>
+            </div>
+            {loading ? (
+              <Skeleton className="h-16 w-full" />
+            ) : renewals.length === 0 ? (
+              <p className="text-sm text-on-surface-variant">Nessun rinnovo imminente.</p>
+            ) : (
+              <div className="flex flex-col gap-2.5">
+                {renewals.map((r) => {
+                  const c = clientById.get(r.clientId);
+                  const name = c?.full_name ?? c?.email ?? "Cliente";
+                  return (
+                    <div
+                      key={r.clientId}
+                      className="flex items-center justify-between gap-3 rounded-[20px] border border-surface-variant bg-white px-4 py-3"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-full bg-[#d6e5ec] text-[#3b494f] grid place-items-center text-[13px] font-bold shrink-0">
+                          {initials(name)}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-on-background truncate">{name}</p>
+                          <p className="text-xs text-warning-strong mt-0.5">
+                            Percorso ·{" "}
+                            {r.remaining <= 1
+                              ? r.remaining === 1
+                                ? "1 sessione rimasta"
+                                : "crediti esauriti"
+                              : r.days <= 0
+                                ? "scade oggi"
+                                : r.days === 1
+                                  ? "scade domani"
+                                  : `scade tra ${r.days} giorni`}
+                          </p>
+                        </div>
+                      </div>
+                      <Link
+                        to="/trainer/clients/$id"
+                        params={{ id: r.clientId }}
+                        className="shrink-0 rounded-full bg-aura-primary text-white px-[18px] py-2 text-[13px] font-semibold hover:opacity-90 transition"
+                      >
+                        Rinnova
+                      </Link>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          {/* Da assegnare */}
+          <section className={`${GLASS} rounded-[32px] p-6 shadow-soft-card`}>
+            <div className="flex items-center justify-between mb-5 gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-full bg-warning-container/60 text-tertiary-container grid place-items-center shrink-0">
+                  <CircleHelp className="size-[18px]" />
+                </div>
+                <h2 className="text-xl font-manrope font-semibold">Da assegnare</h2>
+              </div>
+              <span className="text-xs font-bold text-tertiary-container bg-warning-container/60 rounded-full px-3 py-1">
+                {toAssign.length}
+              </span>
+            </div>
+            {loading ? (
+              <Skeleton className="h-16 w-full" />
+            ) : toAssign.length === 0 ? (
+              <p className="text-sm text-on-surface-variant">Nessun evento da assegnare.</p>
+            ) : (
+              <div className="flex flex-col gap-2.5">
+                {toAssign.map((b) => {
+                  const et = b.event_type_id ? eventTypeById.get(b.event_type_id) : null;
+                  const label = b.title ?? et?.name ?? sessionLabel(b.session_type);
+                  const d = new Date(b.scheduled_at);
+                  const dateLabel = d.toLocaleDateString("it-IT", {
+                    weekday: "short",
+                    day: "numeric",
+                    month: "short",
+                  });
+                  const timeLabel = d.toLocaleTimeString("it-IT", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
+                  return (
+                    <div
+                      key={b.id}
+                      className="flex items-center justify-between gap-3 rounded-[20px] border border-dashed border-warning-border bg-warning-container/25 px-4 py-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-semibold text-on-background truncate">
+                          {label} · {dateLabel}
+                        </p>
+                        <p className="text-xs text-tertiary-container mt-0.5">
+                          Evento esterno · {timeLabel}
+                        </p>
+                      </div>
+                      <Link
+                        to="/trainer/calendar"
+                        search={{ reviewEventId: b.id }}
+                        className="shrink-0 rounded-full bg-tertiary-container text-white px-[18px] py-2 text-[13px] font-semibold hover:opacity-90 transition"
+                      >
+                        Assegna
+                      </Link>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
         </div>
 
         {/* The Assign / Personal / Consulenza dialog is now mounted globally

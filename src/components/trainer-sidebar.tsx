@@ -26,7 +26,6 @@ const items = [
   { title: "Integrazioni", url: "/trainer/integrations", icon: Plug },
 ];
 
-
 export function TrainerSidebar() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const { user, signOut } = useAuth();
@@ -40,7 +39,7 @@ export function TrainerSidebar() {
     >
       <SidebarHeader>
         <div className="flex items-center gap-2 px-2 py-2">
-          <div className="size-8 rounded-md overflow-hidden bg-white flex-shrink-0">
+          <div className="size-8 rounded-[8px] overflow-hidden bg-white flex-shrink-0">
             <img
               src={logoUrl}
               alt="NC Calendar"
@@ -55,7 +54,9 @@ export function TrainerSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Area di lavoro</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-[11px] font-semibold uppercase tracking-[0.05em] text-outline">
+            Area di lavoro
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => {
@@ -66,7 +67,7 @@ export function TrainerSidebar() {
                       asChild
                       isActive={active}
                       tooltip={item.title}
-                      className="rounded-full data-[active=true]:bg-aura-primary/10 data-[active=true]:text-aura-primary hover:bg-white/60"
+                      className="rounded-full gap-3 px-3 font-medium text-on-surface-variant data-[active=true]:bg-aura-primary/10 data-[active=true]:text-aura-primary data-[active=true]:font-semibold hover:bg-white/60"
                     >
                       <Link to={item.url}>
                         <item.icon className="size-4" />
@@ -82,7 +83,7 @@ export function TrainerSidebar() {
       </SidebarContent>
       <SidebarFooter>
         <div className="px-2 pb-2 group-data-[collapsible=icon]:hidden">
-          <div className="rounded-lg border bg-card p-3">
+          <div className="rounded-xl border border-outline-variant bg-card p-3">
             <p className="text-sm font-medium truncate">{displayName}</p>
             <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
             <div className="mt-2 flex flex-col gap-1">

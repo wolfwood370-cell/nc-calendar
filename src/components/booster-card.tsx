@@ -35,10 +35,10 @@ export function BoosterCard({
       aria-label={isOwned ? `Booster attivo: ${title}` : `Pacchetto: ${title}`}
       className={[
         "relative h-full flex flex-col rounded-[32px] p-6 border transition",
-        "bg-white/60 backdrop-blur-xl border-white/40",
+        "bg-white/60 backdrop-blur-[20px] border-white/40",
         "shadow-[0_8px_30px_rgba(0,0,0,0.04)]",
         isOwned ? "shadow-[inset_0_0_20px_rgba(0,62,98,0.05)]" : "",
-        hero && !isOwned ? "ring-1 ring-primary/20" : "",
+        hero && !isOwned ? "ring-1 ring-reschedule/20" : "",
       ].join(" ")}
     >
       {isOwned && (
@@ -47,7 +47,7 @@ export function BoosterCard({
         </span>
       )}
       {hero && !isOwned && (
-        <span className="absolute -top-2 right-6 bg-primary text-primary-foreground text-[10px] font-semibold uppercase tracking-wide px-3 py-1 rounded-full shadow-sm">
+        <span className="absolute -top-2 right-6 bg-reschedule text-white text-[10px] font-semibold uppercase tracking-wide px-3 py-1 rounded-full shadow-sm">
           Miglior Valore
         </span>
       )}
@@ -60,7 +60,7 @@ export function BoosterCard({
             isOwned
               ? "bg-primary/10 text-primary"
               : hero
-                ? "bg-primary text-primary-foreground"
+                ? "bg-reschedule text-white"
                 : "bg-surface-container text-on-surface",
           ].join(" ")}
         >
@@ -74,7 +74,9 @@ export function BoosterCard({
 
           {price && (
             <div className="mt-1 flex items-baseline gap-2">
-              <span className="text-2xl font-display font-bold text-on-surface">{price}</span>
+              <span className="text-2xl font-display font-bold tracking-[-0.02em] text-on-surface">
+                {price}
+              </span>
               {perSession && <span className="text-xs text-on-surface-variant">{perSession}</span>}
             </div>
           )}

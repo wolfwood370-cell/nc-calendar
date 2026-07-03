@@ -27,11 +27,7 @@ import { gcalReconcileEvents, gcalRepairMissingEvents } from "@/lib/gcal.functio
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import {
-  isAllDayEvent,
-  sameDay,
-  MobileAgendaView,
-} from "@/components/mobile-calendar-agenda";
+import { isAllDayEvent, sameDay, MobileAgendaView } from "@/components/mobile-calendar-agenda";
 
 export const Route = createFileRoute("/trainer/calendar")({
   component: CalendarPage,
@@ -41,7 +37,6 @@ const HOUR_HEIGHT = 44; // px — vista compatta
 const START_HOUR = 7;
 const END_HOUR = 22;
 const HOURS = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
-
 
 function startOfWeek(d: Date): Date {
   const x = new Date(d);
@@ -82,7 +77,6 @@ function CalendarPage() {
   }, []);
   const [editBookingId, setEditBookingId] = useState<string | null>(null);
 
-
   const bookingsQ = useCoachBookings(user?.id);
   const clientsQ = useCoachClients(user?.id);
   const eventTypesQ = useCoachEventTypes(user?.id);
@@ -98,10 +92,7 @@ function CalendarPage() {
   //      prenotazione. Mostra un toast solo se qualcosa e' cambiato.
   const runReconcile = useCallback(async () => {
     try {
-      const [pull, push] = await Promise.all([
-        gcalReconcileEvents(),
-        gcalRepairMissingEvents(),
-      ]);
+      const [pull, push] = await Promise.all([gcalReconcileEvents(), gcalRepairMissingEvents()]);
       const changed =
         (pull.ok && ((pull.cancelled ?? 0) > 0 || (pull.moved ?? 0) > 0)) ||
         (push.ok && (push.created ?? 0) > 0);
@@ -144,11 +135,17 @@ function CalendarPage() {
         if ((r.total ?? 0) === 0) break;
       }
       // Reconcile (Google -> DB) sull'intero range annuale, in un colpo.
-      const pull = await gcalReconcileEvents({ data: { timeMinISO: yearStart, timeMaxISO: yearMax } });
+      const pull = await gcalReconcileEvents({
+        data: { timeMinISO: yearStart, timeMaxISO: yearMax },
+      });
       qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(user?.id) });
       qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(user?.id) });
       setLastSyncAt(Date.now());
-      try { localStorage.setItem("gcal_reconcile_last", String(Date.now())); } catch { /* noop */ }
+      try {
+        localStorage.setItem("gcal_reconcile_last", String(Date.now()));
+      } catch {
+        /* noop */
+      }
       const parts: string[] = [];
       if (pull.ok && (pull.cancelled ?? 0) > 0) parts.push(`${pull.cancelled} annullate`);
       if (pull.ok && (pull.moved ?? 0) > 0) parts.push(`${pull.moved} spostate`);
@@ -159,12 +156,14 @@ function CalendarPage() {
       });
     } catch (e) {
       console.error("forceSync failed", e);
-      toast.error("Sincronizzazione fallita", { id: tId, description: e instanceof Error ? e.message : String(e) });
+      toast.error("Sincronizzazione fallita", {
+        id: tId,
+        description: e instanceof Error ? e.message : String(e),
+      });
     } finally {
       setForceSyncing(false);
     }
   }, [forceSyncing, qc, user?.id]);
-
 
   // Al mount: riconcilia una volta, con throttle (max 1 ogni 10 min) per non
   // interrogare Google a ogni navigazione.
@@ -271,7 +270,6 @@ function CalendarPage() {
     return { timedByDay: timed, allDayByDay: allDay };
   }, [bookings, weekDays, onlyToAssign, onlyPersonal, selectedTypeIds]);
 
-
   const layoutByDay = useMemo(() => {
     // H3: per-booking snapshot wins so changing an event type's duration
     // can't shift past sessions' overlap layout. All-day events are
@@ -293,7 +291,7 @@ function CalendarPage() {
   );
   const filtersActive = onlyPersonal || onlyToAssign || selectedTypeIds.size > 0;
   const editingBooking = useMemo(
-    () => (editBookingId ? bookings.find((b) => b.id === editBookingId) ?? null : null),
+    () => (editBookingId ? (bookings.find((b) => b.id === editBookingId) ?? null) : null),
     [editBookingId, bookings],
   );
 
@@ -343,7 +341,6 @@ function CalendarPage() {
           totalVisible={totalVisible}
         />
 
-
         {/* Riconciliazione bidirezionale Google <-> app (sola lettura) */}
         <CalendarGcalReview
           coachId={user?.id}
@@ -361,7 +358,9 @@ function CalendarPage() {
             disabled={forceSyncing}
             className="gap-2"
           >
-            {forceSyncing ? "Sincronizzazione…" : `Sincronizza tutto dal 1° gen ${new Date().getFullYear()}`}
+            {forceSyncing
+              ? "Sincronizzazione…"
+              : `Sincronizza tutto dal 1° gen ${new Date().getFullYear()}`}
           </Button>
         </div>
 
@@ -410,22 +409,17 @@ function CalendarPage() {
                   return (
                     <div
                       key={d.toISOString()}
-                      className={`relative border-r border-surface-container/60 last:border-r-0 ${isToday ? "bg-primary-fixed/10" : ""}`}
+                      className={`relative border-r border-surface-container/60 last:border-r-0 ${isToday ? "bg-primary-fixed-dim/10" : ""}`}
                       style={{ height: HOURS.length * HOUR_HEIGHT }}
                     >
-                      {/* hour grid lines */}
-                      {HOURS.map((h) => (
-                        <div
-                          key={h}
-                          style={{ top: (h - START_HOUR) * HOUR_HEIGHT }}
-                          className="absolute left-0 right-0 border-b border-surface-container"
-                        />
-                      ))}
                       {(timedByDay[i] ?? []).map((b) => {
                         const et = b.event_type_id ? eventTypesMap.get(b.event_type_id) : undefined;
                         const isPersonal = !!b.is_personal;
                         const isExternal =
-                          !isPersonal && !b.event_type_id && !!b.client_id && b.client_id === b.coach_id;
+                          !isPersonal &&
+                          !b.event_type_id &&
+                          !!b.client_id &&
+                          b.client_id === b.coach_id;
                         const client =
                           !isPersonal && b.client_id && !isExternal
                             ? clientsMap.get(b.client_id)
@@ -452,7 +446,9 @@ function CalendarPage() {
                                 toast.error("Errore", { description: error.message });
                               } else {
                                 toast.success("Evento annullato");
-                                qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(user?.id) });
+                                qc.invalidateQueries({
+                                  queryKey: queryKeys.bookings.coach(user?.id),
+                                });
                               }
                             }}
                           />
@@ -493,4 +489,3 @@ function CalendarPage() {
     </div>
   );
 }
-

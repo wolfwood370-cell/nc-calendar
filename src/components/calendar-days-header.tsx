@@ -24,7 +24,7 @@ export function CalendarDaysHeader({ weekDays, today }: CalendarDaysHeaderProps)
           return (
             <div
               key={i}
-              className={`p-3 text-center border-r border-surface-container last:border-r-0 ${isToday ? "bg-primary-fixed/30" : ""}`}
+              className={`p-3 text-center border-r border-surface-container last:border-r-0 ${isToday ? "bg-primary-fixed-dim/30" : ""}`}
             >
               <div
                 className={`text-[11px] uppercase tracking-wider ${isToday ? "text-aura-primary font-bold" : "text-outline"}`}

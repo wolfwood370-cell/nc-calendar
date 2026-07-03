@@ -19,9 +19,11 @@ export interface AutoRenewToggleCardProps {
 export function AutoRenewToggleCard({ value, saving, onChange }: AutoRenewToggleCardProps) {
   if (value === null) return null;
   return (
-    <Card>
+    <Card className="rounded-[28px] border-0 shadow-soft-blue">
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">Rinnovo automatico blocchi mensili</CardTitle>
+        <CardTitle className="text-xl font-semibold text-on-surface">
+          Rinnovo automatico blocchi mensili
+        </CardTitle>
       </CardHeader>
       <CardContent className="flex items-center justify-between gap-4">
         <div className="text-sm text-muted-foreground">

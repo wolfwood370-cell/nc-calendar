@@ -51,14 +51,42 @@ export function ClientLiveBookingCard({
   else if (sameDay(date, tomorrow)) dayLabel = "Domani";
   else dayLabel = date.toLocaleDateString("it-IT", { day: "numeric", month: "long" });
 
-  // Live-state computation. The card auto-flips at the 60-minute mark
-  // even while the dashboard is open — a 30s tick re-renders it.
+  // Live-state computation + countdown "tra Xh XXm XXs" (design handoff).
+  // Ticker 1s attivo solo con tab visibile: si ferma su visibilitychange
+  // e riparte (riallineando subito `now`) quando la tab torna in primo piano.
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), 30_000);
-    return () => window.clearInterval(id);
+    let id: number | undefined;
+    const start = () => {
+      if (id === undefined) id = window.setInterval(() => setNow(Date.now()), 1_000);
+    };
+    const stop = () => {
+      if (id !== undefined) {
+        window.clearInterval(id);
+        id = undefined;
+      }
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        setNow(Date.now());
+        start();
+      } else {
+        stop();
+      }
+    };
+    onVisibility();
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, []);
   const minutesUntil = Math.round((date.getTime() - now) / 60_000);
+  // Countdown chip: visibile finché la sessione non è iniziata.
+  const msUntil = Math.max(0, date.getTime() - now);
+  const cdHours = Math.floor(msUntil / 3_600_000);
+  const cdMinutes = Math.floor((msUntil % 3_600_000) / 60_000);
+  const cdSeconds = Math.floor((msUntil % 60_000) / 1_000);
   const isLive = sameDay(date, today) && minutesUntil <= 60 && minutesUntil >= -durationMin;
   const meetingLink = booking.meeting_link?.trim() || null;
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
@@ -82,7 +110,7 @@ export function ClientLiveBookingCard({
       onClick={() =>
         confirmAttendance.mutate({ bookingId: booking.id, clientId: booking.client_id })
       }
-      className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-primary-container text-white text-xs font-semibold active:scale-95 transition-transform disabled:opacity-60"
+      className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-on-status-success text-white text-xs font-bold active:scale-95 transition-transform disabled:opacity-60"
     >
       Conferma presenza
     </button>
@@ -143,6 +171,21 @@ export function ClientLiveBookingCard({
                     {startStr} - {endStr}
                   </span>
                 </div>
+                {/* Countdown live (design handoff): pill sotto la fascia oraria,
+                    tick 1s. Variante white/20 nello stato live per contrasto. */}
+                {msUntil > 0 && (
+                  <span
+                    className={
+                      isLive
+                        ? "inline-flex items-center gap-1.5 mt-1.5 px-3 py-1 rounded-full bg-white/20 text-white text-[13px] font-bold tabular-nums w-max"
+                        : "inline-flex items-center gap-1.5 mt-1.5 px-3 py-1 rounded-full bg-[rgba(3,155,229,0.1)] text-[#039BE5] text-[13px] font-bold tabular-nums w-max"
+                    }
+                  >
+                    <Clock className="size-3.5" aria-hidden />
+                    tra {cdHours}h {String(cdMinutes).padStart(2, "0")}m{" "}
+                    {String(cdSeconds).padStart(2, "0")}s
+                  </span>
+                )}
               </div>
             </div>
             <span
@@ -198,6 +241,15 @@ export function ClientLiveBookingCard({
         {!isLive && (
           <div className="mt-4 flex flex-wrap gap-2 items-center">
             {confirmChip}
+            {/* Pill "Dettagli" (design handoff): stesso target del click
+                sull'intera card, reso esplicito come nel prototipo. */}
+            <Link
+              to="/client/bookings/$bookingId"
+              params={{ bookingId: booking.id }}
+              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-primary-container text-white text-xs font-semibold active:scale-95 transition-transform"
+            >
+              Dettagli
+            </Link>
             <button
               type="button"
               onClick={() => setRescheduleOpen(true)}

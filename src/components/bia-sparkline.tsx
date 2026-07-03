@@ -32,19 +32,31 @@ const H = 120;
 const PX = 8;
 const PY = 14;
 
+/** Override opzionale per metrica: il mock coach usa etichette/colori
+ *  leggermente diversi dal mock cliente (es. "Massa magra" #039BE5). */
+export type BiaMetricsOverride = Partial<
+  Record<BiaMetricKey, { label: string; unit: string; color: string }>
+>;
+
+function metricDef(k: BiaMetricKey, override?: BiaMetricsOverride) {
+  return override?.[k] ?? BIA_METRICS[k];
+}
+
 /** Toggle pill Peso/Massa/Grasso, condiviso tra le due card. */
 export function BiaMetricToggle({
   metric,
   onChange,
+  metricsOverride,
 }: {
   metric: BiaMetricKey;
   onChange: (m: BiaMetricKey) => void;
+  metricsOverride?: BiaMetricsOverride;
 }) {
   return (
     <div className="flex gap-1">
       {(Object.keys(BIA_METRICS) as BiaMetricKey[]).map((k) => {
         const on = k === metric;
-        const M = BIA_METRICS[k];
+        const M = metricDef(k, metricsOverride);
         return (
           <button
             key={k}
@@ -74,13 +86,18 @@ export function BiaSparkline({
   measurements,
   metric,
   onPointClick,
+  metricsOverride,
+  deltaLabel = "from-first",
 }: {
   measurements: BiaMeasurement[];
   metric: BiaMetricKey;
   /** Opzionale (pannello coach): clic su punto/etichetta per modificare. */
   onPointClick?: (m: BiaMeasurement) => void;
+  metricsOverride?: BiaMetricsOverride;
+  /** "from-first" → "da {mese}" (mock cliente); "total" → "totale" (mock coach). */
+  deltaLabel?: "from-first" | "total";
 }) {
-  const M = BIA_METRICS[metric];
+  const M = metricDef(metric, metricsOverride);
   const values = measurements.map((p) => biaValue(p, metric));
   if (values.length === 0) {
     return <p className="text-sm text-outline m-0">Nessuna misurazione ancora.</p>;
@@ -110,7 +127,10 @@ export function BiaSparkline({
           }`}
         >
           {delta > 0 ? "+" : ""}
-          {delta} {M.unit} da {biaMonthLabel(measurements[0]?.measured_on ?? "")}
+          {delta} {M.unit}{" "}
+          {deltaLabel === "total"
+            ? "totale"
+            : `da ${biaMonthLabel(measurements[0]?.measured_on ?? "")}`}
         </span>
       </div>
       <svg
@@ -136,7 +156,7 @@ export function BiaSparkline({
               key={m?.id ?? i}
               cx={x(i).toFixed(1)}
               cy={y(v).toFixed(1)}
-              r={onPointClick ? 5 : 3.5}
+              r="3.5"
               fill="#fff"
               stroke={M.color}
               strokeWidth="2"

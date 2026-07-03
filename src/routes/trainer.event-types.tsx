@@ -15,15 +15,7 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Plus,
-  Loader2,
-  MapPin,
-  Video,
-  Dumbbell,
-  Check,
-  AlertCircle,
-} from "lucide-react";
+import { Plus, Loader2, MapPin, Video, Dumbbell, Check, AlertCircle } from "lucide-react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -105,9 +97,7 @@ function EventTypesPage() {
             location_address:
               input.location_type === "physical" ? input.location_address || null : null,
             client_bookable: input.client_bookable,
-            unavailable_message: input.client_bookable
-              ? null
-              : input.unavailable_message || null,
+            unavailable_message: input.client_bookable ? null : input.unavailable_message || null,
           })
           .eq("id", input.id);
         if (error) throw error;
@@ -123,9 +113,7 @@ function EventTypesPage() {
           location_address:
             input.location_type === "physical" ? input.location_address || null : null,
           client_bookable: input.client_bookable,
-          unavailable_message: input.client_bookable
-            ? null
-            : input.unavailable_message || null,
+          unavailable_message: input.client_bookable ? null : input.unavailable_message || null,
         });
         if (error) throw error;
       }
@@ -154,14 +142,15 @@ function EventTypesPage() {
   const types = listQ.data ?? [];
 
   return (
-    <div className="min-h-screen bg-surface -m-4 md:-m-6 p-6 md:p-10 space-y-8">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+    <div className="min-h-screen bg-surface -m-4 md:-m-6 p-6 md:p-10">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-3 mb-3">
         <div>
-          <h1 className="font-display text-4xl font-bold tracking-tight text-primary">
-            I tuoi Servizi
+          <h1 className="font-display text-4xl font-bold tracking-[-0.02em] text-aura-primary">
+            Tipologie evento
           </h1>
-          <p className="text-base text-muted-foreground mt-2">
-            Gestisci le tipologie di sessione e la loro durata.
+          <p className="text-sm text-on-surface-variant mt-1">
+            La fonte di verità dei tuoi servizi: durata, buffer, prezzo e colore usati da calendario
+            e prenotazioni.
           </p>
         </div>
         <Dialog
@@ -174,9 +163,9 @@ function EventTypesPage() {
           <DialogTrigger asChild>
             <Button
               onClick={() => setEditing(null)}
-              className="rounded-full px-6 py-3 shadow-sm self-start md:self-auto"
+              className="rounded-full px-6 py-3 bg-aura-primary hover:bg-aura-primary/90 text-white text-sm font-semibold shadow-[0_4px_20px_rgba(0,86,133,0.05)] self-start md:self-auto"
             >
-              <Plus className="size-4" /> Nuova Tipologia
+              <Plus className="size-4" /> Nuova tipologia
             </Button>
           </DialogTrigger>
           <EventTypeDialog
@@ -189,13 +178,13 @@ function EventTypesPage() {
       </div>
 
       {listQ.isLoading ? (
-        <div className="grid gap-3 grid-cols-1 lg:grid-cols-2">
+        <div className="mt-6 grid gap-5 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-20 w-full rounded-2xl" />
+            <Skeleton key={i} className="h-64 w-full rounded-[28px]" />
           ))}
         </div>
       ) : listQ.isError ? (
-        <div className="rounded-[32px] bg-white p-12 text-center shadow-sm space-y-4">
+        <div className="mt-6 rounded-[32px] bg-white p-12 text-center shadow-sm space-y-4">
           <AlertCircle className="size-10 mx-auto text-destructive" />
           <p className="text-sm text-foreground font-semibold">
             Errore nel caricamento delle tipologie.
@@ -205,7 +194,7 @@ function EventTypesPage() {
           </Button>
         </div>
       ) : types.length === 0 ? (
-        <div className="rounded-[32px] bg-white p-16 text-center shadow-[0px_4px_20px_rgba(0,86,133,0.05)] space-y-5">
+        <div className="mt-6 rounded-[32px] bg-white p-16 text-center shadow-[0px_4px_20px_rgba(0,86,133,0.05)] space-y-5">
           <div className="size-16 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto">
             <Dumbbell className="size-8" />
           </div>
@@ -223,11 +212,11 @@ function EventTypesPage() {
             }}
             className="rounded-full px-6"
           >
-            <Plus className="size-4" /> Nuova Tipologia
+            <Plus className="size-4" /> Nuova tipologia
           </Button>
         </div>
       ) : (
-        <div className="grid gap-3 grid-cols-1 lg:grid-cols-2">
+        <div className="mt-6 grid gap-5 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
           {types.map((t) => (
             <EventTypeServiceCard
               key={t.id}
@@ -244,7 +233,6 @@ function EventTypesPage() {
     </div>
   );
 }
-
 
 function EventTypeDialog({
   initial,

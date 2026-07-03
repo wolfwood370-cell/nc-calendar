@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +31,7 @@ import {
   UserPlus,
   Copy,
   Check,
+  Calendar,
   // MessageCircle removed: phone shortcut moved to detail page
   Sparkles,
   LayoutGrid,
@@ -152,18 +153,30 @@ interface ClientCardData {
 }
 
 // Design handoff: semaforo presenza (≥80% verde, ≥60% arancio, <60% rosso).
-function AttendanceBadge({ pct }: { pct: number | null }) {
-  if (pct === null) return <span className="text-xs text-outline">—</span>;
-  const cls =
-    pct >= 80
-      ? "text-success-strong bg-success-strong/10"
-      : pct >= 60
-        ? "text-warning-strong bg-warning-strong/10"
-        : "text-error-strong bg-error-strong/10";
+// Mock: testo colorato senza pill — variante "card" con check 12px, "table" 13px.
+function AttendanceBadge({
+  pct,
+  variant = "card",
+}: {
+  pct: number | null;
+  variant?: "card" | "table";
+}) {
+  if (pct === null)
+    return (
+      <span className={variant === "table" ? "text-[13px] text-outline" : "text-xs text-outline"}>
+        —
+      </span>
+    );
+  const color =
+    pct >= 80 ? "text-success-strong" : pct >= 60 ? "text-warning-strong" : "text-error-strong";
+  if (variant === "table")
+    return <span className={`text-[13px] font-semibold tabular-nums ${color}`}>{pct}%</span>;
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold tabular-nums ${cls}`}
+      title="Presenza"
+      className={`shrink-0 inline-flex items-center gap-1 text-xs font-semibold tabular-nums ${color}`}
     >
+      <Check className="size-3 shrink-0" strokeWidth={2.5} aria-hidden />
       {pct}%
     </span>
   );
@@ -1014,7 +1027,7 @@ function ClientsPage() {
           <div className="flex items-center gap-2">
             <Dialog open={createOpen} onOpenChange={setCreateOpen}>
               <DialogTrigger asChild>
-                <Button className="rounded-full px-6 py-3 h-auto bg-aura-primary hover:bg-primary-container text-white shadow-soft-blue">
+                <Button className="rounded-full px-6 py-3 h-auto bg-aura-primary hover:bg-primary-container text-white font-semibold shadow-soft-blue">
                   <UserPlus className="size-4" /> Aggiungi Cliente
                 </Button>
               </DialogTrigger>
@@ -1027,7 +1040,10 @@ function ClientsPage() {
             </Dialog>
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
-                <Button variant="secondary" className="rounded-full px-5 py-3 h-auto">
+                <Button
+                  variant="secondary"
+                  className="rounded-full px-5 py-3 h-auto bg-surface-container text-on-surface font-semibold shadow-none hover:bg-surface-container-high"
+                >
                   <Plus className="size-4" /> Invita
                 </Button>
               </DialogTrigger>
@@ -1038,31 +1054,33 @@ function ClientsPage() {
 
         <CredentialsDialog creds={credentials} onClose={() => setCredentials(null)} />
 
-        {/* Design handoff: barra riepilogo roster */}
-        <div className="grid grid-cols-3 gap-4 mb-6 max-w-xl">
+        {/* Design handoff: barra riepilogo roster — unica barra bianca con
+            chip numerici colorati per stato e divider verticali. */}
+        <div className="mb-5 bg-white rounded-[20px] px-6 py-4 shadow-soft-blue flex items-center gap-6 flex-wrap">
           {(
             [
-              { label: "Totali", value: counts.all },
-              { label: "Attivi", value: counts.active },
-              { label: "In Scadenza", value: counts.expiring },
+              { label: "clienti", value: counts.all - counts.archived, color: "text-on-surface" },
+              { label: "attivi", value: counts.active, color: "text-success-strong" },
+              { label: "in scadenza", value: counts.expiring, color: "text-warning-strong" },
             ] as const
-          ).map((s) => (
-            <div
-              key={s.label}
-              className="bg-white rounded-3xl shadow-soft-blue px-5 py-4 flex flex-col gap-0.5"
-            >
-              <span className="font-display text-3xl font-bold tabular-nums text-on-surface">
-                {s.value}
-              </span>
-              <span className="text-xs font-semibold text-on-surface-variant uppercase tracking-wide">
-                {s.label}
-              </span>
-            </div>
+          ).map((s, i) => (
+            <Fragment key={s.label}>
+              {i > 0 && <div className="w-px h-7 bg-surface-container-high" aria-hidden />}
+              <div className="flex items-baseline gap-2">
+                <span
+                  className={`font-display text-[26px] font-bold tabular-nums tracking-[-0.02em] ${s.color}`}
+                >
+                  {s.value}
+                </span>
+                <span className="text-[13px] text-outline">{s.label}</span>
+              </div>
+            </Fragment>
           ))}
         </div>
 
-        {/* Toolbar: ricerca + toggle vista + ordinamento (design handoff) */}
-        <div className="mb-6 flex flex-wrap items-center gap-3">
+        {/* Toolbar: ricerca a sinistra, toggle vista + ordinamento a destra
+            (design handoff: justify-between + label "Ordina"). */}
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div className="relative w-full md:w-96">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-outline" />
             <Input
@@ -1072,45 +1090,50 @@ function ClientsPage() {
               className="pl-12 pr-4 py-3 h-auto bg-surface-container-low border-none rounded-full focus-visible:ring-2 focus-visible:ring-aura-primary focus-visible:bg-white"
             />
           </div>
-          <div className="flex items-center gap-1 bg-surface-container-low rounded-full p-1">
-            <button
-              type="button"
-              aria-label="Vista griglia"
-              aria-pressed={viewMode === "grid"}
-              onClick={() => setViewMode("grid")}
-              className={`w-9 h-9 rounded-full grid place-items-center transition-colors ${
-                viewMode === "grid"
-                  ? "bg-white text-aura-primary shadow-sm"
-                  : "text-on-surface-variant"
-              }`}
-            >
-              <LayoutGrid className="size-4" aria-hidden />
-            </button>
-            <button
-              type="button"
-              aria-label="Vista tabella"
-              aria-pressed={viewMode === "table"}
-              onClick={() => setViewMode("table")}
-              className={`w-9 h-9 rounded-full grid place-items-center transition-colors ${
-                viewMode === "table"
-                  ? "bg-white text-aura-primary shadow-sm"
-                  : "text-on-surface-variant"
-              }`}
-            >
-              <List className="size-4" aria-hidden />
-            </button>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center bg-surface-container rounded-full p-[3px]">
+              <button
+                type="button"
+                aria-label="Vista griglia"
+                aria-pressed={viewMode === "grid"}
+                onClick={() => setViewMode("grid")}
+                className={`w-[38px] h-8 rounded-full grid place-items-center transition-colors ${
+                  viewMode === "grid"
+                    ? "bg-white text-aura-primary shadow-[0_1px_2px_rgba(0,0,0,0.08)]"
+                    : "text-outline"
+                }`}
+              >
+                <LayoutGrid className="size-4" aria-hidden />
+              </button>
+              <button
+                type="button"
+                aria-label="Vista tabella"
+                aria-pressed={viewMode === "table"}
+                onClick={() => setViewMode("table")}
+                className={`w-[38px] h-8 rounded-full grid place-items-center transition-colors ${
+                  viewMode === "table"
+                    ? "bg-white text-aura-primary shadow-[0_1px_2px_rgba(0,0,0,0.08)]"
+                    : "text-outline"
+                }`}
+              >
+                <List className="size-4" aria-hidden />
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[13px] text-outline">Ordina</span>
+              <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+                <SelectTrigger className="w-auto h-auto rounded-full bg-white border border-surface-variant px-3.5 py-2 text-[13px] text-on-surface">
+                  <SelectValue placeholder="Ordina per" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name">Nome (A–Z)</SelectItem>
+                  <SelectItem value="expiry">Scadenza pacchetto</SelectItem>
+                  <SelectItem value="activity">Attività recente</SelectItem>
+                  <SelectItem value="attendance">Presenza</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
-            <SelectTrigger className="w-44 rounded-full bg-surface-container-low border-none h-11">
-              <SelectValue placeholder="Ordina per" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="name">Nome</SelectItem>
-              <SelectItem value="expiry">Scadenza</SelectItem>
-              <SelectItem value="activity">Attività recente</SelectItem>
-              <SelectItem value="attendance">Presenza</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
 
         {/* Tabs */}
@@ -1199,11 +1222,12 @@ function ClientsPage() {
                     ? "In Scadenza"
                     : "Attivo";
 
-              // Design handoff: accento colore per stato sul bordo sinistro.
+              // Design handoff: accento colore per stato sul bordo sinistro
+              // (5px; completato grigio-blu caldo #94a3b8 come da mock).
               const accentClass = isArchived
                 ? "border-l-outline-variant"
                 : isCompleted
-                  ? "border-l-outline-variant"
+                  ? "border-l-[#94a3b8]"
                   : isExpiring
                     ? "border-l-warning-strong"
                     : "border-l-success-strong";
@@ -1211,7 +1235,7 @@ function ClientsPage() {
               return (
                 <div
                   key={c.id}
-                  className={`relative group bg-white rounded-[28px] p-5 border-l-4 ${accentClass} shadow-[0px_4px_20px_rgba(0,86,133,0.05)] hover:shadow-[0px_8px_30px_rgba(0,86,133,0.08)] transition-all`}
+                  className={`relative group bg-white rounded-[28px] p-5 border-l-[5px] ${accentClass} shadow-[0px_4px_20px_rgba(0,86,133,0.05)] hover:shadow-[0px_8px_30px_rgba(0,86,133,0.08)] transition-all`}
                 >
                   <Link
                     to="/trainer/clients/$id"
@@ -1239,18 +1263,18 @@ function ClientsPage() {
                     </div>
                   </Link>
 
-                  {/* Design handoff: pacchetto con barra, prossima sessione,
-                      semaforo presenza. */}
-                  <div className="mt-4 pt-4 border-t border-surface-variant/60 space-y-2.5">
+                  {/* Design handoff: pacchetto con barra + riga unica
+                      prossima sessione / semaforo presenza (senza label). */}
+                  <div className="mt-4 pt-3.5 border-t border-[#f1f5f9] flex flex-col gap-2.5">
                     {d.totalQty > 0 && (
                       <div>
-                        <div className="flex justify-between text-[11px] text-outline mb-1">
-                          <span>Pacchetto</span>
-                          <span className="tabular-nums font-semibold text-on-surface-variant">
+                        <div className="flex justify-between text-xs mb-[5px]">
+                          <span className="font-semibold text-outline">Pacchetto PT</span>
+                          <span className="tabular-nums font-semibold text-aura-primary">
                             {d.totalUsed}/{d.totalQty}
                           </span>
                         </div>
-                        <div className="h-1.5 rounded-full bg-surface-container-high overflow-hidden">
+                        <div className="h-1.5 rounded-full bg-surface-container overflow-hidden">
                           <div
                             className="h-full bg-aura-primary rounded-full transition-[width] duration-500"
                             style={{
@@ -1260,19 +1284,20 @@ function ClientsPage() {
                         </div>
                       </div>
                     )}
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-outline">Prossima</span>
-                      <span className="font-semibold text-on-surface tabular-nums">
-                        {fmtNextSession(d.nextSessionMs)}
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <span
+                        className={`flex items-center gap-[5px] min-w-0 truncate tabular-nums ${
+                          d.nextSessionMs ? "text-on-surface" : "text-outline"
+                        }`}
+                      >
+                        <Calendar className="size-[13px] shrink-0" aria-hidden />
+                        {d.nextSessionMs ? fmtNextSession(d.nextSessionMs) : "Nessuna in agenda"}
                       </span>
-                    </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-outline">Presenza</span>
                       <AttendanceBadge pct={d.attendancePct} />
                     </div>
                   </div>
 
-                  <div className="absolute top-3 right-3">
+                  <div className="absolute top-0 right-0">
                     <ClientCardMenu
                       client={c}
                       isArchived={isArchived}
@@ -1286,17 +1311,21 @@ function ClientsPage() {
             })}
           </div>
         ) : (
-          /* Design handoff: vista tabella — stesse colonne delle card,
-             righe attivabili anche da tastiera (Enter/Spazio). */
-          <div className="bg-white rounded-[28px] shadow-[0px_4px_20px_rgba(0,86,133,0.05)] overflow-x-auto">
+          /* Design handoff: vista tabella — colonne del mock (Cliente /
+             Piano / Stato / Pacchetto PT / Prossima / Pres.), righe
+             attivabili anche da tastiera (Enter/Spazio). */
+          <div className="bg-white rounded-[20px] shadow-[0px_4px_20px_rgba(0,86,133,0.05)] overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Pacchetto</TableHead>
-                  <TableHead>Prossima sessione</TableHead>
-                  <TableHead>Presenza</TableHead>
-                  <TableHead>Stato</TableHead>
+                <TableRow className="bg-surface hover:bg-surface border-none">
+                  {["Cliente", "Piano", "Stato", "Pacchetto PT", "Prossima", "Pres."].map((h) => (
+                    <TableHead
+                      key={h}
+                      className="px-4 py-3 h-auto text-[11px] font-bold uppercase tracking-[0.04em] text-outline"
+                    >
+                      {h}
+                    </TableHead>
+                  ))}
                   <TableHead className="w-12" />
                 </TableRow>
               </TableHeader>
@@ -1312,6 +1341,19 @@ function ClientsPage() {
                         : d.status === "expiring"
                           ? "In Scadenza"
                           : "Attivo";
+                  const statusPillClass =
+                    d.status === "expiring"
+                      ? "bg-orange-50 text-orange-600"
+                      : d.status === "active"
+                        ? "bg-emerald-50 text-emerald-600"
+                        : "bg-surface-container text-on-surface-variant";
+                  const pathLabel = c.pack_label
+                    ? c.pack_label
+                    : c.path_type === "recurring"
+                      ? "Abbonamento Mensile"
+                      : c.path_type === "free"
+                        ? "Cliente Libero"
+                        : "Percorso Fisso";
                   const goToClient = () =>
                     navigate({ to: "/trainer/clients/$id", params: { id: c.id } });
                   return (
@@ -1326,11 +1368,11 @@ function ClientsPage() {
                           goToClient();
                         }
                       }}
-                      className="cursor-pointer"
+                      className="cursor-pointer border-[#f1f5f9]"
                     >
-                      <TableCell>
+                      <TableCell className="px-4 py-3.5">
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-9 h-9 shrink-0 rounded-full bg-avatar-placeholder text-on-avatar-placeholder flex items-center justify-center text-xs font-bold">
+                          <div className="w-9 h-9 shrink-0 rounded-full bg-avatar-placeholder text-on-avatar-placeholder flex items-center justify-center text-[13px] font-bold">
                             {initials(c.full_name, c.email)}
                           </div>
                           <div className="min-w-0">
@@ -1341,13 +1383,20 @@ function ClientsPage() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="px-4 py-3.5 text-[13px] text-on-surface-variant">
+                        {pathLabel}
+                      </TableCell>
+                      <TableCell className="px-4 py-3.5">
+                        <span
+                          className={`inline-flex items-center px-2.5 py-[3px] rounded-full text-[11px] font-semibold ${statusPillClass}`}
+                        >
+                          {statusLabel}
+                        </span>
+                      </TableCell>
+                      <TableCell className="px-4 py-3.5">
                         {d.totalQty > 0 ? (
-                          <div className="min-w-28">
-                            <span className="text-xs font-semibold tabular-nums text-on-surface-variant">
-                              {d.totalUsed}/{d.totalQty}
-                            </span>
-                            <div className="mt-1 h-1.5 w-24 rounded-full bg-surface-container-high overflow-hidden">
+                          <div className="flex items-center gap-2 min-w-[120px]">
+                            <div className="flex-1 h-1.5 rounded-full bg-surface-container overflow-hidden">
                               <div
                                 className="h-full bg-aura-primary rounded-full"
                                 style={{
@@ -1355,21 +1404,26 @@ function ClientsPage() {
                                 }}
                               />
                             </div>
+                            <span className="text-xs font-semibold tabular-nums text-aura-primary">
+                              {d.totalUsed}/{d.totalQty}
+                            </span>
                           </div>
                         ) : (
                           <span className="text-xs text-outline">—</span>
                         )}
                       </TableCell>
-                      <TableCell className="text-sm tabular-nums">
+                      <TableCell
+                        className={`px-4 py-3.5 text-[13px] tabular-nums ${
+                          d.nextSessionMs ? "text-on-surface" : "text-outline"
+                        }`}
+                      >
                         {fmtNextSession(d.nextSessionMs)}
                       </TableCell>
-                      <TableCell>
-                        <AttendanceBadge pct={d.attendancePct} />
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-xs font-semibold">{statusLabel}</span>
+                      <TableCell className="px-4 py-3.5">
+                        <AttendanceBadge pct={d.attendancePct} variant="table" />
                       </TableCell>
                       <TableCell
+                        className="px-4 py-3.5"
                         onClick={(e) => e.stopPropagation()}
                         onKeyDown={(e) => e.stopPropagation()}
                       >

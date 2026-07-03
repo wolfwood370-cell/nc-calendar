@@ -13,7 +13,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import { Plus, Trash2, Copy, Loader2, Info, Save } from "lucide-react";
+import { Plus, Trash2, Copy, Loader2, Info, Save, ChartLine } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
@@ -308,7 +308,7 @@ function AvailabilityPage() {
 
   return (
     <div className="min-h-screen bg-surface -m-4 sm:-m-6 p-4 sm:p-6 lg:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="max-w-6xl mx-auto space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
           <div>
             <h1 className="font-display text-3xl font-semibold tracking-tight">Disponibilità</h1>
@@ -319,7 +319,7 @@ function AvailabilityPage() {
           <Button
             onClick={() => saveMut.mutate()}
             disabled={saveMut.isPending || loading}
-            className="rounded-full px-6 h-11"
+            className="rounded-full px-6 h-11 bg-reschedule text-white text-sm font-semibold hover:bg-reschedule/90"
           >
             {saveMut.isPending ? (
               <Loader2 className="size-4 animate-spin mr-2" />
@@ -370,6 +370,7 @@ function AvailabilityPage() {
                             checked={ds.active}
                             onCheckedChange={(v) => toggleDay(d.dow, v)}
                             aria-label={`Attiva ${d.label}`}
+                            className="data-[state=checked]:bg-reschedule data-[state=unchecked]:bg-outline-variant"
                           />
                           <span
                             className={`font-medium ${ds.active ? "text-on-surface" : "text-outline-variant"}`}
@@ -394,7 +395,7 @@ function AvailabilityPage() {
                                     <SelectTrigger
                                       aria-label={`${d.label}: orario di inizio`}
                                       aria-required="true"
-                                      className="h-10 w-28 rounded-full bg-surface border-surface-variant"
+                                      className="h-10 w-28 rounded-full bg-surface border-surface-variant px-3.5 gap-2 text-sm text-on-surface [&_svg]:size-3.5 [&_svg]:opacity-100 [&_svg]:text-outline"
                                     >
                                       <SelectValue placeholder="--:--" />
                                     </SelectTrigger>
@@ -414,7 +415,7 @@ function AvailabilityPage() {
                                     <SelectTrigger
                                       aria-label={`${d.label}: orario di fine`}
                                       aria-required="true"
-                                      className="h-10 w-28 rounded-full bg-surface border-surface-variant"
+                                      className="h-10 w-28 rounded-full bg-surface border-surface-variant px-3.5 gap-2 text-sm text-on-surface [&_svg]:size-3.5 [&_svg]:opacity-100 [&_svg]:text-outline"
                                     >
                                       <SelectValue placeholder="--:--" />
                                     </SelectTrigger>
@@ -429,7 +430,7 @@ function AvailabilityPage() {
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-9 w-9 rounded-full text-outline-variant hover:text-error"
+                                    className="h-9 w-9 rounded-full text-outline hover:text-error"
                                     onClick={() => removeBlock(d.dow, idx)}
                                     aria-label="Rimuovi fascia"
                                   >
@@ -479,8 +480,46 @@ function AvailabilityPage() {
             </div>
           </div>
 
-          {/* RIGHT: Booking rules + exceptions */}
+          {/* RIGHT: Anteprima + booking rules + exceptions */}
           <div className="space-y-6">
+            {/* Design handoff: anteprima live slot prenotabili (card scura) */}
+            <div className="rounded-[32px] bg-aura-primary text-white shadow-[0px_4px_20px_rgba(0,86,133,0.15)] p-6 sm:px-8 sm:py-7">
+              <div className="flex items-center gap-2.5 mb-1">
+                <ChartLine className="size-[18px] text-[#91cbff]" aria-hidden="true" />
+                <h2 className="font-display text-base font-semibold text-[#cfe6ff]">
+                  Anteprima settimana
+                </h2>
+              </div>
+              <div className="flex items-baseline gap-2 mt-2">
+                <span className="font-display text-5xl font-extrabold leading-none tabular-nums">
+                  {slotPreview.total}
+                </span>
+                <span className="text-sm text-[#91cbff]">slot prenotabili / settimana</span>
+              </div>
+              <p className="text-xs text-white/70 mt-2 mb-4">
+                Stimati da orario, durata sessione (60 min) e buffer attuale.
+              </p>
+              <div className="flex items-end gap-2 h-14">
+                {slotPreview.perDay.map((d) => (
+                  <div key={d.short} className="flex-1 flex flex-col justify-end h-full">
+                    <div
+                      className={`w-full rounded-t-[6px] transition-[height] duration-300 ${
+                        d.count > 0 ? "bg-[#91cbff]" : "bg-white/15"
+                      }`}
+                      style={{
+                        height: `${Math.max(6, (d.count / slotPreview.max) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-between mt-2 text-[10px] text-white/60">
+                {slotPreview.perDay.map((d) => (
+                  <span key={d.short}>{d.short}</span>
+                ))}
+              </div>
+            </div>
+
             <div className="bg-white rounded-[32px] shadow-[0px_4px_20px_rgba(0,86,133,0.05)] p-6 sm:p-8">
               <h2 className="font-display text-xl font-semibold mb-1">Regole di Prenotazione</h2>
               <p className="text-sm text-muted-foreground mb-3">
@@ -526,34 +565,6 @@ function AvailabilityPage() {
                     className="mt-2 h-11 rounded-full bg-surface border-surface-variant px-5"
                   />
                 </div>
-              </div>
-            </div>
-
-            {/* Design handoff: anteprima live slot prenotabili */}
-            <div className="bg-white rounded-[32px] shadow-[0px_4px_20px_rgba(0,86,133,0.05)] p-6 sm:p-8">
-              <h2 className="font-display text-xl font-semibold mb-1">Anteprima settimana</h2>
-              <p className="text-sm text-muted-foreground mb-4">
-                Stima degli slot prenotabili (sessioni da 60 min + buffer) con l'orario attuale.
-              </p>
-              <div className="flex items-baseline gap-2 mb-5">
-                <span className="font-display text-4xl font-bold tabular-nums">
-                  {slotPreview.total}
-                </span>
-                <span className="text-sm text-muted-foreground">slot a settimana</span>
-              </div>
-              <div className="grid grid-cols-7 gap-1.5">
-                {slotPreview.perDay.map((d) => (
-                  <div key={d.short} className="flex flex-col items-center gap-1">
-                    <div className="w-full rounded-lg bg-surface-container-low h-16 flex items-end overflow-hidden">
-                      <div
-                        className="w-full bg-aura-primary/80 rounded-lg transition-[height] duration-300"
-                        style={{ height: `${(d.count / slotPreview.max) * 100}%` }}
-                      />
-                    </div>
-                    <span className="text-[10px] text-muted-foreground">{d.short}</span>
-                    <span className="text-[11px] font-semibold tabular-nums">{d.count}</span>
-                  </div>
-                ))}
               </div>
             </div>
 

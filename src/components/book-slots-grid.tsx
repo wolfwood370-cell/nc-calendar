@@ -32,23 +32,24 @@ export function BookSlotsGrid({
         <h3 className="font-semibold text-lg text-on-surface">
           {selectedDate
             ? `Orari disponibili per il ${format(selectedDate, "d MMMM", { locale: it })}`
-            : "Seleziona una data"}
+            : "Seleziona un giorno"}
         </h3>
         {/* M8: surface the user's timezone so coaches/clients in
             different zones can resolve ambiguous times at a glance. */}
-        <span
-          className="text-xs text-on-surface-variant"
-          title="Fuso orario del tuo dispositivo"
-        >
+        <span className="text-xs text-on-surface-variant" title="Fuso orario del tuo dispositivo">
           {getUserTimezoneLabel().combined}
         </span>
       </div>
       {selectedDate && slotsForSelectedDay.length === 0 ? (
-        <p className="text-sm text-on-surface-variant">
-          Nessuno slot disponibile in questa data.
-        </p>
+        <p className="text-sm text-on-surface-variant">Nessuno slot disponibile in questa data.</p>
       ) : (
         <div role="radiogroup" aria-label="Orario disponibile" className="grid grid-cols-3 gap-4">
+          {/* Stato vuoto (nessun giorno selezionato): testo helper su tutta la riga come da mock */}
+          {!selectedDate && (
+            <p className="col-span-full m-0 text-sm text-on-surface-variant">
+              Nessun giorno selezionato.
+            </p>
+          )}
           {slotsForSelectedDay.map((s) => {
             const isSelected = s.iso === selectedISO;
             const recommended = !!s.recommended;
@@ -69,7 +70,8 @@ export function BookSlotsGrid({
                 {format(s.date, "HH:mm")}
               </button>
             );
-            if (recommended) {
+            // Badge visibile solo se lo slot consigliato NON è selezionato (mock: t===rec && !on)
+            if (recommended && !isSelected) {
               return (
                 <div key={s.iso} className="relative flex flex-col items-center">
                   <span className="absolute -top-3 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase z-10 shadow-sm border border-surface-container-lowest bg-aura-secondary text-on-aura-secondary">

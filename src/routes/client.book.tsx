@@ -163,7 +163,6 @@ function BookFlow() {
   const minNoticeHours = trainerSettingsQ.data?.min_notice_hours ?? 24;
   const horizonDays = trainerSettingsQ.data?.booking_horizon_days ?? 14;
 
-
   // Tipologie evento personalizzate del coach (fallback alle 3 default se vuoto).
   const customTypes: EventTypeRow[] = eventTypesQ.data ?? [];
 
@@ -253,7 +252,16 @@ function BookFlow() {
       { enabled: optimizationQ.data ?? true },
       minNoticeHours,
     );
-  }, [block, blockedRanges, availQ.data, exceptionsQ.data, optimizationQ.data, candidateMinutes, minNoticeHours, horizonDays]);
+  }, [
+    block,
+    blockedRanges,
+    availQ.data,
+    exceptionsQ.data,
+    optimizationQ.data,
+    candidateMinutes,
+    minNoticeHours,
+    horizonDays,
+  ]);
 
   const grouped = useMemo(() => {
     const m = new Map<string, Slot[]>();
@@ -346,8 +354,7 @@ function BookFlow() {
   // fallback a pools[0] deve scattare SOLO quando questi dati sono "settled",
   // altrimenti bloccherebbe la selezione sul primo pool prima che arrivi quello
   // della tipologia deep-linkata (bug "PT prenota consulenza").
-  const poolsSettled =
-    !blocksQ.isLoading && !extraCreditsQ.isLoading && !currentBlockQ.isLoading;
+  const poolsSettled = !blocksQ.isLoading && !extraCreditsQ.isLoading && !currentBlockQ.isLoading;
   useEffect(() => {
     if (selectedPoolKey) return;
     if (pools.length === 0) return;
@@ -433,7 +440,7 @@ function BookFlow() {
   const selectedSlot = selectedISO ? (slots.find((s) => s.iso === selectedISO) ?? null) : null;
   const selectedPool = pools.find((p) => p.key === selectedPoolKey) ?? null;
   const selectedEventType = selectedPool?.eventTypeId
-    ? customTypes.find((e) => e.id === selectedPool.eventTypeId) ?? null
+    ? (customTypes.find((e) => e.id === selectedPool.eventTypeId) ?? null)
     : null;
   const poolBlocked = selectedEventType ? selectedEventType.client_bookable === false : false;
   const poolBlockedMessage =
@@ -526,7 +533,8 @@ function BookFlow() {
   return (
     <div className="bg-surface min-h-screen pb-32">
       {/* Top App Bar */}
-      <header className="flex justify-between items-center w-full px-margin-mobile py-stack-md max-w-3xl mx-auto bg-transparent z-40 sticky top-0 backdrop-blur-md">
+      {/* Velo semitrasparente color surface + blur 6px come da mock */}
+      <header className="flex justify-between items-center w-full px-margin-mobile py-stack-md max-w-3xl mx-auto bg-surface/60 z-40 sticky top-0 backdrop-blur-[6px]">
         <button
           onClick={() => navigate({ to: "/client" })}
           aria-label="Indietro"
@@ -568,77 +576,77 @@ function BookFlow() {
 
         {/* Date Selector Card */}
         {!poolBlocked && (
-        <>
-        <BookCalendarGrid
-          calendarMonth={calendarMonth}
-          onMonthChange={setCalendarMonth}
-          selectedDate={selectedDate}
-          onSelectDate={(day) => {
-            setSelectedDate(day);
-            setSelectedISO(null);
-          }}
-          daysWithSlots={daysWithSlots}
-          todayStart={todayStart}
-          selectedPoolValidUntil={selectedPoolValidUntil}
-          selectedPoolSource={selectedPool?.source ?? null}
-          nextBlockStartDate={nextBlockStartDate}
-        />
+          <>
+            <BookCalendarGrid
+              calendarMonth={calendarMonth}
+              onMonthChange={setCalendarMonth}
+              selectedDate={selectedDate}
+              onSelectDate={(day) => {
+                setSelectedDate(day);
+                setSelectedISO(null);
+              }}
+              daysWithSlots={daysWithSlots}
+              todayStart={todayStart}
+              selectedPoolValidUntil={selectedPoolValidUntil}
+              selectedPoolSource={selectedPool?.source ?? null}
+              nextBlockStartDate={nextBlockStartDate}
+            />
 
-        {/* No-slots fallback DIAGNOSTICO: stile aura, info-card pulita.
+            {/* No-slots fallback DIAGNOSTICO: stile aura, info-card pulita.
             Identifica la causa specifica per cui slots è vuoto. */}
-        {selectedPoolKey && slots.length === 0 && (
-          <div className="bg-surface-container-lowest border border-outline-variant/40 rounded-[24px] px-5 py-4 shadow-[0_8px_30px_rgba(0,0,0,0.04)]">
-            <div className="flex items-start gap-3">
-              <div className="size-9 rounded-full bg-aura-primary/10 flex items-center justify-center shrink-0">
-                <Info className="size-4 text-aura-primary" aria-hidden />
+            {selectedPoolKey && slots.length === 0 && (
+              <div className="bg-surface-container-lowest border border-outline-variant/40 rounded-[24px] px-5 py-4 shadow-[0_8px_30px_rgba(0,0,0,0.04)]">
+                <div className="flex items-start gap-3">
+                  <div className="size-9 rounded-full bg-aura-primary/10 flex items-center justify-center shrink-0">
+                    <Info className="size-4 text-aura-primary" aria-hidden />
+                  </div>
+                  <div className="flex-1 min-w-0 flex flex-col gap-1">
+                    <p className="text-sm font-semibold text-on-surface">
+                      Nessuno slot disponibile per questa tipologia
+                    </p>
+                    <p className="text-xs text-on-surface-variant leading-relaxed">
+                      {!coachId
+                        ? "Non hai ancora un coach assegnato. Contatta il supporto."
+                        : (eventTypesQ.data ?? []).length === 0
+                          ? `${coachName} non ha configurato le tipologie di sessione.`
+                          : (availQ.data ?? []).length === 0
+                            ? `${coachName} non ha configurato gli orari di disponibilità settimanali.`
+                            : block && new Date(block.end_date).getTime() < Date.now()
+                              ? "Il blocco corrente è terminato. Contatta il coach per rinnovare."
+                              : `Tutti gli slot del blocco sono già occupati o esclusi. Contatta ${coachName}.`}
+                    </p>
+                  </div>
+                </div>
+                <details className="mt-3 pl-12 text-[11px] text-on-surface-variant">
+                  <summary className="cursor-pointer font-semibold select-none hover:text-on-surface transition-colors">
+                    Dettagli tecnici
+                  </summary>
+                  <ul className="mt-2 space-y-1 list-disc list-inside tabular-nums">
+                    <li>Fasce disponibilità coach: {(availQ.data ?? []).length}</li>
+                    <li>Eccezioni disponibilità: {(exceptionsQ.data ?? []).length}</li>
+                    <li>Tipologie evento: {(eventTypesQ.data ?? []).length}</li>
+                    <li>Eventi che bloccano slot (coach busy): {(coachBusyQ.data ?? []).length}</li>
+                    <li>Durata minima testata: {candidateMinutes} min</li>
+                    {block && (
+                      <>
+                        <li>Blocco selezionato: #{block.sequence_order}</li>
+                        <li>Inizio blocco: {block.start_date}</li>
+                        <li>Fine blocco: {block.end_date}</li>
+                      </>
+                    )}
+                  </ul>
+                </details>
               </div>
-              <div className="flex-1 min-w-0 flex flex-col gap-1">
-                <p className="text-sm font-semibold text-on-surface">
-                  Nessuno slot disponibile per questa tipologia
-                </p>
-                <p className="text-xs text-on-surface-variant leading-relaxed">
-                  {!coachId
-                    ? "Non hai ancora un coach assegnato. Contatta il supporto."
-                    : (eventTypesQ.data ?? []).length === 0
-                      ? `${coachName} non ha configurato le tipologie di sessione.`
-                      : (availQ.data ?? []).length === 0
-                        ? `${coachName} non ha configurato gli orari di disponibilità settimanali.`
-                        : block && new Date(block.end_date).getTime() < Date.now()
-                          ? "Il blocco corrente è terminato. Contatta il coach per rinnovare."
-                          : `Tutti gli slot del blocco sono già occupati o esclusi. Contatta ${coachName}.`}
-                </p>
-              </div>
-            </div>
-            <details className="mt-3 pl-12 text-[11px] text-on-surface-variant">
-              <summary className="cursor-pointer font-semibold select-none hover:text-on-surface transition-colors">
-                Dettagli tecnici
-              </summary>
-              <ul className="mt-2 space-y-1 list-disc list-inside tabular-nums">
-                <li>Fasce disponibilità coach: {(availQ.data ?? []).length}</li>
-                <li>Eccezioni disponibilità: {(exceptionsQ.data ?? []).length}</li>
-                <li>Tipologie evento: {(eventTypesQ.data ?? []).length}</li>
-                <li>Eventi che bloccano slot (coach busy): {(coachBusyQ.data ?? []).length}</li>
-                <li>Durata minima testata: {candidateMinutes} min</li>
-                {block && (
-                  <>
-                    <li>Blocco selezionato: #{block.sequence_order}</li>
-                    <li>Inizio blocco: {block.start_date}</li>
-                    <li>Fine blocco: {block.end_date}</li>
-                  </>
-                )}
-              </ul>
-            </details>
-          </div>
-        )}
+            )}
 
-        {/* Available Times */}
-        <BookSlotsGrid
-          selectedDate={selectedDate}
-          slotsForSelectedDay={slotsForSelectedDay}
-          selectedISO={selectedISO}
-          onSelectISO={setSelectedISO}
-        />
-        </>
+            {/* Available Times */}
+            <BookSlotsGrid
+              selectedDate={selectedDate}
+              slotsForSelectedDay={slotsForSelectedDay}
+              selectedISO={selectedISO}
+              onSelectISO={setSelectedISO}
+            />
+          </>
         )}
       </main>
 

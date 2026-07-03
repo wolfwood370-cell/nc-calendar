@@ -7,7 +7,7 @@
 // ----------------------------------------------------------------------------
 
 import { useEffect, useRef, useState } from "react";
-import { Check, Loader2, NotebookPen } from "lucide-react";
+import { Check, Loader2, Target, TriangleAlert } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -57,19 +57,11 @@ export function CoachNotesCard({ coachId, clientId }: { coachId: string; clientI
   }, [note, goal, dirty, coachId, clientId]);
 
   return (
-    <section className="bg-surface-container-lowest rounded-[24px] shadow-soft-blue border border-outline-variant/30 p-6 flex flex-col gap-4">
+    <section className="bg-surface-container-lowest rounded-[28px] shadow-soft-blue p-6 flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-[10px] bg-aura-primary/10 text-aura-primary grid place-items-center">
-            <NotebookPen className="size-[18px]" aria-hidden />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-on-surface m-0 leading-tight">
-              Note &amp; obiettivi
-            </h3>
-            <p className="text-xs text-outline m-0">Privati — il cliente non li vede</p>
-          </div>
-        </div>
+        <h3 className="text-xl font-semibold text-on-surface m-0 leading-tight">
+          Note &amp; obiettivi
+        </h3>
         <span className="text-xs font-medium text-outline inline-flex items-center gap-1.5">
           {saveMut.isPending ? (
             <>
@@ -83,25 +75,47 @@ export function CoachNotesCard({ coachId, clientId }: { coachId: string; clientI
         </span>
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="coach-goal">Obiettivo</Label>
-        <Input
-          id="coach-goal"
-          placeholder="Es. Ricomposizione corporea, -4% grasso"
-          value={goal}
-          maxLength={500}
-          disabled={isLoading}
-          onChange={(e) => {
-            setGoal(e.target.value);
-            setDirty(true);
-          }}
-        />
+      {/* Chip Obiettivo (mock): icona target + label uppercase + valore editabile */}
+      <div className="flex items-start gap-2.5 bg-surface rounded-2xl px-3.5 py-3">
+        <Target className="size-4 shrink-0 mt-0.5 text-aura-primary" aria-hidden />
+        <div className="flex-1 min-w-0">
+          <Label
+            htmlFor="coach-goal"
+            className="text-[11px] font-normal uppercase tracking-[0.05em] text-outline"
+          >
+            Obiettivo
+          </Label>
+          <Input
+            id="coach-goal"
+            placeholder="Es. Ricomposizione corporea, -4% grasso"
+            value={goal}
+            maxLength={500}
+            disabled={isLoading}
+            onChange={(e) => {
+              setGoal(e.target.value);
+              setDirty(true);
+            }}
+            className="mt-0.5 h-auto rounded-none border-0 bg-transparent p-0 shadow-none text-sm font-semibold text-on-surface placeholder:font-normal focus-visible:ring-0"
+          />
+        </div>
       </div>
+
+      {/* Chip Limitazioni: campo non ancora nei dati — variante neutra del mock */}
+      <div className="flex items-start gap-2.5 bg-surface rounded-2xl px-3.5 py-3">
+        <TriangleAlert className="size-4 shrink-0 mt-0.5 text-outline" aria-hidden />
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.05em] text-outline m-0">Limitazioni</p>
+          <p className="m-0 mt-0.5 text-sm font-semibold text-on-surface">—</p>
+        </div>
+      </div>
+
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="coach-note">Nota privata</Label>
+        <Label htmlFor="coach-note" className="sr-only">
+          Nota privata
+        </Label>
         <Textarea
           id="coach-note"
-          placeholder="Osservazioni su tecnica, motivazione, infortuni…"
+          placeholder="Note private del coach…"
           value={note}
           maxLength={5000}
           rows={4}
@@ -110,6 +124,7 @@ export function CoachNotesCard({ coachId, clientId }: { coachId: string; clientI
             setNote(e.target.value);
             setDirty(true);
           }}
+          className="min-h-[80px] rounded-2xl border-surface-variant px-3.5 py-3 text-[13px]"
         />
       </div>
     </section>

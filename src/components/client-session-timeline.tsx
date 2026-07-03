@@ -7,9 +7,9 @@ import type { BookingRow, EventTypeRow } from "@/lib/queries";
 function statusMeta(status: BookingRow["status"]) {
   switch (status) {
     case "completed":
-      return { label: "Completata", cls: "bg-success/10 text-success" };
+      return { label: "Completata", cls: "bg-[rgba(52,199,89,0.12)] text-on-status-success" };
     case "cancelled":
-      return { label: "Annullata", cls: "bg-destructive/10 text-destructive" };
+      return { label: "Cancellata", cls: "bg-destructive/10 text-destructive" };
     case "late_cancelled":
       return { label: "Cancellazione tardiva", cls: "bg-destructive/10 text-destructive" };
     case "no_show":
@@ -127,15 +127,24 @@ export function ClientSessionTimeline({ bookings, eventTypes }: ClientSessionTim
     <div className="flex flex-col gap-stack-md">
       {/* Vertical timeline */}
       <ol className="relative border-l-2 border-outline-variant/30 pl-6 ml-2 flex flex-col gap-5">
-        {recent.map((b) => (
-          <li key={b.id} className="relative">
-            <span
-              aria-hidden
-              className="absolute -left-[1.95rem] top-4 w-3 h-3 rounded-full bg-primary ring-4 ring-primary/20"
-            />
-            <TimelineCard booking={b} eventTypes={eventTypes} />
-          </li>
-        ))}
+        {recent.map((b) => {
+          // Bullet: blu #4361ee (reschedule-strong) di default, rosso per
+          // le sessioni cancellate — come nel prototipo.
+          const cancelled = b.status === "cancelled" || b.status === "late_cancelled";
+          return (
+            <li key={b.id} className="relative">
+              <span
+                aria-hidden
+                className={`absolute -left-[1.95rem] top-4 w-3 h-3 rounded-full ring-4 ${
+                  cancelled
+                    ? "bg-[#dc2626] ring-[#dc2626]/20"
+                    : "bg-reschedule-strong ring-reschedule-strong/20"
+                }`}
+              />
+              <TimelineCard booking={b} eventTypes={eventTypes} />
+            </li>
+          );
+        })}
       </ol>
 
       {/* Archive */}
