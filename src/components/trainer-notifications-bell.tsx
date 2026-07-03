@@ -207,7 +207,14 @@ function NotificationsList({
 export function TrainerNotificationsBell() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [open, setOpen] = React.useState(false);
+  // Sheet (mobile) e Popover (desktop) portalano entrambi in <body> a
+  // prescindere dal wrapper `md:hidden` / `hidden md:block`: con un
+  // singolo `open` condiviso il click sulla campanella apriva ANCHE il
+  // widget del viewport opposto, il cui overlay/outside-click chiudeva
+  // subito tutto — sintomo utente: "notifiche appaiono e spariscono".
+  // Stato separato → solo il widget della fascia attiva reagisce.
+  const [sheetOpen, setSheetOpen] = React.useState(false);
+  const [popoverOpen, setPopoverOpen] = React.useState(false);
 
   const userId = user?.id ?? null;
   const { data: notifications, isLoading } = useNotifications(userId);
@@ -217,11 +224,14 @@ export function TrainerNotificationsBell() {
   const unread = unreadCount(notifications);
   const canMarkAll = unread > 0;
 
+
   const handleItemClick = (n: NotificationRow) => {
     if (n.read_at == null) markRead.mutate(n.id);
-    setOpen(false);
+    setSheetOpen(false);
+    setPopoverOpen(false);
     void navigate({ to: "/trainer/calendar" });
   };
+
 
   const handleMarkAllRead = () => {
     if (canMarkAll) markAll.mutate();
@@ -237,7 +247,7 @@ export function TrainerNotificationsBell() {
     <>
       {/* Mobile: bottom sheet */}
       <div className="md:hidden">
-        <Sheet open={open} onOpenChange={setOpen}>
+        <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
           <SheetTrigger asChild>
             <BellButton unread={unread} />
           </SheetTrigger>
@@ -264,7 +274,7 @@ export function TrainerNotificationsBell() {
 
       {/* Desktop: popover */}
       <div className="hidden md:block">
-        <Popover open={open} onOpenChange={setOpen}>
+        <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
           <PopoverTrigger asChild>
             <BellButton unread={unread} />
           </PopoverTrigger>
