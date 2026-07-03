@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { margin:0; background:#eceef2; font-family:"Manrope", ui-sans-serif, system-ui, sans-serif; }
+    .fdisp { font-family:"Sora", ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.02em; }
+    .tsel { height:40px; min-width:112px; border-radius:9999px; background:#f8f9fe; border:1px solid #e1e2e7; display:flex; align-items:center; justify-content:space-between; padding:0 14px; font-size:14px; color:#191c1f; box-sizing:border-box; gap:8px; }
+    .iconbtn { width:36px; height:36px; border-radius:9999px; border:none; background:none; display:flex; align-items:center; justify-content:center; color:#717880; cursor:pointer; }
+    :focus-visible{ outline:2px solid #005685; outline-offset:2px; }
+  </style>
+</helmet>
+<div ref="{{ root }}" style="display:flex; width:1440px; min-height:900px; background:linear-gradient(135deg,#f2f3f8,#e7e8ec);">
+
+  <!-- Sidebar -->
+  <aside style="width:256px; flex-shrink:0; background:rgba(255,255,255,0.4); backdrop-filter:blur(32px); border-right:1px solid rgba(255,255,255,0.2); display:flex; flex-direction:column; padding:8px;">
+    <div style="display:flex; align-items:center; gap:8px; padding:8px;">
+      <div style="width:32px; height:32px; border-radius:8px; background:#003e62; color:#fff; display:grid; place-items:center; font-weight:800; font-size:13px; flex-shrink:0;">NC</div>
+      <div><p class="fdisp" style="font-size:14px; font-weight:600; margin:0; line-height:1;">NC Calendar</p><p style="font-size:12px; color:#717880; margin:4px 0 0;">Studio</p></div>
+    </div>
+    <div style="padding:16px 8px 4px;"><span style="font-size:11px; font-weight:600; color:#717880; text-transform:uppercase; letter-spacing:0.05em;">Area di lavoro</span></div>
+    <nav style="display:flex; flex-direction:column; gap:2px; padding:4px;">
+      <a href="#" style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:9999px; color:#41474f; font-size:14px; font-weight:500; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>Panoramica</a>
+      <a href="#" style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:9999px; color:#41474f; font-size:14px; font-weight:500; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4M16 2v4M3 10h18"/><rect width="18" height="18" x="3" y="4" rx="2"/></svg>Calendario</a>
+      <a href="#" style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:9999px; color:#41474f; font-size:14px; font-weight:500; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>Clienti</a>
+      <a href="#" style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:9999px; color:#41474f; font-size:14px; font-weight:500; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/></svg>Tipologie evento</a>
+      <a href="#" style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:9999px; background:rgba(0,62,98,0.1); color:#003e62; font-size:14px; font-weight:600; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Disponibilità</a>
+      <a href="#" style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:9999px; color:#41474f; font-size:14px; font-weight:500; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v6M15 2v6M12 17v5M5 8h14a2 2 0 0 1 2 2v2a7 7 0 0 1-14 0v-2a2 2 0 0 1 2-2Z"/></svg>Integrazioni</a>
+    </nav>
+    <div style="margin-top:auto; padding:8px;"><div style="border-radius:12px; border:1px solid #c1c7d0; background:#fff; padding:12px;"><p style="font-size:14px; font-weight:500; margin:0;">Marco Rossi</p><p style="font-size:12px; color:#717880; margin:2px 0 0;">marco@ncstudio.it</p></div></div>
+  </aside>
+
+  <!-- Main -->
+  <div style="flex:1; display:flex; flex-direction:column; min-width:0;">
+    <header style="height:56px; display:flex; align-items:center; gap:12px; border-bottom:1px solid rgba(255,255,255,0.2); padding:0 16px; background:rgba(255,255,255,0.4); backdrop-filter:blur(32px);">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#41474f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg>
+      <div style="height:20px; width:1px; background:rgba(0,0,0,0.15);"></div>
+      <p style="font-size:14px; color:#717880; margin:0;">Studio Trainer</p>
+    </header>
+
+    <main style="flex:1; background:#f8f9fe; padding:32px;">
+      <div style="max-width:1152px; margin:0 auto; display:flex; flex-direction:column; gap:24px;">
+        <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:16px;">
+          <div>
+            <h1 class="fdisp" style="font-size:30px; font-weight:600; letter-spacing:-0.02em; margin:0;">Disponibilità</h1>
+            <p style="font-size:14px; color:#717880; margin:4px 0 0;">Configura il tuo orario settimanale, le regole di prenotazione e le eccezioni.</p>
+          </div>
+          <button id="savebtn" style="display:flex; align-items:center; gap:8px; border-radius:9999px; padding:0 24px; height:44px; background:#3b5bde; color:#fff; border:none; font-size:14px; font-weight:600; cursor:pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7M7 3v4a1 1 0 0 0 1 1h7"/></svg>Salva Modifiche</button>
+        </div>
+
+        <div style="display:grid; grid-template-columns:2fr 1fr; gap:24px;">
+          <!-- LEFT -->
+          <div style="display:flex; flex-direction:column; gap:24px;">
+            <div style="border-radius:24px; background:rgba(239,246,255,0.7); border:1px solid #dbeafe; padding:16px; display:flex; align-items:flex-start; gap:12px;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:2px;"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              <div style="font-size:14px;"><p style="font-weight:500; color:#1e3a8a; margin:0;">Sincronizzato con Google Calendar</p><p style="color:rgba(29,78,216,0.8); margin:2px 0 0;">Le tue disponibilità verranno automaticamente confrontate con gli eventi del tuo calendario per evitare doppie prenotazioni.</p></div>
+            </div>
+
+            <div style="background:#fff; border-radius:32px; box-shadow:0px 4px 20px rgba(0,86,133,0.05); padding:32px;">
+              <h2 class="fdisp" style="font-size:20px; font-weight:600; margin:0 0 4px;">Orario Settimanale</h2>
+              <p style="font-size:14px; color:#717880; margin:0 0 24px;">Definisci gli intervalli in cui sei disponibile per le sessioni.</p>
+              <div id="weekly">
+                <!-- Lunedì -->
+                <div style="padding:16px 0; display:flex; align-items:flex-start; gap:16px; border-bottom:1px solid #f1f5f9;">
+                  <div style="display:flex; align-items:center; gap:12px; width:160px; flex-shrink:0; padding-top:8px;"><div style="width:36px; height:20px; border-radius:9999px; background:#3b5bde; position:relative; flex-shrink:0;"><div style="position:absolute; top:2px; left:18px; width:16px; height:16px; border-radius:9999px; background:#fff;"></div></div><span style="font-weight:500; color:#191c1f;">Lunedì</span></div>
+                  <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:8px;">
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;"><div class="tsel">09:00 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#717880" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></div><span style="color:#c1c7d0;">—</span><div class="tsel">13:00 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#717880" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></div><button class="iconbtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div>
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;"><div class="tsel">14:00 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#717880" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></div><span style="color:#c1c7d0;">—</span><div class="tsel">18:00 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#717880" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></div><button class="iconbtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:4px; padding-top:4px;"><button class="iconbtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5v14"/></svg></button><button class="iconbtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button></div>
+                </div>
+                <!-- Martedì -->
+                <div style="padding:16px 0; display:flex; align-items:flex-start; gap:16px; border-bottom:1px solid #f1f5f9;">
+                  <div style="display:flex; align-items:center; gap:12px; width:160px; flex-shrink:0; padding-top:8px;"><div style="width:36px; height:20px; border-radius:9999px; background:#3b5bde; position:relative; flex-shrink:0;"><div style="position:absolute; top:2px; left:18px; width:16px; height:16px; border-radius:9999px; background:#fff;"></div></div><span style="font-weight:500; color:#191c1f;">Martedì</span></div>
+                  <div style="flex:1; min-width:0;"><div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;"><div class="tsel">09:00 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#717880" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></div><span style="color:#c1c7d0;">—</span><div class="tsel">18:00 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#717880" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></div><button class="iconbtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></div>
+                  <div style="display:flex; align-items:center; gap:4px; padding-top:4px;"><button class="iconbtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5v14"/></svg></button></div>
+                </div>
+                <!-- Mercoledì -->
+                <div style="padding:16px 0; display:flex; align-items:flex-start; gap:16px; border-bottom:1px solid #f1f5f9;">
+                  <div style="display:flex; align-items:center; gap:12px; width:160px; flex-shrink:0; padding-top:8px;"><div style="width:36px; height:20px; border-radius:9999px; background:#3b5bde; position:relative; flex-shrink:0;"><div style="position:absolute; top:2px; left:18px; width:16px; height:16px; border-radius:9999px; background:#fff;"></div></div><span style="font-weight:500; color:#191c1f;">Mercoledì</span></div>
+                  <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:8px;">
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;"><div class="tsel">09:00 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#717880" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></div><span style="color:#c1c7d0;">—</span><div class="tsel">13:00 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#717880" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></div><button class="iconbtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div>
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;"><div class="tsel">14:00 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#717880" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></div><span style="color:#c1c7d0;">—</span><div class="tsel">18:00 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#717880" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></div><button class="iconbtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:4px; padding-top:4px;"><button class="iconbtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5v14"/></svg></button></div>
+                </div>
+                <!-- Giovedì -->
+                <div style="padding:16px 0; display:flex; align-items:flex-start; gap:16px; border-bottom:1px solid #f1f5f9;">
+                  <div style="display:flex; align-items:center; gap:12px; width:160px; flex-shrink:0; padding-top:8px;"><div style="width:36px; height:20px; border-radius:9999px; background:#3b5bde; position:relative; flex-shrink:0;"><div style="position:absolute; top:2px; left:18px; width:16px; height:16px; border-radius:9999px; background:#fff;"></div></div><span style="font-weight:500; color:#191c1f;">Giovedì</span></div>
+                  <div style="flex:1; min-width:0;"><div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;"><div class="tsel">09:00 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#717880" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></div><span style="color:#c1c7d0;">—</span><div class="tsel">18:00 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#717880" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></div><button class="iconbtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></div>
+                  <div style="display:flex; align-items:center; gap:4px; padding-top:4px;"><button class="iconbtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5v14"/></svg></button></div>
+                </div>
+                <!-- Venerdì -->
+                <div style="padding:16px 0; display:flex; align-items:flex-start; gap:16px; border-bottom:1px solid #f1f5f9;">
+                  <div style="display:flex; align-items:center; gap:12px; width:160px; flex-shrink:0; padding-top:8px;"><div style="width:36px; height:20px; border-radius:9999px; background:#3b5bde; position:relative; flex-shrink:0;"><div style="position:absolute; top:2px; left:18px; width:16px; height:16px; border-radius:9999px; background:#fff;"></div></div><span style="font-weight:500; color:#191c1f;">Venerdì</span></div>
+                  <div style="flex:1; min-width:0;"><div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;"><div class="tsel">09:00 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#717880" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></div><span style="color:#c1c7d0;">—</span><div class="tsel">14:00 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#717880" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></div><button class="iconbtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></div>
+                  <div style="display:flex; align-items:center; gap:4px; padding-top:4px;"><button class="iconbtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5v14"/></svg></button></div>
+                </div>
+                <!-- Sabato -->
+                <div style="padding:16px 0; display:flex; align-items:flex-start; gap:16px; border-bottom:1px solid #f1f5f9;">
+                  <div style="display:flex; align-items:center; gap:12px; width:160px; flex-shrink:0; padding-top:8px;"><div style="width:36px; height:20px; border-radius:9999px; background:#3b5bde; position:relative; flex-shrink:0;"><div style="position:absolute; top:2px; left:18px; width:16px; height:16px; border-radius:9999px; background:#fff;"></div></div><span style="font-weight:500; color:#191c1f;">Sabato</span></div>
+                  <div style="flex:1; min-width:0;"><div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;"><div class="tsel">09:00 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#717880" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></div><span style="color:#c1c7d0;">—</span><div class="tsel">12:00 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#717880" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></div><button class="iconbtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></div>
+                  <div style="display:flex; align-items:center; gap:4px; padding-top:4px;"><button class="iconbtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5v14"/></svg></button></div>
+                </div>
+                <!-- Domenica -->
+                <div style="padding:16px 0; display:flex; align-items:flex-start; gap:16px;">
+                  <div style="display:flex; align-items:center; gap:12px; width:160px; flex-shrink:0; padding-top:8px;"><div style="width:36px; height:20px; border-radius:9999px; background:#c1c7d0; position:relative; flex-shrink:0;"><div style="position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:9999px; background:#fff;"></div></div><span style="font-weight:500; color:#c1c7d0;">Domenica</span></div>
+                  <div style="flex:1; min-width:0;"><p style="font-size:14px; color:#c1c7d0; font-style:italic; padding-top:8px; margin:0;">Non disponibile</p></div>
+                  <div style="width:36px;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT -->
+          <div style="display:flex; flex-direction:column; gap:24px;">
+            <div style="background:#003e62; border-radius:32px; box-shadow:0px 4px 20px rgba(0,86,133,0.15); padding:28px 32px; color:#fff;">
+              <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#91cbff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+                <h2 class="fdisp" style="font-size:16px; font-weight:600; margin:0; color:#cfe6ff;">Anteprima settimana</h2>
+              </div>
+              <div style="display:flex; align-items:baseline; gap:8px; margin-top:8px;">
+                <span id="slotcount" class="tnum" style="font-size:48px; font-weight:800; line-height:1; font-family:'Sora',sans-serif;">—</span>
+                <span style="font-size:14px; color:#91cbff;">slot prenotabili / settimana</span>
+              </div>
+              <p style="font-size:12px; color:rgba(255,255,255,0.7); margin:8px 0 16px;">Stimati da orario, durata sessione (60 min) e buffer attuale.</p>
+              <div id="slotbars" style="display:flex; align-items:flex-end; gap:8px; height:56px;"></div>
+              <div style="display:flex; justify-content:space-between; margin-top:8px; font-size:10px; color:rgba(255,255,255,0.6);"><span>Lun</span><span>Mar</span><span>Mer</span><span>Gio</span><span>Ven</span><span>Sab</span><span>Dom</span></div>
+            </div>
+
+            <div style="background:#fff; border-radius:32px; box-shadow:0px 4px 20px rgba(0,86,133,0.05); padding:32px;">
+              <h2 class="fdisp" style="font-size:20px; font-weight:600; margin:0 0 4px;">Regole di Prenotazione</h2>
+              <p style="font-size:14px; color:#717880; margin:0 0 12px;">Imposta i vincoli che i tuoi clienti devono rispettare.</p>
+              <div style="margin-bottom:24px; border-radius:16px; background:#fffbeb; border:1px solid #fde68a; padding:12px 16px; font-size:12px; color:#92400e; line-height:1.5;">⚠️ Funzione in arrivo: al momento i clienti possono prenotare con 24h di preavviso fino a 2 settimane in avanti. Questi valori vengono salvati ma non ancora applicati.</div>
+              <div id="rules" style="display:flex; flex-direction:column; gap:20px;">
+                <div><label style="font-size:14px; font-weight:500; color:#191c1f;">Buffer tra sessioni (minuti)</label><div style="margin-top:8px; height:44px; border-radius:9999px; background:#f8f9fe; border:1px solid #e1e2e7; display:flex; align-items:center; padding:0 20px; font-size:14px; color:#191c1f;">15</div></div>
+                <div><label style="font-size:14px; font-weight:500; color:#191c1f;">Preavviso minimo (ore)</label><div style="margin-top:8px; height:44px; border-radius:9999px; background:#f8f9fe; border:1px solid #e1e2e7; display:flex; align-items:center; padding:0 20px; font-size:14px; color:#191c1f;">24</div></div>
+                <div><label style="font-size:14px; font-weight:500; color:#191c1f;">Orizzonte di prenotazione (giorni)</label><div style="margin-top:8px; height:44px; border-radius:9999px; background:#f8f9fe; border:1px solid #e1e2e7; display:flex; align-items:center; padding:0 20px; font-size:14px; color:#191c1f;">60</div></div>
+              </div>
+            </div>
+
+            <div style="background:#fff; border-radius:32px; box-shadow:0px 4px 20px rgba(0,86,133,0.05); padding:32px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+                <h2 class="fdisp" style="font-size:20px; font-weight:600; margin:0;">Eccezioni</h2>
+                <button id="addexc" style="display:flex; align-items:center; gap:6px; border-radius:9999px; padding:6px 14px; background:#eceef2; color:#191c1f; border:none; font-size:13px; font-weight:600; cursor:pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5v14"/></svg>Aggiungi</button>
+              </div>
+              <p style="font-size:14px; color:#717880; margin:0 0 16px;">Chiudi giorni specifici o modifica gli orari per festività e ferie.</p>
+              <div id="exclist" style="display:flex; flex-direction:column; gap:8px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; border-radius:16px; background:#f8f9fe; border:1px solid #e1e2e7; padding:12px 16px;"><div><p style="font-size:14px; font-weight:600; color:#191c1f; margin:0;">15 agosto 2026</p><p style="font-size:12px; color:#717880; margin:2px 0 0;">Ferragosto · Chiuso</p></div><button class="iconbtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div>
+                <div style="display:flex; align-items:center; justify-content:space-between; border-radius:16px; background:#f8f9fe; border:1px solid #e1e2e7; padding:12px 16px;"><div><p style="font-size:14px; font-weight:600; color:#191c1f; margin:0;">24 dicembre 2026</p><p style="font-size:12px; color:#717880; margin:2px 0 0;">Vigilia · 09:00 - 12:00</p></div><button class="iconbtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">class Component extends DCLogic {
+  root = React.createRef();
+  renderVals() { return { root: this.root }; }
+
+  componentDidMount() {
+    const el = this.root.current;
+    if (!el) return;
+    el.querySelectorAll("aside nav a").forEach((a)=>{ const m={"Panoramica":"Trainer%20Dashboard.dc.html","Calendario":"Trainer%20Calendar.dc.html","Clienti":"Trainer%20Clients.dc.html","Tipologie evento":"Trainer%20Event%20Types.dc.html","Disponibilità":"Trainer%20Availability.dc.html","Integrazioni":"Trainer%20Integrations.dc.html"}; const t=a.textContent.trim(); if(m[t]) a.setAttribute("href",m[t]); });
+    const CHEV = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#717880" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>`;
+    const TRASH = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`;
+
+    const toast = (msg) => {
+      const t = document.createElement("div");
+      t.textContent = msg;
+      t.style.cssText = "position:fixed; left:50%; bottom:32px; transform:translateX(-50%); background:#003e62; color:#fff; padding:12px 22px; border-radius:9999px; font-size:14px; font-weight:600; box-shadow:0 8px 30px rgba(0,0,0,0.2); z-index:9999; opacity:0; transition:opacity .2s;";
+      el.appendChild(t);
+      requestAnimationFrame(() => t.style.opacity = "1");
+      setTimeout(() => { t.style.opacity = "0"; setTimeout(() => t.remove(), 250); }, 1600);
+    };
+
+    // clicking a time pill cycles the hour
+    const wireTsel = (sel) => {
+      sel.style.cursor = "pointer";
+      sel.onclick = () => {
+        const m = sel.textContent.match(/(\d{1,2}):(\d{2})/);
+        if (!m) return;
+        let h = (+m[1] + 1); if (h > 22) h = 6;
+        sel.innerHTML = String(h).padStart(2,"0")+":"+m[2]+" "+CHEV;
+        wireTsel(sel);
+      };
+    };
+    el.querySelectorAll(".tsel").forEach(wireTsel);
+
+    const newRange = () => {
+      const d = document.createElement("div");
+      d.style.cssText = "display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:8px;";
+      d.innerHTML = `<div class="tsel">10:00 ${CHEV}</div><span style="color:#c1c7d0;">—</span><div class="tsel">14:00 ${CHEV}</div><button class="iconbtn del" style="width:36px;height:36px;border-radius:9999px;border:none;background:none;display:flex;align-items:center;justify-content:center;color:#717880;cursor:pointer;">${TRASH}</button>`;
+      d.querySelectorAll(".tsel").forEach(wireTsel);
+      d.querySelector(".del").onclick = () => d.remove();
+      return d;
+    };
+
+    // weekly rows: toggle, add-range, delete-range
+    el.querySelectorAll("#weekly > div").forEach((row) => {
+      const toggle = row.querySelector('div[style*="36px"]');
+      const label = toggle && toggle.parentElement.querySelector("span");
+      const cols = row.querySelectorAll(":scope > div");
+      const middle = cols[1];
+      const controls = cols[2];
+      let on = toggle ? toggle.style.background.includes("59") || toggle.style.background.includes("3b5bde") : true;
+
+      // existing delete buttons (trash) inside middle
+      const wireTrash = () => middle && middle.querySelectorAll("button").forEach((b) => {
+        if (b.querySelector('path[d^="M3 6h18"]')) b.onclick = () => b.closest("div").remove();
+      });
+      wireTrash();
+
+      // plus button in controls adds a range
+      if (controls) {
+        const plus = [...controls.querySelectorAll("button")].find((b) => b.querySelector('path[d="M5 12h14M12 5v14"]'));
+        if (plus && middle) plus.onclick = () => {
+          if (!on) return;
+          const r = newRange();
+          if (getComputedStyle(middle).flexDirection === "column") middle.appendChild(r);
+          else middle.appendChild(r);
+        };
+      }
+
+      if (toggle) toggle.onclick = () => {
+        on = !on;
+        const knob = toggle.firstElementChild;
+        toggle.style.background = on ? "#3b5bde" : "#c1c7d0";
+        if (knob) knob.style.left = on ? "18px" : "2px";
+        if (label){ label.style.color = on ? "#191c1f" : "#c1c7d0"; }
+        if (middle){ middle.style.opacity = on ? "1" : "0.35"; middle.style.pointerEvents = on ? "auto" : "none"; }
+      };
+    });
+
+    // ---- anteprima disponibilità (slot prenotabili / settimana) ----
+    const slotCountEl = el.querySelector("#slotcount");
+    const slotBars = el.querySelector("#slotbars");
+    const parseMin = (s) => { const m=s.match(/(\d{1,2}):(\d{2})/); return m ? (+m[1])*60 + (+m[2]) : null; };
+    const getBuffer = () => { const p = el.querySelectorAll("#rules > div")[0] && el.querySelectorAll("#rules > div")[0].querySelector('div[style*="44px"]'); return p ? (parseInt(p.textContent,10)||0) : 15; };
+    const recompute = () => {
+      const buffer = getBuffer();
+      const per = [];
+      el.querySelectorAll("#weekly > div").forEach((row)=>{
+        const middle = row.querySelectorAll(":scope > div")[1];
+        const enabled = middle && middle.style.opacity !== "0.35";
+        if (!enabled){ per.push(0); return; }
+        const sels = [...middle.querySelectorAll(".tsel")];
+        let mins = 0;
+        for (let i=0;i+1<sels.length;i+=2){
+          const a=parseMin(sels[i].textContent), b=parseMin(sels[i+1].textContent);
+          if (a!=null && b!=null && b>a) mins += (b-a);
+        }
+        per.push(Math.max(0, Math.floor(mins/(60+buffer))));
+      });
+      slotCountEl.textContent = per.reduce((s,n)=>s+n,0);
+      const max = Math.max(1, ...per);
+      slotBars.innerHTML = per.map((n)=>`<div style="flex:1; display:flex; flex-direction:column; justify-content:flex-end; height:100%;"><div style="width:100%; border-radius:6px 6px 0 0; background:${n?"#91cbff":"rgba(255,255,255,0.15)"}; height:${Math.max(6, n/max*100)}%;"></div></div>`).join("");
+    };
+    recompute();
+    new MutationObserver(()=>recompute()).observe(el.querySelector("#weekly"), { childList:true, subtree:true, characterData:true, attributes:true });
+
+    // booking rules — click value to cycle presets
+    const cycles = [[0,15,30,45],[12,24,48],[14,30,60,90]];
+    el.querySelectorAll("#rules > div").forEach((g, i) => {
+      const pill = g.querySelector('div[style*="44px"]');
+      if (!pill || !cycles[i]) return;
+      pill.style.cursor = "pointer";
+      pill.onclick = () => {
+        const cur = parseInt(pill.textContent.trim(),10);
+        const arr = cycles[i];
+        const next = arr[(arr.indexOf(cur)+1) % arr.length];
+        pill.textContent = next;
+        recompute();
+      };
+    });
+
+    // exceptions
+    const exclist = el.querySelector("#exclist");
+    const wireExcTrash = (rowEl) => {
+      const b = rowEl.querySelector("button");
+      if (b) b.onclick = () => rowEl.remove();
+    };
+    if (exclist) exclist.querySelectorAll(":scope > div").forEach(wireExcTrash);
+    const addBtn = el.querySelector("#addexc");
+    let excN = 0;
+    const EXTRA = [
+      ["2 novembre 2026","Ponte · Chiuso"],
+      ["8 dicembre 2026","Immacolata · Chiuso"],
+      ["6 gennaio 2027","Epifania · Chiuso"],
+    ];
+    if (addBtn && exclist) addBtn.onclick = () => {
+      const ex = EXTRA[excN % EXTRA.length]; excN++;
+      const row = document.createElement("div");
+      row.style.cssText = "display:flex; align-items:center; justify-content:space-between; border-radius:16px; background:#f8f9fe; border:1px solid #e1e2e7; padding:12px 16px;";
+      row.innerHTML = `<div><p style="font-size:14px; font-weight:600; color:#191c1f; margin:0;">${ex[0]}</p><p style="font-size:12px; color:#717880; margin:2px 0 0;">${ex[1]}</p></div><button class="iconbtn" style="width:36px;height:36px;border-radius:9999px;border:none;background:none;display:flex;align-items:center;justify-content:center;color:#717880;cursor:pointer;">${TRASH}</button>`;
+      exclist.appendChild(row);
+      wireExcTrash(row);
+    };
+
+    const save = el.querySelector("#savebtn");
+    if (save) save.onclick = () => toast("Modifiche salvate ✓");
+  }
+}</script>
+</body>
+</html>

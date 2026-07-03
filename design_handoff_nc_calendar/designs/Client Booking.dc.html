@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { margin:0; background:#eceef2; font-family:"Manrope", ui-sans-serif, system-ui, sans-serif; }
+    .fdisp { font-family:"Sora", ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.02em; }
+    .tnum { font-variant-numeric: tabular-nums; }
+  </style>
+  <script src="./client-store.js"></script>
+</helmet>
+<div ref="{{ root }}" style="position:relative; width:430px; margin:0 auto; background:#f8f9fe; min-height:932px; box-shadow:0 20px 60px rgba(0,0,0,0.12); overflow:hidden;">
+
+  <!-- Top App Bar -->
+  <header style="display:flex; justify-content:space-between; align-items:center; width:100%; padding:16px 20px; box-sizing:border-box; position:sticky; top:0; z-index:40; backdrop-filter:blur(6px); background:rgba(248,249,254,0.6);">
+    <button id="backbtn" style="width:40px; height:40px; display:flex; align-items:center; justify-content:center; border-radius:9999px; background:rgba(255,255,255,0.5); backdrop-filter:blur(6px); border:1px solid rgba(193,199,208,0.3); color:#005685; cursor:pointer;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+    </button>
+    <h1 id="pagetitle" class="fdisp" style="font-weight:700; font-size:24px; color:#191c1f; position:absolute; left:50%; transform:translateX(-50%); white-space:nowrap; margin:0;">Nuova Prenotazione</h1>
+    <div style="width:40px; height:40px;"></div>
+  </header>
+
+  <main style="padding:0 20px; display:flex; flex-direction:column; gap:32px; margin-top:16px;">
+
+    <!-- Pool picker -->
+    <section>
+      <h2 style="font-weight:600; font-size:18px; color:#191c1f; margin:0 0 8px;">Seleziona la tipologia</h2>
+      <div id="typebar" style="display:flex; overflow-x:auto; gap:12px; padding-bottom:8px;">
+        <button style="flex-shrink:0; border-radius:9999px; padding:12px 24px; font-size:14px; font-weight:600; white-space:nowrap; background:#005685; color:#ffffff; border:none; cursor:pointer;">Sessione PT<span style="margin-left:8px; font-size:12px; color:rgba(255,255,255,0.8);">5</span></button>
+        <button style="flex-shrink:0; border-radius:9999px; padding:12px 24px; font-size:14px; font-weight:600; white-space:nowrap; background:transparent; border:1px solid #c1c7d0; color:#191c1f; cursor:pointer;">BIA<span style="margin-left:8px; font-size:12px; color:#41474f;">2</span></button>
+        <button style="flex-shrink:0; border-radius:9999px; padding:12px 24px; font-size:14px; font-weight:600; white-space:nowrap; background:transparent; border:1px solid #c1c7d0; color:#191c1f; cursor:pointer;">Test Funzionale<span style="margin-left:8px; font-size:12px; color:#41474f;">1</span></button>
+      </div>
+    </section>
+
+    <!-- Calendar -->
+    <section style="background:#ffffff; border-radius:32px; box-shadow:0 8px 30px rgba(0,0,0,0.04); padding:24px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+        <button id="prevmonth" style="padding:8px; color:#41474f; border-radius:9999px; background:none; border:none; cursor:pointer;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+        <span id="monthlabel" class="fdisp" style="font-weight:600; font-size:20px; color:#191c1f; text-transform:capitalize;">luglio 2026</span>
+        <button id="nextmonth" style="padding:8px; color:#41474f; border-radius:9999px; background:none; border:none; cursor:pointer;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(7,1fr); row-gap:8px; text-align:center;" id="daygrid">
+        <div style="font-size:12px; font-weight:600; color:#717880; margin-bottom:8px;">L</div>
+        <div style="font-size:12px; font-weight:600; color:#717880; margin-bottom:8px;">M</div>
+        <div style="font-size:12px; font-weight:600; color:#717880; margin-bottom:8px;">M</div>
+        <div style="font-size:12px; font-weight:600; color:#717880; margin-bottom:8px;">G</div>
+        <div style="font-size:12px; font-weight:600; color:#717880; margin-bottom:8px;">V</div>
+        <div style="font-size:12px; font-weight:600; color:#717880; margin-bottom:8px;">S</div>
+        <div style="font-size:12px; font-weight:600; color:#717880; margin-bottom:8px;">D</div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><button style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:14px;border:none;background:none;color:#c1c7d0;">29</button></div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><button style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:14px;border:none;background:none;color:#c1c7d0;">30</button></div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><button style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:14px;border:none;background:none;color:#c1c7d0;">1</button></div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><button style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:14px;border:none;background:none;color:#c1c7d0;">2</button></div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><button style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:14px;border:none;background:none;color:#191c1f;cursor:pointer;">3</button></div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><button style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:14px;border:none;background:#005685;color:#fff;font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,0.05);cursor:pointer;">4</button></div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><button style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:14px;border:none;background:none;color:#c1c7d0;">5</button></div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><button style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:14px;border:none;background:none;color:#c1c7d0;">6</button></div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><button style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:14px;border:none;background:none;color:#191c1f;cursor:pointer;">7</button></div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><button style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:14px;border:none;background:none;color:#191c1f;cursor:pointer;">8</button></div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><button style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:14px;border:none;background:none;color:#191c1f;cursor:pointer;">9</button></div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><button style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:14px;border:none;background:none;color:#191c1f;cursor:pointer;">10</button></div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><button style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:14px;border:none;background:none;color:#191c1f;cursor:pointer;">11</button></div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><button style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:14px;border:none;background:none;color:#c1c7d0;">12</button></div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><button style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:14px;border:none;background:none;color:#c1c7d0;">13</button></div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><button style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:14px;border:none;background:none;color:#191c1f;cursor:pointer;">14</button></div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><button style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:14px;border:none;background:none;color:#191c1f;cursor:pointer;">15</button></div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><button style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:14px;border:none;background:none;color:#191c1f;cursor:pointer;">16</button></div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><button style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:14px;border:none;background:none;color:#c1c7d0;">17</button></div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><button style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:14px;border:none;background:none;color:#c1c7d0;">18</button></div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><button style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:14px;border:none;background:none;color:#c1c7d0;">19</button></div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><button style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:14px;border:none;background:none;color:#c1c7d0;">20</button></div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><button style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:14px;border:none;background:none;color:#c1c7d0;">21</button></div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><button style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:14px;border:none;background:none;color:#c1c7d0;">22</button></div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><button style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:14px;border:none;background:none;color:#c1c7d0;">23</button></div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><button style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:14px;border:none;background:none;color:#c1c7d0;">24</button></div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><button style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:14px;border:none;background:none;color:#c1c7d0;">25</button></div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><button style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:14px;border:none;background:none;color:#c1c7d0;">26</button></div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><button style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:14px;border:none;background:none;color:#c1c7d0;">27</button></div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><button style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:14px;border:none;background:none;color:#c1c7d0;">28</button></div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><button style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:14px;border:none;background:none;color:#c1c7d0;">29</button></div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><button style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:14px;border:none;background:none;color:#c1c7d0;">30</button></div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><button style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:14px;border:none;background:none;color:#c1c7d0;">31</button></div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><button style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:14px;border:none;background:none;color:#c1c7d0;">1</button></div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><button style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:14px;border:none;background:none;color:#c1c7d0;">2</button></div>
+      </div>
+      <p style="margin-top:16px; font-size:12px; color:#41474f; text-align:center;">Prenotabile fino al 16 luglio 2026.</p>
+    </section>
+
+    <!-- Slots -->
+    <section>
+      <div style="display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:16px;">
+        <h3 id="slotstitle" style="font-weight:600; font-size:18px; color:#191c1f; margin:0;">Orari disponibili per il 4 luglio</h3>
+        <span style="font-size:12px; color:#41474f;">GMT+2 · Roma</span>
+      </div>
+      <div id="slotsgrid" style="display:grid; grid-template-columns:repeat(3,1fr); gap:16px;">
+        <div><button class="tnum" style="width:100%; border-radius:9999px; padding:12px 0; font-size:14px; font-weight:600; background:#ffffff; border:1px solid #c1c7d0; color:#191c1f; cursor:pointer;">09:00</button></div>
+        <div style="position:relative; display:flex; flex-direction:column; align-items:center;">
+          <span style="position:absolute; top:-12px; padding:2px 8px; border-radius:9999px; font-size:10px; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; z-index:10; box-shadow:0 1px 2px rgba(0,0,0,0.1); border:1px solid #ffffff; background:#3b6284; color:#ffffff;">Consigliato</span>
+          <button class="tnum" style="width:100%; border-radius:9999px; padding:12px 0; font-size:14px; font-weight:600; background:#91cbff; color:#001d32; border:1px solid #005685; box-shadow:0 1px 2px rgba(0,0,0,0.05); cursor:pointer;">10:00</button>
+        </div>
+        <div><button class="tnum" style="width:100%; border-radius:9999px; padding:12px 0; font-size:14px; font-weight:600; background:#005685; color:#ffffff; border:1px solid #005685; box-shadow:0 1px 2px rgba(0,0,0,0.05); cursor:pointer;">11:00</button></div>
+        <div><button class="tnum" style="width:100%; border-radius:9999px; padding:12px 0; font-size:14px; font-weight:600; background:#ffffff; border:1px solid #c1c7d0; color:#191c1f; cursor:pointer;">15:00</button></div>
+        <div><button class="tnum" style="width:100%; border-radius:9999px; padding:12px 0; font-size:14px; font-weight:600; background:#ffffff; border:1px solid #c1c7d0; color:#191c1f; cursor:pointer;">16:00</button></div>
+        <div><button class="tnum" style="width:100%; border-radius:9999px; padding:12px 0; font-size:14px; font-weight:600; background:#ffffff; border:1px solid #c1c7d0; color:#191c1f; cursor:pointer;">17:00</button></div>
+        <div><button class="tnum" style="width:100%; border-radius:9999px; padding:12px 0; font-size:14px; font-weight:600; background:#ffffff; border:1px solid #c1c7d0; color:#191c1f; cursor:pointer;">18:00</button></div>
+        <div><button class="tnum" style="width:100%; border-radius:9999px; padding:12px 0; font-size:14px; font-weight:600; background:#ffffff; border:1px solid #c1c7d0; color:#191c1f; cursor:pointer;">19:00</button></div>
+      </div>
+    </section>
+    <div style="height:120px;"></div>
+  </main>
+
+  <!-- Bottom action bar -->
+  <div style="position:absolute; bottom:88px; left:0; width:100%; z-index:50; background:rgba(255,255,255,0.9); backdrop-filter:blur(20px); border-top:1px solid rgba(255,255,255,0.2); box-shadow:0 -8px 30px rgba(0,0,0,0.08); padding:16px 20px; display:flex; justify-content:space-between; align-items:center; box-sizing:border-box;">
+    <div style="display:flex; flex-direction:column;">
+      <span style="font-size:14px; color:#717880;">Selezionato:</span>
+      <span id="selsummary" class="fdisp" style="font-weight:600; font-size:20px; color:#005685;">4 lug, 10:00</span>
+    </div>
+    <button id="confirmbtn" style="background:#005685; color:#ffffff; border-radius:9999px; padding:16px 32px; font-size:14px; font-weight:600; box-shadow:0 4px 6px rgba(0,0,0,0.1); border:none; cursor:pointer;">Conferma</button>
+  </div>
+
+  <!-- Bottom nav -->
+  <nav id="botnav" style="position:absolute; bottom:0; left:0; width:100%; z-index:40; border-radius:32px 32px 0 0; background:rgba(255,255,255,0.7); backdrop-filter:blur(20px); border-top:1px solid rgba(255,255,255,0.2); box-shadow:0 -8px 30px rgba(0,0,0,0.04); display:flex; justify-content:space-around; align-items:center; padding:16px 24px 32px; box-sizing:border-box;">
+    <a href="#" style="display:flex; align-items:center; justify-content:center; border-radius:9999px; padding:12px; color:#41474f;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></a>
+    <a href="#" style="display:flex; align-items:center; justify-content:center; border-radius:9999px; padding:12px; background:#005685; color:#91cbff;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4M16 2v4M3 10h18"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/></svg></a>
+    <a href="#" style="display:flex; align-items:center; justify-content:center; border-radius:9999px; padding:12px; color:#41474f;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0z"/></svg></a>
+    <a href="#" style="display:flex; align-items:center; justify-content:center; border-radius:9999px; padding:12px; color:#41474f;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:430,&quot;height&quot;:932}}">
+
+class Component extends DCLogic {
+  root = React.createRef();
+  renderVals() { return { root: this.root }; }
+
+  componentDidMount() {
+    const el = this.root.current;
+    if (!el) return;
+    const $ = (s) => el.querySelector(s);
+    const NC = window.NCClient; if (NC) NC.load();
+    const params = new URLSearchParams(String(location.hash||"").replace(/^#/,""));
+    const initialType = params.get("t");
+    const reschedId = params.get("rid");
+
+    const MONTHS = ["gennaio","febbraio","marzo","aprile","maggio","giugno","luglio","agosto","settembre","ottobre","novembre","dicembre"];
+    const MSHORT = ["gen","feb","mar","apr","mag","giu","lug","ago","set","ott","nov","dic"];
+    const TYPES = [
+      { key:"PT",   label:"Sessione PT",     left:5 },
+      { key:"BIA",  label:"BIA",             left:2 },
+      { key:"TEST", label:"Test Funzionale", left:1 },
+    ];
+    const POOL = {
+      PT:   ["09:00","10:00","11:00","15:00","16:00","17:00","18:00","19:00"],
+      BIA:  ["09:00","10:00","11:00","18:00","19:00"],
+      TEST: ["10:00","11:00","15:00","16:00"],
+    };
+    const today = new Date(2026,6,3);
+    const horizon = new Date(2026,6,16);
+
+    const hash = (s) => { let h=0; for (let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))>>>0; return h; };
+    const key = (d) => d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate();
+    const bookable = (d) => {
+      const wd = d.getDay();
+      if (wd===0) return false;                       // domenica chiusa
+      if (d < new Date(today.getFullYear(),today.getMonth(),today.getDate())) return false;
+      if (d > horizon) return false;
+      return slotsFor(d).length > 0;
+    };
+    const slotsFor = (d) => {
+      const pool = POOL[state.type];
+      return pool.filter((t) => hash(key(d)+state.type+t) % 3 !== 0);
+    };
+
+    const state = { type:"PT", view:new Date(2026,6,1), sel:new Date(2026,6,4), time:"10:00" };
+    if (NC) TYPES.forEach((t)=>{ t.left = NC.poolFor(t.key).left; });
+    if (initialType && POOL[initialType]) state.type = initialType;
+    if (reschedId){ const t=$("#pagetitle"); if(t) t.textContent="Riprogramma"; }
+
+    // ---- Type chips ----
+    const typebar = $("#typebar");
+    const renderTypes = () => {
+      typebar.innerHTML = TYPES.map((t) => {
+        const on = t.key===state.type;
+        return `<button data-t="${t.key}" style="flex-shrink:0; border-radius:9999px; padding:12px 24px; font-size:14px; font-weight:600; white-space:nowrap; ${on?"background:#005685; color:#ffffff; border:none;":"background:transparent; border:1px solid #c1c7d0; color:#191c1f;"} cursor:pointer;">${t.label}<span style="margin-left:8px; font-size:12px; color:${on?"rgba(255,255,255,0.8)":"#41474f"};">${t.left}</span></button>`;
+      }).join("");
+      typebar.querySelectorAll("button").forEach((b) => b.onclick = () => {
+        state.type = b.dataset.t;
+        // keep selected day only if still bookable, else pick first bookable in view
+        if (!state.sel || !bookable(state.sel)) state.sel = firstBookable();
+        state.time = state.sel ? (slotsFor(state.sel)[1] || slotsFor(state.sel)[0]) : null;
+        renderAll();
+      });
+    };
+
+    const firstBookable = () => {
+      const y=state.view.getFullYear(), m=state.view.getMonth();
+      const dim=new Date(y,m+1,0).getDate();
+      for (let i=1;i<=dim;i++){ const d=new Date(y,m,i); if (bookable(d)) return d; }
+      return null;
+    };
+
+    // ---- Calendar ----
+    const monthLabel = $("#monthlabel");
+    const grid = $("#daygrid");
+    const renderGrid = () => {
+      const y=state.view.getFullYear(), m=state.view.getMonth();
+      monthLabel.textContent = MONTHS[m]+" "+y;
+      const dim = new Date(y,m+1,0).getDate();
+      const lead = (new Date(y,m,1).getDay()+6)%7;
+      const head = ["L","M","M","G","V","S","D"].map((d)=>`<div style="font-size:12px; font-weight:600; color:#717880; margin-bottom:8px;">${d}</div>`).join("");
+      let cells="";
+      for (let i=0;i<lead;i++) cells+=`<div></div>`;
+      for (let day=1; day<=dim; day++){
+        const d=new Date(y,m,day);
+        const ok=bookable(d);
+        const selD = state.sel && key(d)===key(state.sel);
+        let st="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:14px;border:none;";
+        if (selD) st+="background:#005685;color:#fff;font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,0.05);cursor:pointer;";
+        else if (ok) st+="background:none;color:#191c1f;cursor:pointer;";
+        else st+="background:none;color:#c1c7d0;cursor:default;";
+        cells+=`<div style="display:flex;justify-content:center;padding:4px 0;"><button ${ok?`data-day="${day}"`:"disabled"} style="${st}">${day}</button></div>`;
+      }
+      grid.innerHTML = head+cells;
+      grid.querySelectorAll("button[data-day]").forEach((b)=>b.onclick=()=>{
+        state.sel=new Date(y,m,+b.dataset.day);
+        state.time=slotsFor(state.sel)[1]||slotsFor(state.sel)[0];
+        renderGrid(); renderSlots();
+      });
+    };
+
+    // ---- Slots ----
+    const slotsTitle = $("#slotstitle");
+    const slotsGrid = $("#slotsgrid");
+    const renderSlots = () => {
+      if (!state.sel){ slotsTitle.textContent="Seleziona un giorno"; slotsGrid.innerHTML=`<p style="grid-column:1/-1; font-size:14px; color:#717880; margin:0;">Nessun giorno selezionato.</p>`; updateBar(); return; }
+      slotsTitle.textContent = "Orari disponibili per il "+state.sel.getDate()+" "+MONTHS[state.sel.getMonth()];
+      const list = slotsFor(state.sel);
+      const rec = list[1] || list[0];
+      if (!list.length){ slotsGrid.innerHTML=`<p style="grid-column:1/-1; font-size:14px; color:#717880; margin:0;">Nessuno slot libero in questo giorno.</p>`; state.time=null; updateBar(); return; }
+      slotsGrid.innerHTML = list.map((t)=>{
+        const on=t===state.time;
+        const btn = `<button data-time="${t}" class="tnum" style="width:100%; border-radius:9999px; padding:12px 0; font-size:14px; font-weight:600; ${on?"background:#005685;color:#ffffff;border:1px solid #005685;box-shadow:0 1px 2px rgba(0,0,0,0.05);":"background:#ffffff;border:1px solid #c1c7d0;color:#191c1f;"} cursor:pointer;">${t}</button>`;
+        if (t===rec && !on)
+          return `<div style="position:relative; display:flex; flex-direction:column; align-items:center;"><span style="position:absolute; top:-12px; padding:2px 8px; border-radius:9999px; font-size:10px; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; z-index:10; box-shadow:0 1px 2px rgba(0,0,0,0.1); border:1px solid #ffffff; background:#3b6284; color:#ffffff;">Consigliato</span><button data-time="${t}" class="tnum" style="width:100%; border-radius:9999px; padding:12px 0; font-size:14px; font-weight:600; background:#91cbff; color:#001d32; border:1px solid #005685; box-shadow:0 1px 2px rgba(0,0,0,0.05); cursor:pointer;">${t}</button></div>`;
+        return `<div>${btn}</div>`;
+      }).join("");
+      slotsGrid.querySelectorAll("button[data-time]").forEach((b)=>b.onclick=()=>{ state.time=b.dataset.time; renderSlots(); });
+      updateBar();
+    };
+
+    // ---- Bottom bar ----
+    const bar = $("#confirmbtn").closest("div");
+    const renderAll = () => { renderTypes(); renderGrid(); renderSlots(); };
+    const updateBar = () => {
+      const sum = el.querySelector("#selsummary");
+      if (!sum) return;
+      if (state.sel && state.time) sum.textContent = state.sel.getDate()+" "+MSHORT[state.sel.getMonth()]+", "+state.time;
+      else sum.textContent = "—";
+      const cb = el.querySelector("#confirmbtn");
+      if (cb) cb.disabled = !(state.sel && state.time);
+      if (cb) cb.style.opacity = (state.sel && state.time) ? "1" : "0.5";
+    };
+
+    $("#prevmonth").onclick = () => { state.view=new Date(state.view.getFullYear(),state.view.getMonth()-1,1); renderGrid(); };
+    $("#nextmonth").onclick = () => { state.view=new Date(state.view.getFullYear(),state.view.getMonth()+1,1); renderGrid(); };
+    $("#confirmbtn").onclick = () => {
+      if (!(state.sel && state.time)) return;
+      const dateISO = NC ? NC.iso(state.sel) : null;
+      let id = null;
+      if (NC){
+        if (reschedId){ NC.reschedule(reschedId, dateISO, state.time); id = reschedId; }
+        else { id = NC.book({ type: state.type, date: dateISO, time: state.time }); }
+      }
+      bar.innerHTML = `<div style="display:flex; align-items:center; gap:12px; width:100%; justify-content:center; color:#0b8043;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg><span class="fdisp" style="font-weight:600; font-size:18px;">${reschedId?"Riprogrammata":"Prenotato"} · ${state.sel.getDate()} ${MSHORT[state.sel.getMonth()]} ${state.time}</span></div>`;
+      if (NC) setTimeout(()=>NC.go("Client Booking Detail.dc.html", id), 950);
+    };
+
+    if (NC){
+      const back = $("#backbtn"); if (back) back.onclick = ()=>NC.go("home");
+      NC.wireNav($("#botnav"), "calendar");
+    }
+
+    renderAll();
+  }
+}</script>
+</body>
+</html>

@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { margin:0; background:#eceef2; font-family:"Manrope", ui-sans-serif, system-ui, sans-serif; }
+    .fdisp { font-family:"Sora", ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.02em; }
+    .evt { position:absolute; z-index:10; border-radius:10px; padding:3px 8px; box-shadow:0 1px 2px rgba(0,0,0,0.08); box-sizing:border-box; overflow:hidden; }
+    .evt h4 { font-size:11px; line-height:1.15; font-weight:600; color:#fff; margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-shadow:0 1px 1px rgba(0,0,0,0.15); }
+    .evt p { font-size:10px; line-height:1.15; color:rgba(255,255,255,0.9); margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .evt .cli { position:absolute; top:3px; right:4px; font-size:8px; font-weight:700; letter-spacing:0.04em; background:rgba(255,255,255,0.9); color:#003e62; padding:1px 5px; border-radius:9999px; }
+  </style>
+  <script src="./client-store.js"></script>
+</helmet>
+<div ref="{{ root }}" style="display:flex; width:1440px; min-height:900px; background:linear-gradient(135deg,#f2f3f8,#e7e8ec);">
+
+  <!-- Sidebar -->
+  <aside style="width:256px; flex-shrink:0; background:rgba(255,255,255,0.4); backdrop-filter:blur(32px); border-right:1px solid rgba(255,255,255,0.2); display:flex; flex-direction:column; padding:8px;">
+    <div style="display:flex; align-items:center; gap:8px; padding:8px;">
+      <div style="width:32px; height:32px; border-radius:8px; background:#003e62; color:#fff; display:grid; place-items:center; font-weight:800; font-size:13px; flex-shrink:0;">NC</div>
+      <div><p class="fdisp" style="font-size:14px; font-weight:600; margin:0; line-height:1;">NC Calendar</p><p style="font-size:12px; color:#717880; margin:4px 0 0;">Studio</p></div>
+    </div>
+    <div style="padding:16px 8px 4px;"><span style="font-size:11px; font-weight:600; color:#717880; text-transform:uppercase; letter-spacing:0.05em;">Area di lavoro</span></div>
+    <nav style="display:flex; flex-direction:column; gap:2px; padding:4px;">
+      <a href="#" style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:9999px; color:#41474f; font-size:14px; font-weight:500; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>Panoramica</a>
+      <a href="#" style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:9999px; background:rgba(0,62,98,0.1); color:#003e62; font-size:14px; font-weight:600; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4M16 2v4M3 10h18"/><rect width="18" height="18" x="3" y="4" rx="2"/></svg>Calendario</a>
+      <a href="#" style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:9999px; color:#41474f; font-size:14px; font-weight:500; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>Clienti</a>
+      <a href="#" style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:9999px; color:#41474f; font-size:14px; font-weight:500; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/></svg>Tipologie evento</a>
+      <a href="#" style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:9999px; color:#41474f; font-size:14px; font-weight:500; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Disponibilità</a>
+      <a href="#" style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:9999px; color:#41474f; font-size:14px; font-weight:500; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v6M15 2v6M12 17v5M5 8h14a2 2 0 0 1 2 2v2a7 7 0 0 1-14 0v-2a2 2 0 0 1 2-2Z"/></svg>Integrazioni</a>
+    </nav>
+    <div style="margin-top:auto; padding:8px;"><div style="border-radius:12px; border:1px solid #c1c7d0; background:#fff; padding:12px;"><p style="font-size:14px; font-weight:500; margin:0;">Marco Rossi</p><p style="font-size:12px; color:#717880; margin:2px 0 0;">marco@ncstudio.it</p></div></div>
+  </aside>
+
+  <!-- Main -->
+  <div style="flex:1; display:flex; flex-direction:column; min-width:0;">
+    <header style="height:56px; display:flex; align-items:center; gap:12px; border-bottom:1px solid rgba(255,255,255,0.2); padding:0 16px; background:rgba(255,255,255,0.4); backdrop-filter:blur(32px);">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#41474f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg>
+      <div style="height:20px; width:1px; background:rgba(0,0,0,0.15);"></div>
+      <p style="font-size:14px; color:#717880; margin:0;">Studio Trainer</p>
+    </header>
+
+    <section style="flex:1; display:flex; flex-direction:column; min-width:0; padding:24px; background:#f8f9fe;">
+      <!-- Calendar header -->
+      <header style="display:flex; flex-direction:column; gap:16px; margin-bottom:16px;">
+        <h1 class="fdisp" style="font-size:24px; font-weight:700; color:#003e62; margin:0;">Calendario Master</h1>
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <button id="todaybtn" style="border-radius:9999px; background:#fff; border:1px solid #e1e2e7; padding:6px 16px; font-size:14px; font-weight:500; cursor:pointer;">Oggi</button>
+            <div style="display:flex; align-items:center; gap:4px;">
+              <button id="wkprev" style="width:32px; height:32px; border-radius:9999px; border:none; background:none; display:flex; align-items:center; justify-content:center; color:#41474f; cursor:pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+              <span id="weeklabel" style="font-size:14px; font-weight:600; min-width:160px; text-align:center; text-transform:capitalize;">29 giugno - 5 luglio</span>
+              <button id="wknext" style="width:32px; height:32px; border-radius:9999px; border:none; background:none; display:flex; align-items:center; justify-content:center; color:#41474f; cursor:pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span id="synclabel" style="font-size:12px; color:#717880;">Ultima sync: 4 min fa</span>
+            <button id="syncbtn" style="width:32px; height:32px; border-radius:9999px; border:none; background:none; display:flex; align-items:center; justify-content:center; color:#41474f; cursor:pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8M21 3v5h-5M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16M8 16H3v5"/></svg></button>
+          </div>
+        </div>
+        <!-- Filter chips -->
+        <div id="filters" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <button style="border-radius:9999px; padding:6px 14px; font-size:13px; font-weight:600; background:#003e62; color:#fff; border:none; cursor:pointer;">Tutti</button>
+          <button style="border-radius:9999px; padding:6px 14px; font-size:13px; font-weight:500; background:#fff; color:#41474f; border:1px solid #c1c7d0; cursor:pointer;"><span style="display:inline-block; width:8px; height:8px; border-radius:9999px; margin-right:6px; vertical-align:middle; background:#003e62;"></span>Sessione PT</button>
+          <button style="border-radius:9999px; padding:6px 14px; font-size:13px; font-weight:500; background:#fff; color:#41474f; border:1px solid #c1c7d0; cursor:pointer;"><span style="display:inline-block; width:8px; height:8px; border-radius:9999px; margin-right:6px; vertical-align:middle; background:#039BE5;"></span>BIA</button>
+          <button style="border-radius:9999px; padding:6px 14px; font-size:13px; font-weight:500; background:#fff; color:#41474f; border:1px solid #c1c7d0; cursor:pointer;"><span style="display:inline-block; width:8px; height:8px; border-radius:9999px; margin-right:6px; vertical-align:middle; background:#0b8043;"></span>Test Funzionale</button>
+          <button style="border-radius:9999px; padding:6px 14px; font-size:13px; font-weight:500; background:#fff; color:#41474f; border:1px solid #c1c7d0; cursor:pointer;"><span style="display:inline-block; width:8px; height:8px; border-radius:9999px; margin-right:6px; vertical-align:middle; background:#8E24AA;"></span>Consulenza</button>
+          <span style="margin:0 4px; height:20px; width:1px; background:#c1c7d0;"></span>
+          <button style="border-radius:9999px; padding:6px 14px; font-size:13px; font-weight:500; background:#fff; color:#41474f; border:1px solid #c1c7d0; cursor:pointer;">Disponibilità</button>
+          <button style="border-radius:9999px; padding:6px 14px; font-size:13px; font-weight:500; background:#fff; color:#41474f; border:1px solid #c1c7d0; cursor:pointer;">Personali</button>
+          <button style="border-radius:9999px; padding:6px 14px; font-size:13px; font-weight:500; background:#fff; color:#41474f; border:1px solid #c1c7d0; cursor:pointer;">Da assegnare</button>
+        </div>
+      </header>
+
+      <!-- Grid -->
+      <div style="flex:1; display:flex; flex-direction:column; background:#fff; border-radius:32px; box-shadow:0px 4px 20px rgba(0,86,133,0.05); border:1px solid #eceef2; overflow:hidden;">
+        <!-- Days header -->
+        <div style="display:flex; border-bottom:1px solid #eceef2; background:#f8f9fe;">
+          <div style="width:64px; flex-shrink:0; border-right:1px solid #eceef2;"></div>
+          <div id="dayhead" style="flex:1; display:grid; grid-template-columns:repeat(7,1fr);">
+            <div style="padding:12px; text-align:center; border-right:1px solid #eceef2;"><div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#717880;">Lun</div><div style="font-size:20px; margin-top:4px; font-weight:600;">29</div></div>
+            <div style="padding:12px; text-align:center; border-right:1px solid #eceef2;"><div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#717880;">Mar</div><div style="font-size:20px; margin-top:4px; font-weight:600;">30</div></div>
+            <div style="padding:12px; text-align:center; border-right:1px solid #eceef2;"><div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#717880;">Mer</div><div style="font-size:20px; margin-top:4px; font-weight:600;">1</div></div>
+            <div style="padding:12px; text-align:center; border-right:1px solid #eceef2; background:rgba(148,204,255,0.3);"><div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#003e62; font-weight:700;">Gio</div><div style="font-size:20px; margin-top:4px; font-weight:700; color:#003e62;">2</div></div>
+            <div style="padding:12px; text-align:center; border-right:1px solid #eceef2;"><div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#717880;">Ven</div><div style="font-size:20px; margin-top:4px; font-weight:600;">3</div></div>
+            <div style="padding:12px; text-align:center; border-right:1px solid #eceef2;"><div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#717880;">Sab</div><div style="font-size:20px; margin-top:4px; font-weight:600;">4</div></div>
+            <div style="padding:12px; text-align:center;"><div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#717880;">Dom</div><div style="font-size:20px; margin-top:4px; font-weight:600;">5</div></div>
+          </div>
+        </div>
+        <!-- Time grid -->
+        <div style="flex:1; overflow-y:auto;">
+          <div style="display:flex; position:relative; min-height:660px;">
+            <!-- Hours -->
+            <div style="width:64px; flex-shrink:0; border-right:1px solid #eceef2; background:#f8f9fe;">
+              <div style="height:44px; border-bottom:1px solid #eceef2; display:flex; align-items:flex-start; justify-content:center; padding-top:4px; font-size:11px; color:#717880;">07:00</div>
+              <div style="height:44px; border-bottom:1px solid #eceef2; display:flex; align-items:flex-start; justify-content:center; padding-top:4px; font-size:11px; color:#717880;">08:00</div>
+              <div style="height:44px; border-bottom:1px solid #eceef2; display:flex; align-items:flex-start; justify-content:center; padding-top:4px; font-size:11px; color:#717880;">09:00</div>
+              <div style="height:44px; border-bottom:1px solid #eceef2; display:flex; align-items:flex-start; justify-content:center; padding-top:4px; font-size:11px; color:#717880;">10:00</div>
+              <div style="height:44px; border-bottom:1px solid #eceef2; display:flex; align-items:flex-start; justify-content:center; padding-top:4px; font-size:11px; color:#717880;">11:00</div>
+              <div style="height:44px; border-bottom:1px solid #eceef2; display:flex; align-items:flex-start; justify-content:center; padding-top:4px; font-size:11px; color:#717880;">12:00</div>
+              <div style="height:44px; border-bottom:1px solid #eceef2; display:flex; align-items:flex-start; justify-content:center; padding-top:4px; font-size:11px; color:#717880;">13:00</div>
+              <div style="height:44px; border-bottom:1px solid #eceef2; display:flex; align-items:flex-start; justify-content:center; padding-top:4px; font-size:11px; color:#717880;">14:00</div>
+              <div style="height:44px; border-bottom:1px solid #eceef2; display:flex; align-items:flex-start; justify-content:center; padding-top:4px; font-size:11px; color:#717880;">15:00</div>
+              <div style="height:44px; border-bottom:1px solid #eceef2; display:flex; align-items:flex-start; justify-content:center; padding-top:4px; font-size:11px; color:#717880;">16:00</div>
+              <div style="height:44px; border-bottom:1px solid #eceef2; display:flex; align-items:flex-start; justify-content:center; padding-top:4px; font-size:11px; color:#717880;">17:00</div>
+              <div style="height:44px; border-bottom:1px solid #eceef2; display:flex; align-items:flex-start; justify-content:center; padding-top:4px; font-size:11px; color:#717880;">18:00</div>
+              <div style="height:44px; border-bottom:1px solid #eceef2; display:flex; align-items:flex-start; justify-content:center; padding-top:4px; font-size:11px; color:#717880;">19:00</div>
+              <div style="height:44px; border-bottom:1px solid #eceef2; display:flex; align-items:flex-start; justify-content:center; padding-top:4px; font-size:11px; color:#717880;">20:00</div>
+              <div style="height:44px; border-bottom:1px solid #eceef2; display:flex; align-items:flex-start; justify-content:center; padding-top:4px; font-size:11px; color:#717880;">21:00</div>
+            </div>
+            <!-- Day columns -->
+            <div id="daycols" style="flex:1; display:grid; grid-template-columns:repeat(7,1fr);">
+              <!-- Mon 29 -->
+              <div style="position:relative; border-right:1px solid rgba(236,238,242,0.6); height:660px;">
+                <div class="evt" style="top:88px; height:40px; left:4px; right:4px; background:#003e62;"><h4>Sessione PT</h4><p>Giulia B. · 09:00</p></div>
+                <div class="evt" style="top:352px; height:40px; left:4px; right:4px; background:#039BE5;"><h4>BIA</h4><p>Luca V. · 15:00</p></div>
+              </div>
+              <!-- Tue 30 -->
+              <div style="position:relative; border-right:1px solid rgba(236,238,242,0.6); height:660px;">
+                <div class="evt" style="top:132px; height:40px; left:4px; right:4px; background:#003e62;"><h4>Sessione PT</h4><p>Andrea G. · 10:00</p></div>
+                <div class="evt" style="top:484px; height:29px; left:4px; right:4px; background:#8E24AA;"><h4>Consulenza</h4><p>18:00</p></div>
+              </div>
+              <!-- Wed 1 -->
+              <div style="position:relative; border-right:1px solid rgba(236,238,242,0.6); height:660px;">
+                <div class="evt" style="top:44px; height:29px; left:4px; right:4px; background:#0b8043;"><h4>Test Funz.</h4><p>Sara N. · 08:00</p></div>
+                <div class="evt" style="top:308px; height:40px; left:4px; right:4px; background:#003e62;"><h4>Sessione PT</h4><p>Marta C. · 14:00</p></div>
+              </div>
+              <!-- Thu 2 today -->
+              <div style="position:relative; border-right:1px solid rgba(236,238,242,0.6); height:660px; background:rgba(148,204,255,0.1);">
+                <div class="evt" style="top:88px; height:40px; left:4px; right:4px; background:#003e62;"><h4>Sessione PT</h4><p>Giulia B. · 09:00</p></div>
+                <div class="evt" style="top:154px; height:40px; left:4px; right:4px; background:#039BE5;"><h4>BIA</h4><p>Luca V. · 10:30</p></div>
+                <div class="evt" style="top:352px; height:29px; left:4px; right:4px; background:#0b8043;"><h4>Test Funz.</h4><p>Sara N. · 15:00</p></div>
+                <div class="evt" style="top:484px; height:40px; left:4px; right:4px; background:#003e62;"><h4>Sessione PT</h4><p>Andrea G. · 18:00</p></div>
+              </div>
+              <!-- Fri 3 -->
+              <div style="position:relative; border-right:1px solid rgba(236,238,242,0.6); height:660px;">
+                <div class="evt" style="top:176px; height:40px; left:4px; right:4px; background:#003e62;"><h4>Sessione PT</h4><p>Paolo M. · 11:00</p></div>
+                <div style="position:absolute; z-index:10; top:396px; height:40px; left:4px; right:4px; border:2px dashed #ffb77b; background:rgba(255,220,194,0.4); border-radius:16px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; color:#7c4302; box-sizing:border-box;"><div style="display:flex; align-items:center; gap:6px; font-size:12px; font-weight:600;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>Assegna</div><div style="font-size:10px; opacity:0.8;">16:00 - 17:00</div></div>
+              </div>
+              <!-- Sat 4 -->
+              <div style="position:relative; border-right:1px solid rgba(236,238,242,0.6); height:660px;">
+                <div class="evt" style="top:88px; height:40px; left:4px; right:4px; background:#003e62;"><h4>Sessione PT</h4><p>Elena R. · 09:00</p></div>
+              </div>
+              <!-- Sun 5 -->
+              <div style="position:relative; height:660px;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">class Component extends DCLogic {
+  root = React.createRef();
+  renderVals() { return { root: this.root }; }
+
+  componentDidMount() {
+    const el = this.root.current;
+    if (!el) return;
+    el.querySelectorAll("aside nav a").forEach((a)=>{ const m={"Panoramica":"Trainer%20Dashboard.dc.html","Calendario":"Trainer%20Calendar.dc.html","Clienti":"Trainer%20Clients.dc.html","Tipologie evento":"Trainer%20Event%20Types.dc.html","Disponibilità":"Trainer%20Availability.dc.html","Integrazioni":"Trainer%20Integrations.dc.html"}; const t=a.textContent.trim(); if(m[t]) a.setAttribute("href",m[t]); });
+    const MSHORT = ["gen","feb","mar","apr","mag","giu","lug","ago","set","ott","nov","dic"];
+    const DOW = ["Lun","Mar","Mer","Gio","Ven","Sab","Dom"];
+    const COLORS = { PT:"#003e62", BIA:"#039BE5", TEST:"#0b8043", CONS:"#8E24AA" };
+    const TITLE = { PT:"Sessione PT", BIA:"BIA", TEST:"Test Funz.", CONS:"Consulenza" };
+    const NAMES = ["Giulia B.","Luca V.","Andrea G.","Sara N.","Marta C.","Paolo M.","Elena R.","Davide F."];
+
+    // base Monday = 29 giu 2026, "oggi" = giovedì 2 luglio (offset 0, col 3)
+    const baseMon = new Date(2026,5,29);
+    let offset = 0;
+    const active = new Set(["PT","BIA","TEST","CONS"]); // which types visible
+    let assigned = {}; // key `${offset}` -> true once assigned
+
+    const hash = (s) => { let h=0; for (let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))>>>0; return h; };
+
+    // deterministic events for a week offset
+    const weekEvents = (off) => {
+      if (off === 0) return [
+        { col:0, h:9,  dur:60, type:"PT",  name:"Giulia B." },
+        { col:0, h:15, dur:60, type:"BIA", name:"Luca V." },
+        { col:1, h:10, dur:60, type:"PT",  name:"Andrea G." },
+        { col:1, h:18, dur:40, type:"CONS" },
+        { col:2, h:8,  dur:40, type:"TEST",name:"Sara N." },
+        { col:2, h:14, dur:60, type:"PT",  name:"Marta C." },
+        { col:3, h:9,  dur:60, type:"PT",  name:"Giulia B." },
+        { col:3, h:10.5,dur:60,type:"BIA", name:"Luca V." },
+        { col:3, h:15, dur:40, type:"TEST",name:"Sara N." },
+        { col:3, h:18, dur:60, type:"PT",  name:"Andrea G." },
+        { col:4, h:11, dur:60, type:"PT",  name:"Paolo M." },
+        { col:5, h:9,  dur:60, type:"PT",  name:"Elena R." },
+      ];
+      const evs = [];
+      const types = ["PT","BIA","TEST","PT","CONS","PT"];
+      for (let c=0;c<6;c++){
+        const n = 1 + (hash("w"+off+"c"+c) % 3); // 1-3 events
+        const used = new Set();
+        for (let k=0;k<n;k++){
+          let hh = 8 + (hash("w"+off+"c"+c+"e"+k) % 11); // 8..18
+          if (used.has(hh)) hh = (hh+1);
+          used.add(hh);
+          const type = types[hash("t"+off+c+k) % types.length];
+          const name = NAMES[hash("n"+off+c+k) % NAMES.length];
+          evs.push({ col:c, h:hh, dur: type==="TEST"?40: type==="CONS"?40:60, type, name: type==="CONS"?null:name });
+        }
+      }
+      return evs;
+    };
+
+    const dayhead = el.querySelector("#dayhead");
+    const daycols = el.querySelector("#daycols");
+    const weeklabel = el.querySelector("#weeklabel");
+
+    // mutable per-week store so create/edit/delete persist within the session
+    let uid = 100;
+    const cache = {};
+    const getEvents = (off) => { if (!cache[off]) cache[off] = weekEvents(off).map((e)=>({ ...e, id: ++uid })); return cache[off].concat(clientEventsFor(off)); };
+    // client-app bookings overlaid from the shared channel
+    const clientEventsFor = (off) => {
+      let all = [];
+      try { all = JSON.parse(localStorage.getItem("ncbookings-v1") || "[]"); } catch (e) { all = []; }
+      const mon = new Date(baseMon); mon.setDate(mon.getDate()+off*7);
+      const monMid = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate());
+      const out = [];
+      all.forEach((b)=>{
+        if (!b || !b.date) return;
+        const p = String(b.date).split("-"); const d = new Date(+p[0], +p[1]-1, +p[2]);
+        const col = Math.round((new Date(d.getFullYear(),d.getMonth(),d.getDate()) - monMid) / 86400000);
+        if (col < 0 || col > 6) return;
+        const tp = String(b.time||"09:00").split(":"); const h = (+tp[0]) + ((+tp[1])>=30?0.5:0);
+        const dur = b.type==="BIA"?30 : b.type==="TEST"?45 : 60;
+        const nm = String(b.clientName||"Cliente").split(" ");
+        out.push({ id:"cli-"+b.id, col, h, dur, type:b.type, name: nm[0]+(nm[1]?" "+nm[1].charAt(0)+".":""), client:true, confirmed:!!b.confirmed });
+      });
+      return out;
+    };
+    const fmtH = (h) => String(Math.floor(h)).padStart(2,"0")+":"+(h%1?"30":"00");
+
+    // ---- popover (event detail / quick-create) ----
+    let pop = null;
+    let suppressClick = false;
+    const closePop = () => { if (pop){ pop.remove(); pop = null; } };
+    const ensurePop = () => {
+      const stage = daycols.parentElement;
+      if (!pop){ pop = document.createElement("div"); stage.appendChild(pop); }
+      pop.style.cssText = "position:absolute; z-index:60; width:250px; background:#fff; border-radius:18px; box-shadow:0 12px 40px rgba(0,0,0,0.18); border:1px solid #eceef2; padding:16px; box-sizing:border-box; font-family:'Manrope',sans-serif;";
+      return pop;
+    };
+    const placePop = (col, top) => {
+      const stage = daycols.parentElement;
+      const colW = daycols.clientWidth/7;
+      let left = daycols.offsetLeft + col*colW + colW + 6;
+      if (left + 250 > stage.clientWidth) left = daycols.offsetLeft + col*colW - 250 - 6;
+      if (left < 6) left = 6;
+      pop.style.left = left+"px";
+      pop.style.top = Math.max(8, Math.min(top, 540))+"px";
+    };
+
+    const openDetail = (e) => {
+      closePop(); ensurePop();
+      pop.innerHTML = `
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:8px;">
+          <div style="display:flex; align-items:center; gap:8px;"><span style="width:10px;height:10px;border-radius:9999px;background:${COLORS[e.type]};display:inline-block;"></span><strong style="font-size:15px; color:#191c1f;">${TITLE[e.type]}</strong></div>
+          <button data-x style="border:none;background:none;cursor:pointer;color:#717880;font-size:14px;line-height:1;">✕</button>
+        </div>
+        <div style="margin-top:10px; font-size:13px; color:#41474f; display:flex; flex-direction:column; gap:6px;">
+          <div style="display:flex; align-items:center; gap:8px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#717880" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${fmtH(e.h)} – ${fmtH(e.h + e.dur/60)}</div>
+          <div style="display:flex; align-items:center; gap:8px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#717880" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>${e.name || "Nessun cliente"}</div>
+        </div>
+        <textarea data-note placeholder="Note sessione…" style="margin-top:10px; width:100%; box-sizing:border-box; min-height:52px; border:1px solid #e1e2e7; border-radius:12px; padding:8px 10px; font-size:13px; font-family:inherit; resize:vertical; outline:none; color:#191c1f;">${e.note||""}</textarea>
+        <div style="margin-top:10px; display:flex; align-items:center; gap:6px;">
+          <button data-mv="-1" style="flex:1; border:1px solid #c1c7d0; background:#fff; border-radius:9999px; padding:7px 0; font-size:12px; font-weight:600; cursor:pointer; color:#41474f;">− 1h</button>
+          <button data-mv="1" style="flex:1; border:1px solid #c1c7d0; background:#fff; border-radius:9999px; padding:7px 0; font-size:12px; font-weight:600; cursor:pointer; color:#41474f;">+ 1h</button>
+          <button data-del style="flex:1; border:none; background:#fef2f2; color:#dc2626; border-radius:9999px; padding:7px 0; font-size:12px; font-weight:700; cursor:pointer;">Elimina</button>
+        </div>`;
+      placePop(e.col, (e.h-7)*44);
+      pop.querySelector("[data-x]").onclick = closePop;
+      pop.querySelector("[data-note]").oninput = (ev)=>{ e.note = ev.target.value; };
+      pop.querySelectorAll("[data-mv]").forEach((b)=>b.onclick=()=>{ e.h = Math.max(7, Math.min(21, e.h + (+b.dataset.mv))); render(); openDetail(e); });
+      pop.querySelector("[data-del]").onclick = ()=>{ const arr=getEvents(offset); const i=arr.indexOf(e); if (i>=0) arr.splice(i,1); render(); closePop(); };
+    };
+
+    const openClientInfo = (e) => {
+      closePop(); ensurePop();
+      pop.innerHTML = `
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:8px;">
+          <div style="display:flex; align-items:center; gap:8px;"><span style="width:10px;height:10px;border-radius:9999px;background:${COLORS[e.type]};display:inline-block;"></span><strong style="font-size:15px; color:#191c1f;">${TITLE[e.type]}</strong></div>
+          <button data-x style="border:none;background:none;cursor:pointer;color:#717880;font-size:14px;line-height:1;">✕</button>
+        </div>
+        <div style="margin-top:6px;"><span style="display:inline-flex; align-items:center; gap:5px; font-size:10px; font-weight:700; letter-spacing:0.03em; text-transform:uppercase; background:rgba(0,62,98,0.08); color:#003e62; padding:3px 9px; border-radius:9999px;">Prenotata dal cliente</span></div>
+        <div style="margin-top:10px; font-size:13px; color:#41474f; display:flex; flex-direction:column; gap:6px;">
+          <div style="display:flex; align-items:center; gap:8px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#717880" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${fmtH(e.h)} – ${fmtH(e.h + e.dur/60)}</div>
+          <div style="display:flex; align-items:center; gap:8px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#717880" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>${e.name || "Cliente"}</div>
+          <div style="display:flex; align-items:center; gap:8px; color:${e.confirmed?"#059669":"#ea580c"}; font-weight:600;">${e.confirmed?'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Presenza confermata':'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>In attesa di conferma'}</div>
+        </div>`;
+      placePop(e.col, (e.h-7)*44);
+      pop.querySelector("[data-x]").onclick = closePop;
+    };
+
+    const openCreate = (col, hour) => {
+      closePop(); ensurePop();
+      const st = { type:"PT", h:hour, name:"" };
+      const draw = () => {
+        pop.innerHTML = `
+          <div style="display:flex; align-items:center; justify-content:space-between;">
+            <strong style="font-size:15px; color:#191c1f;">Nuovo evento</strong>
+            <button data-x style="border:none;background:none;cursor:pointer;color:#717880;font-size:14px;">✕</button>
+          </div>
+          <div style="margin-top:10px; display:flex; flex-wrap:wrap; gap:6px;">
+            ${["PT","BIA","TEST","CONS"].map((t)=>`<button data-t="${t}" style="border-radius:9999px; padding:5px 12px; font-size:12px; font-weight:600; cursor:pointer; border:1px solid ${st.type===t?COLORS[t]:"#c1c7d0"}; background:${st.type===t?COLORS[t]:"#fff"}; color:${st.type===t?"#fff":"#41474f"};">${TITLE[t]}</button>`).join("")}
+          </div>
+          <div style="margin-top:12px; display:flex; align-items:center; justify-content:space-between; font-size:13px; color:#41474f;">
+            <span>Orario</span>
+            <span style="display:flex; align-items:center; gap:8px;"><button data-h="-1" style="width:26px;height:26px;border-radius:9999px;border:1px solid #c1c7d0;background:#fff;cursor:pointer;">−</button><strong style="min-width:52px;text-align:center;color:#191c1f;">${fmtH(st.h)}</strong><button data-h="1" style="width:26px;height:26px;border-radius:9999px;border:1px solid #c1c7d0;background:#fff;cursor:pointer;">+</button></span>
+          </div>
+          <select data-name style="margin-top:12px; width:100%; box-sizing:border-box; border:1px solid #e1e2e7; border-radius:12px; padding:9px 10px; font-size:13px; font-family:inherit; color:#191c1f; background:#f8f9fe;">
+            <option value="">— Nessun cliente —</option>
+            ${NAMES.map((n)=>`<option value="${n}"${st.name===n?" selected":""}>${n}</option>`).join("")}
+          </select>
+          <div style="margin-top:12px; display:flex; gap:8px;">
+            <button data-cancel style="flex:1; border:1px solid #c1c7d0; background:#fff; border-radius:9999px; padding:9px 0; font-size:13px; font-weight:600; cursor:pointer; color:#41474f;">Annulla</button>
+            <button data-create style="flex:1; border:none; background:#003e62; color:#fff; border-radius:9999px; padding:9px 0; font-size:13px; font-weight:700; cursor:pointer;">Crea</button>
+          </div>`;
+        pop.querySelector("[data-x]").onclick = closePop;
+        pop.querySelector("[data-cancel]").onclick = closePop;
+        pop.querySelectorAll("[data-t]").forEach((b)=>b.onclick=()=>{ st.type=b.dataset.t; draw(); });
+        pop.querySelectorAll("[data-h]").forEach((b)=>b.onclick=()=>{ st.h=Math.max(7,Math.min(21,st.h+(+b.dataset.h))); draw(); });
+        pop.querySelector("[data-name]").onchange = (ev)=>{ st.name=ev.target.value; };
+        pop.querySelector("[data-create]").onclick = ()=>{
+          getEvents(offset).push({ col, h:st.h, dur: (st.type==="TEST"||st.type==="CONS")?40:60, type:st.type, name: st.name||null, id:++uid });
+          render(); closePop();
+        };
+        placePop(col, (st.h-7)*44);
+      };
+      draw();
+    };
+
+    const render = () => {
+      closePop();
+      const mon = new Date(baseMon); mon.setDate(mon.getDate()+offset*7);
+      const sun = new Date(mon); sun.setDate(sun.getDate()+6);
+      weeklabel.textContent = mon.getDate()+" "+MSHORT[mon.getMonth()]+" - "+sun.getDate()+" "+MSHORT[sun.getMonth()];
+
+      // header
+      dayhead.innerHTML = "";
+      for (let i=0;i<7;i++){
+        const d = new Date(mon); d.setDate(d.getDate()+i);
+        const isToday = offset===0 && i===3;
+        const cell = document.createElement("div");
+        cell.style.cssText = "padding:12px; text-align:center;"+(i<6?" border-right:1px solid #eceef2;":"")+(isToday?" background:rgba(148,204,255,0.3);":"");
+        cell.innerHTML = `<div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:${isToday?"#003e62":"#717880"}; ${isToday?"font-weight:700;":""}">${DOW[i]}</div><div style="font-size:20px; margin-top:4px; font-weight:${isToday?"700":"600"}; ${isToday?"color:#003e62;":""}">${d.getDate()}</div>`;
+        dayhead.appendChild(cell);
+      }
+
+      // columns
+      daycols.innerHTML = "";
+      const evs = getEvents(offset);
+      for (let c=0;c<7;c++){
+        const col = document.createElement("div");
+        const isToday = offset===0 && c===3;
+        col.style.cssText = "position:relative; height:660px; cursor:pointer;"+(c<6?" border-right:1px solid rgba(236,238,242,0.6);":"")+(isToday?" background:rgba(148,204,255,0.1);":"");
+        col.onclick = (evt) => { const hour = Math.max(7, Math.min(21, Math.round(evt.offsetY/44)+7)); openCreate(c, hour); };
+        evs.filter((e)=>e.col===c).forEach((e)=>{
+          if (!active.has(e.type)) return;
+          const top = (e.h-7)*44;
+          const box = document.createElement("div");
+          box.className = "evt";
+          box.style.cssText = `top:${top}px; height:${Math.round(e.dur/60*44)}px; left:4px; right:4px; background:${COLORS[e.type]}; cursor:pointer;`;
+          const hh = Math.floor(e.h), mm = e.h%1?"30":"00";
+          box.innerHTML = `<h4>${TITLE[e.type]}</h4><p>${e.name?e.name+" · ":""}${String(hh).padStart(2,"0")}:${mm}</p>${e.client?`<span class="cli">${e.confirmed?"✓ ":""}cliente</span>`:""}`;
+          box.style.cursor = "grab";
+          box.style.touchAction = "none";
+          let dr = null;
+          box.onpointerdown = (evt) => {
+            evt.preventDefault();
+            const rect = daycols.getBoundingClientRect();
+            const scale = rect.width / daycols.clientWidth || 1;
+            dr = { sx:evt.clientX, sy:evt.clientY, moved:false, scale, rect };
+            box.setPointerCapture(evt.pointerId);
+            box.style.cursor = "grabbing"; box.style.zIndex = 100; box.style.opacity = "0.9";
+          };
+          box.onpointermove = (evt) => {
+            if (!dr) return;
+            const dx = evt.clientX - dr.sx, dy = evt.clientY - dr.sy;
+            if (Math.abs(dx) > 4 || Math.abs(dy) > 4) dr.moved = true;
+            box.style.transform = `translate(${dx/dr.scale}px, ${dy/dr.scale}px)`;
+          };
+          box.onpointerup = (evt) => {
+            if (!dr) return;
+            if (dr.moved) {
+              const rect = dr.rect, colW = rect.width/7, hourPx = 44*dr.scale;
+              let nc = Math.max(0, Math.min(6, Math.floor((evt.clientX - rect.left)/colW)));
+              let nh = Math.max(7, Math.min(21, 7 + Math.round((evt.clientY - rect.top)/hourPx)));
+              e.col = nc; e.h = nh;
+              suppressClick = true; setTimeout(()=>suppressClick=false, 300);
+              dr = null; render(); return;
+            }
+            dr = null; box.style.cursor = "grab"; box.style.zIndex = ""; box.style.opacity = ""; box.style.transform = "";
+          };
+          box.onclick = (evt) => { evt.stopPropagation(); if (suppressClick){ suppressClick=false; return; } openDetail(e); };
+          if (e.client) {
+            // client-app bookings are read-only on the coach calendar (no drag)
+            box.style.cursor = "pointer";
+            box.onpointerdown = null; box.onpointermove = null; box.onpointerup = null;
+            box.onclick = (evt) => { evt.stopPropagation(); openClientInfo(e); };
+          }
+          col.appendChild(box);
+        });
+        // one "assegna" slot on Friday (col 4) if not assigned
+        if (c===4 && !assigned[offset]) {
+          const a = document.createElement("div");
+          a.style.cssText = "position:absolute; z-index:10; top:396px; height:40px; left:4px; right:4px; border:2px dashed #ffb77b; background:rgba(255,220,194,0.4); border-radius:16px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; color:#7c4302; box-sizing:border-box; cursor:pointer;";
+          a.innerHTML = `<div style="display:flex; align-items:center; gap:6px; font-size:12px; font-weight:600;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>Assegna</div><div style="font-size:10px; opacity:0.8;">16:00 - 17:00</div>`;
+          a.onclick = (evt) => {
+            evt.stopPropagation();
+            assigned[offset] = true;
+            const name = NAMES[hash("assign"+offset) % NAMES.length];
+            getEvents(offset).push({ col:4, h:16, dur:60, type:"PT", name, id:++uid });
+            render();
+          };
+          col.appendChild(a);
+        }
+        daycols.appendChild(col);
+      }
+    };
+
+    // filters
+    const chips = [...el.querySelectorAll("#filters button")];
+    const chipType = (b) => {
+      const txt = b.textContent.trim();
+      if (txt === "Tutti") return "ALL";
+      if (txt === "Sessione PT") return "PT";
+      if (txt === "BIA") return "BIA";
+      if (txt === "Test Funzionale") return "TEST";
+      if (txt === "Consulenza") return "CONS";
+      return null;
+    };
+    const paintChips = () => {
+      chips.forEach((b)=>{
+        const t = chipType(b);
+        if (t==="ALL"){
+          const on = active.size===4;
+          b.style.background = on ? "#003e62" : "#fff";
+          b.style.color = on ? "#fff" : "#41474f";
+          b.style.border = on ? "none" : "1px solid #c1c7d0";
+          b.style.fontWeight = on ? "600" : "500";
+        } else if (t){
+          // keep the outline+dot design; dim when the type is filtered out
+          const on = active.has(t);
+          b.style.opacity = on ? "1" : "0.4";
+          b.style.textDecoration = on ? "none" : "line-through";
+        }
+      });
+    };
+    chips.forEach((b)=>{
+      const t = chipType(b);
+      if (!t) return;
+      b.onclick = () => {
+        if (t==="ALL"){ ["PT","BIA","TEST","CONS"].forEach((x)=>active.add(x)); }
+        else { if (active.has(t)) active.delete(t); else active.add(t); }
+        paintChips(); render();
+      };
+    });
+
+    el.querySelector("#wkprev").onclick = () => { offset--; render(); };
+    el.querySelector("#wknext").onclick = () => { offset++; render(); };
+    el.querySelector("#todaybtn").onclick = () => { offset=0; render(); };
+
+    const sync = el.querySelector("#syncbtn"), syncLbl = el.querySelector("#synclabel");
+    sync.onclick = () => {
+      const svg = sync.querySelector("svg");
+      svg.style.transition = "transform .6s ease"; svg.style.transform = "rotate(360deg)";
+      setTimeout(()=>{ svg.style.transition="none"; svg.style.transform="rotate(0deg)"; }, 620);
+      syncLbl.textContent = "Ultima sync: ora";
+    };
+
+    paintChips();
+    render();
+
+    // live cross-tab sync: refresh overlay when the client books/confirms in another tab
+    window.addEventListener("storage", (e)=>{ if (e.key === "ncbookings-v1") { cache_clientClear(); render(); } });
+    function cache_clientClear(){ /* client events are re-read each render from localStorage; nothing cached */ }
+  }
+}</script>
+</body>
+</html>

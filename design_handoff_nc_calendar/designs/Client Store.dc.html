@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { margin:0; background:#eceef2; font-family:"Manrope", ui-sans-serif, system-ui, sans-serif; }
+    .fdisp { font-family:"Sora", ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.02em; }
+  </style>
+  <script src="./client-store.js"></script>
+</helmet>
+<div ref="{{ root }}" style="position:relative; width:430px; margin:0 auto; background:#f8f9fe; min-height:932px; box-shadow:0 20px 60px rgba(0,0,0,0.12); overflow:hidden;">
+  <main style="padding:24px 16px 120px; display:flex; flex-direction:column; gap:24px;">
+
+    <!-- Header -->
+    <div style="display:flex; align-items:center; gap:12px;">
+      <a id="backbtn" href="#" style="width:40px; height:40px; display:flex; align-items:center; justify-content:center; border-radius:9999px; color:#191c1f; text-decoration:none;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+      </a>
+      <h1 style="font-size:24px; font-weight:800; letter-spacing:-0.02em; color:#191c1f; margin:0;">NC Add-on</h1>
+    </div>
+
+    <!-- Credit balance -->
+    <div id="balance" style="display:flex; align-items:center; gap:16px; background:#003e62; border-radius:24px; padding:16px 20px; color:#fff;"></div>
+
+    <!-- Glass hub -->
+    <section style="border-radius:40px; background:rgba(255,255,255,0.4); backdrop-filter:blur(6px); border:1px solid rgba(255,255,255,0.3); box-shadow:0 8px 30px rgba(0,0,0,0.04); padding:20px; display:flex; flex-direction:column; gap:24px;">
+      <p style="font-size:14px; color:#41474f; line-height:1.6; margin:0;">Risorse premium e sessioni one-to-one riservate esclusivamente agli atleti con un percorso attivo. Il tuo accesso diretto per elevare ulteriormente i tuoi standard.</p>
+
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <h2 style="font-weight:600; font-size:14px; text-transform:uppercase; letter-spacing:0.025em; color:#41474f; margin:0;">Acquista nuovi Booster</h2>
+        <div style="display:flex; flex-direction:column; gap:16px;">
+
+          <!-- Card 1 -->
+          <article style="position:relative; display:flex; flex-direction:column; border-radius:32px; padding:24px; border:1px solid rgba(255,255,255,0.4); background:rgba(255,255,255,0.6); backdrop-filter:blur(20px); box-shadow:0 8px 30px rgba(0,0,0,0.04);">
+            <div style="display:flex; align-items:flex-start; gap:16px;">
+              <div style="width:48px; height:48px; flex-shrink:0; border-radius:16px; display:flex; align-items:center; justify-content:center; background:#eceef2; color:#191c1f;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0z"/></svg>
+              </div>
+              <div style="flex:1; min-width:0; display:flex; flex-direction:column;">
+                <h3 style="font-weight:600; font-size:16px; line-height:1.375; color:#191c1f; margin:0;">Sessione PT Aggiuntiva</h3>
+                <div style="margin-top:4px; display:flex; align-items:baseline; gap:8px;">
+                  <span class="fdisp" style="font-size:24px; font-weight:700; color:#191c1f;">40 €</span>
+                </div>
+                <p style="margin:8px 0 0; font-size:14px; color:#41474f; line-height:1.6;">1 Sessione extra per correggere l'esecuzione o recuperare un allenamento.</p>
+                <button data-grant="PT" data-qty="1" style="margin-top:16px; width:100%; border-radius:9999px; background:#0f172a; color:#fff; border:1px solid rgba(255,255,255,0.1); box-shadow:0 4px 20px rgba(15,23,42,0.25); padding:10px 0; font-size:14px; font-weight:500; cursor:pointer;">Acquista Ora</button>
+              </div>
+            </div>
+          </article>
+
+          <!-- Card 2 hero -->
+          <article style="position:relative; display:flex; flex-direction:column; border-radius:32px; padding:24px; border:1px solid rgba(255,255,255,0.4); background:rgba(255,255,255,0.6); backdrop-filter:blur(20px); box-shadow:0 8px 30px rgba(0,0,0,0.04); outline:1px solid rgba(59,91,222,0.2);">
+            <span style="position:absolute; top:-8px; right:24px; background:#3b5bde; color:#fff; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.025em; padding:4px 12px; border-radius:9999px; box-shadow:0 1px 2px rgba(0,0,0,0.1);">Miglior Valore</span>
+            <div style="display:flex; align-items:flex-start; gap:16px;">
+              <div style="width:48px; height:48px; flex-shrink:0; border-radius:16px; display:flex; align-items:center; justify-content:center; background:#3b5bde; color:#fff;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>
+              </div>
+              <div style="flex:1; min-width:0; display:flex; flex-direction:column;">
+                <h3 style="font-weight:600; font-size:16px; line-height:1.375; color:#191c1f; margin:0;">Pacchetto Sessioni PT Aggiuntive</h3>
+                <div style="margin-top:4px; display:flex; align-items:baseline; gap:8px;">
+                  <span class="fdisp" style="font-size:24px; font-weight:700; color:#191c1f;">99 €</span>
+                  <span style="font-size:12px; color:#41474f;">Solo 33 € a sessione</span>
+                </div>
+                <p style="margin:8px 0 0; font-size:14px; color:#41474f; line-height:1.6;">Il pacchetto ideale per un boost intensivo di perfezionamento tecnico.</p>
+                <button data-grant="PT" data-qty="3" style="margin-top:16px; width:100%; border-radius:9999px; background:#0f172a; color:#fff; border:1px solid rgba(255,255,255,0.1); box-shadow:0 4px 20px rgba(15,23,42,0.25); padding:10px 0; font-size:14px; font-weight:500; cursor:pointer;">Acquista Ora</button>
+              </div>
+            </div>
+          </article>
+
+          <!-- Card 3 -->
+          <article style="position:relative; display:flex; flex-direction:column; border-radius:32px; padding:24px; border:1px solid rgba(255,255,255,0.4); background:rgba(255,255,255,0.6); backdrop-filter:blur(20px); box-shadow:0 8px 30px rgba(0,0,0,0.04);">
+            <div style="display:flex; align-items:flex-start; gap:16px;">
+              <div style="width:48px; height:48px; flex-shrink:0; border-radius:16px; display:flex; align-items:center; justify-content:center; background:#eceef2; color:#191c1f;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/><path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/></svg>
+              </div>
+              <div style="flex:1; min-width:0; display:flex; flex-direction:column;">
+                <h3 style="font-weight:600; font-size:16px; line-height:1.375; color:#191c1f; margin:0;">Test Funzionali + Check Tecnico</h3>
+                <div style="margin-top:4px; display:flex; align-items:baseline; gap:8px;">
+                  <span class="fdisp" style="font-size:24px; font-weight:700; color:#191c1f;">75 €</span>
+                </div>
+                <p style="margin:8px 0 0; font-size:14px; color:#41474f; line-height:1.6;">60 minuti di valutazione posturale e riprogrammazione tecnica. L'intervento ideale per gestire infortuni, superare stalli o ricalibrare i tuoi obiettivi.</p>
+                <button data-grant="TEST" data-qty="1" style="margin-top:16px; width:100%; border-radius:9999px; background:#0f172a; color:#fff; border:1px solid rgba(255,255,255,0.1); box-shadow:0 4px 20px rgba(15,23,42,0.25); padding:10px 0; font-size:14px; font-weight:500; cursor:pointer;">Acquista Ora</button>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+
+      <p style="font-size:12px; color:#41474f; text-align:center; margin:0;">I crediti Booster scadono al termine del tuo blocco attuale.</p>
+    </section>
+  </main>
+
+  <!-- Bottom nav -->
+  <nav id="botnav" style="position:absolute; bottom:0; left:0; width:100%; z-index:40; border-radius:32px 32px 0 0; background:rgba(255,255,255,0.7); backdrop-filter:blur(20px); border-top:1px solid rgba(255,255,255,0.2); box-shadow:0 -8px 30px rgba(0,0,0,0.04); display:flex; justify-content:space-around; align-items:center; padding:16px 24px 32px; box-sizing:border-box;">
+    <a href="#" style="display:flex; align-items:center; justify-content:center; border-radius:9999px; padding:12px; color:#41474f;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></a>
+    <a href="#" style="display:flex; align-items:center; justify-content:center; border-radius:9999px; padding:12px; color:#41474f;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4M16 2v4M3 10h18"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/></svg></a>
+    <a href="#" style="display:flex; align-items:center; justify-content:center; border-radius:9999px; padding:12px; background:#005685; color:#91cbff;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0z"/></svg></a>
+    <a href="#" style="display:flex; align-items:center; justify-content:center; border-radius:9999px; padding:12px; color:#41474f;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:430,&quot;height&quot;:932}}">class Component extends DCLogic {
+  root = React.createRef();
+  renderVals() { return { root: this.root }; }
+
+  componentDidMount() {
+    const el = this.root.current;
+    if (!el) return;
+    const NC = window.NCClient; if (NC) NC.load();
+
+    const LABELS = { PT:"Sessione PT", BIA:"BIA", TEST:"Test Funz." };
+    const renderBalance = () => {
+      const bal = el.querySelector("#balance");
+      if (!bal || !NC) return;
+      const cr = NC.state.credits || {};
+      const items = ["PT","BIA","TEST"].filter((k)=>cr[k]>0);
+      if (!items.length){
+        bal.innerHTML = `<div style="width:44px; height:44px; border-radius:12px; background:rgba(255,255,255,0.15); display:grid; place-items:center; flex-shrink:0;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#91cbff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0z"/></svg></div><div><p style="margin:0; font-size:13px; color:#91cbff; font-weight:600;">Nessun credito Booster</p><p style="margin:2px 0 0; font-size:12px; color:rgba(255,255,255,0.7);">Acquista per sbloccare sessioni extra.</p></div>`;
+      } else {
+        bal.innerHTML = `<div style="width:44px; height:44px; border-radius:12px; background:rgba(255,255,255,0.15); display:grid; place-items:center; flex-shrink:0;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#91cbff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0z"/></svg></div><div style="min-width:0;"><p style="margin:0; font-size:12px; color:#91cbff; font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">Crediti Booster attivi</p><p class="tnum" style="margin:2px 0 0; font-size:15px; font-weight:700;">${items.map((k)=>`+${cr[k]} ${LABELS[k]}`).join(" \u00b7 ")}</p></div>`;
+      }
+    };
+    renderBalance();
+
+    const toast = (msg) => {
+      const t = document.createElement("div");
+      t.textContent = msg;
+      t.style.cssText = "position:absolute; left:50%; bottom:104px; transform:translateX(-50%); background:#0f172a; color:#fff; padding:12px 22px; border-radius:9999px; font-size:13px; font-weight:600; box-shadow:0 8px 30px rgba(0,0,0,0.2); z-index:60; opacity:0; transition:opacity .2s; white-space:nowrap;";
+      el.appendChild(t);
+      requestAnimationFrame(() => t.style.opacity = "1");
+      setTimeout(() => { t.style.opacity = "0"; setTimeout(() => t.remove(), 250); }, 1600);
+    };
+
+    const buttons = [...el.querySelectorAll("button")].filter((b) => b.textContent.trim() === "Acquista Ora");
+    buttons.forEach((btn) => {
+      const title = btn.closest("article").querySelector("h3").textContent;
+      const grant = btn.dataset.grant, qty = +(btn.dataset.qty||1);
+      btn.onclick = () => {
+        if (NC && grant) NC.addCredits(grant, qty);
+        btn.innerHTML = `<span style="display:inline-flex; align-items:center; gap:6px; justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Aggiunto \u2713</span>`;
+        btn.style.background = "#0b8043";
+        btn.disabled = true; btn.style.cursor = "default";
+        renderBalance();
+        toast(`+${qty} ${LABELS[grant]||""} accreditat${qty>1?"i":"o"}`);
+        setTimeout(()=>{ btn.disabled=false; btn.style.cursor="pointer"; btn.textContent="Acquista di nuovo"; btn.style.background="#0f172a"; }, 1600);
+      };
+    });
+
+    // back + nav
+    const back = el.querySelector("#backbtn");
+    if (back && NC) back.onclick = (e)=>{ e.preventDefault(); NC.go("home"); };
+    if (NC) NC.wireNav(el.querySelector("#botnav"), "store");
+  }
+}</script>
+</body>
+</html>

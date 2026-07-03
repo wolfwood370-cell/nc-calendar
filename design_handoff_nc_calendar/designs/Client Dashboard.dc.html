@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; background: #eceef2; font-family: "Manrope", ui-sans-serif, system-ui, sans-serif; }
+    .fdisp { font-family: "Sora", ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.02em; }
+    .tnum { font-variant-numeric: tabular-nums; }
+  </style>
+  <script src="./client-store.js"></script>
+</helmet>
+<div ref="{{ root }}" style="position:relative; width:430px; margin:0 auto; background:#f8f9fe; min-height:932px; box-shadow:0 20px 60px rgba(0,0,0,0.12); overflow:hidden;">
+
+  <!-- Header -->
+  <header style="position:sticky; top:0; z-index:40; background:rgba(248,249,254,0.8); backdrop-filter:blur(20px); box-shadow:0 8px 30px rgba(0,0,0,0.04);">
+    <div style="display:flex; justify-content:space-between; align-items:center; width:100%; padding:16px 20px; box-sizing:border-box;">
+      <div style="display:flex; align-items:center; gap:16px;">
+        <div style="width:40px; height:40px; border-radius:9999px; background:#005685; color:#91cbff; display:grid; place-items:center; border:2px solid #ffffff; box-shadow:0 1px 2px rgba(0,0,0,0.05); font-weight:600;">G</div>
+        <h1 class="fdisp" style="font-size:24px; font-weight:700; color:#003e62; margin:0;">Ciao Giulia</h1>
+      </div>
+      <button id="notifbtn" aria-label="Notifiche" style="width:40px; height:40px; border-radius:9999px; background:rgba(255,255,255,0.6); border:1px solid rgba(193,199,208,0.3); display:grid; place-items:center; color:#41474f; cursor:pointer;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main style="padding:16px 20px 0; display:flex; flex-direction:column; gap:32px;">
+
+    <!-- Card 1: Blocco corrente -->
+    <section style="position:relative; background:#ffffff; border-radius:32px; box-shadow:0 8px 30px rgba(0,0,0,0.04); padding:32px; border:1px solid rgba(193,199,208,0.3); overflow:hidden;">
+      <div style="position:absolute; top:-40px; right:-40px; width:128px; height:128px; background:rgba(0,62,98,0.05); border-radius:9999px; filter:blur(48px); pointer-events:none;"></div>
+      <div style="display:flex; flex-direction:column; gap:24px; position:relative; z-index:10;">
+
+        <div style="display:flex; flex-direction:column; gap:4px;">
+          <span id="blocklabel" style="font-size:12px; font-weight:600; color:#41474f; text-transform:uppercase; letter-spacing:0.05em;">BLOCCO 3 DI 6</span>
+          <h2 style="font-size:20px; font-weight:600; color:#191c1f; margin:0;">Il tuo blocco corrente</h2>
+        </div>
+
+        <!-- Segment visual (rendered) -->
+        <div style="display:flex; flex-direction:column;">
+          <div id="segrow" style="display:grid; grid-template-columns:repeat(8, minmax(0,1fr)); gap:8px; align-items:center; margin-top:24px; margin-bottom:24px;"></div>
+          <div style="display:flex; flex-wrap:wrap; column-gap:12px; row-gap:4px; justify-content:center; margin-top:8px;">
+            <span style="display:flex; align-items:center; gap:4px; font-size:11px; color:#41474f;"><span style="color:#003e62; line-height:1;">●</span>Completate</span>
+            <span style="display:flex; align-items:center; gap:4px; font-size:11px; color:#41474f;"><span style="color:#94ccff; line-height:1;">●</span>Prenotate</span>
+            <span style="display:flex; align-items:center; gap:4px; font-size:11px; color:#41474f;"><span style="color:#c1c7d0; line-height:1;">○</span>Da prenotare</span>
+          </div>
+        </div>
+
+        <!-- Le tue Sessioni nested card -->
+        <div id="sesscard" style="background:#ffffff; border-radius:32px; padding:20px; border:1px solid #c1c7d0; box-shadow:0 1px 2px rgba(0,0,0,0.05);">
+          <h3 style="font-size:16px; font-weight:700; color:#191c1f; margin:0 0 16px;">Le tue Sessioni</h3>
+          <div id="poolrows" style="display:flex; flex-direction:column; width:100%;"></div>
+        </div>
+
+        <p id="deadline" style="font-size:12px; color:#41474f; text-align:center; margin:0;"></p>
+
+        <!-- Secondary row (rendered) -->
+        <div id="statrow" style="display:grid; grid-template-columns:repeat(3,1fr); padding-top:8px;"></div>
+      </div>
+    </section>
+
+    <!-- I tuoi progressi (BIA) -->
+    <section style="background:#ffffff; border-radius:32px; box-shadow:0 8px 30px rgba(0,0,0,0.04); padding:32px; border:1px solid rgba(193,199,208,0.3); display:flex; flex-direction:column; gap:20px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <h3 style="font-size:20px; font-weight:600; color:#191c1f; margin:0;">I tuoi progressi</h3>
+        <div id="biatoggle" style="display:flex; gap:4px;"></div>
+      </div>
+      <div id="biabody"></div>
+      <p style="font-size:12px; color:#717880; text-align:center; margin:0;">Misurazioni BIA registrate dal tuo coach.</p>
+    </section>
+
+    <!-- Card 2: Il tuo percorso -->
+    <section style="background:#ffffff; border-radius:32px; box-shadow:0 8px 30px rgba(0,0,0,0.04); padding:32px; border:1px solid rgba(193,199,208,0.3); display:flex; flex-direction:column; gap:24px;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:12px;">
+        <h3 style="font-size:20px; font-weight:600; color:#191c1f; margin:0;">Il tuo percorso</h3>
+        <span id="journeycount" class="tnum" style="font-size:12px; font-weight:600; color:#41474f; flex-shrink:0;"></span>
+      </div>
+      <div id="blocklist" style="display:flex; flex-direction:column; gap:8px;"></div>
+      <div style="display:flex; justify-content:center; text-align:center;">
+        <span id="journeyfoot" style="font-size:13px; color:#41474f;"></span>
+      </div>
+    </section>
+
+    <!-- Prossima Sessione -->
+    <section>
+      <h3 style="font-size:12px; font-weight:600; color:#41474f; text-transform:uppercase; letter-spacing:0.05em; margin:0 0 8px 8px;">Prossima Sessione</h3>
+      <div id="nextwrap"></div>
+    </section>
+
+    <!-- Timeline -->
+    <section style="display:flex; flex-direction:column; gap:16px;">
+      <h3 style="font-size:20px; font-weight:600; color:#191c1f; margin:0 0 0 4px;">Il Tuo Percorso Recente</h3>
+      <ol id="timeline" style="position:relative; border-left:2px solid rgba(193,199,208,0.3); padding-left:24px; margin:0 0 0 8px; list-style:none; display:flex; flex-direction:column; gap:20px;"></ol>
+    </section>
+
+    <!-- Quick action -->
+    <section style="display:flex; flex-direction:column; gap:16px; margin-top:8px; padding-bottom:112px;">
+      <a id="cta" href="#" style="width:100%; background:#005685; color:#ffffff; font-weight:600; font-size:16px; padding:16px 0; border-radius:9999px; box-shadow:0 4px 6px rgba(0,0,0,0.1); display:flex; align-items:center; justify-content:center; gap:8px; text-decoration:none; box-sizing:border-box;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5v14"/></svg>
+        Prenota Nuova Sessione
+      </a>
+    </section>
+  </main>
+
+  <!-- Bottom nav -->
+  <nav id="botnav" style="position:absolute; bottom:0; left:0; width:100%; z-index:40; border-radius:32px 32px 0 0; background:rgba(255,255,255,0.7); backdrop-filter:blur(20px); border-top:1px solid rgba(255,255,255,0.2); box-shadow:0 -8px 30px rgba(0,0,0,0.04); display:flex; justify-content:space-around; align-items:center; padding:16px 24px 32px; box-sizing:border-box;">
+    <a href="#" style="display:flex; flex-direction:column; align-items:center; justify-content:center; border-radius:9999px; padding:12px; background:#005685; color:#91cbff;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    </a>
+    <a href="#" style="display:flex; flex-direction:column; align-items:center; justify-content:center; border-radius:9999px; padding:12px; color:#41474f;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4M16 2v4M3 10h18"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/></svg>
+    </a>
+    <a href="#" style="display:flex; flex-direction:column; align-items:center; justify-content:center; border-radius:9999px; padding:12px; color:#41474f;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0z"/></svg>
+    </a>
+    <a href="#" style="display:flex; flex-direction:column; align-items:center; justify-content:center; border-radius:9999px; padding:12px; color:#41474f;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    </a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:430,&quot;height&quot;:932}}">
+class Component extends DCLogic {
+  root = React.createRef();
+  renderVals() { return { root: this.root }; }
+  componentWillUnmount() { if (this._t) clearInterval(this._t); }
+
+  componentDidMount() {
+    const el = this.root.current;
+    const NC = window.NCClient;
+    if (!el || !NC) return;
+    NC.load();
+    const $ = (s) => el.querySelector(s);
+    const TCOL = { PT:"#003e62", BIA:"#039BE5", TEST:"#0b8043" };
+
+    const toast = (msg, color) => {
+      const t = document.createElement("div");
+      t.textContent = msg;
+      t.style.cssText = `position:absolute; left:50%; bottom:104px; transform:translateX(-50%); background:${color||"#0f172a"}; color:#fff; padding:12px 22px; border-radius:9999px; font-size:13px; font-weight:600; box-shadow:0 8px 30px rgba(0,0,0,0.2); z-index:60; opacity:0; transition:opacity .2s; white-space:nowrap;`;
+      el.appendChild(t);
+      requestAnimationFrame(() => t.style.opacity = "1");
+      setTimeout(() => { t.style.opacity = "0"; setTimeout(() => t.remove(), 250); }, 1600);
+    };
+
+    // ---- Block segment + label + deadline + stat row ----
+    const bs = NC.blockStats();
+    $("#blocklabel").textContent = `BLOCCO ${bs.n} DI ${bs.total}`;
+    const up = NC.upcoming();
+    const seg = $("#segrow");
+    let cells = "";
+    for (let i=0;i<bs.done;i++) cells += `<div style="position:relative; display:flex; justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#003e62" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="position:absolute; top:-24px;"><path d="M20 6 9 17l-5-5"/></svg><div style="width:100%; height:12px; border-radius:9999px; background:#003e62;"></div></div>`;
+    up.forEach((s)=>{ const d=NC.parseISO(s.date); cells += `<div style="position:relative; display:flex; justify-content:center;"><div style="width:100%; height:12px; border-radius:9999px; background:#94ccff;"></div><span class="tnum" style="font-size:10px; font-weight:600; color:#41474f; position:absolute; bottom:-20px;">${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}</span></div>`; });
+    for (let i=0;i<bs.open;i++) cells += `<div style="position:relative; display:flex; justify-content:center;"><div style="width:100%; height:12px; border-radius:9999px; background:#e7e8ec; border:1px dashed #c1c7d0; box-sizing:border-box;"></div></div>`;
+    seg.innerHTML = cells;
+    $("#deadline").innerHTML = bs.open>0 ? `Da prenotare entro il <strong>${bs.deadline}</strong>.` : `Blocco completamente prenotato \u2713`;
+
+    const stat = (icon, col, txt) => `<div style="display:flex; flex-direction:column; align-items:center; gap:4px; text-align:center; padding:0 8px;">${icon.replace("__C__",col)}<span class="tnum" style="font-size:14px; font-weight:600; color:#191c1f;">${txt}</span></div>`;
+    const iCheck = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="__C__" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>`;
+    const iCal = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="__C__" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4M16 2v4M21 14V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h5M3 10h18M16 20l2 2 4-4"/></svg>`;
+    const iClock = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="__C__" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
+    $("#statrow").innerHTML =
+      stat(iCheck, "#003e62", `${bs.done} fatte`) +
+      `<div style="display:flex; flex-direction:column; align-items:center; gap:4px; text-align:center; padding:0 8px; border-left:1px solid #e7e8ec; border-right:1px solid #e7e8ec;">${iCal.replace("__C__","#94ccff")}<span class="tnum" style="font-size:14px; font-weight:600; color:#191c1f;">${bs.booked} prenotate</span></div>` +
+      stat(iClock, "#717880", `${bs.open} da fare`);
+
+    // ---- Pool rows ----
+    const POOLICON = {
+      PT: `<path d="M14.4 14.4 9.6 9.6"/><path d="M18.657 21.485a2 2 0 1 1-2.829-2.828l-1.767 1.768a2 2 0 1 1-2.829-2.829l6.364-6.364a2 2 0 1 1 2.829 2.829l-1.768 1.767a2 2 0 1 1 2.828 2.829z"/><path d="m21.5 21.5-1.4-1.4"/><path d="M3.9 3.9 2.5 2.5"/><path d="M6.404 12.768a2 2 0 1 1-2.829-2.829l1.768-1.767a2 2 0 1 1-2.828-2.829l2.828-2.828a2 2 0 1 1 2.829 2.828l1.767-1.768a2 2 0 1 1 2.829 2.829z"/>`,
+      BIA: `<path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>`,
+      TEST: `<path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/><path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/>`
+    };
+    const rows = $("#poolrows");
+    const poolKeys = ["PT","BIA","TEST"];
+    poolKeys.forEach((k, i) => {
+      const p = NC.poolFor(k);
+      const full = p.left <= 0;
+      const label = k==="PT" ? "Sessione PT" : k==="BIA" ? "BIA" : "Test Funzionale";
+      const btn = full
+        ? `<span data-full style="border:1px solid #717880; color:#717880; font-size:12px; font-weight:700; border-radius:9999px; padding:6px 16px; opacity:0.5; white-space:nowrap;">Completo</span>`
+        : `<span data-book="${k}" style="border:1px solid #003e62; color:#003e62; font-size:12px; font-weight:700; border-radius:9999px; padding:6px 16px; white-space:nowrap; cursor:pointer;">Prenota</span>`;
+      const row = document.createElement("div");
+      row.style.cssText = `display:grid; grid-template-columns:1fr auto auto; align-items:center; gap:12px; width:100%; padding:12px 0; ${i<poolKeys.length-1?"border-bottom:1px solid #eceef2;":""}`;
+      row.innerHTML = `
+        <div style="min-width:0; display:flex; align-items:center; gap:8px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#003e62" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">${POOLICON[k]}</svg>
+          <span style="font-size:14px; font-weight:700; color:#191c1f; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${label}</span>
+          ${p.credits>0?`<span style="font-size:10px; font-weight:700; color:#3b5bde; background:rgba(59,91,222,0.1); padding:2px 6px; border-radius:9999px;">+${p.credits}</span>`:""}
+        </div>
+        <div style="flex-shrink:0;"><span class="tnum" style="display:inline-block; background:rgba(0,62,98,0.05); color:#003e62; font-size:12px; font-weight:700; padding:4px 12px; border-radius:9999px; white-space:nowrap;">${p.used} / ${p.total}</span></div>
+        <div style="flex-shrink:0;">${btn}</div>`;
+      rows.appendChild(row);
+    });
+    rows.querySelectorAll("[data-book]").forEach((b)=>b.onclick=()=>NC.go("calendar", "t="+b.dataset.book));
+
+    // ---- Progress (BIA) ----
+    const METRICS = { weight:{label:"Peso",unit:"kg",color:"#003e62"}, muscle:{label:"Massa",unit:"kg",color:"#0b8043"}, fat:{label:"Grasso",unit:"%",color:"#ea580c"} };
+    let metric = "weight";
+    const renderBia = () => {
+      const src = NC.state.bia || [];
+      $("#biatoggle").innerHTML = Object.keys(METRICS).map((k)=>{
+        const on=k===metric, M=METRICS[k];
+        return `<button data-m="${k}" style="font-size:11px; font-weight:600; padding:5px 10px; border-radius:9999px; cursor:pointer; border:1px solid ${on?M.color:"#c1c7d0"}; background:${on?M.color:"#fff"}; color:${on?"#fff":"#41474f"};">${M.label}</button>`;
+      }).join("");
+      $("#biatoggle").querySelectorAll("[data-m]").forEach((b)=>b.onclick=()=>{ metric=b.dataset.m; renderBia(); });
+      const M = METRICS[metric];
+      const data = src.map((p)=>p[metric]);
+      if (!data.length){ $("#biabody").innerHTML = `<p style="font-size:14px; color:#717880; margin:0;">Nessuna misurazione ancora.</p>`; return; }
+      const min=Math.min(...data), max=Math.max(...data), span=(max-min)||1;
+      const W=330,H=120,PX=8,PY=14;
+      const x=(i)=>PX+i*(W-2*PX)/Math.max(1,data.length-1);
+      const y=(v)=>PY+(1-(v-min)/span)*(H-2*PY);
+      const pts=data.map((v,i)=>`${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+      const area=`${x(0).toFixed(1)},${H} ${pts} ${x(data.length-1).toFixed(1)},${H}`;
+      const last=data[data.length-1], delta=+(last-data[0]).toFixed(1);
+      const good = metric==="muscle" ? delta>=0 : delta<=0;
+      $("#biabody").innerHTML = `
+        <div style="display:flex; align-items:baseline; gap:10px; margin-bottom:8px;">
+          <span class="tnum fdisp" style="font-size:30px; font-weight:700; color:#191c1f;">${last}<span style="font-size:14px; color:#717880; font-weight:500;"> ${M.unit}</span></span>
+          <span class="tnum" style="font-size:13px; font-weight:600; color:${good?"#059669":"#dc2626"};">${delta>0?"+":""}${delta} ${M.unit} da ${src[0].m}</span>
+        </div>
+        <svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;">
+          <polygon points="${area}" fill="${M.color}" opacity="0.08"/>
+          <polyline points="${pts}" fill="none" stroke="${M.color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          ${data.map((v,i)=>`<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="3.5" fill="#fff" stroke="${M.color}" stroke-width="2"><title>${src[i].m}: ${v} ${M.unit}</title></circle>`).join("")}
+        </svg>
+        <div style="display:flex; justify-content:space-between; margin-top:6px; font-size:10px; color:#717880;">${src.map((p)=>`<span>${p.m}</span>`).join("")}</div>`;
+    };
+    renderBia();
+
+    // ---- Journey ----
+    const doneCount = bs.done, total = bs.total*bs.size;
+    const doneAll = (bs.n-1)*bs.size + bs.done;
+    $("#journeycount").textContent = `${doneAll} di ${total} sessioni`;
+    const bl = $("#blocklist");
+    let html = "";
+    for (let n=1;n<=bs.total;n++){
+      if (n<bs.n) html += `<div style="height:56px; border-radius:16px; background:#003e62; display:flex; align-items:center; justify-content:space-between; padding:0 16px; color:#ffffff;"><span style="font-size:14px; font-weight:600;">Blocco ${n}</span><div style="display:flex; align-items:center; gap:4px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span class="tnum" style="font-size:14px; font-weight:600;">${bs.size}/${bs.size}</span></div></div>`;
+      else if (n===bs.n){ const pct=Math.round(bs.done/bs.size*100); html += `<div style="height:56px; border-radius:16px; background:#f2f3f8; border:2px solid #003e62; display:flex; align-items:center; justify-content:space-between; padding:0 16px; position:relative; overflow:hidden;"><div id="curfill" style="position:absolute; left:0; top:0; bottom:0; background:rgba(0,62,98,0.2); width:0%;" data-pct="${pct}"></div><span style="font-size:14px; font-weight:600; color:#191c1f; position:relative; z-index:10;">Blocco ${n} \u00b7 ${bs.done}/${bs.size}</span><span style="background:#003e62; color:#ffffff; font-size:10px; font-weight:700; padding:4px 8px; border-radius:6px; letter-spacing:0.05em; position:relative; z-index:10;">ATTUALE</span></div>`; }
+      else html += `<div style="height:56px; border-radius:16px; background:#e7e8ec; border:1px dashed #c1c7d0; display:flex; align-items:center; justify-content:space-between; padding:0 16px;"><span style="font-size:14px; color:#41474f;">Blocco ${n} \u00b7 0/${bs.size}</span></div>`;
+    }
+    bl.innerHTML = html;
+    const rem = total-doneAll, pctJ = Math.round(doneAll/total*100);
+    $("#journeyfoot").textContent = `${doneAll} completate \u2022 ${rem} rimanenti \u2022 ${pctJ}% del percorso`;
+    const fill = $("#curfill");
+    if (fill){ const pct=fill.dataset.pct+"%"; fill.style.transition="width 1s cubic-bezier(0.22,1,0.36,1)"; setTimeout(()=>fill.style.width=pct, 80); }
+
+    // ---- Next session ----
+    const nextwrap = $("#nextwrap");
+    const nx = NC.next();
+    if (!nx) {
+      nextwrap.innerHTML = `<div style="border-radius:32px; box-shadow:0 8px 30px rgba(0,0,0,0.04); padding:28px 24px; background:#ffffff; border:1px solid rgba(193,199,208,0.3); display:flex; flex-direction:column; align-items:center; gap:12px; text-align:center;">
+        <div style="width:56px; height:56px; border-radius:9999px; background:#f2f3f8; display:grid; place-items:center; color:#94ccff;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>
+        <p style="font-size:15px; font-weight:600; color:#191c1f; margin:0;">Nessuna sessione in programma</p>
+        <p style="font-size:13px; color:#717880; margin:0;">Prenota la prossima per continuare il blocco.</p>
+        <button data-booknext style="margin-top:4px; background:#005685; color:#fff; border:none; border-radius:9999px; padding:12px 28px; font-size:14px; font-weight:600; cursor:pointer;">Prenota ora</button>
+      </div>`;
+      nextwrap.querySelector("[data-booknext]").onclick=()=>NC.go("calendar");
+    } else {
+      const dur = NC.TYPES[nx.type].dur;
+      const timeRange = `${nx.time} - ${NC.endTime(nx.time,dur)}`;
+      nextwrap.innerHTML = `<div data-open style="border-radius:32px; box-shadow:0 8px 30px rgba(0,0,0,0.04); padding:24px; background:#ffffff; border:1px solid rgba(193,199,208,0.3); cursor:pointer;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+          <div style="display:flex; gap:16px; align-items:center; min-width:0;">
+            <div style="width:64px; height:64px; flex-shrink:0; border-radius:9999px; display:grid; place-items:center; background:rgba(3,155,229,0.1); color:#039BE5;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>
+            <div style="display:flex; flex-direction:column; gap:4px; min-width:0;">
+              <h4 style="font-size:24px; font-weight:600; color:#191c1f; line-height:1.15; margin:0;">${NC.relativeDay(nx.date)}</h4>
+              <div style="display:flex; align-items:center; gap:8px; color:#41474f;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span id="nexttime" class="tnum" style="font-size:16px; font-weight:600;">${timeRange}</span></div>
+            </div>
+          </div>
+          <span style="display:inline-flex; align-items:center; padding:4px 12px; border-radius:9999px; font-size:12px; font-weight:600; flex-shrink:0; background:rgba(3,155,229,0.1); color:#039BE5;">${NC.TYPES[nx.type].short}</span>
+        </div>
+        <div style="margin-top:16px; display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+          <span data-confirm style="display:none;"></span>
+          <span data-detail style="display:inline-flex; align-items:center; gap:6px; padding:6px 16px; border-radius:9999px; background:#005685; color:#fff; font-size:12px; font-weight:600;">Dettagli</span>
+          <span data-resched style="display:inline-flex; align-items:center; gap:6px; padding:6px 16px; border-radius:9999px; background:#f2f3f8; color:#191c1f; font-size:12px; font-weight:600; border:1px solid rgba(193,199,208,0.3);">Riprogramma</span>
+        </div>
+      </div>`;
+      nextwrap.querySelector("[data-open]").onclick=()=>NC.go("Client Booking Detail.dc.html", nx.id);
+      nextwrap.querySelector("[data-detail]").onclick=(e)=>{ e.stopPropagation(); NC.go("Client Booking Detail.dc.html", nx.id); };
+      nextwrap.querySelector("[data-resched]").onclick=(e)=>{ e.stopPropagation(); NC.go("Client Booking Detail.dc.html", nx.id+"&resched=1"); };
+
+      // confirm attendance chip
+      const confEl = nextwrap.querySelector("[data-confirm]");
+      const paintConfirm = () => {
+        if (nx.confirmed){
+          confEl.style.cssText = "display:inline-flex; align-items:center; gap:6px; padding:6px 16px; border-radius:9999px; background:rgba(5,150,105,0.12); color:#059669; font-size:12px; font-weight:700;";
+          confEl.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Presenza confermata`;
+        } else {
+          confEl.style.cssText = "display:inline-flex; align-items:center; gap:6px; padding:6px 16px; border-radius:9999px; background:#0b8043; color:#fff; font-size:12px; font-weight:700; cursor:pointer;";
+          confEl.textContent = "Conferma presenza";
+        }
+      };
+      paintConfirm();
+      confEl.onclick = (e)=>{ e.stopPropagation(); if (nx.confirmed) return; NC.confirmAttendance(nx.id); nx.confirmed=true; paintConfirm(); toast("Presenza confermata ✓","#0b8043"); const rb=el.querySelector("#remind"); if(rb) rb.remove(); };
+
+      // live countdown
+      const cdWrap = nextwrap.querySelector("#nexttime").parentElement.parentElement;
+      const cd = document.createElement("span");
+      cd.className = "tnum";
+      cd.style.cssText = "display:inline-flex; align-items:center; gap:6px; margin-top:6px; padding:4px 12px; border-radius:9999px; background:rgba(3,155,229,0.1); color:#039BE5; font-size:13px; font-weight:700; width:max-content;";
+      cdWrap.appendChild(cd);
+      const dpart = NC.parseISO(nx.date), tp = nx.time.split(":");
+      const target = new Date(dpart.getFullYear(),dpart.getMonth(),dpart.getDate(),+tp[0],+tp[1],0);
+      const tick = () => {
+        let ms = target - new Date();
+        if (ms<0) ms=0;
+        const h=Math.floor(ms/3.6e6), m=Math.floor(ms%3.6e6/6e4), s=Math.floor(ms%6e4/1e3);
+        cd.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>tra ${h}h ${String(m).padStart(2,"0")}m ${String(s).padStart(2,"0")}s`;
+      };
+      tick(); this._t = setInterval(tick, 1000);
+    }
+
+    // ---- Timeline (recent past) ----
+    const tl = $("#timeline");
+    const recent = NC.past().slice(0,4);
+    tl.innerHTML = recent.map((s)=>{
+      const cancelled = s.status==="cancelled";
+      const stChip = cancelled
+        ? `<span style="display:inline-flex; padding:2px 10px; border-radius:9999px; font-size:10px; font-weight:600; background:rgba(220,38,38,0.1); color:#dc2626;">Cancellata</span>`
+        : `<span style="display:inline-flex; padding:2px 10px; border-radius:9999px; font-size:10px; font-weight:600; background:rgba(52,199,89,0.12); color:#0b8043;">Completata</span>`;
+      const dotc = cancelled ? "#dc2626" : "#4361ee";
+      return `<li style="position:relative;">
+        <span style="position:absolute; left:-1.95rem; top:16px; width:12px; height:12px; border-radius:9999px; background:${dotc}; box-shadow:0 0 0 4px ${cancelled?"rgba(220,38,38,0.2)":"rgba(67,97,238,0.2)"};"></span>
+        <div style="background:rgba(255,255,255,0.6); backdrop-filter:blur(20px); border-radius:24px; border:1px solid rgba(255,255,255,0.4); box-shadow:0 8px 30px rgba(0,0,0,0.04); padding:20px;">
+          <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+            <div style="min-width:0; display:flex; flex-direction:column; gap:4px;">
+              <p style="font-size:16px; font-weight:600; color:#191c1f; margin:0; line-height:1.15;">${NC.TYPES[s.type].label}</p>
+              <p style="font-size:14px; color:#41474f; margin:0;">${NC.fmtShort(s.date)} \u00b7 ${s.time}</p>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0;">
+              <span style="display:inline-flex; padding:2px 10px; border-radius:9999px; font-size:10px; font-weight:600; background:rgba(0,62,98,0.1); color:#003e62;">${NC.TYPES[s.type].short}</span>
+              ${stChip}
+            </div>
+          </div>
+        </div>
+      </li>`;
+    }).join("");
+
+    // ---- CTA + nav + notif ----
+    // State card: block complete (renew) or first access (welcome)
+    (function(){
+      const main = el.querySelector("main");
+      const mk = (html) => { const d = document.createElement("div"); d.innerHTML = html; return d.firstElementChild; };
+      if (bs.empty && NC.upcoming().length === 0 && NC.past().length === 0){
+        const c = mk(`<div style="background:linear-gradient(135deg,#003e62,#005685); color:#fff; border-radius:28px; padding:28px; box-shadow:0 8px 30px rgba(0,62,98,0.2); display:flex; flex-direction:column; gap:14px;">
+          <div style="width:52px; height:52px; border-radius:16px; background:rgba(255,255,255,0.15); display:grid; place-items:center;"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#91cbff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.4 14.4 9.6 9.6"/><path d="M18.657 21.485a2 2 0 1 1-2.829-2.828l-1.767 1.768a2 2 0 1 1-2.829-2.829l6.364-6.364a2 2 0 1 1 2.829 2.829l-1.768 1.767a2 2 0 1 1 2.828 2.829z"/><path d="m21.5 21.5-1.4-1.4"/><path d="M3.9 3.9 2.5 2.5"/><path d="M6.404 12.768a2 2 0 1 1-2.829-2.829l1.768-1.767a2 2 0 1 1-2.828-2.829l2.828-2.828a2 2 0 1 1 2.829 2.828l1.767-1.768a2 2 0 1 1 2.829 2.829z"/></svg></div>
+          <div><h2 class="fdisp" style="font-size:22px; font-weight:700; margin:0;">Benvenuta, Giulia!</h2><p style="font-size:14px; color:rgba(255,255,255,0.8); margin:8px 0 0; line-height:1.5;">Il tuo percorso inizia qui. Prenota la tua prima sessione con Marco per cominciare.</p></div>
+          <button data-first style="align-self:flex-start; background:#91cbff; color:#00344f; border:none; border-radius:9999px; padding:12px 24px; font-size:14px; font-weight:700; cursor:pointer;">Prenota la prima sessione</button>
+        </div>`);
+        main.insertBefore(c, main.firstChild);
+        c.querySelector("[data-first]").onclick = ()=>NC.go("calendar");
+      } else if (bs.complete){
+        const doneAllTot = bs.total*bs.size;
+        const c = mk(`<div style="background:#ffffff; border:2px solid #0b8043; border-radius:28px; padding:28px; box-shadow:0 8px 30px rgba(11,128,67,0.12); display:flex; flex-direction:column; gap:14px;">
+          <div style="display:flex; align-items:center; gap:12px;"><div style="width:48px; height:48px; border-radius:9999px; background:rgba(11,128,67,0.12); color:#0b8043; display:grid; place-items:center;"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.801 10A10 10 0 1 1 17 3.335"/><path d="m9 11 3 3L22 4"/></svg></div><div><span style="font-size:12px; font-weight:700; color:#0b8043; text-transform:uppercase; letter-spacing:0.05em;">${bs.lastBlock?"Percorso completato":"Blocco "+bs.n+" completato"}</span><h2 class="fdisp" style="font-size:20px; font-weight:700; color:#191c1f; margin:2px 0 0;">${bs.lastBlock?"Hai finito tutti i blocchi! \uD83C\uDFC6":"Ottimo lavoro, "+bs.size+"/"+bs.size+" fatte"}</h2></div></div>
+          <p style="font-size:14px; color:#41474f; margin:0; line-height:1.5;">${bs.lastBlock?"Parla con Marco per pianificare un nuovo percorso su misura per i tuoi prossimi obiettivi.":"Sei pronta per il blocco "+(bs.n+1)+". Rinnova per sbloccare le nuove sessioni."}</p>
+          <button data-renew style="align-self:flex-start; background:#0b8043; color:#fff; border:none; border-radius:9999px; padding:12px 24px; font-size:14px; font-weight:700; cursor:pointer;">${bs.lastBlock?"Contatta il coach":"Rinnova \u2192 Blocco "+(bs.n+1)}</button>
+        </div>`);
+        main.insertBefore(c, main.firstChild);
+        c.querySelector("[data-renew]").onclick = ()=>{
+          if (bs.lastBlock){ toast("Richiesta inviata al coach", "#0b8043"); return; }
+          NC.renewBlock(); toast("Blocco "+(bs.n+1)+" attivato ✓", "#0b8043"); setTimeout(()=>location.reload(), 700);
+        };
+      }
+    })();
+
+    // Reminder banner (session within 48h, not yet confirmed)
+    const due = NC.reminderDue(48);
+    if (due && !due.confirmed){
+      const main = el.querySelector("main");
+      const b = document.createElement("div");
+      b.id = "remind";
+      b.style.cssText = "background:linear-gradient(135deg,#003e62,#005685); color:#fff; border-radius:24px; padding:16px 18px; display:flex; align-items:center; gap:14px; box-shadow:0 8px 30px rgba(0,62,98,0.2);";
+      b.innerHTML = `
+        <div style="width:44px; height:44px; border-radius:12px; background:rgba(255,255,255,0.15); display:grid; place-items:center; flex-shrink:0;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#91cbff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg></div>
+        <div style="flex:1; min-width:0;">
+          <p style="margin:0; font-size:14px; font-weight:700;">Promemoria: ${NC.relativeDay(due.date).toLowerCase()} alle ${due.time}</p>
+          <p style="margin:3px 0 0; font-size:12px; color:rgba(255,255,255,0.75);">${NC.TYPES[due.type].label} · conferma la tua presenza</p>
+        </div>
+        <button data-rc style="flex-shrink:0; background:#91cbff; color:#00344f; border:none; border-radius:9999px; padding:9px 16px; font-size:12px; font-weight:700; cursor:pointer;">Conferma</button>`;
+      main.insertBefore(b, main.firstChild);
+      b.querySelector("[data-rc]").onclick = () => {
+        NC.confirmAttendance(due.id);
+        const nxc = el.querySelector("#nextwrap [data-confirm]");
+        b.remove();
+        toast("Presenza confermata ✓", "#0b8043");
+        if (nxc){ nxc.style.cssText = "display:inline-flex; align-items:center; gap:6px; padding:6px 16px; border-radius:9999px; background:rgba(5,150,105,0.12); color:#059669; font-size:12px; font-weight:700;"; nxc.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Presenza confermata`; }
+      };
+    }
+
+    // Post-session feedback prompt
+    const pf = NC.pendingFeedback();
+    if (pf){
+      const tlSec = el.querySelector("#timeline").closest("section");
+      const card = document.createElement("section");
+      card.style.cssText = "background:#ffffff; border-radius:32px; box-shadow:0 8px 30px rgba(0,0,0,0.04); padding:24px; border:1px solid rgba(193,199,208,0.3);";
+      card.innerHTML = `
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;"><div style="width:36px; height:36px; border-radius:9999px; background:rgba(3,155,229,0.1); color:#039BE5; display:grid; place-items:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></div><h3 style="font-size:16px; font-weight:700; color:#191c1f; margin:0;">Com'è andata?</h3></div>
+        <p style="font-size:13px; color:#717880; margin:0 0 14px;">${NC.TYPES[pf.type].label} · ${NC.fmtShort(pf.date)}. Il tuo feedback aiuta il coach.</p>
+        <div data-stars style="display:flex; gap:8px; justify-content:center;"></div>`;
+      tlSec.parentNode.insertBefore(card, tlSec);
+      const starsWrap = card.querySelector("[data-stars]");
+      let hover = 0;
+      const paint = (n) => { [...starsWrap.children].forEach((s,i)=>{ s.style.color = i<n ? "#f5a623" : "#d7dbe0"; }); };
+      for (let i=1;i<=5;i++){
+        const st = document.createElement("button");
+        st.style.cssText = "background:none; border:none; cursor:pointer; padding:2px; color:#d7dbe0; transition:color .1s;";
+        st.innerHTML = `<svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 17.3 6.2 21l1.6-6.6L2.4 9.6l6.8-.5L12 3l2.8 6.1 6.8.5-5.4 4.8 1.6 6.6z"/></svg>`;
+        st.onmouseenter = ()=>{ hover=i; paint(i); };
+        st.onmouseleave = ()=>paint(0);
+        st.onclick = ()=>{ NC.setFeedback(pf.id, i); paint(i); toast("Grazie per il feedback!","#0b8043"); setTimeout(()=>card.remove(), 700); };
+        starsWrap.appendChild(st);
+      }
+    }
+
+    $("#cta").onclick = (e) => { e.preventDefault(); NC.go("calendar"); };
+
+    // ---- Notifications ----
+    const NICON = {
+      bell: `<path d="M10.268 21a2 2 0 0 0 3.464 0M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/>`,
+      cal: `<path d="M8 2v4M16 2v4M3 10h18"/><rect width="18" height="18" x="3" y="4" rx="2"/>`,
+      chart: `<path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/>`,
+      spark: `<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0z"/>`,
+      chat: `<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>`
+    };
+    const notifBtn = $("#notifbtn");
+    const paintBadge = () => {
+      let dot = notifBtn.querySelector("[data-dot]");
+      const n = NC.unreadCount();
+      if (n > 0) {
+        if (!dot) { dot = document.createElement("span"); dot.setAttribute("data-dot",""); notifBtn.appendChild(dot); }
+        dot.style.cssText = "position:absolute; top:-3px; right:-3px; min-width:16px; height:16px; padding:0 4px; box-sizing:border-box; border-radius:9999px; background:#e53935; color:#fff; font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; border:2px solid #f8f9fe;";
+        dot.textContent = n;
+      } else if (dot) dot.remove();
+    };
+    notifBtn.style.position = "relative";
+    paintBadge();
+    let panel = null;
+    const closePanel = () => { if (panel){ panel.remove(); panel = null; } };
+    notifBtn.onclick = (e) => {
+      e.stopPropagation();
+      if (panel) { closePanel(); return; }
+      const items = NC.notifications();
+      panel = document.createElement("div");
+      panel.style.cssText = "position:absolute; top:64px; right:20px; width:330px; max-width:calc(100% - 40px); z-index:70; background:#fff; border-radius:24px; box-shadow:0 20px 60px rgba(0,0,0,0.22); border:1px solid rgba(193,199,208,0.4); overflow:hidden;";
+      const head = `<div style="display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid #f1f5f9;"><span class="fdisp" style="font-size:16px; font-weight:700; color:#191c1f;">Notifiche</span>${items.length?`<button data-read style="background:none; border:none; color:#005685; font-size:12px; font-weight:600; cursor:pointer;">Segna lette</button>`:""}</div>`;
+      const body = items.length ? items.map((it)=>`
+        <div data-go="${it.kind}" style="display:flex; gap:12px; padding:14px 18px; border-bottom:1px solid #f6f7f9; cursor:pointer; ${it.unread?"background:rgba(3,155,229,0.04);":""}">
+          <div style="width:36px; height:36px; border-radius:10px; flex-shrink:0; background:${it.color}1a; color:${it.color}; display:grid; place-items:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${NICON[it.icon]}</svg></div>
+          <div style="flex:1; min-width:0;"><p style="margin:0; font-size:13px; font-weight:700; color:#191c1f;">${it.title}</p><p style="margin:3px 0 0; font-size:12px; color:#717880; line-height:1.4;">${it.sub}</p></div>
+          ${it.unread?`<span style="width:8px; height:8px; border-radius:9999px; background:#039BE5; flex-shrink:0; margin-top:4px;"></span>`:""}
+        </div>`).join("") : `<div style="padding:32px 18px; text-align:center; color:#717880; font-size:13px;">Nessuna notifica</div>`;
+      panel.innerHTML = head + `<div style="max-height:360px; overflow-y:auto;">${body}</div>`;
+      el.querySelector("header").appendChild(panel);
+      const rb = panel.querySelector("[data-read]");
+      if (rb) rb.onclick = (ev)=>{ ev.stopPropagation(); NC.markAllRead(); paintBadge(); closePanel(); };
+      panel.querySelectorAll("[data-go]").forEach((row)=>row.onclick=()=>{
+        const k = row.dataset.go;
+        NC.markAllRead();
+        if (k==="confirm"){ const nx=NC.next(); if(nx){ NC.confirmAttendance(nx.id); toast("Presenza confermata ✓","#0b8043"); location.reload(); return; } }
+        if (k==="block"||k==="credit") NC.go(k==="credit"?"store":"calendar");
+        else if (k==="feedback"){ closePanel(); paintBadge(); const fc=el.querySelector("#timeline"); if(fc) fc.scrollIntoView({block:"center"}); }
+        else { closePanel(); paintBadge(); }
+      });
+      document.addEventListener("click", function onDoc(ev){ if (panel && !panel.contains(ev.target) && ev.target!==notifBtn){ closePanel(); document.removeEventListener("click", onDoc); } });
+    };
+
+    NC.wireNav($("#botnav"), "home");
+
+    // live cross-tab sync: reflect changes made in another tab (e.g. coach side)
+    window.addEventListener("storage", (e)=>{ if (e.key==="ncapp-giulia-v1" || e.key==="ncbookings-v1" || e.key==="ncclient-giulia-bianchi") location.reload(); });
+  }
+}
+</script>
+</body>
+</html>

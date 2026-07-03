@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { margin:0; background:#eceef2; font-family:"Manrope", ui-sans-serif, system-ui, sans-serif; }
+    .fdisp { font-family:"Sora", ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.02em; }
+    .tnum { font-variant-numeric: tabular-nums; }
+    .card { background:#fff; border-radius:28px; box-shadow:0px 4px 20px rgba(0,86,133,0.05); padding:24px; }
+  </style>
+  <script src="./coach-clients.js"></script>
+</helmet>
+<div ref="{{ root }}" style="display:flex; width:1440px; min-height:900px; background:linear-gradient(135deg,#f2f3f8,#e7e8ec);">
+
+  <aside style="width:256px; flex-shrink:0; background:rgba(255,255,255,0.4); backdrop-filter:blur(32px); border-right:1px solid rgba(255,255,255,0.2); display:flex; flex-direction:column; padding:8px;">
+    <div style="display:flex; align-items:center; gap:8px; padding:8px;">
+      <div style="width:32px; height:32px; border-radius:8px; background:#003e62; color:#fff; display:grid; place-items:center; font-weight:800; font-size:13px; flex-shrink:0;">NC</div>
+      <div><p class="fdisp" style="font-size:14px; font-weight:600; margin:0; line-height:1;">NC Calendar</p><p style="font-size:12px; color:#717880; margin:4px 0 0;">Studio</p></div>
+    </div>
+    <div style="padding:16px 8px 4px;"><span style="font-size:11px; font-weight:600; color:#717880; text-transform:uppercase; letter-spacing:0.05em;">Area di lavoro</span></div>
+    <nav style="display:flex; flex-direction:column; gap:2px; padding:4px;">
+      <a href="Trainer%20Dashboard.dc.html" style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:9999px; color:#41474f; font-size:14px; font-weight:500; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>Panoramica</a>
+      <a href="Trainer%20Calendar.dc.html" style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:9999px; color:#41474f; font-size:14px; font-weight:500; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4M16 2v4M3 10h18"/><rect width="18" height="18" x="3" y="4" rx="2"/></svg>Calendario</a>
+      <a href="Trainer%20Clients.dc.html" style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:9999px; background:rgba(0,62,98,0.1); color:#003e62; font-size:14px; font-weight:600; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>Clienti</a>
+      <a href="Trainer%20Event%20Types.dc.html" style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:9999px; color:#41474f; font-size:14px; font-weight:500; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/></svg>Tipologie evento</a>
+      <a href="Trainer%20Availability.dc.html" style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:9999px; color:#41474f; font-size:14px; font-weight:500; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Disponibilità</a>
+      <a href="Trainer%20Integrations.dc.html" style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:9999px; color:#41474f; font-size:14px; font-weight:500; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v6M15 2v6M12 17v5M5 8h14a2 2 0 0 1 2 2v2a7 7 0 0 1-14 0v-2a2 2 0 0 1 2-2Z"/></svg>Integrazioni</a>
+    </nav>
+    <div style="margin-top:auto; padding:8px;"><div style="border-radius:12px; border:1px solid #c1c7d0; background:#fff; padding:12px;"><p style="font-size:14px; font-weight:500; margin:0;">Marco Rossi</p><p style="font-size:12px; color:#717880; margin:2px 0 0;">marco@ncstudio.it</p></div></div>
+  </aside>
+
+  <div style="flex:1; display:flex; flex-direction:column; min-width:0;">
+    <header style="height:56px; display:flex; align-items:center; justify-content:space-between; gap:12px; border-bottom:1px solid rgba(255,255,255,0.2); padding:0 16px; background:rgba(255,255,255,0.4); backdrop-filter:blur(32px);">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <a href="Trainer%20Clients.dc.html" style="display:flex; align-items:center; gap:6px; font-size:14px; color:#41474f; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7M19 12H5"/></svg>Clienti</a>
+        <div style="height:20px; width:1px; background:rgba(0,0,0,0.15);"></div>
+        <span id="crumb" style="font-size:14px; color:#717880;">Profilo cliente</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <select id="cswitch" style="border:1px solid #e1e2e7; border-radius:9999px; padding:6px 12px; font-size:13px; font-family:inherit; background:#fff; color:#191c1f; cursor:pointer;"></select>
+        <button id="cprev" style="width:32px; height:32px; border-radius:9999px; border:1px solid #e1e2e7; background:#fff; display:flex; align-items:center; justify-content:center; color:#41474f; cursor:pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+        <button id="cnext" style="width:32px; height:32px; border-radius:9999px; border:1px solid #e1e2e7; background:#fff; display:flex; align-items:center; justify-content:center; color:#41474f; cursor:pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+      </div>
+    </header>
+
+    <main style="flex:1; background:#f8f9fe; padding:32px 40px;">
+      <div id="profileHeader" style="margin-bottom:24px;"></div>
+      <div style="display:grid; grid-template-columns:1.6fr 1fr; gap:24px; align-items:start;">
+        <div style="display:flex; flex-direction:column; gap:24px; min-width:0;">
+          <div id="packageCard"></div>
+          <div id="historyCard"></div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:24px; min-width:0;">
+          <div id="biaCard"></div>
+          <div id="notesCard"></div>
+          <div id="engageCard"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  root = React.createRef();
+  renderVals() { return { root: this.root }; }
+
+  componentDidMount() {
+    const el = this.root.current;
+    if (!el) return;
+    el.querySelectorAll("aside nav a").forEach((a)=>{ const m={"Panoramica":"Trainer%20Dashboard.dc.html","Calendario":"Trainer%20Calendar.dc.html","Clienti":"Trainer%20Clients.dc.html","Tipologie evento":"Trainer%20Event%20Types.dc.html","Disponibilità":"Trainer%20Availability.dc.html","Integrazioni":"Trainer%20Integrations.dc.html"}; const t=a.textContent.trim(); if(m[t]) a.setAttribute("href",m[t]); });
+
+    const hash = (s)=>{ let h=0; for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))>>>0; return h; };
+    const slug = (n)=>n.toLowerCase().replace(/[^a-z]+/g,"-");
+
+    const MNAMES=["gen","feb","mar","apr","mag","giu","lug","ago","set","ott","nov","dic"];
+    const mLabel=(iso)=>{ const mm=+String(iso).slice(5,7); return MNAMES[mm-1]||iso; };
+    const sortBia=(arr)=>arr.sort((a,b)=>(a.date||"")<(b.date||"")?-1:(a.date||"")>(b.date||"")?1:0);
+    const bia = (seed) => {
+      const seq=[["feb","2026-02"],["mar","2026-03"],["apr","2026-04"],["mag","2026-05"],["giu","2026-06"]];
+      let w = 62 + (seed%22), fat = 27 - (seed%7), mus = 39 + (seed%9);
+      return seq.map(([mo,date])=>{
+        w = +(w - (0.4 + (hash(seed+mo)%10)/20)).toFixed(1);
+        fat = +(fat - (0.3 + (hash("f"+seed+mo)%8)/20)).toFixed(1);
+        mus = +(mus + (0.2 + (hash("m"+seed+mo)%8)/25)).toFixed(1);
+        return { m:mo, date, weight:w, fat, muscle:mus };
+      });
+    };
+    const sessions = (seed) => {
+      const ns = seed%3===0;
+      return [
+        { d:"mar 8 lug",  t:"BIA", s:"upcoming", note:"" },
+        { d:"gio 3 lug",  t:"PT",  s:"upcoming", note:"" },
+        { d:"gio 26 giu", t:"PT",  s:"done",   note:"Ottimo lavoro sugli stacchi, buona attivazione posteriore." },
+        { d:"lun 23 giu", t:"BIA", s:"done",   note:"Misurazione mensile: massa magra in aumento." },
+        { d:"gio 19 giu", t:"PT",  s: ns?"noshow":"done", note: ns?"Assente senza preavviso.":"Focus su tecnica squat e mobilità anca." },
+        { d:"gio 12 giu", t:"PT",  s:"done",   note:"Progressione carichi su panca." },
+        { d:"lun 9 giu",  t:"Test",s:"done",   note:"Test funzionale iniziale completato." },
+      ];
+    };
+
+    const base = (window.COACHData ? window.COACHData.clients : []);
+    const CLIENTS = base.map((c,i)=>({ ...c, slug:c.slug||slug(c.name), initials:c.initials||c.name.split(" ").map((w)=>w[0]).join(""), seed:i+3, bia:bia(i+3), sessions:sessions(i+3), notes:"" }));
+    const bySlug = {}; CLIENTS.forEach((c,i)=>bySlug[c.slug]=i);
+
+    let idx = 0;
+    const initH = location.hash.replace("#","");
+    if (bySlug[initH]!=null) idx = bySlug[initH];
+    let metric = "weight";
+    let biaAdding = false;
+    let biaEdit = null;
+    const storeKey = (c)=>"ncclient-"+c.slug;
+    const saveStore = (c)=>{ try{ localStorage.setItem(storeKey(c), JSON.stringify(c.store)); }catch(e){} };
+    const loadStore = (c)=>{
+      if (c.store) return;
+      let s;
+      try{ const r=localStorage.getItem(storeKey(c)); s = r?JSON.parse(r):{ bia:c.bia, sessions:c.sessions, notes:"" }; }
+      catch(e){ s={ bia:c.bia, sessions:c.sessions, notes:"" }; }
+      try{ const p=localStorage.getItem("ncpending-"+c.slug); if(p){ const arr=JSON.parse(p); if(Array.isArray(arr)&&arr.length){ s.sessions=[...arr,...s.sessions]; localStorage.removeItem("ncpending-"+c.slug); localStorage.setItem(storeKey(c),JSON.stringify(s)); } } }catch(e){}
+      // backward-compat: ensure every BIA point has an ISO date, then sort chronologically
+      (s.bia||[]).forEach((p,i)=>{ if(!p.date){ const mi=MNAMES.indexOf(p.m); p.date = "2026-"+String(mi>=0?mi+1:i+2).padStart(2,"0"); } });
+      sortBia(s.bia||[]);
+      c.store = s;
+    };
+
+    const STATUS = { "Attivo":["#ecfdf5","#059669"], "In Scadenza":["#fff7ed","#ea580c"], "Completato":["#eceef2","#41474f"] };
+    const TCOLOR = { PT:"#003e62", BIA:"#039BE5", Test:"#0b8043" };
+    const METRICS = { weight:{label:"Peso",unit:"kg",color:"#003e62"}, muscle:{label:"Massa magra",unit:"kg",color:"#039BE5"}, fat:{label:"Grasso",unit:"%",color:"#ea580c"} };
+
+    const toast = (msg,color)=>{
+      const t=document.createElement("div"); t.textContent=msg;
+      t.style.cssText=`position:fixed; left:50%; bottom:28px; transform:translateX(-50%); background:${color||"#003e62"}; color:#fff; padding:12px 22px; border-radius:9999px; font-size:14px; font-weight:600; box-shadow:0 8px 30px rgba(0,0,0,0.2); z-index:9999; opacity:0; transition:opacity .2s;`;
+      el.appendChild(t); requestAnimationFrame(()=>t.style.opacity="1");
+      setTimeout(()=>{ t.style.opacity="0"; setTimeout(()=>t.remove(),250); },1700);
+    };
+
+    const $ = (s)=>el.querySelector(s);
+
+    const renderHeader = (c) => {
+      const [bg,fg] = STATUS[c.status];
+      $("#crumb").textContent = c.name;
+      $("#profileHeader").innerHTML = `
+        <div class="card" style="display:flex; align-items:center; justify-content:space-between; gap:24px; flex-wrap:wrap;">
+          <div style="display:flex; align-items:center; gap:20px; min-width:0;">
+            <div style="width:72px; height:72px; border-radius:9999px; background:#d6e5ec; color:#3b494f; display:grid; place-items:center; font-size:24px; font-weight:800; flex-shrink:0;">${c.initials}</div>
+            <div style="min-width:0;">
+              <h1 class="fdisp" style="font-size:26px; font-weight:700; color:#191c1f; margin:0;">${c.name}</h1>
+              <div style="display:flex; align-items:center; gap:8px; margin-top:8px; flex-wrap:wrap;">
+                <span style="font-size:11px; font-weight:600; padding:3px 12px; border-radius:9999px; background:${bg}; color:${fg};">${c.status}</span>
+                <span style="font-size:11px; font-weight:600; padding:3px 12px; border-radius:9999px; background:rgba(0,62,98,0.08); color:#003e62;">${c.plan}</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:16px; margin-top:10px; font-size:13px; color:#717880; flex-wrap:wrap;">
+                <span style="display:flex; align-items:center; gap:6px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>${c.email}</span>
+                <span style="display:flex; align-items:center; gap:6px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>${c.phone}</span>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <button data-act="prenota" style="display:flex; align-items:center; gap:6px; border-radius:9999px; padding:10px 20px; background:#003e62; color:#fff; border:none; font-size:14px; font-weight:600; cursor:pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4M16 2v4M3 10h18"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M12 14v4M10 16h4"/></svg>Prenota</button>
+            <button data-act="rinnova" style="border-radius:9999px; padding:10px 20px; background:${c.status==="Attivo"?"#eceef2":"#fff7ed"}; color:${c.status==="Attivo"?"#41474f":"#ea580c"}; border:none; font-size:14px; font-weight:600; cursor:pointer;">Rinnova</button>
+            <button data-act="msg" style="border-radius:9999px; padding:10px 20px; background:#eceef2; color:#191c1f; border:none; font-size:14px; font-weight:600; cursor:pointer;">Messaggio</button>
+          </div>
+        </div>`;
+      $("#profileHeader").querySelectorAll("[data-act]").forEach((b)=>b.onclick=()=>{
+        const a=b.dataset.act;
+        if (a==="prenota") toast("Prenotazione aperta per "+c.name);
+        else if (a==="msg") toast("Messaggio inviato a "+c.name);
+        else { c.status="Attivo"; c.credits.PT[0]=0; if(c.block[1]) c.block[0]=0; toast("Pacchetto rinnovato per "+c.name,"#0b8043"); render(); }
+      });
+    };
+
+    const bar = (label,color,used,total) => {
+      const pct = total? Math.round(used/total*100):0;
+      return `<div style="display:flex; flex-direction:column; gap:6px;">
+        <div style="display:flex; justify-content:space-between; font-size:13px;"><span style="color:#41474f; font-weight:600;">${label}</span><span class="tnum" style="color:${color};">${used}/${total}</span></div>
+        <div style="width:100%; height:8px; background:#e1e2e7; border-radius:9999px; overflow:hidden;"><div style="height:100%; border-radius:9999px; background:${color}; width:${pct}%;"></div></div>
+      </div>`;
+    };
+
+    const renderPackage = (c) => {
+      const bpct = c.block[1]? Math.round(c.block[0]/c.block[1]*100):0;
+      const soon = c.status==="In Scadenza";
+      $("#packageCard").innerHTML = `
+        <div class="card">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
+            <h2 style="font-size:20px; font-weight:600; margin:0;">Pacchetto & percorso</h2>
+            <span style="font-size:12px; color:#717880;">Scadenza: <strong style="color:${soon?"#ea580c":"#191c1f"};">${c.expiry}</strong></span>
+          </div>
+          ${c.block[1] ? `<div style="margin-bottom:20px;">
+            <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:6px;"><span style="color:#41474f; font-weight:600;">Blocco ${c.block[0]} di ${c.block[1]}</span><span class="tnum" style="color:#003e62;">${bpct}%</span></div>
+            <div style="display:flex; gap:6px;">${Array.from({length:c.block[1]}).map((_,i)=>`<div style="flex:1; height:10px; border-radius:9999px; background:${i<c.block[0]?"#003e62":"#e7e8ec"};"></div>`).join("")}</div>
+          </div>`:`<p style="font-size:13px; color:#717880; margin:0 0 20px;">Cliente a consumo · nessun percorso a blocchi.</p>`}
+          <div style="display:flex; flex-direction:column; gap:16px;">
+            ${bar("Sessioni PT","#003e62",c.credits.PT[0],c.credits.PT[1])}
+            ${c.credits.BIA[1]?bar("BIA","#039BE5",c.credits.BIA[0],c.credits.BIA[1]):""}
+            ${c.credits.Test[1]?bar("Test Funzionale","#0b8043",c.credits.Test[0],c.credits.Test[1]):""}
+          </div>
+          ${soon?`<div style="margin-top:20px; display:flex; align-items:center; justify-content:space-between; gap:12px; background:#fff7ed; border:1px solid #fde68a; border-radius:16px; padding:12px 16px;"><span style="font-size:13px; color:#92400e;">⚠️ Pacchetto in esaurimento — proponi il rinnovo.</span><button data-renew style="flex-shrink:0; border-radius:9999px; background:#ea580c; color:#fff; border:none; padding:8px 18px; font-size:13px; font-weight:600; cursor:pointer;">Rinnova ora</button></div>`:""}
+        </div>`;
+      const rb = $("#packageCard").querySelector("[data-renew]");
+      if (rb) rb.onclick=()=>{ c.status="Attivo"; c.credits.PT[0]=0; c.block[0]=0; toast("Pacchetto rinnovato per "+c.name,"#0b8043"); render(); };
+    };
+
+    const renderHistory = (c) => {
+      const S = c.store.sessions;
+      const rows = S.map((s,i)=>{
+        const col = TCOLOR[s.t]||"#003e62";
+        const chip = s.s==="upcoming"?["#e3f2fd","#1565c0","Programmata"]:s.s==="noshow"?["#fef2f2","#dc2626","No-show"]:["#ecfdf5","#059669","Presente"];
+        const canToggle = s.s!=="upcoming";
+        const noteHtml = s.note
+          ? `<p data-note="${i}" style="font-size:13px; color:#41474f; margin:6px 0 0; line-height:1.5; cursor:text;">${s.note} <span style="color:#003e62; font-size:11px; font-weight:600;">✎</span></p>`
+          : `<button data-note="${i}" style="margin:6px 0 0; border:none; background:none; padding:0; font-size:12px; font-weight:600; color:#003e62; cursor:pointer;">＋ Aggiungi nota</button>`;
+        return `<div style="display:flex; gap:14px; padding:14px 0; ${i<S.length-1?"border-bottom:1px solid #f1f5f9;":""}">
+          <div style="width:6px; border-radius:9999px; background:${col}; flex-shrink:0;"></div>
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+              <div style="display:flex; align-items:center; gap:8px; min-width:0;"><strong style="font-size:14px; color:#191c1f;">${s.t==="PT"?"Sessione PT":s.t}</strong><span style="font-size:12px; color:#717880;">${s.d}</span></div>
+              <button ${canToggle?`data-toggle="${i}"`:"disabled"} style="flex-shrink:0; font-size:11px; font-weight:600; padding:3px 12px; border-radius:9999px; background:${chip[0]}; color:${chip[1]}; border:none; cursor:${canToggle?"pointer":"default"};">${chip[2]}</button>
+            </div>
+            ${noteHtml}
+          </div>
+        </div>`;
+      }).join("");
+      $("#historyCard").innerHTML = `
+        <div class="card">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+            <h2 style="font-size:20px; font-weight:600; margin:0;">Storico sessioni</h2>
+            <span style="font-size:12px; color:#717880;">Tocca lo stato o la nota per modificare</span>
+          </div>
+          ${rows}
+        </div>`;
+      $("#historyCard").querySelectorAll("[data-toggle]").forEach((b)=>b.onclick=()=>{
+        const s=S[+b.dataset.toggle]; s.s = s.s==="done"?"noshow":"done"; saveStore(c); render();
+      });
+      $("#historyCard").querySelectorAll("[data-note]").forEach((nEl)=>nEl.onclick=()=>{
+        const i=+nEl.dataset.note, s=S[i];
+        const box=document.createElement("div");
+        box.innerHTML=`<textarea style="width:100%; box-sizing:border-box; min-height:56px; border:1px solid #003e62; border-radius:12px; padding:8px 10px; font-size:13px; font-family:inherit; outline:none; margin-top:6px; color:#191c1f;">${s.note||""}</textarea><div style="display:flex; gap:8px; margin-top:6px;"><button data-c style="border:1px solid #c1c7d0; background:#fff; border-radius:9999px; padding:5px 14px; font-size:12px; font-weight:600; color:#41474f; cursor:pointer;">Annulla</button><button data-s style="border:none; background:#003e62; color:#fff; border-radius:9999px; padding:5px 14px; font-size:12px; font-weight:700; cursor:pointer;">Salva nota</button></div>`;
+        nEl.replaceWith(box);
+        const ta=box.querySelector("textarea"); ta.focus();
+        box.querySelector("[data-c]").onclick=()=>renderHistory(c);
+        box.querySelector("[data-s]").onclick=()=>{ s.note=ta.value.trim(); saveStore(c); renderHistory(c); };
+      });
+    };
+
+    const renderBIA = (c) => {
+      const M = METRICS[metric];
+      const src = c.store.bia;
+      const data = src.map((p)=>p[metric]);
+      const min = Math.min(...data), max = Math.max(...data), span = (max-min)||1;
+      const W=300, H=120, PADX=8, PADY=14;
+      const x = (i)=>PADX + i*(W-2*PADX)/(Math.max(1,data.length-1));
+      const y = (v)=>PADY + (1-(v-min)/span)*(H-2*PADY);
+      const pts = data.map((v,i)=>`${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+      const area = `${x(0).toFixed(1)},${H} ${pts} ${x(data.length-1).toFixed(1)},${H}`;
+      const last=data[data.length-1], delta=+(last-data[0]).toFixed(1);
+      const good = metric==="muscle" ? delta>=0 : delta<=0;
+      const lastP = src[src.length-1];
+      $("#biaCard").innerHTML = `
+        <div class="card">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+            <h2 style="font-size:20px; font-weight:600; margin:0;">Andamento BIA</h2>
+            <div style="display:flex; gap:4px;">${Object.keys(METRICS).map((k)=>`<button data-m="${k}" style="font-size:11px; font-weight:600; padding:5px 10px; border-radius:9999px; cursor:pointer; border:1px solid ${metric===k?METRICS[k].color:"#c1c7d0"}; background:${metric===k?METRICS[k].color:"#fff"}; color:${metric===k?"#fff":"#41474f"};">${METRICS[k].label}</button>`).join("")}</div>
+          </div>
+          <div style="display:flex; align-items:baseline; gap:10px; margin-bottom:8px;">
+            <span class="tnum fdisp" style="font-size:30px; font-weight:700; color:#191c1f;">${last}<span style="font-size:14px; color:#717880; font-weight:500;"> ${M.unit}</span></span>
+            <span class="tnum" style="font-size:13px; font-weight:600; color:${good?"#059669":"#dc2626"};">${delta>0?"+":""}${delta} ${M.unit} totale</span>
+          </div>
+          <svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;">
+            <polygon points="${area}" fill="${M.color}" opacity="0.08"/>
+            <polyline points="${pts}" fill="none" stroke="${M.color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            ${data.map((v,i)=>`<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="3.5" fill="#fff" stroke="${M.color}" stroke-width="2"><title>${src[i].m}: ${v} ${M.unit}</title></circle>`).join("")}
+          </svg>
+          <div style="display:flex; justify-content:space-between; margin-top:6px; font-size:10px; color:#717880;">${src.map((p,i)=>`<button data-edit="${i}" title="Modifica ${p.m}" style="background:none; border:none; padding:2px 4px; margin:0; font-size:10px; color:#717880; cursor:pointer; border-radius:6px;" style-hover="background:#eceef2;">${p.m}</button>`).join("")}</div>
+          <div id="biaAdd" style="margin-top:14px;"></div>
+        </div>`;
+      $("#biaCard").querySelectorAll("[data-m]").forEach((b)=>b.onclick=()=>{ metric=b.dataset.m; renderBIA(c); });
+      $("#biaCard").querySelectorAll("[data-edit]").forEach((b)=>b.onclick=()=>{ biaEdit=+b.dataset.edit; biaAdding=false; renderBIA(c); });
+      const addWrap = $("#biaAdd");
+      if (biaEdit !== null && src[biaEdit]){
+        const m = src[biaEdit];
+        const inpE=(f,key,val,unit)=>`<label style="display:flex; flex-direction:column; gap:4px; font-size:11px; color:#717880;">${f} (${unit})<input data-f="${key}" type="number" step="0.1" value="${val}" style="border:1px solid #e1e2e7; border-radius:10px; padding:8px; font-size:13px; font-family:inherit; width:100%; box-sizing:border-box; outline:none;" /></label>`;
+        addWrap.innerHTML = `<div style="border:1px solid #c9d3dc; border-radius:16px; padding:14px; background:#f8f9fe;">
+          <p style="font-size:12px; font-weight:700; color:#191c1f; margin:0 0 10px;">Modifica misurazione · <span style="color:#003e62;">${m.m}</span></p>
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">${inpE("Peso","weight",m.weight,"kg")}${inpE("Massa","muscle",m.muscle,"kg")}${inpE("Grasso","fat",m.fat,"%")}</div>
+          <div style="display:flex; gap:8px; margin-top:12px;">
+            <button data-del style="border:none; background:#fef2f2; color:#dc2626; border-radius:9999px; padding:8px 14px; font-size:13px; font-weight:700; cursor:pointer;">Elimina</button>
+            <button data-cancel style="flex:1; border:1px solid #c1c7d0; background:#fff; border-radius:9999px; padding:8px 0; font-size:13px; font-weight:600; color:#41474f; cursor:pointer;">Annulla</button>
+            <button data-save style="flex:1; border:none; background:#003e62; color:#fff; border-radius:9999px; padding:8px 0; font-size:13px; font-weight:700; cursor:pointer;">Salva</button>
+          </div>
+        </div>`;
+        addWrap.querySelector("[data-cancel]").onclick=()=>{ biaEdit=null; renderBIA(c); };
+        addWrap.querySelector("[data-save]").onclick=()=>{
+          const get=(f)=>parseFloat(addWrap.querySelector(`[data-f="${f}"]`).value)||0;
+          m.weight=+get("weight").toFixed(1); m.muscle=+get("muscle").toFixed(1); m.fat=+get("fat").toFixed(1);
+          saveStore(c); biaEdit=null; renderBIA(c); toast("Misurazione aggiornata","#0b8043");
+        };
+        addWrap.querySelector("[data-del]").onclick=()=>{
+          if (c.store.bia.length<=1){ toast("Deve restare almeno una misurazione","#dc2626"); return; }
+          c.store.bia.splice(biaEdit,1); saveStore(c); biaEdit=null; renderBIA(c); toast("Misurazione eliminata","#dc2626");
+        };
+      } else if (!biaAdding){
+        addWrap.innerHTML = `<button data-open style="width:100%; border:1px dashed #c1c7d0; background:#f8f9fe; border-radius:14px; padding:10px 0; font-size:13px; font-weight:600; color:#003e62; cursor:pointer;">＋ Aggiungi misurazione</button>`;
+        addWrap.querySelector("[data-open]").onclick=()=>{ biaAdding=true; biaEdit=null; renderBIA(c); };
+      } else {
+        const firstISO = src[0] ? src[0].date : "2026-02";
+        const d0=new Date(firstISO+"-01"); d0.setMonth(d0.getMonth()-1); const defDate=d0.toISOString().slice(0,7);
+        const inp=(f,key,val,unit)=>`<label style="display:flex; flex-direction:column; gap:4px; font-size:11px; color:#717880;">${f} (${unit})<input data-f="${key}" type="number" step="0.1" value="${val}" style="border:1px solid #e1e2e7; border-radius:10px; padding:8px; font-size:13px; font-family:inherit; width:100%; box-sizing:border-box; outline:none;" /></label>`;
+        addWrap.innerHTML = `<div style="border:1px solid #e1e2e7; border-radius:16px; padding:14px; background:#f8f9fe;">
+          <p style="font-size:12px; font-weight:700; color:#191c1f; margin:0 0 10px;">Aggiungi misurazione <span style="font-weight:500; color:#717880;">(anche passata)</span></p>
+          <label style="display:flex; flex-direction:column; gap:4px; font-size:11px; color:#717880; margin-bottom:8px;">Periodo<input data-date type="month" value="${defDate}" max="2026-12" style="border:1px solid #e1e2e7; border-radius:10px; padding:8px; font-size:13px; font-family:inherit; box-sizing:border-box; outline:none; color:#191c1f;" /></label>
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">${inp("Peso","weight",lastP.weight,"kg")}${inp("Massa","muscle",lastP.muscle,"kg")}${inp("Grasso","fat",lastP.fat,"%")}</div>
+          <div style="display:flex; gap:8px; margin-top:12px;"><button data-cancel style="flex:1; border:1px solid #c1c7d0; background:#fff; border-radius:9999px; padding:8px 0; font-size:13px; font-weight:600; color:#41474f; cursor:pointer;">Annulla</button><button data-save style="flex:1; border:none; background:#003e62; color:#fff; border-radius:9999px; padding:8px 0; font-size:13px; font-weight:700; cursor:pointer;">Salva</button></div>
+        </div>`;
+        addWrap.querySelector("[data-cancel]").onclick=()=>{ biaAdding=false; renderBIA(c); };
+        addWrap.querySelector("[data-save]").onclick=()=>{
+          const get=(f)=>parseFloat(addWrap.querySelector(`[data-f="${f}"]`).value)||0;
+          const date=addWrap.querySelector("[data-date]").value || defDate;
+          c.store.bia.push({ m:mLabel(date), date, weight:+get("weight").toFixed(1), muscle:+get("muscle").toFixed(1), fat:+get("fat").toFixed(1) });
+          sortBia(c.store.bia);
+          saveStore(c); biaAdding=false; renderBIA(c); toast("Misurazione salvata","#0b8043");
+        };
+      }
+    };
+
+    const renderNotes = (c) => {
+      $("#notesCard").innerHTML = `
+        <div class="card">
+          <h2 style="font-size:20px; font-weight:600; margin:0 0 12px;">Note & obiettivi</h2>
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            <div style="display:flex; align-items:flex-start; gap:10px; background:#f8f9fe; border-radius:16px; padding:12px 14px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#003e62" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:2px;"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4"/><circle cx="12" cy="12" r="4"/></svg><div><p style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#717880; margin:0;">Obiettivo</p><p style="font-size:14px; color:#191c1f; font-weight:600; margin:2px 0 0;">${c.goal}</p></div></div>
+            <div style="display:flex; align-items:flex-start; gap:10px; background:${c.limit==="—"?"#f8f9fe":"#fffbeb"}; border:1px solid ${c.limit==="—"?"transparent":"#fde68a"}; border-radius:16px; padding:12px 14px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${c.limit==="—"?"#717880":"#d97706"}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:2px;"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg><div><p style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#717880; margin:0;">Limitazioni</p><p style="font-size:14px; color:#191c1f; font-weight:600; margin:2px 0 0;">${c.limit}</p></div></div>
+            <textarea data-notes placeholder="Note private del coach…" style="width:100%; box-sizing:border-box; min-height:80px; border:1px solid #e1e2e7; border-radius:16px; padding:12px 14px; font-size:13px; font-family:inherit; resize:vertical; outline:none; color:#191c1f;">${c.store.notes}</textarea>
+          </div>
+        </div>`;
+      const ta=$("#notesCard").querySelector("[data-notes]");
+      let nt; ta.oninput=(e)=>{ c.store.notes=e.target.value; clearTimeout(nt); nt=setTimeout(()=>saveStore(c),400); };
+    };
+
+    const renderEngage = (c) => {
+      const past = c.store.sessions.filter((s)=>s.s!=="upcoming");
+      const done = past.filter((s)=>s.s==="done").length;
+      const att = past.length? Math.round(done/past.length*100):100;
+      const noshow = past.length-done;
+      const stat = (val,label,color)=>`<div style="text-align:center; flex:1;"><p class="tnum fdisp" style="font-size:24px; font-weight:700; color:${color||"#191c1f"}; margin:0;">${val}</p><p style="font-size:11px; color:#717880; margin:4px 0 0;">${label}</p></div>`;
+      $("#engageCard").innerHTML = `
+        <div class="card">
+          <h2 style="font-size:20px; font-weight:600; margin:0 0 16px;">Engagement</h2>
+          <div style="display:flex; gap:8px;">
+            ${stat(att+"%","Presenza", att>=80?"#059669":att>=60?"#ea580c":"#dc2626")}
+            <div style="width:1px; background:#e7e8ec;"></div>
+            ${stat(noshow,"No-show", noshow?"#dc2626":"#191c1f")}
+            <div style="width:1px; background:#e7e8ec;"></div>
+            ${stat("~"+(1+(c.seed%3)),"Sess./sett.")}
+          </div>
+          <p style="font-size:12px; color:#717880; margin:16px 0 0; text-align:center;">Ultima sessione: ${past[0]?past[0].d:"—"}</p>
+        </div>`;
+    };
+
+    const render = () => {
+      const c = CLIENTS[idx];
+      loadStore(c);
+      renderHeader(c); renderPackage(c); renderHistory(c); renderBIA(c); renderNotes(c); renderEngage(c);
+      const sel = $("#cswitch"); sel.value = c.slug;
+    };
+
+    // switcher
+    const sel = $("#cswitch");
+    sel.innerHTML = CLIENTS.map((c)=>`<option value="${c.slug}">${c.name}</option>`).join("");
+    sel.onchange = ()=>{ location.hash = sel.value; };
+    $("#cprev").onclick = ()=>{ idx=(idx-1+CLIENTS.length)%CLIENTS.length; location.hash = CLIENTS[idx].slug; };
+    $("#cnext").onclick = ()=>{ idx=(idx+1)%CLIENTS.length; location.hash = CLIENTS[idx].slug; };
+    window.addEventListener("hashchange", ()=>{ const h=location.hash.replace("#",""); if(bySlug[h]!=null){ idx=bySlug[h]; metric="weight"; biaAdding=false; biaEdit=null; render(); } });
+
+    render();
+  }
+}
+</script>
+</body>
+</html>
