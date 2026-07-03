@@ -11,7 +11,7 @@
 import { useState } from "react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,7 +30,18 @@ import {
   useDeleteBiaMeasurement,
   type BiaMeasurement,
 } from "@/hooks/use-bia";
-import { BiaMetricToggle, BiaSparkline, type BiaMetricKey } from "@/components/bia-sparkline";
+import {
+  BiaMetricToggle,
+  BiaSparkline,
+  type BiaMetricKey,
+  type BiaMetricsOverride,
+} from "@/components/bia-sparkline";
+
+// Mock coach: la metrica massa è "Massa magra" in azzurro BIA (#039be5),
+// diversamente dal mock cliente che usa "Massa" in verde.
+const COACH_METRICS: BiaMetricsOverride = {
+  muscle: { label: "Massa magra", unit: "kg", color: "#039be5" },
+};
 
 interface FormState {
   measured_on: string;
@@ -135,15 +146,10 @@ export function TrainerBiaPanel({ clientId, coachId }: { clientId: string; coach
   };
 
   return (
-    <section className="bg-surface-container-lowest rounded-[24px] shadow-soft-blue border border-outline-variant/30 p-6 flex flex-col gap-4">
+    <section className="bg-surface-container-lowest rounded-[28px] shadow-soft-blue p-6 flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h3 className="text-lg font-semibold text-on-surface m-0">Andamento BIA</h3>
-        <div className="flex items-center gap-2">
-          <BiaMetricToggle metric={metric} onChange={setMetric} />
-          <Button size="sm" onClick={openAdd} className="rounded-full">
-            <Plus className="size-4" /> Misurazione
-          </Button>
-        </div>
+        <h3 className="text-xl font-semibold text-on-surface m-0">Andamento BIA</h3>
+        <BiaMetricToggle metric={metric} onChange={setMetric} metricsOverride={COACH_METRICS} />
       </div>
 
       {isLoading ? (
@@ -151,12 +157,29 @@ export function TrainerBiaPanel({ clientId, coachId }: { clientId: string; coach
           <Loader2 className="size-5 animate-spin text-muted-foreground" />
         </div>
       ) : (
-        <BiaSparkline measurements={measurements} metric={metric} onPointClick={openEdit} />
+        <BiaSparkline
+          measurements={measurements}
+          metric={metric}
+          onPointClick={openEdit}
+          metricsOverride={COACH_METRICS}
+          deltaLabel="total"
+        />
       )}
       {measurements.length > 0 && (
         <p className="text-xs text-outline m-0">
           Clicca un punto o un'etichetta mese per modificare o eliminare la misurazione.
         </p>
+      )}
+
+      {/* CTA sotto le etichette mese, come nel mock (apre il Dialog esistente) */}
+      {!isLoading && (
+        <button
+          type="button"
+          onClick={openAdd}
+          className="w-full rounded-[14px] border border-dashed border-outline-variant bg-surface py-2.5 text-[13px] font-semibold text-aura-primary hover:bg-surface-container-low transition-colors"
+        >
+          ＋ Aggiungi misurazione
+        </button>
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

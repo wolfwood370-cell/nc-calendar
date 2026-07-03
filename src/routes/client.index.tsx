@@ -1,6 +1,15 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMemo } from "react";
-import { Plus, Check, CheckCircle2, CalendarCheck, Clock } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Plus,
+  Check,
+  CheckCircle2,
+  CalendarCheck,
+  Calendar,
+  CircleCheckBig,
+  Clock,
+  Dumbbell,
+} from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -233,9 +242,16 @@ function ClientHome() {
       else cur.booked += 1;
     }
 
-    // 3. Ordina per total desc così le tipologie con più sessioni stanno in alto
+    // 3. Chip "+N" (design handoff): crediti extra attivi per tipologia
+    for (const ec of extraCreditsQ.data ?? []) {
+      if (!ec.event_type_id) continue;
+      const cur = map.get(ec.event_type_id);
+      if (cur) cur.extraCredits = (cur.extraCredits ?? 0) + ec.quantity;
+    }
+
+    // 4. Ordina per total desc così le tipologie con più sessioni stanno in alto
     return [...map.values()].sort((a, b) => b.total - a.total);
-  }, [resolvedCurrentBlock, eventTypesQ.data, bookingsQ.data]);
+  }, [resolvedCurrentBlock, eventTypesQ.data, bookingsQ.data, extraCreditsQ.data]);
 
   // Titoli (event_types.name = booster_packs.event_type_title) per cui esiste
   // un booster attivo. Usato dal breakdown per offrire "Vai allo Store" quando
@@ -453,6 +469,14 @@ function ClientHome() {
   const isLoading =
     blocksQ.isLoading || bookingsQ.isLoading || profileQ.isLoading || extraCreditsQ.isLoading;
 
+  // Animazione fill del blocco ATTUALE (prototipo): parte da width 0% e
+  // raggiunge la percentuale reale ~80ms dopo il mount con easing dedicato.
+  const [fillReady, setFillReady] = useState(false);
+  useEffect(() => {
+    const t = window.setTimeout(() => setFillReady(true), 80);
+    return () => window.clearTimeout(t);
+  }, []);
+
   return (
     <div className="max-w-md mx-auto bg-surface min-h-screen">
       <header className="bg-surface/80 backdrop-blur-xl sticky top-0 shadow-[0_8px_30px_rgba(0,0,0,0.04)] z-40">
@@ -461,7 +485,9 @@ function ClientHome() {
             <div className="w-10 h-10 rounded-full bg-primary-container text-on-primary-container grid place-items-center border-2 border-surface-container-lowest shadow-sm font-semibold">
               {firstName.charAt(0).toUpperCase()}
             </div>
-            <h1 className="text-2xl font-bold text-aura-primary">Ciao {firstName}</h1>
+            <h1 className="font-display text-2xl font-bold text-aura-primary tracking-[-0.02em]">
+              Ciao {firstName}
+            </h1>
           </div>
           {/* Design handoff: campanella con pannello notifiche derivate
               (sostituisce quella inerte rimossa dall'audit B12). */}
@@ -486,6 +512,10 @@ function ClientHome() {
             className="rounded-[28px] p-7 text-white flex flex-col gap-3.5 shadow-[0_8px_30px_rgba(0,62,98,0.2)]"
             style={{ background: "linear-gradient(135deg,#003e62,#005685)" }}
           >
+            {/* Icon box del prototipo: 52px, radius 16, dumbbell azzurro */}
+            <div className="w-13 h-13 rounded-2xl bg-white/15 grid place-items-center">
+              <Dumbbell className="size-[26px] text-on-primary-container" aria-hidden />
+            </div>
             <div>
               <h2 className="font-display text-[22px] font-bold m-0">Benvenuto, {firstName}!</h2>
               <p className="text-sm text-white/80 m-0 mt-2 leading-relaxed">
@@ -505,9 +535,20 @@ function ClientHome() {
         {/* Design handoff: card rinnovo (blocco completato, niente blocchi futuri) */}
         {!isLoading && showRenewal && (
           <section className="bg-surface-container-lowest border-2 border-on-status-success rounded-[28px] p-7 shadow-[0_8px_30px_rgba(11,128,67,0.12)] flex flex-col gap-3.5">
-            <h2 className="font-display text-[22px] font-bold text-on-surface m-0">
-              Blocco completato!
-            </h2>
+            {/* Header row del prototipo: cerchio check verde + eyebrow + titolo */}
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-on-status-success/12 text-on-status-success grid place-items-center shrink-0">
+                <CircleCheckBig className="size-[26px]" strokeWidth={2.5} aria-hidden />
+              </div>
+              <div>
+                <span className="text-xs font-bold text-on-status-success uppercase tracking-[0.05em]">
+                  Blocco {resolvedCurrentBlock?.sequence_order ?? ""} completato
+                </span>
+                <h2 className="font-display text-[20px] font-bold text-on-surface m-0 mt-0.5">
+                  Ottimo lavoro, {currentBlockBreakdown.completed}/{currentBlockSlots.length} fatte
+                </h2>
+              </div>
+            </div>
             <p className="text-sm text-on-surface-variant m-0 leading-relaxed">
               Hai completato tutte le sessioni del blocco. Parla con il tuo coach per pianificare il
               prossimo percorso su misura per i tuoi obiettivi.
@@ -599,6 +640,7 @@ function ClientHome() {
                           {slot.state === "completed" && (
                             <Check
                               className="size-4 text-aura-primary absolute -top-6"
+                              strokeWidth={2.5}
                               aria-hidden
                             />
                           )}
@@ -679,6 +721,14 @@ function ClientHome() {
                     Da prenotare entro il <strong>{currentBlockEndLabel}</strong>.
                   </p>
                 )}
+                {/* Prototipo: quando non restano sessioni da prenotare ma il
+                    blocco non è ancora tutto completato */}
+                {currentBlockBreakdown.open === 0 &&
+                  currentBlockBreakdown.completed !== currentBlockSlots.length && (
+                    <p className="text-xs text-on-surface-variant text-center">
+                      Blocco completamente prenotato ✓
+                    </p>
+                  )}
                 {currentBlockBreakdown.open === 0 &&
                   currentBlockBreakdown.completed === currentBlockSlots.length && (
                     <div className="bg-tertiary-container/20 rounded-[20px] p-4 text-center">
@@ -732,7 +782,6 @@ function ClientHome() {
             <div className="flex flex-col gap-2">
               {pathBlocks.map((b) => {
                 if (b.state === "past") {
-                  const full = b.completed >= b.total && b.total > 0;
                   return (
                     <div
                       key={b.id}
@@ -740,7 +789,8 @@ function ClientHome() {
                     >
                       <span className="text-sm font-semibold">{b.name}</span>
                       <div className="flex items-center gap-1">
-                        {full && <Check className="size-4" aria-hidden />}
+                        {/* Prototipo: check sempre presente sui blocchi passati */}
+                        <Check className="size-4" strokeWidth={2.5} aria-hidden />
                         <span className="text-sm font-semibold tabular-nums">
                           {b.completed}/{b.total}
                         </span>
@@ -756,8 +806,11 @@ function ClientHome() {
                       className="h-14 rounded-2xl bg-surface-container-low border-2 border-aura-primary flex items-center justify-between px-4 relative overflow-hidden"
                     >
                       <div
-                        className="absolute left-0 top-0 bottom-0 bg-aura-primary/20 transition-[width] duration-500"
-                        style={{ width: `${pct}%` }}
+                        className="absolute left-0 top-0 bottom-0 bg-aura-primary/20"
+                        style={{
+                          width: fillReady ? `${pct}%` : "0%",
+                          transition: "width 1s cubic-bezier(0.22,1,0.36,1)",
+                        }}
                       />
                       <span className="text-sm font-semibold text-on-surface relative z-10">
                         {b.name} · {b.completed}/{b.total}
@@ -810,16 +863,18 @@ function ClientHome() {
               coachId={coachId}
             />
           ) : (
-            <div className="bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-6 border border-outline-variant/30 text-center">
-              <p className="text-base font-semibold text-on-surface mb-1">
+            <div className="bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] px-6 py-7 border border-outline-variant/30 flex flex-col items-center gap-3 text-center">
+              {/* Cerchio icona calendario del prototipo (56px, azzurro chiaro) */}
+              <div className="w-14 h-14 rounded-full bg-surface-container-low text-primary-fixed-dim grid place-items-center">
+                <Calendar className="size-7" aria-hidden />
+              </div>
+              <p className="text-[15px] font-semibold text-on-surface m-0">
                 Nessuna sessione in programma
               </p>
-              <p className="text-sm text-on-surface-variant mb-4">
-                Prenota la tua prossima sessione.
-              </p>
+              <p className="text-[13px] text-outline m-0">Prenota la tua prossima sessione.</p>
               <button
                 onClick={() => navigate({ to: "/client/book" })}
-                className="bg-primary-container text-white font-semibold text-sm py-2.5 px-6 rounded-full active:scale-95 transition"
+                className="mt-1 bg-primary-container text-white font-semibold text-sm py-3 px-7 rounded-full active:scale-95 transition"
               >
                 Prenota ora
               </button>

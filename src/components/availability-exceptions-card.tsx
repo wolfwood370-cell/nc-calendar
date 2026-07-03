@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Plus, CalendarOff, Trash2 } from "lucide-react";
+import { Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useCoachAvailabilityExceptions, type AvailabilityExceptionRow } from "@/lib/queries";
@@ -29,11 +29,12 @@ function toDateKey(d: Date): string {
 }
 
 /**
- * Card "Ferie ed Eccezioni" per la pagina disponibilità coach:
+ * Card "Eccezioni" per la pagina disponibilità coach:
  *   - Calendar single-select per la data dell'eccezione
  *   - RadioGroup mode: "full" (tutto il giorno) vs "range" (fascia oraria)
  *   - Select start/end (visibili solo se mode=range)
  *   - Input motivo (opzionale)
+ *   - Pill "Aggiungi" nell'header (submit del form, come da design handoff)
  *   - Lista eccezioni esistenti con bottone Trash per rimozione
  *
  * Tutte le mutation gestite localmente via useMutation con toast +
@@ -88,8 +89,25 @@ export function AvailabilityExceptionsCard({ coachId }: AvailabilityExceptionsCa
 
   return (
     <div className="bg-white rounded-[32px] shadow-[0px_4px_20px_rgba(0,86,133,0.05)] p-6 sm:p-8">
-      <h2 className="font-display text-xl font-semibold mb-1">Ferie ed Eccezioni</h2>
-      <p className="text-sm text-muted-foreground mb-4">Blocca giornate o fasce specifiche.</p>
+      <div className="flex items-center justify-between mb-1">
+        <h2 className="font-display text-xl font-semibold">Eccezioni</h2>
+        <Button
+          onClick={() => addMut.mutate()}
+          disabled={addMut.isPending || !date}
+          variant="ghost"
+          className="h-auto rounded-full bg-surface-container text-on-surface hover:bg-surface-container-high px-3.5 py-1.5 text-[13px] font-semibold gap-1.5"
+        >
+          {addMut.isPending ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : (
+            <Plus className="size-3.5" />
+          )}
+          Aggiungi
+        </Button>
+      </div>
+      <p className="text-sm text-outline mb-4">
+        Chiudi giorni specifici o modifica gli orari per festività e ferie.
+      </p>
 
       <Calendar
         mode="single"
@@ -148,19 +166,6 @@ export function AvailabilityExceptionsCard({ coachId }: AvailabilityExceptionsCa
         className="mb-3 h-10 rounded-full bg-surface border-surface-variant px-4"
       />
 
-      <Button
-        onClick={() => addMut.mutate()}
-        disabled={addMut.isPending || !date}
-        className="w-full rounded-full h-11"
-      >
-        {addMut.isPending ? (
-          <Loader2 className="size-4 animate-spin mr-2" />
-        ) : (
-          <Plus className="size-4 mr-2" />
-        )}
-        Aggiungi eccezione
-      </Button>
-
       <div className="mt-5 space-y-2">
         {exQ.isLoading && <Skeleton className="h-14 w-full rounded-[24px]" />}
         {!exQ.isLoading && exceptions.length === 0 && (
@@ -172,28 +177,26 @@ export function AvailabilityExceptionsCard({ coachId }: AvailabilityExceptionsCa
           return (
             <div
               key={ex.id}
-              className="flex items-center justify-between rounded-[24px] bg-surface p-3"
+              className="flex items-center justify-between rounded-2xl bg-surface border border-surface-container-highest px-4 py-3"
             >
-              <div className="flex items-center gap-3 min-w-0">
-                <CalendarOff className="size-4 text-muted-foreground shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-sm font-medium truncate">
-                    {d.toLocaleDateString("it-IT", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })}
-                  </p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {fullDay ? "Tutto il giorno" : `${fmt(ex.start_time!)} – ${fmt(ex.end_time!)}`}
-                    {ex.reason ? ` · ${ex.reason}` : ""}
-                  </p>
-                </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-on-surface truncate">
+                  {d.toLocaleDateString("it-IT", {
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </p>
+                {/* Motivo prima dell'orario, come nel prototipo */}
+                <p className="text-xs text-outline truncate mt-0.5">
+                  {ex.reason ? `${ex.reason} · ` : ""}
+                  {fullDay ? "Chiuso" : `${fmt(ex.start_time!)} - ${fmt(ex.end_time!)}`}
+                </p>
               </div>
               <Button
                 variant="ghost"
                 size="icon"
-                className="rounded-full h-8 w-8 shrink-0"
+                className="rounded-full h-9 w-9 shrink-0 text-outline"
                 onClick={() => delMut.mutate(ex.id)}
                 disabled={delMut.isPending}
                 aria-label="Rimuovi eccezione"

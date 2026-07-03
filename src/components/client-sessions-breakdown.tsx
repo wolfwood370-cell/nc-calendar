@@ -36,6 +36,9 @@ export interface SessionTypeBreakdownRow {
    *  la dashboard offra "Prenota" e la pagina booking nasconda il pool
    *  (drift counter). Può essere <0 in caso di drift positivo. */
   remaining: number;
+  /** Crediti extra attivi (booster) per questa tipologia — se >0 mostra
+   *  il chip "+N" accanto al nome, come nel prototipo. */
+  extraCredits?: number;
 }
 
 interface Props {
@@ -66,10 +69,11 @@ export function ClientSessionsBreakdown({ rows, boosterTitles }: Props) {
           // Lo stato del bottone è derivato dalla STESSA fonte di /client/book
           // (allocation.quantity_assigned - quantity_booked) per evitare la
           // divergenza dashboard↔booking. Tre stati:
-          //   1) used >= total → "Fatto" (tutto completato/prenotato)
-          //   2) remaining <= 0 (drift counter o booster già consumato) →
-          //      "Esauriti": se esiste booster_pack per questa tipologia,
-          //      click suggerisce l'acquisto; altrimenti disabilitato.
+          //   1) used >= total → "Completo" (tutto completato/prenotato)
+          //   2) remaining <= 0 (drift counter o booster già consumato):
+          //      se esiste booster_pack per questa tipologia → "Esauriti"
+          //      con click che suggerisce l'acquisto; altrimenti "Completo"
+          //      disabilitato.
           //   3) altrimenti → "Prenota" link normale.
           const isDone = used >= row.total && row.total > 0;
           const isOutOfCredits = !isDone && row.remaining <= 0 && row.total > 0;
@@ -89,6 +93,11 @@ export function ClientSessionsBreakdown({ rows, boosterTitles }: Props) {
               <div className="min-w-0 flex items-center gap-2">
                 <Icon className="size-5 text-aura-primary shrink-0" aria-hidden />
                 <span className="text-sm font-bold text-on-surface truncate">{row.name}</span>
+                {(row.extraCredits ?? 0) > 0 && (
+                  <span className="text-[10px] font-bold text-reschedule bg-reschedule/10 px-1.5 py-0.5 rounded-full shrink-0 tabular-nums">
+                    +{row.extraCredits}
+                  </span>
+                )}
               </div>
 
               {/* Colonna 2: Badge "X / Y" — bg navy/5 + text navy */}
@@ -106,7 +115,7 @@ export function ClientSessionsBreakdown({ rows, boosterTitles }: Props) {
                     disabled
                     className="border border-outline text-outline text-xs font-bold rounded-full px-4 py-1.5 opacity-50 cursor-not-allowed whitespace-nowrap"
                   >
-                    Fatto
+                    Completo
                   </button>
                 ) : isOutOfCredits && hasBooster ? (
                   <button
@@ -131,7 +140,7 @@ export function ClientSessionsBreakdown({ rows, boosterTitles }: Props) {
                     className="border border-outline text-outline text-xs font-bold rounded-full px-4 py-1.5 opacity-50 cursor-not-allowed whitespace-nowrap"
                     title="Crediti esauriti per questa tipologia"
                   >
-                    Esauriti
+                    Completo
                   </button>
                 ) : (
                   <Link

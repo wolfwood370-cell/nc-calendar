@@ -33,6 +33,7 @@ import {
 import {
   ArrowLeft,
   Loader2,
+  Mail,
   Save,
   RotateCcw,
   Plus,
@@ -56,6 +57,22 @@ import { it } from "date-fns/locale";
 import { cn, errorMessage } from "@/lib/utils";
 
 const WEEKS_PER_BLOCK = 4;
+
+// Palette chip stato "Storico sessioni" (mock Trainer Client Detail)
+const STATUS_CHIP: Record<string, { bg: string; fg: string; label: string }> = {
+  scheduled: { bg: "#e3f2fd", fg: "#1565c0", label: "Programmata" },
+  completed: { bg: "#ecfdf5", fg: "#059669", label: "Presente" },
+  late_cancelled: { bg: "#fef2f2", fg: "#dc2626", label: "No-show" },
+  cancelled: { bg: "#fef2f2", fg: "#dc2626", label: "Annullata" },
+};
+
+// Colore tipologia (mock: PT #003e62, BIA #039BE5, Test #0b8043)
+function creditColor(name: string): string {
+  const n = name.toLowerCase();
+  if (n.includes("bia")) return "#039be5";
+  if (n.includes("test")) return "#0b8043";
+  return "#003e62";
+}
 
 export const Route = createFileRoute("/trainer/clients/$id")({
   component: ClientPathPage,
@@ -133,6 +150,7 @@ function ClientPathPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [clientName, setClientName] = useState<string>("");
+  const [clientEmail, setClientEmail] = useState<string>("");
   const [firstName, setFirstName] = useState<string>("");
   const [lastName, setLastName] = useState<string>("");
   const [pathStart, setPathStart] = useState<Date | undefined>(undefined);
@@ -221,6 +239,7 @@ function ClientPathPage() {
 
     const fn = profile.full_name ?? profile.email ?? "Cliente";
     setClientName(fn);
+    setClientEmail(profile.email ?? "");
     const parts = (profile.full_name ?? "").trim().split(/\s+/);
     setFirstName(parts[0] ?? "");
     setLastName(parts.slice(1).join(" "));
@@ -1063,222 +1082,522 @@ function ClientPathPage() {
     return map;
   }, [clientBookings, rows]);
 
+  // Derivazioni SOLO presentazionali per header, "Pacchetto & percorso" ed
+  // "Engagement" (design handoff Trainer Client Detail): nessuna query extra,
+  // tutto ricavato da blocchi/booking già caricati.
+  const pkg = useMemo(() => {
+    const nowMs = today.getTime();
+    const current = blockAggregates.find(
+      (b) =>
+        b.dateRange.start &&
+        b.dateRange.end &&
+        nowMs >= b.dateRange.start.getTime() &&
+        nowMs < b.dateRange.end.getTime(),
+    );
+    const lastEnd = blockAggregates.reduce<Date | null>(
+      (acc, b) => (b.dateRange.end && (!acc || b.dateRange.end > acc) ? b.dateRange.end : acc),
+      null,
+    );
+    const finished = totalBlocks > 0 && !!lastEnd && nowMs >= lastEnd.getTime();
+    const currentNum =
+      current?.sequence_order ?? (finished ? totalBlocks : totalBlocks > 0 ? 1 : 0);
+    const expiry = lastEnd ? addDays(lastEnd, -1) : null;
+    const expiringSoon =
+      !!current &&
+      current.sequence_order === totalBlocks &&
+      !!lastEnd &&
+      lastEnd.getTime() - nowMs < 14 * 86400000;
+    // Barre crediti aggregate per tipologia su tutto il percorso
+    const grouped = new Map<string, { name: string; assigned: number; completed: number }>();
+    blockAggregates.forEach((b) =>
+      b.pills.forEach((p) => {
+        const cur = grouped.get(p.name);
+        grouped.set(p.name, {
+          name: p.name,
+          assigned: (cur?.assigned ?? 0) + p.assigned,
+          completed: (cur?.completed ?? 0) + p.completed,
+        });
+      }),
+    );
+    const status = expiringSoon
+      ? { label: "In Scadenza", bg: "#fff7ed", fg: "#ea580c" }
+      : current || hasExtraCredits
+        ? { label: "Attivo", bg: "#ecfdf5", fg: "#059669" }
+        : finished
+          ? { label: "Completato", bg: "#eceef2", fg: "#41474f" }
+          : null;
+    return { currentNum, expiry, expiringSoon, bars: Array.from(grouped.values()), status };
+  }, [blockAggregates, totalBlocks, hasExtraCredits, today]);
+
+  const engage = useMemo(() => {
+    const past = clientBookings.filter((b) => b.status !== "scheduled");
+    const done = past.filter((b) => b.status === "completed").length;
+    const att = past.length ? Math.round((done / past.length) * 100) : 100;
+    const noshow = past.filter((b) => b.status === "late_cancelled").length;
+    const completedTimes = clientBookings
+      .filter((b) => b.status === "completed")
+      .map((b) => new Date(b.scheduled_at).getTime());
+    let perWeek = "—";
+    if (completedTimes.length > 0) {
+      const weeks =
+        Math.max(
+          1,
+          Math.round((Math.max(...completedTimes) - Math.min(...completedTimes)) / (7 * 86400000)),
+        ) + 1;
+      perWeek = `~${Math.max(1, Math.round(completedTimes.length / weeks))}`;
+    }
+    const last = past[0];
+    return {
+      att,
+      noshow,
+      perWeek,
+      lastLabel: last ? format(new Date(last.scheduled_at), "EEE d MMM", { locale: it }) : "—",
+    };
+  }, [clientBookings]);
+
+  const initials =
+    clientName
+      .trim()
+      .split(/\s+/)
+      .map((w) => w[0] ?? "")
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() || "C";
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" asChild>
-            <Link to="/trainer/clients">
+      {/* Header cliente — card anagrafica (design handoff) */}
+      <section className="bg-surface-container-lowest rounded-[28px] shadow-soft-blue p-6 flex flex-wrap items-center justify-between gap-6">
+        <div className="flex items-center gap-5 min-w-0">
+          <Button variant="ghost" size="icon" asChild className="shrink-0 -ml-2">
+            <Link to="/trainer/clients" aria-label="Torna ai clienti">
               <ArrowLeft className="size-4" />
             </Link>
           </Button>
-          <div>
-            <h1 className="font-display text-3xl font-semibold tracking-tight">{clientName}</h1>
-            <p className="text-sm text-muted-foreground mt-1">Pianificazione Calendario Percorso</p>
+          <div className="size-[72px] rounded-full bg-avatar-placeholder text-on-avatar-placeholder grid place-items-center text-2xl font-extrabold shrink-0">
+            {initials}
+          </div>
+          <div className="min-w-0">
+            <h1 className="font-display text-[26px] font-bold tracking-[-0.02em] text-on-surface m-0">
+              {clientName}
+            </h1>
+            <div className="flex flex-wrap items-center gap-2 mt-2">
+              {pkg.status && (
+                <span
+                  className="text-[11px] font-semibold px-3 py-[3px] rounded-full"
+                  style={{ background: pkg.status.bg, color: pkg.status.fg }}
+                >
+                  {pkg.status.label}
+                </span>
+              )}
+              {(totalBlocks > 0 || hasExtraCredits) && (
+                <span className="text-[11px] font-semibold px-3 py-[3px] rounded-full bg-aura-primary/8 text-aura-primary">
+                  {totalBlocks > 0 ? `Percorso · ${totalBlocks} blocchi` : "Cliente Libero"}
+                </span>
+              )}
+            </div>
+            {clientEmail && (
+              <div className="flex flex-wrap items-center gap-4 mt-2.5 text-[13px] text-outline">
+                <span className="flex items-center gap-1.5">
+                  <Mail className="size-[15px]" aria-hidden />
+                  {clientEmail}
+                </span>
+              </div>
+            )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
             onClick={() => setAssignOpen(true)}
             disabled={loading || assigning}
+            className="h-auto rounded-full border-0 bg-surface-container px-5 py-2.5 text-sm font-semibold text-on-surface-variant hover:bg-surface-container-high"
           >
             <Plus className="size-4" /> Assegna pacchetto
           </Button>
-          <Button variant="outline" onClick={resetSchedule} disabled={!pathStart || loading}>
+          <Button
+            variant="outline"
+            onClick={resetSchedule}
+            disabled={!pathStart || loading}
+            className="h-auto rounded-full border-0 bg-surface-container px-5 py-2.5 text-sm font-semibold text-on-surface-variant hover:bg-surface-container-high"
+          >
             <RotateCcw className="size-4" /> Ricalcola
           </Button>
-          <Button onClick={saveSchedule} disabled={!dirty || saving || loading}>
+          <Button
+            onClick={saveSchedule}
+            disabled={!dirty || saving || loading}
+            className="h-auto rounded-full bg-aura-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-aura-primary/90"
+          >
             {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
             Salva Calendario
           </Button>
         </div>
-      </div>
+      </section>
 
-      {/* Auto-renew toggle for monthly blocks. Default ON for new clients.
-          When OFF, the ensure_client_block_state RPC stops creating new
-          blocks once the current one expires past its grace period —
-          the cliente will see the empty state until the coach manually
-          intervenes. */}
-      <AutoRenewToggleCard
-        value={autoRenewBlocks}
-        saving={autoRenewSaving}
-        onChange={toggleAutoRenew}
-      />
-
-      <OrphanBookingsCard orphans={orphans} onConfirm={confirmOrphan} onDiscard={discardOrphan} />
-
-      <PathStartDateCard
-        pathStart={pathStart}
-        onSelectStart={handleStartChange}
-        totalWeeks={totalWeeks}
-        totalBlocks={totalBlocks}
-        weeksPerBlock={WEEKS_PER_BLOCK}
-      />
-
-      {/* Design handoff: Andamento BIA + Note & obiettivi (privati coach) */}
-      {user?.id && (
-        <div className="grid gap-6 lg:grid-cols-2">
-          <TrainerBiaPanel clientId={clientId} coachId={user.id} />
-          <CoachNotesCard coachId={user.id} clientId={clientId} />
-        </div>
-      )}
-
-      {/* Timeline del Percorso */}
-      <div>
-        <div className="mb-6">
-          <h2 className="font-display text-3xl font-bold text-primary">Timeline del Percorso</h2>
-          <p className="text-base text-muted-foreground mt-1">
-            Pianificazione e stato delle sessioni
-          </p>
-        </div>
-
-        {loading ? (
-          <div className="p-8 grid place-items-center text-muted-foreground">
-            <Loader2 className="size-5 animate-spin" />
-          </div>
-        ) : totalBlocks === 0 ? (
-          <div className="p-8 text-center rounded-2xl border border-dashed space-y-3">
-            {hasExtraCredits ? (
-              <p className="text-sm text-muted-foreground">
-                Cliente Libero: ha crediti extra ma nessun percorso a blocchi. La Timeline mostra
-                solo i percorsi strutturati (Fisso / Abbonamento).
-              </p>
-            ) : (
-              <>
-                <p className="text-sm text-muted-foreground">
-                  Questo cliente non ha ancora un pacchetto assegnato.
-                </p>
-                <Button onClick={() => setAssignOpen(true)} disabled={assigning}>
-                  <Plus className="size-4" /> Assegna pacchetto
-                </Button>
-              </>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {blockAggregates.map((b) => {
-              const blockRows = rowsByBlock.get(b.sequence_order) ?? [];
-              const isOpen = openBlockId === b.id;
-              const totalAssigned = b.pills.reduce((s, p) => s + p.assigned, 0);
-              const totalCompleted = b.pills.reduce((s, p) => s + p.completed, 0);
-              const rangeLabel =
-                b.dateRange.start && b.dateRange.end
-                  ? `${format(b.dateRange.start, "d MMM", { locale: it })} – ${format(
-                      addDays(b.dateRange.end, -1),
-                      "d MMM",
-                      { locale: it },
-                    )}`
-                  : null;
-              const now = today.getTime();
-              const isCurrent =
-                b.dateRange.start &&
-                b.dateRange.end &&
-                now >= b.dateRange.start.getTime() &&
-                now < b.dateRange.end.getTime();
-              return (
-                <section
-                  key={b.id}
-                  className="bg-card rounded-2xl shadow-[0_2px_12px_rgba(0,86,133,0.04)] overflow-hidden border border-border/40"
-                >
-                  {/* Compact header — toggle */}
-                  <button
-                    type="button"
-                    onClick={() => setOpenBlockId(isOpen ? null : b.id)}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted/40 transition-colors"
-                    aria-expanded={isOpen}
-                  >
-                    <ChevronDown
+      {/* Layout a due colonne 1.6fr/1fr al breakpoint desktop (design handoff) */}
+      <div className="grid gap-6 items-start xl:grid-cols-[1.6fr_1fr]">
+        {/* Colonna sinistra: pacchetto, storico e sezioni operative */}
+        <div className="flex flex-col gap-6 min-w-0">
+          {/* Pacchetto & percorso — progresso blocchi + crediti a barre */}
+          <section className="bg-surface-container-lowest rounded-[28px] shadow-soft-blue p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-xl font-semibold text-on-surface m-0">
+                Pacchetto &amp; percorso
+              </h2>
+              <span className="text-xs text-outline">
+                Scadenza:{" "}
+                <strong className={pkg.expiringSoon ? "text-warning-strong" : "text-on-surface"}>
+                  {pkg.expiry ? format(pkg.expiry, "d MMM yyyy", { locale: it }) : "—"}
+                </strong>
+              </span>
+            </div>
+            {totalBlocks > 0 ? (
+              <div className="mb-5">
+                <div className="flex justify-between text-[13px] mb-1.5">
+                  <span className="font-semibold text-on-surface-variant">
+                    Blocco {pkg.currentNum} di {totalBlocks}
+                  </span>
+                  <span className="tabular-nums text-aura-primary">
+                    {Math.round((pkg.currentNum / totalBlocks) * 100)}%
+                  </span>
+                </div>
+                <div className="flex gap-1.5">
+                  {Array.from({ length: totalBlocks }).map((_, i) => (
+                    <div
+                      key={i}
                       className={cn(
-                        "size-4 text-muted-foreground shrink-0 transition-transform",
-                        isOpen && "rotate-180",
+                        "flex-1 h-2.5 rounded-full",
+                        i < pkg.currentNum ? "bg-aura-primary" : "bg-surface-container-high",
                       )}
                     />
-                    <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
-                      <span className="text-sm font-semibold text-foreground">
-                        Blocco {b.sequence_order}
-                      </span>
-                      {isCurrent && (
-                        <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-primary/10 text-primary">
-                          In corso
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-[13px] text-outline m-0 mb-5">
+                Cliente a consumo · nessun percorso a blocchi.
+              </p>
+            )}
+            <div className="flex flex-col gap-4">
+              {pkg.bars.length === 0 ? (
+                <p className="text-[13px] text-outline m-0">Nessun credito impostato.</p>
+              ) : (
+                pkg.bars.map((barRow) => {
+                  const color = creditColor(barRow.name);
+                  const pct = barRow.assigned
+                    ? Math.round((barRow.completed / barRow.assigned) * 100)
+                    : 0;
+                  return (
+                    <div key={barRow.name} className="flex flex-col gap-1.5">
+                      <div className="flex justify-between text-[13px]">
+                        <span className="font-semibold text-on-surface-variant">{barRow.name}</span>
+                        <span className="tabular-nums" style={{ color }}>
+                          {barRow.completed}/{barRow.assigned}
                         </span>
-                      )}
-                      {rangeLabel && (
-                        <span className="text-xs text-muted-foreground">· {rangeLabel}</span>
-                      )}
-                    </div>
-                    {totalAssigned > 0 && (
-                      <span className="text-xs font-medium text-muted-foreground shrink-0">
-                        {totalCompleted}/{totalAssigned}
-                      </span>
-                    )}
-                  </button>
-
-                  {/* Expanded body */}
-                  {isOpen && (
-                    <div className="px-4 pb-5 pt-1 space-y-4 border-t border-border/30">
-                      <div className="flex flex-wrap items-center gap-2 pt-3">
-                        {b.pills.length === 0 ? (
-                          <span className="text-xs text-muted-foreground italic">
-                            Nessun credito impostato
-                          </span>
-                        ) : (
-                          b.pills.map((p, i) => {
-                            const done = p.completed >= p.assigned;
-                            return (
-                              <span
-                                key={i}
-                                className={cn(
-                                  "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold",
-                                  done
-                                    ? "bg-primary/10 text-primary"
-                                    : "bg-surface-container-low text-primary",
-                                )}
-                              >
-                                {done ? (
-                                  <CheckCircle2 className="size-3" />
-                                ) : (
-                                  <Clock className="size-3" />
-                                )}
-                                {p.name}: {p.completed}/{p.assigned}
-                              </span>
-                            );
-                          })
-                        )}
-                        <BlockCreditsDialog
-                          blockId={b.id}
-                          sequenceOrder={b.sequence_order}
-                          allocations={b.allocations}
-                          eventTypes={eventTypes.map((e) => ({
-                            id: e.id,
-                            name: e.name,
-                            base_type: e.base_type,
-                          }))}
-                          onSaved={() => void load()}
+                      </div>
+                      <div className="w-full h-2 rounded-full bg-surface-container-highest overflow-hidden">
+                        <div
+                          className="h-full rounded-full"
+                          style={{ background: color, width: `${pct}%` }}
                         />
                       </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                        {blockRows.map(({ row, idx }) => (
-                          <TimelineWeekRow
-                            key={row.week_number}
-                            row={row}
-                            idx={idx}
-                            today={today}
-                            weekBookings={bookingsByRowIdx[idx] ?? []}
-                            eventTypes={eventTypes}
-                            onWeekDateChange={handleWeekDateChange}
-                            onBookingClick={setEditingBooking}
-                          />
-                        ))}
-                      </div>
                     </div>
-                  )}
-                </section>
-              );
-            })}
+                  );
+                })
+              )}
+            </div>
+            {pkg.expiringSoon && (
+              <div className="mt-5 flex items-center justify-between gap-3 bg-[#fff7ed] border border-[#fde68a] rounded-2xl px-4 py-3">
+                <span className="text-[13px] text-[#92400e]">
+                  ⚠️ Pacchetto in esaurimento — proponi il rinnovo.
+                </span>
+              </div>
+            )}
+          </section>
+
+          {/* Storico sessioni — righe con barretta colore tipologia e chip stato */}
+          <section className="bg-surface-container-lowest rounded-[28px] shadow-soft-blue p-6">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-xl font-semibold text-on-surface m-0">Storico sessioni</h2>
+              <span className="text-xs text-outline">Tocca una sessione per modificare</span>
+            </div>
+            {loading ? (
+              <div className="py-6 grid place-items-center text-muted-foreground">
+                <Loader2 className="size-5 animate-spin" />
+              </div>
+            ) : clientBookings.length === 0 ? (
+              <p className="text-[13px] text-outline py-3 m-0">Nessuna sessione registrata.</p>
+            ) : (
+              clientBookings.slice(0, 12).map((b, i, arr) => {
+                const et = eventTypes.find((e) => e.id === b.event_type_id);
+                const name = et?.name ?? b.title ?? "Sessione";
+                const color = creditColor(name);
+                const chip = STATUS_CHIP[b.status] ?? STATUS_CHIP.scheduled!;
+                return (
+                  <button
+                    key={b.id}
+                    type="button"
+                    onClick={() => setEditingBooking(b)}
+                    className={cn(
+                      "w-full flex gap-3.5 py-3.5 text-left",
+                      i < arr.length - 1 && "border-b border-[#f1f5f9]",
+                    )}
+                  >
+                    <div
+                      className="w-1.5 rounded-full shrink-0 self-stretch"
+                      style={{ background: color }}
+                    />
+                    <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <strong className="text-sm text-on-surface truncate">{name}</strong>
+                        <span className="text-xs text-outline shrink-0">
+                          {format(new Date(b.scheduled_at), "EEE d MMM", { locale: it })}
+                        </span>
+                      </div>
+                      <span
+                        className="shrink-0 text-[11px] font-semibold px-3 py-[3px] rounded-full"
+                        style={{ background: chip.bg, color: chip.fg }}
+                      >
+                        {chip.label}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </section>
+
+          <OrphanBookingsCard
+            orphans={orphans}
+            onConfirm={confirmOrphan}
+            onDiscard={discardOrphan}
+          />
+
+          <PathStartDateCard
+            pathStart={pathStart}
+            onSelectStart={handleStartChange}
+            totalWeeks={totalWeeks}
+            totalBlocks={totalBlocks}
+            weeksPerBlock={WEEKS_PER_BLOCK}
+          />
+
+          {/* Auto-renew toggle for monthly blocks. Default ON for new clients.
+              When OFF, the ensure_client_block_state RPC stops creating new
+              blocks once the current one expires past its grace period —
+              the cliente will see the empty state until the coach manually
+              intervenes. */}
+          <AutoRenewToggleCard
+            value={autoRenewBlocks}
+            saving={autoRenewSaving}
+            onChange={toggleAutoRenew}
+          />
+
+          {/* Timeline del Percorso */}
+          <div>
+            <div className="mb-6">
+              {/* Heading allineato alla scala titoli card del mock (20px/600) */}
+              <h2 className="text-xl font-semibold text-on-surface">Timeline del Percorso</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Pianificazione e stato delle sessioni
+              </p>
+            </div>
+
+            {loading ? (
+              <div className="p-8 grid place-items-center text-muted-foreground">
+                <Loader2 className="size-5 animate-spin" />
+              </div>
+            ) : totalBlocks === 0 ? (
+              <div className="p-8 text-center rounded-2xl border border-dashed space-y-3">
+                {hasExtraCredits ? (
+                  <p className="text-sm text-muted-foreground">
+                    Cliente Libero: ha crediti extra ma nessun percorso a blocchi. La Timeline
+                    mostra solo i percorsi strutturati (Fisso / Abbonamento).
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-sm text-muted-foreground">
+                      Questo cliente non ha ancora un pacchetto assegnato.
+                    </p>
+                    <Button onClick={() => setAssignOpen(true)} disabled={assigning}>
+                      <Plus className="size-4" /> Assegna pacchetto
+                    </Button>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {blockAggregates.map((b) => {
+                  const blockRows = rowsByBlock.get(b.sequence_order) ?? [];
+                  const isOpen = openBlockId === b.id;
+                  const totalAssigned = b.pills.reduce((s, p) => s + p.assigned, 0);
+                  const totalCompleted = b.pills.reduce((s, p) => s + p.completed, 0);
+                  const rangeLabel =
+                    b.dateRange.start && b.dateRange.end
+                      ? `${format(b.dateRange.start, "d MMM", { locale: it })} – ${format(
+                          addDays(b.dateRange.end, -1),
+                          "d MMM",
+                          { locale: it },
+                        )}`
+                      : null;
+                  const now = today.getTime();
+                  const isCurrent =
+                    b.dateRange.start &&
+                    b.dateRange.end &&
+                    now >= b.dateRange.start.getTime() &&
+                    now < b.dateRange.end.getTime();
+                  return (
+                    <section
+                      key={b.id}
+                      className="bg-surface-container-lowest rounded-[28px] shadow-soft-blue overflow-hidden"
+                    >
+                      {/* Compact header — toggle */}
+                      <button
+                        type="button"
+                        onClick={() => setOpenBlockId(isOpen ? null : b.id)}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted/40 transition-colors"
+                        aria-expanded={isOpen}
+                      >
+                        <ChevronDown
+                          className={cn(
+                            "size-4 text-muted-foreground shrink-0 transition-transform",
+                            isOpen && "rotate-180",
+                          )}
+                        />
+                        <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
+                          <span className="text-sm font-semibold text-foreground">
+                            Blocco {b.sequence_order}
+                          </span>
+                          {isCurrent && (
+                            <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                              In corso
+                            </span>
+                          )}
+                          {rangeLabel && (
+                            <span className="text-xs text-muted-foreground">· {rangeLabel}</span>
+                          )}
+                        </div>
+                        {totalAssigned > 0 && (
+                          <span className="text-xs font-medium text-muted-foreground shrink-0">
+                            {totalCompleted}/{totalAssigned}
+                          </span>
+                        )}
+                      </button>
+
+                      {/* Expanded body */}
+                      {isOpen && (
+                        <div className="px-4 pb-5 pt-1 space-y-4 border-t border-border/30">
+                          <div className="flex flex-wrap items-center gap-2 pt-3">
+                            {b.pills.length === 0 ? (
+                              <span className="text-xs text-muted-foreground italic">
+                                Nessun credito impostato
+                              </span>
+                            ) : (
+                              b.pills.map((p, i) => {
+                                const done = p.completed >= p.assigned;
+                                return (
+                                  <span
+                                    key={i}
+                                    className={cn(
+                                      "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold",
+                                      done
+                                        ? "bg-primary/10 text-primary"
+                                        : "bg-surface-container-low text-primary",
+                                    )}
+                                  >
+                                    {done ? (
+                                      <CheckCircle2 className="size-3" />
+                                    ) : (
+                                      <Clock className="size-3" />
+                                    )}
+                                    {p.name}: {p.completed}/{p.assigned}
+                                  </span>
+                                );
+                              })
+                            )}
+                            <BlockCreditsDialog
+                              blockId={b.id}
+                              sequenceOrder={b.sequence_order}
+                              allocations={b.allocations}
+                              eventTypes={eventTypes.map((e) => ({
+                                id: e.id,
+                                name: e.name,
+                                base_type: e.base_type,
+                              }))}
+                              onSaved={() => void load()}
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                            {blockRows.map(({ row, idx }) => (
+                              <TimelineWeekRow
+                                key={row.week_number}
+                                row={row}
+                                idx={idx}
+                                today={today}
+                                weekBookings={bookingsByRowIdx[idx] ?? []}
+                                eventTypes={eventTypes}
+                                onWeekDateChange={handleWeekDateChange}
+                                onBookingClick={setEditingBooking}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </section>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        )}
+        </div>
+
+        {/* Colonna destra: Andamento BIA, Note & obiettivi, Engagement */}
+        <div className="flex flex-col gap-6 min-w-0">
+          {user?.id && (
+            <>
+              <TrainerBiaPanel clientId={clientId} coachId={user.id} />
+              <CoachNotesCard coachId={user.id} clientId={clientId} />
+            </>
+          )}
+
+          {/* Engagement — presenza, no-show e frequenza (design handoff) */}
+          <section className="bg-surface-container-lowest rounded-[28px] shadow-soft-blue p-6">
+            <h2 className="text-xl font-semibold text-on-surface m-0 mb-4">Engagement</h2>
+            <div className="flex gap-2">
+              <div className="flex-1 text-center">
+                <p
+                  className="tabular-nums font-display text-2xl font-bold m-0"
+                  style={{
+                    color: engage.att >= 80 ? "#059669" : engage.att >= 60 ? "#ea580c" : "#dc2626",
+                  }}
+                >
+                  {engage.att}%
+                </p>
+                <p className="text-[11px] text-outline mt-1 m-0">Presenza</p>
+              </div>
+              <div className="w-px bg-surface-container-high" />
+              <div className="flex-1 text-center">
+                <p
+                  className="tabular-nums font-display text-2xl font-bold m-0"
+                  style={{ color: engage.noshow > 0 ? "#dc2626" : "#191c1f" }}
+                >
+                  {engage.noshow}
+                </p>
+                <p className="text-[11px] text-outline mt-1 m-0">No-show</p>
+              </div>
+              <div className="w-px bg-surface-container-high" />
+              <div className="flex-1 text-center">
+                <p className="tabular-nums font-display text-2xl font-bold text-on-surface m-0">
+                  {engage.perWeek}
+                </p>
+                <p className="text-[11px] text-outline mt-1 m-0">Sess./sett.</p>
+              </div>
+            </div>
+            <p className="text-xs text-outline text-center mt-4 m-0">
+              Ultima sessione: {engage.lastLabel}
+            </p>
+          </section>
+        </div>
       </div>
 
       <EditBookingDialog

@@ -73,9 +73,9 @@ export function ClientNotificationsBell({
         <button
           type="button"
           aria-label={unreadCount > 0 ? `Notifiche, ${unreadCount} non lette` : "Notifiche"}
-          className="relative w-10 h-10 rounded-full bg-surface-container-lowest border border-outline-variant/40 grid place-items-center text-on-surface-variant active:scale-95 transition"
+          className="relative w-10 h-10 rounded-full bg-white/60 border border-outline-variant/30 grid place-items-center text-on-surface-variant active:scale-95 transition"
         >
-          <Bell className="size-[18px]" aria-hidden />
+          <Bell className="size-5" aria-hidden />
           {unreadCount > 0 && (
             <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-error-bright text-white text-[10px] font-bold flex items-center justify-center border-2 border-surface">
               {unreadCount}

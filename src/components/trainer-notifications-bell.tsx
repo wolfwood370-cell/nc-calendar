@@ -71,16 +71,20 @@ const BellButton = React.forwardRef<HTMLButtonElement, BellButtonProps>(function
       aria-label={unread > 0 ? `Notifiche (${unread} non lette)` : "Notifiche"}
       {...props}
       className={cn(
-        "relative w-10 h-10 flex items-center justify-center rounded-full text-primary active:scale-95 transition-transform",
+        // Design handoff: pulsante 38px bianco con bordo tenue, icona 18px
+        "relative size-[38px] flex items-center justify-center rounded-full bg-white border border-outline-variant/40 text-on-surface-variant active:scale-95 transition-transform",
         className,
       )}
     >
-      <Bell className="size-5" />
+      <Bell className="size-[18px]" />
+      {/* Design handoff: badge numerico non-lette (al posto del pallino muto) */}
       {unread > 0 && (
         <span
           aria-hidden
-          className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-destructive ring-2 ring-surface"
-        />
+          className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-error-bright text-white text-[10px] font-bold flex items-center justify-center border-2 border-surface tabular-nums"
+        >
+          {unread}
+        </span>
       )}
     </button>
   );
@@ -267,19 +271,33 @@ export function TrainerNotificationsBell() {
           <PopoverContent
             align="end"
             sideOffset={8}
-            className="w-[380px] p-0 rounded-[28px] bg-surface-container-lowest border border-outline-variant/20 shadow-[0_12px_48px_rgba(0,0,0,0.12)]"
+            className="w-[340px] p-0 rounded-[18px] bg-surface-container-lowest border border-surface-container shadow-[0_20px_60px_rgba(0,0,0,0.2)]"
           >
-            <div className="px-5 pt-5 pb-3 flex items-center gap-2">
-              <span className="text-base font-semibold text-on-surface">Notifiche</span>
-              {headerBadge}
+            {/* Design handoff: header "Attività clienti" + Segna lette */}
+            <div className="px-5 py-4 flex items-center justify-between gap-2 border-b border-surface-container-low">
+              <span className="font-display text-[15px] font-bold text-on-surface flex items-center gap-2">
+                Attività clienti
+                {headerBadge}
+              </span>
+              {canMarkAll && (
+                <button
+                  type="button"
+                  onClick={handleMarkAllRead}
+                  className="text-xs font-semibold text-primary-container"
+                >
+                  Segna lette
+                </button>
+              )}
             </div>
             <div className="max-h-[60vh] overflow-y-auto">
+              {/* canMarkAll=false: su desktop "Segna lette" vive nell'header
+                  del popover (design handoff), niente doppione in fondo. */}
               <NotificationsList
                 notifications={notifications}
                 loading={isLoading}
                 onItemClick={handleItemClick}
                 onMarkAllRead={handleMarkAllRead}
-                canMarkAll={canMarkAll}
+                canMarkAll={false}
               />
             </div>
           </PopoverContent>

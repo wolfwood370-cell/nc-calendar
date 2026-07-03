@@ -8,17 +8,19 @@ export const Route = createFileRoute("/trainer/integrations")({
 
 function IntegrationsPage() {
   return (
-    <div className="space-y-8">
+    <div className="mx-auto w-full max-w-[920px] space-y-6">
       <div>
-        <h1 className="font-display text-3xl font-semibold tracking-tight text-aura-primary">
+        <h1 className="font-display text-3xl md:text-4xl font-bold tracking-[-0.02em] text-aura-primary">
           Integrazioni
         </h1>
-        <p className="text-sm text-outline mt-1">
-          Le integrazioni della piattaforma sono gestite centralmente. Tu vedi solo lo stato.
+        <p className="text-sm text-on-surface-variant mt-1">
+          Le integrazioni della piattaforma sono gestite centralmente.{" "}
+          {/* contatore statico: le 3 integrazioni sotto sono tutte connected */}
+          <span className="font-semibold text-aura-primary">3</span> attive.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="flex flex-col gap-3">
         {/* Google Calendar — sempre connesso via Lovable Connector.
             Un unico account Google riceve tutte le scritture dell'app
             (creazione, update, cancel) per tutti i coach. Nessun token
@@ -26,8 +28,8 @@ function IntegrationsPage() {
         <IntegrationCard
           accentColor="#4285F4"
           connected={true}
-          icon={<Calendar className="size-7" style={{ color: "#4285F4" }} />}
-          iconBg="#4285F415"
+          icon={<Calendar className="size-6 text-white" />}
+          iconBg="#4285F4"
           title="Google Calendar"
           description="Sincronizzazione attiva con il calendario della piattaforma."
         >
@@ -39,7 +41,8 @@ function IntegrationsPage() {
               <Check className="size-4 text-[#4285F4]" /> Inviti email ai clienti (sendUpdates=all)
             </li>
             <li className="flex items-center gap-2">
-              <Check className="size-4 text-[#4285F4]" /> Promemoria 24h + 30min (online) / 2h (in presenza)
+              <Check className="size-4 text-[#4285F4]" /> Promemoria 24h + 30min (online) / 2h (in
+              presenza)
             </li>
           </ul>
           <p className="text-[11px] leading-relaxed tracking-wide text-outline px-1">
@@ -53,8 +56,8 @@ function IntegrationsPage() {
         <IntegrationCard
           accentColor="#635BFF"
           connected={true}
-          icon={<CreditCard className="size-7" style={{ color: "#635BFF" }} />}
-          iconBg="#635BFF15"
+          icon={<CreditCard className="size-6 text-white" />}
+          iconBg="#635BFF"
           title="Stripe"
           description="Pagamenti dei Booster gestiti dalla piattaforma."
         >
@@ -76,8 +79,8 @@ function IntegrationsPage() {
         <IntegrationCard
           accentColor="#00897B"
           connected={true}
-          icon={<Video className="size-7" style={{ color: "#00897B" }} />}
-          iconBg="#00897B15"
+          icon={<Video className="size-6 text-white" />}
+          iconBg="#00897B"
           title="Google Meet"
           description="Link Meet generati automaticamente per le sessioni online."
         >

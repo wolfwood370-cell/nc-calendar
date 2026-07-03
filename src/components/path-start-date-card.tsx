@@ -34,9 +34,11 @@ export function PathStartDateCard({
   weeksPerBlock,
 }: PathStartDateCardProps) {
   return (
-    <Card>
+    <Card className="rounded-[28px] border-0 shadow-soft-blue">
       <CardHeader>
-        <CardTitle className="text-base">Data Inizio Percorso</CardTitle>
+        <CardTitle className="text-xl font-semibold text-on-surface">
+          Data Inizio Percorso
+        </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-wrap items-center gap-4">
         <Popover>

@@ -271,91 +271,92 @@ function ClientSettings() {
         </div>
       </header>
 
-      <main className="px-margin-mobile pt-stack-md flex flex-col gap-stack-lg">
-        {/* Profile Card */}
-        <section className="bg-surface-container-lowest rounded-[1.5rem] shadow-soft-card p-stack-lg border border-outline-variant/30 flex items-center gap-4">
+      <main className="px-margin-mobile pt-6 pb-[120px] flex flex-col gap-6">
+        {/* Hero identità: sezione trasparente centrata (avatar 88px, una iniziale) */}
+        <section className="flex flex-col items-center gap-3 text-center">
           {loading ? (
             <>
-              <Skeleton className="size-16 rounded-full" />
-              <div className="flex-1 space-y-2">
-                <Skeleton className="h-5 w-2/3" />
-                <Skeleton className="h-4 w-1/2" />
+              <Skeleton className="size-[88px] rounded-full" />
+              <div className="flex flex-col items-center gap-2">
+                <Skeleton className="h-6 w-40" />
+                <Skeleton className="h-4 w-52" />
               </div>
             </>
           ) : (
             <>
-              <Avatar className="size-16 border-2 border-surface-container-lowest shadow-sm">
+              <Avatar className="size-[88px] border-[3px] border-white shadow-[0_8px_30px_rgba(0,0,0,0.1)]">
                 {profile?.avatar_url ? (
                   <AvatarImage src={profile.avatar_url} alt={fullName} />
                 ) : null}
-                <AvatarFallback className="bg-primary-container text-on-primary-container font-semibold text-lg">
-                  {getInitials(profile?.full_name, email)}
+                <AvatarFallback className="bg-primary-container text-on-primary-container font-display text-4xl font-bold">
+                  {getInitials(profile?.full_name, email).charAt(0)}
                 </AvatarFallback>
               </Avatar>
-              <div className="flex-1 min-w-0">
-                <p className="text-lg font-semibold text-on-surface truncate">{fullName}</p>
-                <p className="text-sm text-on-surface-variant truncate">{email}</p>
-                {/* Design handoff: badge stato percorso */}
-                {profile?.path_type === "recurring" ? (
-                  <span className="inline-flex items-center gap-1 mt-1.5 px-2.5 py-0.5 rounded-full bg-success-strong/12 text-success-strong text-[11px] font-bold">
-                    Abbonamento attivo
-                  </span>
-                ) : pathEndLabel ? (
-                  <span className="inline-flex items-center gap-1 mt-1.5 px-2.5 py-0.5 rounded-full bg-success-strong/12 text-success-strong text-[11px] font-bold">
-                    Percorso attivo · scade il {pathEndLabel}
-                  </span>
-                ) : null}
+              <div className="min-w-0 max-w-full">
+                <h2 className="font-display text-[22px] font-bold text-on-surface truncate">
+                  {fullName}
+                </h2>
+                <p className="mt-1 text-sm text-outline truncate">{email}</p>
               </div>
+              {/* Design handoff: badge stato percorso (pill navy con pallino verde) */}
+              {profile?.path_type === "recurring" ? (
+                <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-aura-primary/8 text-aura-primary text-[13px] font-semibold">
+                  <span className="size-[7px] rounded-full bg-success-strong" aria-hidden />
+                  Abbonamento attivo
+                </span>
+              ) : pathEndLabel ? (
+                <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-aura-primary/8 text-aura-primary text-[13px] font-semibold">
+                  <span className="size-[7px] rounded-full bg-success-strong" aria-hidden />
+                  Percorso attivo · scade {pathEndLabel}
+                </span>
+              ) : null}
             </>
           )}
         </section>
 
-        {/* Design handoff: riga statistiche (fatte / blocco / prenotate) */}
+        {/* Design handoff: riga statistiche — 3 card separate */}
         {!loading && (
-          <section className="bg-surface-container-lowest rounded-[1.5rem] shadow-soft-card border border-outline-variant/30 grid grid-cols-3 divide-x divide-surface-container-high py-4">
-            <div className="flex flex-col items-center gap-0.5 px-2 text-center">
-              <span className="font-display text-2xl font-bold text-on-surface tabular-nums">
+          <section className="grid grid-cols-3 gap-3">
+            <div className="bg-surface-container-lowest rounded-[20px] shadow-soft-card border border-outline-variant/30 px-2 py-4 text-center">
+              <span className="block font-display text-2xl font-bold text-aura-primary tabular-nums">
                 {stats.done}
               </span>
-              <span className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wide">
-                Fatte
-              </span>
+              <span className="block mt-1 text-[11px] text-outline">sessioni fatte</span>
             </div>
-            <div className="flex flex-col items-center gap-0.5 px-2 text-center">
-              <span className="font-display text-2xl font-bold text-on-surface tabular-nums">
-                {currentBlockSeq ?? "—"}
+            <div className="bg-surface-container-lowest rounded-[20px] shadow-soft-card border border-outline-variant/30 px-2 py-4 text-center">
+              <span className="block font-display text-2xl font-bold text-aura-primary tabular-nums">
+                {currentBlockSeq != null ? `Blocco ${currentBlockSeq}` : "—"}
               </span>
-              <span className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wide">
-                Blocco
-              </span>
+              <span className="block mt-1 text-[11px] text-outline">in corso</span>
             </div>
-            <div className="flex flex-col items-center gap-0.5 px-2 text-center">
-              <span className="font-display text-2xl font-bold text-on-surface tabular-nums">
+            <div className="bg-surface-container-lowest rounded-[20px] shadow-soft-card border border-outline-variant/30 px-2 py-4 text-center">
+              <span className="block font-display text-2xl font-bold text-aura-primary tabular-nums">
                 {stats.booked}
               </span>
-              <span className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wide">
-                Prenotate
-              </span>
+              <span className="block mt-1 text-[11px] text-outline">prenotate</span>
             </div>
           </section>
         )}
 
         {/* Design handoff: sessioni residue per pool con barre */}
         {!loading && pools.length > 0 && (
-          <section className="bg-surface-container-lowest rounded-[1.5rem] shadow-soft-card border border-outline-variant/30 p-5 flex flex-col gap-4">
-            <h3 className="text-sm font-semibold text-on-surface m-0">Sessioni residue</h3>
+          <section className="bg-surface-container-lowest rounded-[1.5rem] shadow-soft-card border border-outline-variant/30 p-5 flex flex-col gap-3">
+            <h3 className="text-base font-bold text-on-surface m-0">Le tue sessioni residue</h3>
             {pools.map((p) => {
               const left = Math.max(0, p.total - p.used);
-              const pct = p.total > 0 ? Math.round((p.used / p.total) * 100) : 0;
+              // Barra = quota residua: piena quando tutte disponibili, si svuota con l'uso.
+              const pct = p.total > 0 ? Math.round((left / p.total) * 100) : 0;
               return (
                 <div key={p.name} className="flex flex-col gap-1.5">
                   <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-sm font-medium text-on-surface">{p.name}</span>
-                    <span className="text-xs font-semibold text-on-surface-variant tabular-nums">
-                      {left} {left === 1 ? "residua" : "residue"} · {p.used}/{p.total}
+                    <span className="text-sm font-semibold text-on-surface">{p.name}</span>
+                    <span
+                      className={`text-[13px] font-bold tabular-nums ${left > 0 ? "text-aura-primary" : "text-outline"}`}
+                    >
+                      {left} disponibili
                     </span>
                   </div>
-                  <div className="w-full h-2 rounded-full bg-surface-container-high overflow-hidden">
+                  <div className="w-full h-2 rounded-full bg-surface-container overflow-hidden">
                     <div
                       className="h-full rounded-full bg-aura-primary transition-[width] duration-500"
                       style={{ width: `${pct}%` }}
@@ -371,18 +372,16 @@ function ClientSettings() {
         <section className="bg-surface-container-lowest rounded-[1.5rem] shadow-soft-card border border-outline-variant/30 overflow-hidden">
           <Link
             to="/client/store"
-            className="flex items-center gap-4 px-5 py-4 active:bg-surface-container-low transition-colors"
+            className="flex items-center gap-3.5 px-5 py-4 active:bg-surface-container-low transition-colors"
           >
-            <span className="size-10 rounded-full bg-primary-container/10 text-primary-container grid place-items-center">
-              <Sparkles className="size-5" aria-hidden />
+            <span className="size-9 rounded-[10px] bg-aura-primary/6 text-aura-primary grid place-items-center shrink-0">
+              <Sparkles className="size-[18px]" aria-hidden />
             </span>
             <span className="flex-1 min-w-0">
-              <span className="block text-base font-medium text-on-surface">Acquista Booster</span>
-              <span className="block text-sm text-on-surface-variant">
-                Sessioni extra e add-on premium
-              </span>
+              <span className="block text-sm font-semibold text-on-surface">Acquista Booster</span>
+              <span className="block mt-0.5 text-xs text-outline">Sessioni e test aggiuntivi</span>
             </span>
-            <ChevronRight className="size-5 text-outline" aria-hidden />
+            <ChevronRight className="size-[18px] text-outline-variant" aria-hidden />
           </Link>
         </section>
 
@@ -393,7 +392,7 @@ function ClientSettings() {
           </h3>
           <div className="bg-surface-container-lowest rounded-[1.5rem] shadow-soft-card border border-outline-variant/30 overflow-hidden">
             <SettingsRow
-              icon={<Bell className="size-5" />}
+              icon={<Bell className="size-[18px]" />}
               title="Notifiche Push"
               subtitle={
                 !pushSupported
@@ -418,7 +417,7 @@ function ClientSettings() {
             />
             <SettingsDivider />
             <SettingsRow
-              icon={<Mail className="size-5" />}
+              icon={<Mail className="size-[18px]" />}
               title="Email di conferma"
               subtitle="Ricevi email per ogni prenotazione"
               control={
@@ -439,15 +438,15 @@ function ClientSettings() {
           </h3>
           <div className="bg-surface-container-lowest rounded-[1.5rem] shadow-soft-card border border-outline-variant/30 overflow-hidden">
             {googleLinked ? (
-              <div className="w-full flex items-center gap-4 px-5 py-4">
-                <span className="size-10 rounded-full bg-primary-container/10 text-primary-container grid place-items-center">
-                  <Calendar className="size-5" />
+              <div className="w-full flex items-center gap-3.5 px-5 py-4">
+                <span className="size-9 rounded-[10px] bg-aura-primary/6 text-aura-primary grid place-items-center shrink-0">
+                  <Calendar className="size-[18px]" />
                 </span>
                 <span className="flex-1 min-w-0">
-                  <span className="block text-base font-medium text-on-surface">
+                  <span className="block text-sm font-semibold text-on-surface">
                     Account Google collegato
                   </span>
-                  <span className="block text-sm text-on-surface-variant">
+                  <span className="block mt-0.5 text-xs text-outline">
                     Puoi accedere anche con Google
                   </span>
                 </span>
@@ -455,13 +454,13 @@ function ClientSettings() {
               </div>
             ) : (
               <div className="px-5 py-4 flex flex-col gap-3">
-                <div className="flex items-center gap-4">
-                  <span className="size-10 rounded-full bg-primary-container/10 text-primary-container grid place-items-center">
-                    <Calendar className="size-5" />
+                <div className="flex items-center gap-3.5">
+                  <span className="size-9 rounded-[10px] bg-aura-primary/6 text-aura-primary grid place-items-center shrink-0">
+                    <Calendar className="size-[18px]" />
                   </span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-base font-medium text-on-surface">Collega Account Google</p>
-                    <p className="text-sm text-on-surface-variant">
+                    <p className="text-sm font-semibold text-on-surface">Collega Account Google</p>
+                    <p className="mt-0.5 text-xs text-outline">
                       Per collegarlo, esci e accedi con Google usando la stessa email
                       {email ? ` (${email})` : ""}. Il tuo account verrà collegato automaticamente,
                       mantenendo prenotazioni e dati.
@@ -493,13 +492,13 @@ function ClientSettings() {
           </h3>
           <div className="bg-surface-container-lowest rounded-[1.5rem] shadow-soft-card border border-outline-variant/30 overflow-hidden">
             <form onSubmit={handleUpdatePassword} className="px-5 py-4 flex flex-col gap-4">
-              <div className="flex items-center gap-4">
-                <span className="size-10 rounded-full bg-primary-container/10 text-primary-container grid place-items-center">
-                  <Lock className="size-5" />
+              <div className="flex items-center gap-3.5">
+                <span className="size-9 rounded-[10px] bg-aura-primary/6 text-aura-primary grid place-items-center shrink-0">
+                  <Lock className="size-[18px]" />
                 </span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-base font-medium text-on-surface">Cambia password</p>
-                  <p className="text-sm text-on-surface-variant">
+                  <p className="text-sm font-semibold text-on-surface">Cambia password</p>
+                  <p className="mt-0.5 text-xs text-outline">
                     Aggiorna la password fornita dal coach.
                   </p>
                 </div>
@@ -551,7 +550,7 @@ function ClientSettings() {
         </section>
 
         {/* Logout */}
-        <section className="pb-8">
+        <section>
           <button
             type="button"
             onClick={handleLogout}

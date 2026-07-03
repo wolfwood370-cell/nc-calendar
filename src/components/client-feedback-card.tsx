@@ -8,6 +8,7 @@
 // ----------------------------------------------------------------------------
 
 import { useState } from "react";
+import { MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useSetSessionFeedback } from "@/hooks/use-session-feedback";
 
@@ -31,8 +32,17 @@ export function ClientFeedbackCard({
   const active = hover || chosen;
 
   return (
-    <section className="bg-surface-container-lowest rounded-card-mobile shadow-soft-card border border-outline-variant/30 p-6 text-center">
-      <h3 className="font-display text-base font-bold text-on-surface m-0 mb-1">Com'è andata?</h3>
+    <section className="bg-surface-container-lowest rounded-card-mobile shadow-soft-card border border-outline-variant/30 p-6">
+      {/* Header allineato a sinistra: icona message 36px + titolo Manrope
+          (font-sans forza l'override della regola h3 → Sora). */}
+      <div className="flex items-center gap-2.5 mb-1.5">
+        <div className="w-9 h-9 rounded-full bg-[rgba(3,155,229,0.1)] text-[#039BE5] grid place-items-center shrink-0">
+          <MessageCircle className="size-[18px]" aria-hidden />
+        </div>
+        <h3 className="font-sans tracking-normal text-base font-bold text-on-surface m-0">
+          Com'è andata?
+        </h3>
+      </div>
       <p className="text-[13px] text-outline m-0 mb-3.5">
         {typeLabel} · {dateLabel}. Il tuo feedback aiuta il coach.
       </p>

@@ -50,14 +50,15 @@ export interface ClientBookingDetail {
   coach: { full_name: string | null } | null;
 }
 
-// Background/foreground reference design tokens defined in src/styles.css so
-// the status badge color palette is centralized and themable.
+// Palette badge dal mock (Client Booking Detail.dc.html): hex locali per
+// Cancellata/Completata perché divergono dai token status-* di styles.css;
+// da centralizzare in token se il design viene confermato anche altrove.
 function statusStyle(s: BookingStatus): { bg: string; fg: string; label: string } {
   switch (s) {
     case "completed":
       return {
-        bg: "var(--color-status-success-bg)",
-        fg: "var(--color-on-status-success)",
+        bg: "#ecfdf5",
+        fg: "#059669",
         label: "Completata",
       };
     case "scheduled":
@@ -68,20 +69,20 @@ function statusStyle(s: BookingStatus): { bg: string; fg: string; label: string 
       };
     case "cancelled":
       return {
-        bg: "var(--color-status-error-bg)",
-        fg: "var(--color-on-status-error)",
+        bg: "#fef2f2",
+        fg: "#dc2626",
         label: "Cancellata",
       };
     case "late_cancelled":
       return {
-        bg: "var(--color-status-error-bg)",
-        fg: "var(--color-on-status-error)",
+        bg: "#fef2f2",
+        fg: "#dc2626",
         label: "Cancellazione tardiva",
       };
     case "no_show":
       return {
-        bg: "var(--color-status-error-bg)",
-        fg: "var(--color-on-status-error)",
+        bg: "#fef2f2",
+        fg: "#dc2626",
         label: "No Show",
       };
   }
@@ -138,6 +139,9 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
   const hoursUntil = differenceInHours(start, new Date());
   const within24h = hoursUntil < 24;
   const canManage = booking.status === "scheduled" && isFuture;
+  // Mock stato cancellato: GCal/Riprogramma restano visibili ma attenuati e
+  // inerti (il "Ripristina prenotazione" del prototipo non ha RPC: non implementato).
+  const isCancelled = booking.status === "cancelled" || booking.status === "late_cancelled";
   // Design handoff: conferma presenza (RPC dedicata, vedi use-confirm-attendance)
   const confirmAttendance = useConfirmAttendance();
   const isConfirmed = !!booking.client_confirmed_at;
@@ -184,35 +188,29 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
       <section className="bg-surface-container-lowest rounded-[32px] p-stack-lg shadow-[0_8px_30px_rgba(0,0,0,0.04)]">
         <div className="flex flex-col gap-stack-md">
           <div>
-            <div className="flex items-center gap-2 flex-wrap mb-stack-sm">
+            <div className="mb-stack-sm">
               <span
                 className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold"
                 style={{ backgroundColor: status.bg, color: status.fg }}
               >
                 {status.label}
               </span>
-              {isConfirmed && canManage && (
-                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-success-strong/12 text-success-strong">
-                  <Check className="size-3.5" strokeWidth={2.5} aria-hidden />
-                  Presenza confermata
-                </span>
-              )}
             </div>
             <h1 className="text-2xl font-semibold text-on-surface">{title}</h1>
           </div>
           <div className="space-y-stack-sm mt-stack-sm">
             <div className="flex items-center gap-3 text-on-surface-variant">
-              <CalendarDays className="size-5 text-primary shrink-0" />
-              <span className="capitalize">
+              <CalendarDays className="size-5 text-reschedule shrink-0" />
+              <span>
                 {dateStr} • {timeStr}
               </span>
             </div>
 
             <div className="flex items-start gap-3 text-on-surface-variant">
               {isOnline ? (
-                <Video className="size-5 text-primary shrink-0 mt-0.5" />
+                <Video className="size-5 text-reschedule shrink-0 mt-0.5" />
               ) : (
-                <MapPin className="size-5 text-primary shrink-0 mt-0.5" />
+                <MapPin className="size-5 text-reschedule shrink-0 mt-0.5" />
               )}
               {isOnline ? (
                 booking.meeting_link ? (
@@ -220,7 +218,7 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
                     href={booking.meeting_link}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-primary underline underline-offset-2"
+                    className="text-reschedule underline underline-offset-2"
                   >
                     Sessione Online — Apri videocall
                   </a>
@@ -232,7 +230,7 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
                   href={mapsHref}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-primary underline underline-offset-2"
+                  className="text-reschedule underline underline-offset-2"
                 >
                   {address}
                 </a>
@@ -246,7 +244,7 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
 
       {/* Duration */}
       <section className="bg-surface-container-lowest rounded-[32px] p-stack-md shadow-[0_8px_30px_rgba(0,0,0,0.04)] flex items-center gap-3">
-        <Timer className="size-5 text-primary" />
+        <Timer className="size-5 text-reschedule" />
         <p className="text-base text-on-surface">
           Durata: <span className="font-semibold">{duration} min</span>
         </p>
@@ -256,7 +254,7 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
       {booking.event_type?.description && (
         <section className="rounded-2xl bg-white/40 backdrop-blur-xl border border-white/30 shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-stack-lg">
           <div className="flex items-center gap-3 mb-stack-sm">
-            <div className="w-9 h-9 rounded-full bg-primary/10 text-primary grid place-items-center">
+            <div className="w-9 h-9 rounded-full bg-reschedule/10 text-reschedule grid place-items-center">
               <Info className="size-4" />
             </div>
             <h2 className="text-sm font-semibold text-on-surface">
@@ -270,7 +268,7 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
       )}
 
       {/* Coach notes */}
-      <section className="bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] overflow-hidden relative border-l-4 border-primary">
+      <section className="bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] overflow-hidden relative border-l-4 border-reschedule">
         <div className="p-stack-lg">
           <div className="flex items-center gap-3 mb-stack-md">
             <div className="w-10 h-10 rounded-full bg-primary-container text-white grid place-items-center border border-outline-variant">
@@ -288,8 +286,8 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
               {booking.trainer_notes}
             </p>
           ) : (
-            <p className="text-sm text-on-surface-variant italic">
-              Nessuna nota aggiunta per questa sessione.
+            <p className="text-base text-on-surface-variant leading-relaxed">
+              Nessuna nota per questa sessione. Ci vediamo in studio!
             </p>
           )}
         </div>
@@ -297,21 +295,32 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
 
       {/* Action buttons */}
       <div className="pt-stack-lg pb-stack-lg space-y-stack-md">
-        {canManage && !isConfirmed && (
-          <button
-            type="button"
-            disabled={confirmAttendance.isPending}
-            onClick={() =>
-              confirmAttendance.mutate({ bookingId: booking.id, clientId: booking.client_id })
-            }
-            className="flex items-center justify-center gap-2 w-full py-4 rounded-full bg-success-strong text-white font-semibold shadow-md hover:opacity-90 active:scale-95 transition disabled:opacity-60"
-          >
-            <Check className="size-5" aria-hidden />
-            Conferma presenza
-          </button>
-        )}
+        {/* Mock: il bottone resta nelle azioni anche a presenza confermata
+            (variante verde soft, cursor default), niente chip nel hero. */}
+        {canManage &&
+          (isConfirmed ? (
+            <button
+              type="button"
+              className="flex items-center justify-center gap-2 w-full py-4 rounded-full bg-success-strong/12 text-success-strong font-bold cursor-default"
+            >
+              <Check className="size-5" strokeWidth={2.5} aria-hidden />
+              Presenza confermata
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={confirmAttendance.isPending}
+              onClick={() =>
+                confirmAttendance.mutate({ bookingId: booking.id, clientId: booking.client_id })
+              }
+              className="flex items-center justify-center gap-2 w-full py-4 rounded-full bg-on-status-success text-white font-bold hover:opacity-90 active:scale-95 transition disabled:opacity-60"
+            >
+              <Check className="size-5" aria-hidden />
+              Conferma presenza
+            </button>
+          ))}
 
-        {canManage && (
+        {(canManage || isCancelled) && (
           <a
             href={generateGoogleCalendarLink(
               { scheduled_at: booking.scheduled_at },
@@ -320,30 +329,38 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
             )}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full py-4 rounded-full bg-primary-container text-white font-semibold shadow-md hover:opacity-90 active:scale-95 transition"
+            aria-disabled={isCancelled || undefined}
+            tabIndex={isCancelled ? -1 : undefined}
+            className={`flex items-center justify-center gap-2 w-full py-4 rounded-full bg-primary-container text-white font-semibold shadow-md hover:opacity-90 active:scale-95 transition ${
+              isCancelled ? "opacity-40 pointer-events-none" : ""
+            }`}
           >
             <CalendarPlus className="size-5" />
             Aggiungi a Google Calendar
           </a>
         )}
 
+        {((canManage && !within24h) || isCancelled) && (
+          <button
+            type="button"
+            disabled={isCancelled}
+            onClick={() => setRescheduleOpen(true)}
+            className={`block w-full py-4 rounded-full border border-outline-variant text-reschedule font-semibold bg-transparent hover:bg-surface-container-low transition-colors text-center ${
+              isCancelled ? "opacity-40 pointer-events-none" : ""
+            }`}
+          >
+            Riprogramma
+          </button>
+        )}
+
         {canManage && !within24h && (
-          <>
-            <button
-              type="button"
-              onClick={() => setRescheduleOpen(true)}
-              className="block w-full py-4 rounded-full border border-outline-variant text-primary font-semibold bg-transparent hover:bg-surface-container-low transition-colors text-center"
-            >
-              Riprogramma
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirmFreeOpen(true)}
-              className="block w-full py-4 rounded-full bg-surface-container-high text-on-surface font-semibold hover:bg-surface-container-highest transition-colors text-center"
-            >
-              Cancella
-            </button>
-          </>
+          <button
+            type="button"
+            onClick={() => setConfirmFreeOpen(true)}
+            className="block w-full py-4 rounded-full bg-surface-container-high text-on-surface font-semibold hover:bg-surface-container-highest transition-colors text-center"
+          >
+            Cancella
+          </button>
         )}
 
         {canManage && within24h && (

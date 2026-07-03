@@ -1,6 +1,5 @@
 import {
   HelpCircle,
-  Calendar,
   Clock,
   User,
   Video,
@@ -8,8 +7,10 @@ import {
   Pencil,
   Trash2,
   ExternalLink,
-  X,
+  Check,
+  AlertCircle,
 } from "lucide-react";
+import { Close as PopoverClose } from "@radix-ui/react-popover";
 import { sessionLabel, type SessionType } from "@/lib/mock-data";
 import {
   isAllDayEvent,
@@ -18,7 +19,6 @@ import {
 } from "@/components/mobile-calendar-agenda";
 import type { EventPlacement } from "@/lib/calendar-layout";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { Button } from "@/components/ui/button";
 
 /** Subset structural del booking richiesto dal tile (campi consumati direttamente). */
 export interface CalendarEventBooking {
@@ -122,11 +122,6 @@ export function CalendarEventTile({
   const safeDuration = duration > 0 ? duration : 60;
   const endDate = new Date(d.getTime() + safeDuration * 60000);
   const timeLabel = `${d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })} - ${endDate.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}`;
-  const dateLabel = d.toLocaleDateString("it-IT", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
 
   if (isPersonal) {
     const title = personalBlockTitle(booking);
@@ -152,10 +147,10 @@ export function CalendarEventTile({
       <button
         onClick={() => onOpenReview(booking.id)}
         style={laneStyle}
-        className="absolute z-10 border-2 border-dashed border-warning-border bg-warning-container/40 rounded-2xl p-2 flex flex-col items-center justify-center gap-1 text-tertiary hover:bg-warning-container/70 hover:scale-[1.02] transition-all cursor-pointer"
+        className="absolute z-10 border-2 border-dashed border-warning-border bg-warning-container/40 rounded-2xl p-2 flex flex-col items-center justify-center gap-0.5 text-tertiary-container hover:bg-warning-container/70 hover:scale-[1.02] transition-all cursor-pointer"
       >
         <div className="flex items-center gap-1.5 text-xs font-semibold">
-          <HelpCircle className="size-3.5 animate-pulse" /> Assegna
+          <HelpCircle className="size-3.5" /> Assegna
         </div>
         <div className="text-[10px] opacity-80">{timeLabel}</div>
       </button>
@@ -191,6 +186,7 @@ export function CalendarEventTile({
   const isConfirmed = !!booking.client_confirmed_at;
 
   const startTime = d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+  const endTime = endDate.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
   const compact = height < 52;
 
   return (
@@ -201,12 +197,22 @@ export function CalendarEventTile({
             ...laneStyle,
             backgroundColor: eventColor,
           }}
-          className="absolute z-10 rounded-xl px-2 py-1 flex flex-col justify-start text-left shadow-sm hover:shadow-md hover:scale-[1.02] hover:z-20 transition-all cursor-pointer ring-1 ring-black/5 overflow-hidden"
+          className="absolute z-10 rounded-[10px] px-2 py-[3px] flex flex-col justify-start text-left shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:z-20 transition-all cursor-pointer overflow-hidden"
         >
-          <h4 className="text-[11px] leading-[1.15] font-semibold text-white truncate drop-shadow-sm">
+          <h4
+            className={`text-[11px] leading-[1.15] font-semibold text-white truncate drop-shadow-sm ${isConfirmed ? "pr-11" : ""}`}
+          >
             {typeLabel}
-            {isConfirmed && <span aria-label="Presenza confermata dal cliente"> ✓</span>}
           </h4>
+          {/* Badge "cliente" come da prototipo (.cli): pill in alto a destra */}
+          {isConfirmed && (
+            <span
+              aria-label="Presenza confermata dal cliente"
+              className="absolute top-[3px] right-1 rounded-full bg-white/90 px-[5px] py-px text-[8px] font-bold tracking-[0.04em] text-aura-primary"
+            >
+              ✓ cliente
+            </span>
+          )}
           {compact ? (
             <p className="text-[10px] leading-[1.15] text-white/90 truncate">
               {clientName ? `${clientName} · ${startTime}` : startTime}
@@ -227,49 +233,59 @@ export function CalendarEventTile({
       <PopoverContent
         side="right"
         align="start"
-        className="w-80 p-0 overflow-hidden"
+        className="w-[250px] rounded-[18px] border border-surface-container p-4 shadow-[0_12px_40px_rgba(0,0,0,0.18)]"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        {/* Header colorato come l'evento */}
-        <div className="px-4 py-3 text-white" style={{ backgroundColor: eventColor }}>
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <h3 className="text-base font-semibold leading-tight truncate">{typeLabel}</h3>
-              <p className="text-xs text-white/85 mt-0.5 capitalize">{dateLabel}</p>
-            </div>
-            <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-medium">
-              <Clock className="size-3" />
-              {safeDuration} min
-            </span>
+        {/* Card bianca come da prototipo: pallino tipologia + titolo + chiudi */}
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <span
+              aria-hidden
+              className="size-2.5 shrink-0 rounded-full"
+              style={{ backgroundColor: eventColor }}
+            />
+            <strong className="text-[15px] font-bold text-on-surface truncate">{typeLabel}</strong>
           </div>
+          <PopoverClose
+            aria-label="Chiudi"
+            className="text-sm leading-none text-outline cursor-pointer"
+          >
+            ✕
+          </PopoverClose>
         </div>
 
-        <div className="p-4 space-y-3 text-sm">
-          <div className="flex items-start gap-2.5">
-            <Calendar className="size-4 text-muted-foreground shrink-0 mt-0.5" />
-            <span>{timeLabel}</span>
+        <div className="mt-2.5 flex flex-col gap-1.5 text-[13px] text-on-surface-variant">
+          <div className="flex items-center gap-2">
+            <Clock className="size-[15px] shrink-0 text-outline" />
+            <span>
+              {startTime} – {endTime}
+            </span>
           </div>
 
           {client && (
-            <div className="flex items-start gap-2.5">
-              <User className="size-4 text-muted-foreground shrink-0 mt-0.5" />
-              <div className="min-w-0">
-                <p className="font-medium truncate">{client.full_name || "Cliente"}</p>
-                {client.email && (
-                  <p className="text-xs text-muted-foreground truncate">{client.email}</p>
-                )}
-                {isConfirmed && (
-                  <p className="text-xs font-semibold text-success-strong mt-0.5">
-                    ✓ Presenza confermata dal cliente
-                  </p>
-                )}
-              </div>
+            <div className="flex items-center gap-2">
+              <User className="size-[15px] shrink-0 text-outline" />
+              <span className="truncate">{client.full_name || "Cliente"}</span>
             </div>
           )}
 
+          {/* Stato conferma del cliente come da prototipo */}
+          {client &&
+            (isConfirmed ? (
+              <div className="flex items-center gap-2 font-semibold text-success-strong">
+                <Check className="size-[15px] shrink-0" strokeWidth={2.5} />
+                Presenza confermata
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 font-semibold text-warning-strong">
+                <AlertCircle className="size-[15px] shrink-0" />
+                In attesa di conferma
+              </div>
+            ))}
+
           {isOnline && booking.meeting_link && (
-            <div className="flex items-start gap-2.5">
-              <Video className="size-4 text-muted-foreground shrink-0 mt-0.5" />
+            <div className="flex items-center gap-2">
+              <Video className="size-[15px] shrink-0 text-outline" />
               <a
                 href={booking.meeting_link}
                 target="_blank"
@@ -282,63 +298,57 @@ export function CalendarEventTile({
           )}
 
           {!isOnline && eventType?.location_address && (
-            <div className="flex items-start gap-2.5">
-              <MapPin className="size-4 text-muted-foreground shrink-0 mt-0.5" />
-              <span className="text-muted-foreground">{eventType.location_address}</span>
+            <div className="flex items-start gap-2">
+              <MapPin className="size-[15px] shrink-0 text-outline mt-0.5" />
+              <span>{eventType.location_address}</span>
             </div>
           )}
 
           {booking.trainer_notes && (
-            <div className="rounded-lg bg-muted/50 p-2.5 text-xs text-muted-foreground">
+            <div className="rounded-xl bg-surface-container-low p-2.5 text-xs">
               {booking.trainer_notes}
             </div>
           )}
         </div>
 
-        <div className="border-t flex items-center gap-1 px-2 py-2 bg-muted/30">
+        {/* Azioni: pill come da prototipo (bianche + eliminazione rossa) */}
+        <div className="mt-2.5 flex items-center gap-1.5">
           {onEdit && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 px-2 gap-1.5 text-xs"
+            <button
               onClick={() => onEdit(booking.id)}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-full border border-outline-variant bg-white py-[7px] text-xs font-semibold text-on-surface-variant hover:bg-surface-container transition-colors cursor-pointer"
             >
               <Pencil className="size-3.5" /> Modifica
-            </Button>
+            </button>
           )}
           {client && booking.client_id && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 px-2 gap-1.5 text-xs"
+            <button
               onClick={() => onFocusClient(booking.client_id)}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-full border border-outline-variant bg-white py-[7px] text-xs font-semibold text-on-surface-variant hover:bg-surface-container transition-colors cursor-pointer"
             >
               <User className="size-3.5" /> Profilo
-            </Button>
+            </button>
           )}
           {gcalUrl && (
             <a
               href={gcalUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 h-8 px-2 text-xs rounded-md hover:bg-muted text-muted-foreground"
+              className="inline-flex items-center justify-center rounded-full border border-outline-variant bg-white p-[7px] text-on-surface-variant hover:bg-surface-container transition-colors"
               title="Apri in Google Calendar"
             >
               <ExternalLink className="size-3.5" />
             </a>
           )}
-          <div className="flex-1" />
           {onCancel && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 px-2 gap-1.5 text-xs text-destructive hover:text-destructive"
+            <button
               onClick={() => {
                 if (confirm("Annullare questo evento?")) onCancel(booking.id);
               }}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-full bg-[#fef2f2] py-[7px] text-xs font-bold text-error-strong hover:bg-[#fee2e2] transition-colors cursor-pointer"
             >
               <Trash2 className="size-3.5" /> Annulla
-            </Button>
+            </button>
           )}
         </div>
       </PopoverContent>

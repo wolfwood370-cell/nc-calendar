@@ -45,8 +45,9 @@ export function ClientCardMenu({
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
+          {/* Mock: icona ⋮ nuda #717880, hit-area 40px invisibile */}
           <button
-            className="w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container transition-colors"
+            className="w-10 h-10 flex items-center justify-center rounded-full text-outline hover:text-on-surface-variant transition-colors"
             aria-label="Altre azioni"
           >
             <MoreVertical className="size-4" />

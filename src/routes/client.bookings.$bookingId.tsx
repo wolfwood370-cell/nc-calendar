@@ -72,7 +72,7 @@ function BookingDetailPage() {
             type="button"
             onClick={() => navigate({ to: "/client" })}
             aria-label="Indietro"
-            className="w-10 h-10 flex items-center justify-center rounded-full bg-surface-container-lowest shadow-[0_4px_12px_rgba(0,0,0,0.05)] text-primary"
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-surface-container-lowest shadow-[0_4px_12px_rgba(0,0,0,0.05)] text-reschedule"
           >
             <ArrowLeft className="size-5" />
           </button>

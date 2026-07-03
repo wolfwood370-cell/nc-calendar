@@ -179,7 +179,7 @@ function StorePage() {
   return (
     <div className="px-4 py-6 md:px-0 space-y-6">
       <div className="flex items-center gap-3">
-        <Button asChild variant="ghost" size="icon" className="rounded-full">
+        <Button asChild variant="ghost" size="icon" className="size-10 rounded-full">
           <Link to="/client" aria-label="Torna alla dashboard">
             <ArrowLeft className="size-5" />
           </Link>
@@ -218,7 +218,7 @@ function StorePage() {
       {/* Glass Hub container */}
       <section
         aria-label="NC Add-on"
-        className="rounded-[40px] bg-white/40 backdrop-blur-md border border-white/30 shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-5 md:p-8 space-y-6"
+        className="rounded-[40px] bg-white/40 backdrop-blur-[6px] border border-white/30 shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-5 md:p-8 space-y-6"
       >
         <p className="text-sm text-on-surface-variant leading-relaxed">
           Risorse premium e sessioni one-to-one riservate esclusivamente agli atleti con un percorso

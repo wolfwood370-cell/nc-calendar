@@ -69,7 +69,9 @@ function TrainerLayout() {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-background">
+      {/* Design handoff: su desktop la pagina ha il gradiente del mock
+          (135deg #f2f3f8→#e7e8ec) che traspare sotto sidebar/header glass. */}
+      <div className="min-h-screen flex w-full bg-background md:bg-[linear-gradient(135deg,#f2f3f8,#e7e8ec)]">
         {/* Sidebar: desktop only. On mobile the TrainerBottomNav at the
             bottom of the viewport replaces it (mobile layer integration). */}
         <div className="hidden md:flex">
@@ -81,7 +83,7 @@ function TrainerLayout() {
               own glassmorphic header inside each page. */}
           <header className="hidden md:flex h-14 items-center gap-3 border-b border-white/20 px-4 sticky top-0 bg-white/40 backdrop-blur-2xl z-10">
             <SidebarTrigger />
-            <div className="h-5 w-px bg-border/40" />
+            <div className="h-5 w-px bg-black/15" />
             <p className="text-sm text-muted-foreground">Studio Trainer</p>
             {/* Design handoff: campanella "Attività clienti" nell'header
                 globale, visibile da ogni pagina /trainer (su mobile resta
@@ -90,8 +92,11 @@ function TrainerLayout() {
               <TrainerNotificationsBell />
             </div>
           </header>
-          {/* pb on mobile clears the bottom nav (64px nav + safe-area). */}
-          <main className="p-0 md:p-6 pb-[88px] md:pb-6">
+          {/* pb on mobile clears the bottom nav (64px nav + safe-area).
+              Desktop: mock = main #f8f9fe dentro il gradiente di pagina; il
+              padding resta 24px perché molte route lo compensano con -m-6
+              per i propri sfondi full-bleed. */}
+          <main className="p-0 md:p-6 pb-[88px] md:pb-6 md:bg-surface">
             {/* key sul pathname: rimonta la vista a ogni navigazione così
                 l'animazione page-enter (design handoff) riparte. */}
             <div key={path} className="page-enter">

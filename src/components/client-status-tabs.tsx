@@ -34,11 +34,11 @@ export function ClientStatusTabs<TKey extends string>({
   const isCompact = variant === "compact";
   const containerCls = isCompact
     ? "flex gap-2 overflow-x-auto pb-1 -mx-1 px-1"
-    : "flex gap-2 mb-8 overflow-x-auto pb-1";
-  const buttonPad = isCompact ? "shrink-0 px-4 py-2" : "px-5 py-2";
+    : "flex gap-2 mb-6 overflow-x-auto pb-1";
+  const buttonPad = isCompact ? "shrink-0 px-4 py-2" : "px-4 py-2";
   const inactiveCls = isCompact
-    ? "bg-surface-container text-on-surface-variant"
-    : "bg-surface-container text-on-surface-variant hover:bg-surface-variant";
+    ? "bg-white text-on-surface-variant border border-outline-variant font-medium"
+    : "bg-white text-on-surface-variant border border-outline-variant font-medium hover:bg-surface-container-low";
 
   return (
     <div className={containerCls}>
@@ -48,11 +48,20 @@ export function ClientStatusTabs<TKey extends string>({
           <button
             key={`${keyPrefix}${t.key}`}
             onClick={() => onSelect(t.key)}
-            className={`${buttonPad} rounded-full text-sm font-semibold whitespace-nowrap transition-colors ${
-              isActive ? "bg-primary-fixed text-on-primary-fixed-variant" : inactiveCls
+            className={`${buttonPad} inline-flex items-center gap-1.5 rounded-full text-sm whitespace-nowrap transition-colors ${
+              isActive ? "bg-aura-primary text-white font-semibold" : inactiveCls
             }`}
           >
-            {t.label} ({t.count})
+            {t.label}
+            <span
+              className={
+                isActive
+                  ? "bg-white/20 rounded-full px-2 text-xs tabular-nums"
+                  : "text-xs text-outline tabular-nums"
+              }
+            >
+              {t.count}
+            </span>
           </button>
         );
       })}
