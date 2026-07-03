@@ -247,7 +247,7 @@ export function TrainerNotificationsBell() {
     <>
       {/* Mobile: bottom sheet */}
       <div className="md:hidden">
-        <Sheet open={open} onOpenChange={setOpen}>
+        <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
           <SheetTrigger asChild>
             <BellButton unread={unread} />
           </SheetTrigger>
