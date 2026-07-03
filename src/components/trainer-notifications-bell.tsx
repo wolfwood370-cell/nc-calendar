@@ -227,9 +227,11 @@ export function TrainerNotificationsBell() {
 
   const handleItemClick = (n: NotificationRow) => {
     if (n.read_at == null) markRead.mutate(n.id);
-    setOpen(false);
+    setSheetOpen(false);
+    setPopoverOpen(false);
     void navigate({ to: "/trainer/calendar" });
   };
+
 
   const handleMarkAllRead = () => {
     if (canMarkAll) markAll.mutate();
