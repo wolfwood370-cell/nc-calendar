@@ -68,6 +68,85 @@ export type Database = {
         }
         Relationships: []
       }
+      bia_measurements: {
+        Row: {
+          client_id: string
+          coach_id: string
+          created_at: string
+          fat_pct: number
+          id: string
+          measured_on: string
+          muscle_kg: number
+          updated_at: string
+          weight_kg: number
+        }
+        Insert: {
+          client_id: string
+          coach_id: string
+          created_at?: string
+          fat_pct: number
+          id?: string
+          measured_on: string
+          muscle_kg: number
+          updated_at?: string
+          weight_kg: number
+        }
+        Update: {
+          client_id?: string
+          coach_id?: string
+          created_at?: string
+          fat_pct?: number
+          id?: string
+          measured_on?: string
+          muscle_kg?: number
+          updated_at?: string
+          weight_kg?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bia_measurements_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_block_status"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "bia_measurements_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_exhaustion_forecast"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "bia_measurements_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bia_measurements_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "client_block_status"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "bia_measurements_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "client_exhaustion_forecast"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "bia_measurements_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       block_allocations: {
         Row: {
           block_id: string
@@ -131,6 +210,7 @@ export type Database = {
           block_id: string | null
           buffer_min: number
           category: string
+          client_confirmed_at: string | null
           client_id: string | null
           coach_id: string
           created_at: string
@@ -157,6 +237,7 @@ export type Database = {
           block_id?: string | null
           buffer_min?: number
           category?: string
+          client_confirmed_at?: string | null
           client_id?: string | null
           coach_id: string
           created_at?: string
@@ -183,6 +264,7 @@ export type Database = {
           block_id?: string | null
           buffer_min?: number
           category?: string
+          client_confirmed_at?: string | null
           client_id?: string | null
           coach_id?: string
           created_at?: string
@@ -422,6 +504,73 @@ export type Database = {
           },
           {
             foreignKeyName: "client_invitations_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coach_client_notes: {
+        Row: {
+          client_id: string
+          coach_id: string
+          goal: string
+          note: string
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          coach_id: string
+          goal?: string
+          note?: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          coach_id?: string
+          goal?: string
+          note?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_client_notes_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_block_status"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "coach_client_notes_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_exhaustion_forecast"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "coach_client_notes_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_client_notes_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "client_block_status"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "coach_client_notes_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "client_exhaustion_forecast"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "coach_client_notes_coach_id_fkey"
             columns: ["coach_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -795,6 +944,59 @@ export type Database = {
         }
         Relationships: []
       }
+      session_feedback: {
+        Row: {
+          booking_id: string
+          client_id: string
+          created_at: string
+          id: string
+          rating: number
+        }
+        Insert: {
+          booking_id: string
+          client_id: string
+          created_at?: string
+          id?: string
+          rating: number
+        }
+        Update: {
+          booking_id?: string
+          client_id?: string
+          created_at?: string
+          id?: string
+          rating?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_feedback_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: true
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_feedback_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_block_status"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "session_feedback_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_exhaustion_forecast"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "session_feedback_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       trainer_availability: {
         Row: {
           coach_id: string
@@ -1129,6 +1331,10 @@ export type Database = {
       }
       check_email_rate_limit: {
         Args: { p_limit?: number; p_user_id: string }
+        Returns: boolean
+      }
+      confirm_booking_attendance: {
+        Args: { p_booking_id: string }
         Returns: boolean
       }
       ensure_all_recurring_for_coach: {
