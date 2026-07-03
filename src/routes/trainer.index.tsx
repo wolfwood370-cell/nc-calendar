@@ -12,11 +12,7 @@ import {
 import { queryKeys } from "@/lib/query-keys";
 import { sessionLabel, type SessionType } from "@/lib/mock-data";
 import { initials } from "@/lib/initials";
-import {
-  startOfToday,
-  endOfToday,
-  startOfYear,
-} from "@/lib/date-windows";
+import { startOfToday, endOfToday, startOfYear } from "@/lib/date-windows";
 import { iconForType } from "@/lib/session-type-icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -28,14 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { TrainerNotificationsBell } from "@/components/trainer-notifications-bell";
 import { toast } from "sonner";
-import {
-  Sparkles,
-  CheckCircle2,
-  Clock,
-  ListChecks,
-  ArrowRight,
-} from "lucide-react";
-
+import { Sparkles, CheckCircle2, Clock, ListChecks, ArrowRight } from "lucide-react";
 
 export const Route = createFileRoute("/trainer/")({
   component: Overview,
@@ -82,7 +71,10 @@ function Overview() {
     const s = startOfToday().getTime(),
       e = endOfToday().getTime();
     return bookings
-      .filter((b) => b.client_id && b.client_id !== b.coach_id && !b.is_personal && b.status === "scheduled")
+      .filter(
+        (b) =>
+          b.client_id && b.client_id !== b.coach_id && !b.is_personal && b.status === "scheduled",
+      )
       .filter((b) => {
         const t = new Date(b.scheduled_at).getTime();
         return t >= s && t <= e;
@@ -118,7 +110,6 @@ function Overview() {
       .sort((a, b) => b.count - a.count);
     return { items: arr, total };
   }, [bookings, eventTypeById]);
-
 
   // Mutations
   const checkIn = useMutation({
@@ -156,7 +147,10 @@ function Overview() {
   const nextBooking = useMemo(() => {
     const now = Date.now();
     return bookings
-      .filter((b) => b.client_id && b.client_id !== b.coach_id && !b.is_personal && b.status === "scheduled")
+      .filter(
+        (b) =>
+          b.client_id && b.client_id !== b.coach_id && !b.is_personal && b.status === "scheduled",
+      )
       .filter((b) => new Date(b.scheduled_at).getTime() >= now)
       .sort((a, b) => +new Date(a.scheduled_at) - +new Date(b.scheduled_at))[0];
   }, [bookings]);
@@ -478,8 +472,7 @@ function Overview() {
               <div className="flex items-baseline justify-between mb-5 gap-3 flex-wrap">
                 <h2 className="text-2xl font-manrope font-semibold">Distribuzione Servizi</h2>
                 <span className="text-xs text-on-surface-variant">
-                  Dal 1° gen · {distribution.total}{" "}
-                  {distribution.total === 1 ? "evento" : "eventi"}
+                  Dal 1° gen · {distribution.total} {distribution.total === 1 ? "evento" : "eventi"}
                 </span>
               </div>
               {loading ? (
@@ -494,16 +487,13 @@ function Overview() {
                     <div key={d.key}>
                       <div className="flex justify-between text-sm font-semibold mb-1.5 gap-2">
                         <span className="text-on-background truncate">{d.label}</span>
-                        <span
-                          className="tabular-nums whitespace-nowrap"
-                          style={{ color: d.color }}
-                        >
+                        <span className="tabular-nums whitespace-nowrap" style={{ color: d.color }}>
                           {d.count} ({d.pct}%)
                         </span>
                       </div>
                       <div className="w-full h-2 bg-surface-variant rounded-full overflow-hidden">
                         <div
-                          className="h-full rounded-full"
+                          className="h-full rounded-full bar-grow"
                           style={{ width: `${d.pct}%`, backgroundColor: d.color }}
                         />
                       </div>
@@ -522,5 +512,3 @@ function Overview() {
     </>
   );
 }
-
-

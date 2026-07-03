@@ -238,4 +238,18 @@
   .page-enter {
     animation: page-enter 0.28s ease both;
   }
+
+  /* Barre statistiche che crescono all'ingresso (dashboard coach) */
+  @keyframes bar-grow {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+  .bar-grow {
+    transform-origin: left;
+    animation: bar-grow 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
 }

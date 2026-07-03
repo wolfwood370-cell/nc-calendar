@@ -1,4 +1,15 @@
-import { HelpCircle, Calendar, Clock, User, Video, MapPin, Pencil, Trash2, ExternalLink, X } from "lucide-react";
+import {
+  HelpCircle,
+  Calendar,
+  Clock,
+  User,
+  Video,
+  MapPin,
+  Pencil,
+  Trash2,
+  ExternalLink,
+  X,
+} from "lucide-react";
 import { sessionLabel, type SessionType } from "@/lib/mock-data";
 import {
   isAllDayEvent,
@@ -24,6 +35,8 @@ export interface CalendarEventBooking {
   meeting_link?: string | null;
   google_event_id?: string | null;
   trainer_notes?: string | null;
+  /** Design handoff: conferma presenza del cliente (✓ sul tile). */
+  client_confirmed_at?: string | null;
 }
 
 export interface CalendarEventTileEventType {
@@ -97,16 +110,23 @@ export function CalendarEventTile({
   // "External" = evento importato da Google senza tipologia assegnata (client_id==coach_id come placeholder).
   // Se ha già un event_type_id valido, lo trattiamo come sessione certificata con colore della tipologia.
   const isExternal =
-    !isPersonal && !booking.event_type_id && !!booking.client_id && booking.client_id === booking.coach_id;
+    !isPersonal &&
+    !booking.event_type_id &&
+    !!booking.client_id &&
+    booking.client_id === booking.coach_id;
 
   const typeLabel =
-    (booking.title?.trim()) ||
+    booking.title?.trim() ||
     eventType?.name ||
     (booking.session_type ? sessionLabel(booking.session_type) : "Sessione");
   const safeDuration = duration > 0 ? duration : 60;
   const endDate = new Date(d.getTime() + safeDuration * 60000);
   const timeLabel = `${d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })} - ${endDate.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}`;
-  const dateLabel = d.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" });
+  const dateLabel = d.toLocaleDateString("it-IT", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
 
   if (isPersonal) {
     const title = personalBlockTitle(booking);
@@ -120,11 +140,12 @@ export function CalendarEventTile({
         <h4 className="text-[12px] leading-tight font-semibold text-on-surface truncate">
           {title}
         </h4>
-        <p className="text-[10px] text-outline mt-0.5">Personale · {d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</p>
+        <p className="text-[10px] text-outline mt-0.5">
+          Personale · {d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
+        </p>
       </button>
     );
   }
-
 
   if (isUnassigned) {
     return (
@@ -166,6 +187,8 @@ export function CalendarEventTile({
     : null;
 
   const clientName = client?.full_name?.trim() || null;
+  // Design handoff: ✓ quando il cliente ha confermato la presenza.
+  const isConfirmed = !!booking.client_confirmed_at;
 
   const startTime = d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
   const compact = height < 52;
@@ -182,6 +205,7 @@ export function CalendarEventTile({
         >
           <h4 className="text-[11px] leading-[1.15] font-semibold text-white truncate drop-shadow-sm">
             {typeLabel}
+            {isConfirmed && <span aria-label="Presenza confermata dal cliente"> ✓</span>}
           </h4>
           {compact ? (
             <p className="text-[10px] leading-[1.15] text-white/90 truncate">
@@ -194,9 +218,7 @@ export function CalendarEventTile({
                   {clientName}
                 </p>
               )}
-              <p className="text-[10px] leading-[1.15] text-white/85 truncate">
-                {startTime}
-              </p>
+              <p className="text-[10px] leading-[1.15] text-white/85 truncate">{startTime}</p>
             </>
           )}
         </button>
@@ -209,15 +231,10 @@ export function CalendarEventTile({
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         {/* Header colorato come l'evento */}
-        <div
-          className="px-4 py-3 text-white"
-          style={{ backgroundColor: eventColor }}
-        >
+        <div className="px-4 py-3 text-white" style={{ backgroundColor: eventColor }}>
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <h3 className="text-base font-semibold leading-tight truncate">
-                {typeLabel}
-              </h3>
+              <h3 className="text-base font-semibold leading-tight truncate">{typeLabel}</h3>
               <p className="text-xs text-white/85 mt-0.5 capitalize">{dateLabel}</p>
             </div>
             <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-medium">
@@ -240,6 +257,11 @@ export function CalendarEventTile({
                 <p className="font-medium truncate">{client.full_name || "Cliente"}</p>
                 {client.email && (
                   <p className="text-xs text-muted-foreground truncate">{client.email}</p>
+                )}
+                {isConfirmed && (
+                  <p className="text-xs font-semibold text-success-strong mt-0.5">
+                    ✓ Presenza confermata dal cliente
+                  </p>
                 )}
               </div>
             </div>
