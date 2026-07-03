@@ -77,6 +77,21 @@
   --color-avatar-placeholder: #d6e5ec;
   --color-on-avatar-placeholder: #3b494f;
 
+  /* Design handoff (design_handoff_nc_calendar/README.md) — accenti per
+     tipologia evento e stati usati in badge, calendario e semafori. */
+  --color-info-bia: #039be5;
+  --color-reschedule: #3b5bde;
+  --color-reschedule-strong: #4361ee;
+  --color-success-strong: #059669;
+  --color-warning-strong: #ea580c;
+  --color-error-strong: #dc2626;
+  --color-error-bright: #e53935;
+  --color-consulenza: #8e24aa;
+
+  /* Raggi card del design: 32px mobile, 28px desktop */
+  --radius-card-mobile: 32px;
+  --radius-card-desktop: 28px;
+
   /* Soft elevation shadows that were previously inlined as
      shadow-[0px_4px_20px_rgba(...)] string literals. */
   --shadow-soft-blue: 0px 4px 20px rgba(0, 86, 133, 0.05);
@@ -147,7 +162,9 @@
   --card-foreground: oklch(0.21 0.04 265);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.21 0.04 265);
-  --primary: oklch(0.585 0.205 260);
+  /* Design handoff: azioni primarie sul brand blue (#005685) invece del
+     blu-violetto generico, così Button/focus shadcn combaciano coi mock. */
+  --primary: #005685;
   --primary-foreground: oklch(0.99 0.005 250);
   --secondary: oklch(0.955 0.012 250);
   --secondary-foreground: oklch(0.28 0.05 265);
@@ -155,7 +172,7 @@
   --muted-foreground: oklch(0.55 0.035 257);
   --accent: oklch(0.945 0.025 255);
   --accent-foreground: oklch(0.28 0.05 265);
-  --destructive: oklch(0.6 0.22 27);
+  --destructive: #dc2626;
   --destructive-foreground: oklch(0.99 0.005 250);
   --success: oklch(0.66 0.15 155);
   --success-foreground: oklch(0.99 0.005 250);
@@ -163,7 +180,7 @@
   --warning-foreground: oklch(0.25 0.04 265);
   --border: oklch(0.915 0.012 255);
   --input: oklch(0.915 0.012 255);
-  --ring: oklch(0.585 0.205 260);
+  --ring: #005685;
   --chart-1: oklch(0.585 0.205 260);
   --chart-2: oklch(0.7 0.12 200);
   --chart-3: oklch(0.66 0.15 155);
@@ -171,12 +188,12 @@
   --chart-5: oklch(0.6 0.22 27);
   --sidebar: oklch(0.985 0.005 250);
   --sidebar-foreground: oklch(0.28 0.04 265);
-  --sidebar-primary: oklch(0.585 0.205 260);
+  --sidebar-primary: #005685;
   --sidebar-primary-foreground: oklch(0.99 0.005 250);
   --sidebar-accent: oklch(0.945 0.018 255);
   --sidebar-accent-foreground: oklch(0.28 0.05 265);
   --sidebar-border: oklch(0.915 0.012 255);
-  --sidebar-ring: oklch(0.585 0.205 260);
+  --sidebar-ring: #005685;
 }
 
 @layer base {
@@ -197,5 +214,28 @@
   h6 {
     font-family: var(--font-display);
     letter-spacing: -0.02em;
+  }
+
+  /* Design handoff — focus visibile a11y su tutta l'app */
+  :focus-visible {
+    outline: 2px solid var(--color-primary-container);
+    outline-offset: 2px;
+  }
+}
+
+/* Design handoff — transizione d'ingresso pagina (solo senza reduced-motion) */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes page-enter {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .page-enter {
+    animation: page-enter 0.28s ease both;
   }
 }

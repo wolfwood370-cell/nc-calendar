@@ -89,7 +89,11 @@ function ClientLayout() {
       </header>
 
       <main className="flex-1 mx-auto w-full max-w-3xl md:px-4 md:py-6 pb-24">
-        <Outlet />
+        {/* key sul pathname: rimonta la vista a ogni navigazione così
+            l'animazione page-enter (design handoff) riparte. */}
+        <div key={path} className="page-enter">
+          <Outlet />
+        </div>
       </main>
 
       <ClientBottomNav />
