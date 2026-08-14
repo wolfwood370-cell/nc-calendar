@@ -1616,7 +1616,8 @@ function ClientPathPage() {
           open={assignOpen}
           clientName={clientName}
           eventTypes={eventTypes.map((e) => ({ id: e.id, name: e.name, base_type: e.base_type }))}
-          hasExistingPackage={blocks.length > 0 || hasExtraCredits}
+          hasExistingPackage={blocks.length > 0}
+          hasCredits={hasExtraCredits}
           onAssign={assignPackage}
         />
       </Dialog>
