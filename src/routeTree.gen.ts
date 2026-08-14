@@ -9,49 +9,29 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as TrainerRouteImport } from './routes/trainer'
-import { Route as ResetPasswordRouteImport } from './routes/reset-password'
-import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
-import { Route as ClientRouteImport } from './routes/client'
-import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as TrainerIndexRouteImport } from './routes/trainer.index'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as ClientRouteImport } from './routes/client'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as TrainerRouteImport } from './routes/trainer'
 import { Route as ClientIndexRouteImport } from './routes/client.index'
-import { Route as TrainerIntegrationsRouteImport } from './routes/trainer.integrations'
-import { Route as TrainerEventTypesRouteImport } from './routes/trainer.event-types'
-import { Route as TrainerCalendarRouteImport } from './routes/trainer.calendar'
-import { Route as TrainerAvailabilityRouteImport } from './routes/trainer.availability'
-import { Route as ClientStoreRouteImport } from './routes/client.store'
-import { Route as ClientSettingsRouteImport } from './routes/client.settings'
 import { Route as ClientBookRouteImport } from './routes/client.book'
+import { Route as ClientSettingsRouteImport } from './routes/client.settings'
+import { Route as ClientStoreRouteImport } from './routes/client.store'
+import { Route as TrainerIndexRouteImport } from './routes/trainer.index'
+import { Route as TrainerAvailabilityRouteImport } from './routes/trainer.availability'
+import { Route as TrainerCalendarRouteImport } from './routes/trainer.calendar'
+import { Route as TrainerEventTypesRouteImport } from './routes/trainer.event-types'
+import { Route as TrainerIntegrationsRouteImport } from './routes/trainer.integrations'
+import { Route as ClientBookingsBookingIdRouteImport } from './routes/client.bookings.$bookingId'
 import { Route as TrainerClientsIndexRouteImport } from './routes/trainer.clients.index'
 import { Route as TrainerClientsIdRouteImport } from './routes/trainer.clients.$id'
-import { Route as ClientBookingsBookingIdRouteImport } from './routes/client.bookings.$bookingId'
 
-const TrainerRoute = TrainerRouteImport.update({
-  id: '/trainer',
-  path: '/trainer',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ResetPasswordRoute = ResetPasswordRouteImport.update({
-  id: '/reset-password',
-  path: '/reset-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
-  id: '/forgot-password',
-  path: '/forgot-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ClientRoute = ClientRouteImport.update({
-  id: '/client',
-  path: '/client',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -59,44 +39,39 @@ const AdminRoute = AdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TrainerIndexRoute = TrainerIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => TrainerRoute,
+const ClientRoute = ClientRouteImport.update({
+  id: '/client',
+  path: '/client',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TrainerRoute = TrainerRouteImport.update({
+  id: '/trainer',
+  path: '/trainer',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ClientIndexRoute = ClientIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => ClientRoute,
 } as any)
-const TrainerIntegrationsRoute = TrainerIntegrationsRouteImport.update({
-  id: '/integrations',
-  path: '/integrations',
-  getParentRoute: () => TrainerRoute,
-} as any)
-const TrainerEventTypesRoute = TrainerEventTypesRouteImport.update({
-  id: '/event-types',
-  path: '/event-types',
-  getParentRoute: () => TrainerRoute,
-} as any)
-const TrainerCalendarRoute = TrainerCalendarRouteImport.update({
-  id: '/calendar',
-  path: '/calendar',
-  getParentRoute: () => TrainerRoute,
-} as any)
-const TrainerAvailabilityRoute = TrainerAvailabilityRouteImport.update({
-  id: '/availability',
-  path: '/availability',
-  getParentRoute: () => TrainerRoute,
-} as any)
-const ClientStoreRoute = ClientStoreRouteImport.update({
-  id: '/store',
-  path: '/store',
+const ClientBookRoute = ClientBookRouteImport.update({
+  id: '/book',
+  path: '/book',
   getParentRoute: () => ClientRoute,
 } as any)
 const ClientSettingsRoute = ClientSettingsRouteImport.update({
@@ -104,9 +79,39 @@ const ClientSettingsRoute = ClientSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => ClientRoute,
 } as any)
-const ClientBookRoute = ClientBookRouteImport.update({
-  id: '/book',
-  path: '/book',
+const ClientStoreRoute = ClientStoreRouteImport.update({
+  id: '/store',
+  path: '/store',
+  getParentRoute: () => ClientRoute,
+} as any)
+const TrainerIndexRoute = TrainerIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => TrainerRoute,
+} as any)
+const TrainerAvailabilityRoute = TrainerAvailabilityRouteImport.update({
+  id: '/availability',
+  path: '/availability',
+  getParentRoute: () => TrainerRoute,
+} as any)
+const TrainerCalendarRoute = TrainerCalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
+  getParentRoute: () => TrainerRoute,
+} as any)
+const TrainerEventTypesRoute = TrainerEventTypesRouteImport.update({
+  id: '/event-types',
+  path: '/event-types',
+  getParentRoute: () => TrainerRoute,
+} as any)
+const TrainerIntegrationsRoute = TrainerIntegrationsRouteImport.update({
+  id: '/integrations',
+  path: '/integrations',
+  getParentRoute: () => TrainerRoute,
+} as any)
+const ClientBookingsBookingIdRoute = ClientBookingsBookingIdRouteImport.update({
+  id: '/bookings/$bookingId',
+  path: '/bookings/$bookingId',
   getParentRoute: () => ClientRoute,
 } as any)
 const TrainerClientsIndexRoute = TrainerClientsIndexRouteImport.update({
@@ -118,11 +123,6 @@ const TrainerClientsIdRoute = TrainerClientsIdRouteImport.update({
   id: '/clients/$id',
   path: '/clients/$id',
   getParentRoute: () => TrainerRoute,
-} as any)
-const ClientBookingsBookingIdRoute = ClientBookingsBookingIdRouteImport.update({
-  id: '/bookings/$bookingId',
-  path: '/bookings/$bookingId',
-  getParentRoute: () => ClientRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -263,39 +263,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/trainer': {
-      id: '/trainer'
-      path: '/trainer'
-      fullPath: '/trainer'
-      preLoaderRoute: typeof TrainerRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/reset-password': {
-      id: '/reset-password'
-      path: '/reset-password'
-      fullPath: '/reset-password'
-      preLoaderRoute: typeof ResetPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/forgot-password': {
-      id: '/forgot-password'
-      path: '/forgot-password'
-      fullPath: '/forgot-password'
-      preLoaderRoute: typeof ForgotPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/client': {
-      id: '/client'
-      path: '/client'
-      fullPath: '/client'
-      preLoaderRoute: typeof ClientRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -305,19 +277,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/trainer/': {
-      id: '/trainer/'
-      path: '/'
-      fullPath: '/trainer/'
-      preLoaderRoute: typeof TrainerIndexRouteImport
-      parentRoute: typeof TrainerRoute
+    '/client': {
+      id: '/client'
+      path: '/client'
+      fullPath: '/client'
+      preLoaderRoute: typeof ClientRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/trainer': {
+      id: '/trainer'
+      path: '/trainer'
+      fullPath: '/trainer'
+      preLoaderRoute: typeof TrainerRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/client/': {
       id: '/client/'
@@ -326,39 +319,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClientIndexRouteImport
       parentRoute: typeof ClientRoute
     }
-    '/trainer/integrations': {
-      id: '/trainer/integrations'
-      path: '/integrations'
-      fullPath: '/trainer/integrations'
-      preLoaderRoute: typeof TrainerIntegrationsRouteImport
-      parentRoute: typeof TrainerRoute
-    }
-    '/trainer/event-types': {
-      id: '/trainer/event-types'
-      path: '/event-types'
-      fullPath: '/trainer/event-types'
-      preLoaderRoute: typeof TrainerEventTypesRouteImport
-      parentRoute: typeof TrainerRoute
-    }
-    '/trainer/calendar': {
-      id: '/trainer/calendar'
-      path: '/calendar'
-      fullPath: '/trainer/calendar'
-      preLoaderRoute: typeof TrainerCalendarRouteImport
-      parentRoute: typeof TrainerRoute
-    }
-    '/trainer/availability': {
-      id: '/trainer/availability'
-      path: '/availability'
-      fullPath: '/trainer/availability'
-      preLoaderRoute: typeof TrainerAvailabilityRouteImport
-      parentRoute: typeof TrainerRoute
-    }
-    '/client/store': {
-      id: '/client/store'
-      path: '/store'
-      fullPath: '/client/store'
-      preLoaderRoute: typeof ClientStoreRouteImport
+    '/client/book': {
+      id: '/client/book'
+      path: '/book'
+      fullPath: '/client/book'
+      preLoaderRoute: typeof ClientBookRouteImport
       parentRoute: typeof ClientRoute
     }
     '/client/settings': {
@@ -368,11 +333,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClientSettingsRouteImport
       parentRoute: typeof ClientRoute
     }
-    '/client/book': {
-      id: '/client/book'
-      path: '/book'
-      fullPath: '/client/book'
-      preLoaderRoute: typeof ClientBookRouteImport
+    '/client/store': {
+      id: '/client/store'
+      path: '/store'
+      fullPath: '/client/store'
+      preLoaderRoute: typeof ClientStoreRouteImport
+      parentRoute: typeof ClientRoute
+    }
+    '/trainer/': {
+      id: '/trainer/'
+      path: '/'
+      fullPath: '/trainer/'
+      preLoaderRoute: typeof TrainerIndexRouteImport
+      parentRoute: typeof TrainerRoute
+    }
+    '/trainer/availability': {
+      id: '/trainer/availability'
+      path: '/availability'
+      fullPath: '/trainer/availability'
+      preLoaderRoute: typeof TrainerAvailabilityRouteImport
+      parentRoute: typeof TrainerRoute
+    }
+    '/trainer/calendar': {
+      id: '/trainer/calendar'
+      path: '/calendar'
+      fullPath: '/trainer/calendar'
+      preLoaderRoute: typeof TrainerCalendarRouteImport
+      parentRoute: typeof TrainerRoute
+    }
+    '/trainer/event-types': {
+      id: '/trainer/event-types'
+      path: '/event-types'
+      fullPath: '/trainer/event-types'
+      preLoaderRoute: typeof TrainerEventTypesRouteImport
+      parentRoute: typeof TrainerRoute
+    }
+    '/trainer/integrations': {
+      id: '/trainer/integrations'
+      path: '/integrations'
+      fullPath: '/trainer/integrations'
+      preLoaderRoute: typeof TrainerIntegrationsRouteImport
+      parentRoute: typeof TrainerRoute
+    }
+    '/client/bookings/$bookingId': {
+      id: '/client/bookings/$bookingId'
+      path: '/bookings/$bookingId'
+      fullPath: '/client/bookings/$bookingId'
+      preLoaderRoute: typeof ClientBookingsBookingIdRouteImport
       parentRoute: typeof ClientRoute
     }
     '/trainer/clients/': {
@@ -388,13 +395,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/trainer/clients/$id'
       preLoaderRoute: typeof TrainerClientsIdRouteImport
       parentRoute: typeof TrainerRoute
-    }
-    '/client/bookings/$bookingId': {
-      id: '/client/bookings/$bookingId'
-      path: '/bookings/$bookingId'
-      fullPath: '/client/bookings/$bookingId'
-      preLoaderRoute: typeof ClientBookingsBookingIdRouteImport
-      parentRoute: typeof ClientRoute
     }
   }
 }
