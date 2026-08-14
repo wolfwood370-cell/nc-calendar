@@ -839,10 +839,10 @@ function ClientPathPage() {
   // ricontrolliamo anche qui server-side-ish prima di scrivere.
   async function assignPackage(data: AssignPackagePayload) {
     if (!user) return;
-    if (blocks.length > 0 || hasExtraCredits) {
-      toast.error("Il cliente ha già un pacchetto attivo", {
+    if (blocks.length > 0) {
+      toast.error("Il cliente ha già un percorso a blocchi attivo", {
         description:
-          "Ricarica la pagina: l'assegnazione è consentita solo a clienti senza percorso/crediti.",
+          "Ricarica la pagina: un nuovo percorso è assegnabile solo a clienti senza blocchi attivi.",
       });
       return;
     }
@@ -1616,7 +1616,8 @@ function ClientPathPage() {
           open={assignOpen}
           clientName={clientName}
           eventTypes={eventTypes.map((e) => ({ id: e.id, name: e.name, base_type: e.base_type }))}
-          hasExistingPackage={blocks.length > 0 || hasExtraCredits}
+          hasExistingPackage={blocks.length > 0}
+          hasCredits={hasExtraCredits}
           onAssign={assignPackage}
         />
       </Dialog>
