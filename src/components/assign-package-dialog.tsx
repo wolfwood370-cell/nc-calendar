@@ -88,6 +88,7 @@ export function AssignPackageDialog({
   clientName,
   eventTypes,
   hasExistingPackage,
+  hasCredits = false,
   onAssign,
 }: {
   open: boolean;
@@ -96,6 +97,8 @@ export function AssignPackageDialog({
   /** true se il cliente ha già blocchi attivi o crediti extra: in v1 blocchiamo
    *  la riassegnazione per non sovrascrivere/duplicare dati. */
   hasExistingPackage: boolean;
+  /** true se esistono già crediti extra: non blocca, mostra solo un avviso. */
+  hasCredits?: boolean;
   onAssign: (d: AssignPackagePayload) => Promise<void>;
 }) {
   const [pathType, setPathType] = useState<"fixed" | "recurring" | "free">("free");
@@ -239,16 +242,22 @@ export function AssignPackageDialog({
         <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 flex gap-3">
           <AlertTriangle className="size-5 text-amber-600 shrink-0 mt-0.5" />
           <div className="text-sm text-amber-900">
-            <p className="font-semibold">Questo cliente ha già un pacchetto attivo.</p>
+            <p className="font-semibold">Questo cliente ha già un percorso a blocchi attivo.</p>
             <p className="mt-1">
-              Per evitare di sovrascrivere o duplicare dati, l'assegnazione è disponibile solo per
-              clienti senza percorso/crediti. La funzione "cambia pacchetto" (con azzeramento del
-              precedente) verrà aggiunta più avanti.
+              Per evitare di sovrascrivere o duplicare dati, l'assegnazione di un nuovo percorso è
+              disponibile solo per clienti senza blocchi attivi. La funzione "cambia pacchetto" (con
+              azzeramento del precedente) verrà aggiunta più avanti.
             </p>
           </div>
         </div>
       ) : (
         <div className="space-y-4">
+          {hasCredits && (
+            <div className="rounded-2xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+              Questo cliente ha già dei crediti extra: la nuova assegnazione li{" "}
+              <strong>aggiunge</strong> senza cancellare quelli esistenti.
+            </div>
+          )}
           {eventTypes.length === 0 && (
             <p className="text-xs text-destructive">
               Crea prima almeno una tipologia di sessione (Event Type).
