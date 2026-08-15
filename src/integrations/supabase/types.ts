@@ -1313,6 +1313,7 @@ export type Database = {
           total_blocks: number
         }[]
       }
+      auto_complete_past_bookings: { Args: never; Returns: number }
       cancel_booking: {
         Args: { p_booking_id: string }
         Returns: {
