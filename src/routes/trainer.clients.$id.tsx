@@ -431,7 +431,6 @@ function ClientPathPage() {
     }
     // Fallback: scala da extra_credits del cliente per quell'event_type (Cliente Libero o blocco esaurito).
     if (!attached && o.event_type_id) {
-      const nowIso = new Date().toISOString();
       const { data: ecRows } = await supabase
         .from("extra_credits")
         .select("id, quantity, quantity_booked, expires_at")
