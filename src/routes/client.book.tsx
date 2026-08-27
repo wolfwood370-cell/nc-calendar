@@ -160,8 +160,10 @@ function BookFlow() {
       return data;
     },
   });
-  const minNoticeHours = trainerSettingsQ.data?.min_notice_hours ?? 24;
-  const horizonDays = trainerSettingsQ.data?.booking_horizon_days ?? 14;
+  // Limiti di prenotazione rimossi (richiesta 2026-08-27): nessun preavviso
+  // minimo e orizzonte ampio. Restano solo disponibilità e sovrapposizioni.
+  const minNoticeHours = 0;
+  const horizonDays = 90;
 
   // Tipologie evento personalizzate del coach (fallback alle 3 default se vuoto).
   const customTypes: EventTypeRow[] = eventTypesQ.data ?? [];
@@ -236,13 +238,12 @@ function BookFlow() {
     const start = block
       ? new Date(Math.max(today.getTime(), new Date(block.start_date).getTime()))
       : today;
-    // A3: il limite massimo è min(14gg finestra blocco, booking_horizon_days
-    // del coach). Così rispettiamo il trigger enforce_client_booking_rules.
-    const horizonCap = Math.max(1, Math.min(14, horizonDays));
+    // Nessun cap: finestra ampia, il backend non impone più orizzonti.
+    const horizonCap = horizonDays;
     const end = addDays(today, horizonCap);
     end.setHours(23, 59, 59, 999);
     return generateSlots(
-      block ? horizonCap + 1 : Math.max(1, Math.min(60, horizonDays)),
+      horizonCap + 1,
       blockedRanges,
       availQ.data ?? [],
       exceptionsQ.data ?? [],
@@ -446,29 +447,9 @@ function BookFlow() {
   const poolBlockedMessage =
     selectedEventType?.unavailable_message?.trim() ||
     "Per prenotare questa sessione è necessario passare in reception.";
-  // Scadenza pool corrente, usata sia per filtrare i giorni del calendario
-  // sia per il messaggio testuale:
-  // - source="block"  → limite più stringente = fine del blocco corrente
-  //                     (il valid_until delle allocations include 2-3 mesi
-  //                     di grace dopo la fine blocco, ma il cliente DEVE
-  //                     prenotare le sessioni dentro la finestra del blocco)
-  // - source="extra"  → scadenza del pacchetto stesso (booster con orizzonte
-  //                     più lungo, indipendente dal blocco)
-  const selectedPoolValidUntil = useMemo(() => {
-    if (!selectedPool) return null;
-    if (selectedPool.source === "block" && block) {
-      // Limite cliccabile del calendario = oggi+14 SECCO (settimana corrente
-      // + 2). NIENTE cap sul valid_until del blocco corrente: altrimenti i
-      // giorni coperti da un'altra allocation (blocco successivo / grace)
-      // verrebbero grigiati. Il backend rifiuta i giorni realmente senza
-      // credito; il fallback no-slots gestisce il caso.
-      const today = startOfDay(new Date());
-      const lookaheadEnd = addDays(today, 14);
-      lookaheadEnd.setHours(23, 59, 59, 999);
-      return lookaheadEnd;
-    }
-    return selectedPool.validUntil;
-  }, [selectedPool, block]);
+  // Nessun limite di scadenza sui pool: i crediti (blocco o extra) non
+  // scadono più, quindi il calendario non grigia i giorni per scadenza.
+  const selectedPoolValidUntil = useMemo<Date | null>(() => null, []);
 
   // Data di inizio del blocco successivo (se esiste): la mostriamo sotto il
   // calendario per spiegare quando si "apriranno" le prossime prenotazioni,

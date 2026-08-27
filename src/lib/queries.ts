@@ -319,12 +319,11 @@ export function useClientExtraCredits(clientId?: string) {
     queryKey: ["extra_credits", "client", clientId],
     enabled: !!clientId,
     queryFn: async (): Promise<ExtraCreditRow[]> => {
-      const now = new Date().toISOString();
+      // Nessun filtro sulla scadenza: i crediti non scadono più.
       const { data, error } = await supabase
         .from("extra_credits")
         .select("id, client_id, event_type_id, quantity, quantity_booked, expires_at")
-        .eq("client_id", clientId!)
-        .gte("expires_at", now);
+        .eq("client_id", clientId!);
       if (error) throw error;
       return (data ?? []) as ExtraCreditRow[];
     },
