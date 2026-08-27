@@ -909,7 +909,7 @@ function ClientPathPage() {
           event_type_id: string;
           quantity_assigned: number;
           quantity_booked: number;
-          valid_until: string;
+          valid_until: string | null;
         }> = [];
         for (const rule of data.rules) {
           for (let m = rule.startBlock; m <= rule.endBlock; m++) {
