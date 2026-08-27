@@ -447,29 +447,9 @@ function BookFlow() {
   const poolBlockedMessage =
     selectedEventType?.unavailable_message?.trim() ||
     "Per prenotare questa sessione è necessario passare in reception.";
-  // Scadenza pool corrente, usata sia per filtrare i giorni del calendario
-  // sia per il messaggio testuale:
-  // - source="block"  → limite più stringente = fine del blocco corrente
-  //                     (il valid_until delle allocations include 2-3 mesi
-  //                     di grace dopo la fine blocco, ma il cliente DEVE
-  //                     prenotare le sessioni dentro la finestra del blocco)
-  // - source="extra"  → scadenza del pacchetto stesso (booster con orizzonte
-  //                     più lungo, indipendente dal blocco)
-  const selectedPoolValidUntil = useMemo(() => {
-    if (!selectedPool) return null;
-    if (selectedPool.source === "block" && block) {
-      // Limite cliccabile del calendario = oggi+14 SECCO (settimana corrente
-      // + 2). NIENTE cap sul valid_until del blocco corrente: altrimenti i
-      // giorni coperti da un'altra allocation (blocco successivo / grace)
-      // verrebbero grigiati. Il backend rifiuta i giorni realmente senza
-      // credito; il fallback no-slots gestisce il caso.
-      const today = startOfDay(new Date());
-      const lookaheadEnd = addDays(today, 14);
-      lookaheadEnd.setHours(23, 59, 59, 999);
-      return lookaheadEnd;
-    }
-    return selectedPool.validUntil;
-  }, [selectedPool, block]);
+  // Nessun limite di scadenza sui pool: i crediti (blocco o extra) non
+  // scadono più, quindi il calendario non grigia i giorni per scadenza.
+  const selectedPoolValidUntil = useMemo<Date | null>(() => null, []);
 
   // Data di inizio del blocco successivo (se esiste): la mostriamo sotto il
   // calendario per spiegare quando si "apriranno" le prossime prenotazioni,
