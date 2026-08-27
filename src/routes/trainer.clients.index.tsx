@@ -753,8 +753,7 @@ function ClientsPage() {
         const qty = Math.max(0, data.freeSessions ?? 0);
         const eventTypeId = data.freeEventTypeId ?? "";
         if (qty > 0 && eventTypeId) {
-          const expires = new Date();
-          expires.setFullYear(expires.getFullYear() + 1);
+          const expires = new Date("2100-01-01T00:00:00Z");
           const { error: ecErr } = await supabase.from("extra_credits").insert({
             client_id: newUserId,
             event_type_id: eventTypeId,
@@ -824,7 +823,7 @@ function ClientsPage() {
               event_type_id: rule.eventTypeId,
               quantity_assigned: rule.quantityPerBlock,
               quantity_booked: 0,
-              valid_until: b.end_date,
+              valid_until: null,
             });
           }
         }

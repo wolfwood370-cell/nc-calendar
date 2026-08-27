@@ -437,7 +437,6 @@ function ClientPathPage() {
         .select("id, quantity, quantity_booked, expires_at")
         .eq("client_id", clientId)
         .eq("event_type_id", o.event_type_id)
-        .gte("expires_at", nowIso)
         .order("expires_at", { ascending: true });
       const ec = (ecRows ?? []).find((r) => r.quantity - r.quantity_booked > 0);
       if (ec) {
@@ -853,8 +852,7 @@ function ClientPathPage() {
         const qty = Math.max(0, data.freeSessions ?? 0);
         const eventTypeId = data.freeEventTypeId ?? "";
         if (qty > 0 && eventTypeId) {
-          const expires = new Date();
-          expires.setFullYear(expires.getFullYear() + 1);
+          const expires = new Date("2100-01-01T00:00:00Z");
           const { error: ecErr } = await supabase.from("extra_credits").insert({
             client_id: clientId,
             event_type_id: eventTypeId,
@@ -925,7 +923,7 @@ function ClientPathPage() {
               event_type_id: rule.eventTypeId,
               quantity_assigned: rule.quantityPerBlock,
               quantity_booked: 0,
-              valid_until: b.end_date,
+              valid_until: null,
             });
           }
         }
