@@ -160,8 +160,10 @@ function BookFlow() {
       return data;
     },
   });
-  const minNoticeHours = trainerSettingsQ.data?.min_notice_hours ?? 24;
-  const horizonDays = trainerSettingsQ.data?.booking_horizon_days ?? 14;
+  // Limiti di prenotazione rimossi (richiesta 2026-08-27): nessun preavviso
+  // minimo e orizzonte ampio. Restano solo disponibilità e sovrapposizioni.
+  const minNoticeHours = 0;
+  const horizonDays = 90;
 
   // Tipologie evento personalizzate del coach (fallback alle 3 default se vuoto).
   const customTypes: EventTypeRow[] = eventTypesQ.data ?? [];
