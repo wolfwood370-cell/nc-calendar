@@ -193,13 +193,14 @@ function BookFlow() {
       // esplicito invece di `coachIdForAvail!`.
       if (!coachIdForAvail) return [];
       const today = startOfDay(new Date());
-      // Finestra fissa: da max(oggi, inizio blocco) a oggi+14gg SEMPRE
-      // (settimana corrente + 2 successive), così le busy ranges del coach
-      // coprono tutti gli slot visibili.
+      // Finestra: da max(oggi, inizio blocco) fino alla fine dell'orizzonte
+      // di prenotazione, così le busy ranges del coach coprono TUTTI gli
+      // slot visibili (altrimenti oltre la finestra gli slot occupati
+      // apparirebbero liberi e l'insert fallirebbe solo al Conferma).
       const from = block
         ? new Date(Math.max(today.getTime(), new Date(block.start_date).getTime()))
         : today;
-      const to = addDays(today, 14);
+      const to = addDays(today, horizonDays + 1);
       to.setHours(23, 59, 59, 999);
       const { data, error } = await supabase.rpc("get_coach_busy", {
         p_coach_id: coachIdForAvail,
