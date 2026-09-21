@@ -74,4 +74,5 @@ export function invalidateBookingScope(
   // prenotato, perché `coach-busy` non veniva mai rinfrescata dopo una
   // mutazione. Prefix match: la key completa include anche blocco e date.
   qc.invalidateQueries({ queryKey: ["coach-busy", scope.coachId] });
+  qc.invalidateQueries({ queryKey: ["coach-busy-reschedule", scope.coachId] });
 }
