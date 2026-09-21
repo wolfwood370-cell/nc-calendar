@@ -69,4 +69,9 @@ export function invalidateBookingScope(
   qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(scope.coachId) });
   qc.invalidateQueries({ queryKey: queryKeys.blocks.client(scope.clientId) });
   qc.invalidateQueries({ queryKey: queryKeys.extraCredits.client(scope.clientId) });
+  // Audit client-side (2026-09-21): senza questa invalidazione la griglia
+  // orari di /client/book continuava a mostrare libero uno slot appena
+  // prenotato, perché `coach-busy` non veniva mai rinfrescata dopo una
+  // mutazione. Prefix match: la key completa include anche blocco e date.
+  qc.invalidateQueries({ queryKey: ["coach-busy", scope.coachId] });
 }
