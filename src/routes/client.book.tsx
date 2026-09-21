@@ -560,6 +560,35 @@ function BookFlow() {
           </div>
         )}
 
+        {/* Audit client-side (2026-09-21): se il caricamento delle occupazioni
+        del coach fallisce, gli slot mostrati NON sono affidabili. Prima l'errore
+        era silenzioso e il cliente se ne accorgeva solo al Conferma. */}
+        {coachBusyQ.isError && (
+          <div className="bg-error-container/40 border border-error/30 rounded-[24px] px-5 py-4">
+            <div className="flex items-start gap-3">
+              <div className="size-9 rounded-full bg-error/10 flex items-center justify-center shrink-0">
+                <Info className="size-4 text-error" aria-hidden />
+              </div>
+              <div className="flex-1 min-w-0 flex flex-col gap-2">
+                <p className="text-sm font-semibold text-on-surface">
+                  Disponibilità non aggiornata
+                </p>
+                <p className="text-xs text-on-surface-variant leading-relaxed">
+                  Non siamo riusciti a caricare gli impegni del coach: alcuni orari mostrati
+                  potrebbero essere già occupati. Riprova prima di prenotare.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void coachBusyQ.refetch()}
+                  className="self-start text-xs font-semibold text-primary-container underline underline-offset-2"
+                >
+                  Riprova
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Date Selector Card */}
         {!poolBlocked && (
           <>
