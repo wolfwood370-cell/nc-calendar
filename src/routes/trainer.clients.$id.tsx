@@ -84,6 +84,7 @@ interface WeekRow {
 interface BlockRecord {
   id: string;
   sequence_order: number;
+  end_date: string;
 }
 
 interface AllocationRecord {
@@ -242,7 +243,7 @@ function ClientPathPage() {
 
     const { data: bls } = await supabase
       .from("training_blocks")
-      .select("id, sequence_order")
+      .select("id, sequence_order, end_date")
       .eq("client_id", clientId)
       .is("deleted_at", null)
       .order("sequence_order", { ascending: true });
@@ -250,6 +251,7 @@ function ClientPathPage() {
     const blockList = (bls ?? []).map((b) => ({
       id: b.id as string,
       sequence_order: b.sequence_order as number,
+      end_date: b.end_date as string,
     }));
     setBlocks(blockList);
     const blockIds = blockList.map((b) => b.id);
