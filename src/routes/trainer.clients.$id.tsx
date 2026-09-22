@@ -889,7 +889,6 @@ function ClientPathPage() {
             clamped = true;
           }
         }
-        const DAY = 86400000;
         const blocksToInsert = Array.from({ length: data.totalBlocks }, (_, i) => {
           const start = new Date(firstStart.getTime() + i * 28 * DAY);
           const end = new Date(start.getTime() + 27 * DAY);
