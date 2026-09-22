@@ -834,6 +834,7 @@ function ClientPathPage() {
   async function assignPackage(data: AssignPackagePayload) {
     if (!user) return;
     setAssigning(true);
+    let clampedNote = false;
     try {
       if (data.pathType === "free") {
         // Cliente Libero / PT Pack: crediti extra (validità 1 anno), nessun blocco.
@@ -886,7 +887,7 @@ function ClientPathPage() {
           minStart.setTime(minStart.getTime() + DAY);
           if (firstStart < minStart) {
             firstStart = minStart;
-            clamped = true;
+            clampedNote = true;
           }
         }
         const blocksToInsert = Array.from({ length: data.totalBlocks }, (_, i) => {
