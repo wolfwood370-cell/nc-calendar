@@ -84,6 +84,7 @@ interface WeekRow {
 interface BlockRecord {
   id: string;
   sequence_order: number;
+  end_date: string;
 }
 
 interface AllocationRecord {
@@ -242,7 +243,7 @@ function ClientPathPage() {
 
     const { data: bls } = await supabase
       .from("training_blocks")
-      .select("id, sequence_order")
+      .select("id, sequence_order, end_date")
       .eq("client_id", clientId)
       .is("deleted_at", null)
       .order("sequence_order", { ascending: true });
@@ -250,6 +251,7 @@ function ClientPathPage() {
     const blockList = (bls ?? []).map((b) => ({
       id: b.id as string,
       sequence_order: b.sequence_order as number,
+      end_date: b.end_date as string,
     }));
     setBlocks(blockList);
     const blockIds = blockList.map((b) => b.id);
@@ -832,6 +834,7 @@ function ClientPathPage() {
   async function assignPackage(data: AssignPackagePayload) {
     if (!user) return;
     setAssigning(true);
+    let clampedNote = false;
     try {
       if (data.pathType === "free") {
         // Cliente Libero / PT Pack: crediti extra (validità 1 anno), nessun blocco.
@@ -863,10 +866,12 @@ function ClientPathPage() {
         // Percorso Fisso / Abbonamento: blocchi da 4 settimane. I nuovi blocchi
         // partono dalla data scelta dalla coach nel dialog (data.startDate) e
         // vengono accodati in coda per sequence_order, senza cancellare quelli
-        // esistenti.
+        // esistenti. Se la data scelta cade prima della fine dell'ultimo blocco
+        // esistente, si parte comunque dal giorno dopo la sua fine: due blocchi
+        // attivi che si sovrappongono darebbero crediti/disponibilità errati.
         const { data: existing, error: exErr } = await supabase
           .from("training_blocks")
-          .select("sequence_order")
+          .select("sequence_order, end_date")
           .eq("client_id", clientId)
           .is("deleted_at", null)
           .order("sequence_order", { ascending: false })
@@ -874,8 +879,16 @@ function ClientPathPage() {
         if (exErr) throw exErr;
         const last = existing?.[0];
         const seqOffset = last ? (last.sequence_order as number) : 0;
-        const firstStart = new Date(`${data.startDate}T00:00:00Z`);
         const DAY = 86400000;
+        let firstStart = new Date(`${data.startDate}T00:00:00Z`);
+        if (last?.end_date) {
+          const minStart = new Date(`${last.end_date}T00:00:00Z`);
+          minStart.setTime(minStart.getTime() + DAY);
+          if (firstStart < minStart) {
+            firstStart = minStart;
+            clampedNote = true;
+          }
+        }
         const blocksToInsert = Array.from({ length: data.totalBlocks }, (_, i) => {
           const start = new Date(firstStart.getTime() + i * 28 * DAY);
           const end = new Date(start.getTime() + 27 * DAY);
@@ -954,7 +967,11 @@ function ClientPathPage() {
         description:
           data.pathType === "free"
             ? "Crediti accreditati al cliente."
-            : `Creati ${data.totalBlocks} blocchi con i crediti impostati.`,
+            : `Creati ${data.totalBlocks} blocchi con i crediti impostati.${
+                clampedNote
+                  ? " La data d'inizio è stata spostata al giorno dopo la fine del blocco precedente, per evitare sovrapposizioni."
+                  : ""
+              }`,
       });
       setAssignOpen(false);
       qc.invalidateQueries({ queryKey: queryKeys.clients.coach(user.id) });
@@ -966,6 +983,16 @@ function ClientPathPage() {
       setAssigning(false);
     }
   }
+
+  // Default per "Data di inizio primo blocco": il giorno dopo la fine
+  // dell'ultimo blocco esistente, così i nuovi blocchi non si sovrappongono.
+  const nextBlockStartDefault = useMemo(() => {
+    const last = [...blocks].sort((a, b) => a.sequence_order - b.sequence_order).at(-1);
+    if (!last?.end_date) return undefined;
+    const d = new Date(`${last.end_date}T00:00:00Z`);
+    d.setTime(d.getTime() + 86400000);
+    return d.toISOString().slice(0, 10);
+  }, [blocks]);
 
   const dirty = useMemo(() => {
     if (rows.length !== originalRows.length) return true;
@@ -1613,6 +1640,7 @@ function ClientPathPage() {
           eventTypes={eventTypes.map((e) => ({ id: e.id, name: e.name, base_type: e.base_type }))}
           hasExistingPackage={blocks.length > 0}
           hasCredits={hasExtraCredits}
+          defaultStartDate={nextBlockStartDefault}
           onAssign={assignPackage}
         />
       </Dialog>
