@@ -865,10 +865,12 @@ function ClientPathPage() {
         // Percorso Fisso / Abbonamento: blocchi da 4 settimane. I nuovi blocchi
         // partono dalla data scelta dalla coach nel dialog (data.startDate) e
         // vengono accodati in coda per sequence_order, senza cancellare quelli
-        // esistenti.
+        // esistenti. Se la data scelta cade prima della fine dell'ultimo blocco
+        // esistente, si parte comunque dal giorno dopo la sua fine: due blocchi
+        // attivi che si sovrappongono darebbero crediti/disponibilità errati.
         const { data: existing, error: exErr } = await supabase
           .from("training_blocks")
-          .select("sequence_order")
+          .select("sequence_order, end_date")
           .eq("client_id", clientId)
           .is("deleted_at", null)
           .order("sequence_order", { ascending: false })
@@ -876,7 +878,17 @@ function ClientPathPage() {
         if (exErr) throw exErr;
         const last = existing?.[0];
         const seqOffset = last ? (last.sequence_order as number) : 0;
-        const firstStart = new Date(`${data.startDate}T00:00:00Z`);
+        const DAY = 86400000;
+        let firstStart = new Date(`${data.startDate}T00:00:00Z`);
+        let clamped = false;
+        if (last?.end_date) {
+          const minStart = new Date(`${last.end_date}T00:00:00Z`);
+          minStart.setTime(minStart.getTime() + DAY);
+          if (firstStart < minStart) {
+            firstStart = minStart;
+            clamped = true;
+          }
+        }
         const DAY = 86400000;
         const blocksToInsert = Array.from({ length: data.totalBlocks }, (_, i) => {
           const start = new Date(firstStart.getTime() + i * 28 * DAY);
