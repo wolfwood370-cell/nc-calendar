@@ -984,6 +984,16 @@ function ClientPathPage() {
     }
   }
 
+  // Default per "Data di inizio primo blocco": il giorno dopo la fine
+  // dell'ultimo blocco esistente, così i nuovi blocchi non si sovrappongono.
+  const nextBlockStartDefault = useMemo(() => {
+    const last = [...blocks].sort((a, b) => a.sequence_order - b.sequence_order).at(-1);
+    if (!last?.end_date) return undefined;
+    const d = new Date(`${last.end_date}T00:00:00Z`);
+    d.setTime(d.getTime() + 86400000);
+    return d.toISOString().slice(0, 10);
+  }, [blocks]);
+
   const dirty = useMemo(() => {
     if (rows.length !== originalRows.length) return true;
     return rows.some(
