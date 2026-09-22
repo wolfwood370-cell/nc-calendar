@@ -967,7 +967,11 @@ function ClientPathPage() {
         description:
           data.pathType === "free"
             ? "Crediti accreditati al cliente."
-            : `Creati ${data.totalBlocks} blocchi con i crediti impostati.`,
+            : `Creati ${data.totalBlocks} blocchi con i crediti impostati.${
+                clampedNote
+                  ? " La data d'inizio è stata spostata al giorno dopo la fine del blocco precedente, per evitare sovrapposizioni."
+                  : ""
+              }`,
       });
       setAssignOpen(false);
       qc.invalidateQueries({ queryKey: queryKeys.clients.coach(user.id) });
