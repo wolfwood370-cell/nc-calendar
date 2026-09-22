@@ -881,7 +881,6 @@ function ClientPathPage() {
         const seqOffset = last ? (last.sequence_order as number) : 0;
         const DAY = 86400000;
         let firstStart = new Date(`${data.startDate}T00:00:00Z`);
-        let clamped = false;
         if (last?.end_date) {
           const minStart = new Date(`${last.end_date}T00:00:00Z`);
           minStart.setTime(minStart.getTime() + DAY);
@@ -1631,6 +1630,7 @@ function ClientPathPage() {
           eventTypes={eventTypes.map((e) => ({ id: e.id, name: e.name, base_type: e.base_type }))}
           hasExistingPackage={blocks.length > 0}
           hasCredits={hasExtraCredits}
+          defaultStartDate={nextBlockStartDefault}
           onAssign={assignPackage}
         />
       </Dialog>
