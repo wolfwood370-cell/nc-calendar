@@ -1,17 +1,16 @@
 // ----------------------------------------------------------------------------
-// TrainerNotificationsBell — bell icon + dot badge + list panel
+// TrainerNotificationsBell — bell icon + badge + list panel
 // ----------------------------------------------------------------------------
 // Wraps useNotifications + useMarkNotificationRead from
 // src/hooks/use-notifications.ts. On mobile (<md) the panel is a bottom
-// Sheet; on desktop it's a Popover anchored to the bell. Tapping a row
-// marks it read and navigates to /trainer/calendar (deep-link to the
-// booking's date is a future enhancement once the calendar route accepts
-// a `date` search param).
+// Sheet that opens /trainer/calendar. On desktop it's the «Attività clienti»
+// Popover of the coach header: a row marks the notification read and opens
+// the Calendar on the event's day with the event selected (audit S4).
 // ----------------------------------------------------------------------------
 
 import * as React from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Bell, BellOff, CheckCheck, ChevronRight } from "lucide-react";
+import { Bell, BellOff, CalendarPlus, CheckCheck, ChevronRight, Repeat } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { it } from "date-fns/locale";
 
@@ -21,39 +20,21 @@ import {
   useMarkAllNotificationsRead,
   unreadCount,
   type NotificationRow,
-  type BookingCreatedPayload,
-  type BookingRescheduledPayload,
 } from "@/hooks/use-notifications";
 import { useAuth } from "@/lib/auth";
+import {
+  describeNotification,
+  formatAgo,
+  formatUnreadBadge,
+  isBookingCreatedPayload,
+  isBookingRescheduledPayload,
+  notificationsBellLabel,
+} from "@/lib/notifications";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
-// ---- Runtime payload shape checks --------------------------------------
-// JSONB is structurally untyped — refuse to render anything we can't
-// confidently shape-match, so a malformed payload degrades to a neutral
-// "Notifica" row instead of crashing the bell.
-
-function isBookingCreatedPayload(
-  p: Record<string, unknown>,
-): p is Record<string, unknown> & BookingCreatedPayload {
-  return (
-    typeof (p as { client_name?: unknown }).client_name === "string" &&
-    typeof (p as { scheduled_at?: unknown }).scheduled_at === "string" &&
-    typeof (p as { session_label?: unknown }).session_label === "string"
-  );
-}
-function isBookingRescheduledPayload(
-  p: Record<string, unknown>,
-): p is Record<string, unknown> & BookingRescheduledPayload {
-  return (
-    typeof (p as { client_name?: unknown }).client_name === "string" &&
-    typeof (p as { old_scheduled_at?: unknown }).old_scheduled_at === "string" &&
-    typeof (p as { new_scheduled_at?: unknown }).new_scheduled_at === "string"
-  );
-}
-
-// ---- Bell button (shared trigger) --------------------------------------
+// ---- Bell button (mobile trigger) --------------------------------------
 // forwardRef so Radix Sheet/Popover Trigger asChild can attach its ref +
 // open-handler props directly to the underlying <button>.
 
@@ -90,7 +71,119 @@ const BellButton = React.forwardRef<HTMLButtonElement, BellButtonProps>(function
   );
 });
 
-// ---- Single row --------------------------------------------------------
+// ---- Desktop bell (header coach) ---------------------------------------
+// Design handoff (Coach Header): 38px, badge 18px con «99+» oltre 99.
+
+const DesktopBellButton = React.forwardRef<HTMLButtonElement, BellButtonProps>(
+  function DesktopBellButton({ unread, className, ...props }, ref) {
+    return (
+      <button
+        ref={ref}
+        type="button"
+        aria-label={notificationsBellLabel(unread)}
+        {...props}
+        className={cn(
+          "relative grid size-[38px] shrink-0 place-items-center rounded-full border border-outline-variant/60 bg-white text-on-surface-variant transition-colors hover:text-aura-primary data-[state=open]:text-aura-primary",
+          className,
+        )}
+      >
+        <Bell className="size-[18px]" aria-hidden />
+        {unread > 0 && (
+          <span
+            aria-hidden
+            className="absolute -top-1 -right-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-surface bg-error-bright px-1 text-[10px] font-bold text-white tabular-nums"
+          >
+            {formatUnreadBadge(unread)}
+          </span>
+        )}
+      </button>
+    );
+  },
+);
+
+// ---- Desktop row -------------------------------------------------------
+
+function ActivityRow({ n, onOpen }: { n: NotificationRow; onOpen: () => void }) {
+  const isUnread = n.read_at == null;
+  const view = describeNotification(n);
+  const Icon = view.kind === "rescheduled" ? Repeat : CalendarPlus;
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={cn(
+        "flex w-full items-start gap-3 rounded-[14px] p-3 text-left transition-colors hover:bg-surface-container-low",
+        isUnread && "bg-aura-primary/4",
+      )}
+    >
+      <span
+        aria-hidden
+        className="grid size-[34px] shrink-0 place-items-center rounded-[10px] bg-aura-primary/8 text-aura-primary"
+      >
+        <Icon className="size-[17px]" />
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        {isUnread && <span className="sr-only">Non letta.</span>}
+        <span className="text-[13px] font-bold text-on-surface">{view.title}</span>
+        {view.body && <span className="text-xs text-on-surface-variant">{view.body}</span>}
+        {view.when && <span className="text-xs text-on-surface-variant">{view.when}</span>}
+        <span className="mt-0.5 text-[11px] text-outline">
+          {formatAgo(n.created_at)} · Apri nel calendario
+        </span>
+      </span>
+      <span
+        aria-hidden
+        className={cn(
+          "mt-1.5 size-2 shrink-0 rounded-full",
+          isUnread ? "bg-aura-primary" : "bg-transparent",
+        )}
+      />
+    </button>
+  );
+}
+
+function ActivityList({
+  notifications,
+  loading,
+  onOpen,
+}: {
+  notifications: NotificationRow[] | undefined;
+  loading: boolean;
+  onOpen: (n: NotificationRow) => void;
+}) {
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-0.5 p-1.5">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="h-[92px] rounded-[14px] bg-surface-container-low animate-pulse" />
+        ))}
+      </div>
+    );
+  }
+  if (!notifications || notifications.length === 0) {
+    return (
+      <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
+        <span className="grid size-12 place-items-center rounded-full bg-surface-container-low">
+          <BellOff className="size-5 text-on-surface-variant" aria-hidden />
+        </span>
+        <p className="text-sm font-semibold text-on-surface">Nessuna notifica</p>
+        <p className="text-xs text-on-surface-variant">
+          Le nuove prenotazioni dei tuoi clienti compariranno qui.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="flex max-h-[420px] flex-col gap-0.5 overflow-y-auto p-1.5">
+      {notifications.map((n) => (
+        <ActivityRow key={n.id} n={n} onOpen={() => onOpen(n)} />
+      ))}
+    </div>
+  );
+}
+
+// ---- Single row (mobile) -----------------------------------------------
 
 function NotificationItem({ n, onClick }: { n: NotificationRow; onClick: () => void }) {
   const isUnread = n.read_at == null;
@@ -142,7 +235,7 @@ function NotificationItem({ n, onClick }: { n: NotificationRow; onClick: () => v
   );
 }
 
-// ---- Shared list body --------------------------------------------------
+// ---- List body (mobile) ------------------------------------------------
 
 function NotificationsList({
   notifications,
@@ -231,6 +324,18 @@ export function TrainerNotificationsBell() {
     void navigate({ to: "/trainer/calendar" });
   };
 
+  // Audit S4 (desktop): il Calendario si apre sulla settimana dell'evento;
+  // `event` lo userà il pannello dettagli della passata 04 per selezionarlo.
+  const openInCalendar = (n: NotificationRow) => {
+    if (n.read_at == null) markRead.mutate(n.id);
+    setPopoverOpen(false);
+    const { date, bookingId } = describeNotification(n);
+    void navigate({
+      to: "/trainer/calendar",
+      search: date ? { date, event: bookingId ?? undefined } : {},
+    });
+  };
+
   const handleMarkAllRead = () => {
     if (canMarkAll) markAll.mutate();
   };
@@ -270,44 +375,35 @@ export function TrainerNotificationsBell() {
         </Sheet>
       </div>
 
-      {/* Desktop: popover */}
+      {/* Desktop: popover «Attività clienti» dell'header coach */}
       <div className="hidden md:block">
         <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
           <PopoverTrigger asChild>
-            <BellButton unread={unread} />
+            <DesktopBellButton unread={unread} />
           </PopoverTrigger>
           <PopoverContent
             align="end"
             sideOffset={8}
-            className="w-[340px] p-0 rounded-[18px] bg-surface-container-lowest border border-surface-container shadow-[0_20px_60px_rgba(0,0,0,0.2)]"
+            aria-label="Attività clienti"
+            className="w-[360px] overflow-hidden rounded-[18px] border border-surface-container bg-white p-0 text-on-surface shadow-[0_20px_60px_rgba(0,0,0,0.2)]"
           >
-            {/* Design handoff: header "Attività clienti" + Segna lette */}
-            <div className="px-5 py-4 flex items-center justify-between gap-2 border-b border-surface-container-low">
-              <span className="font-display text-[15px] font-bold text-on-surface flex items-center gap-2">
-                Attività clienti
-                {headerBadge}
-              </span>
+            <div className="flex items-center justify-between gap-2 border-b border-surface-container-low px-[18px] py-3.5">
+              <p className="font-display text-[15px] font-bold">Attività clienti</p>
               {canMarkAll && (
                 <button
                   type="button"
                   onClick={handleMarkAllRead}
-                  className="text-xs font-semibold text-primary-container"
+                  className="text-xs font-semibold text-primary-container hover:underline"
                 >
-                  Segna lette
+                  Segna tutte come lette
                 </button>
               )}
             </div>
-            <div className="max-h-[60vh] overflow-y-auto">
-              {/* canMarkAll=false: su desktop "Segna lette" vive nell'header
-                  del popover (design handoff), niente doppione in fondo. */}
-              <NotificationsList
-                notifications={notifications}
-                loading={isLoading}
-                onItemClick={handleItemClick}
-                onMarkAllRead={handleMarkAllRead}
-                canMarkAll={false}
-              />
-            </div>
+            <ActivityList
+              notifications={notifications}
+              loading={isLoading}
+              onOpen={openInCalendar}
+            />
           </PopoverContent>
         </Popover>
       </div>

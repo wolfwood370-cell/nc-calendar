@@ -5,7 +5,7 @@ Ordine vincolante: 00 → 01 → 02, poi le pagine. Una passata per PR.
 | # | Passata | Punti audit | Dipende da | Stato |
 |---|---|---|---|---|
 | 00 | [Fondamenta: token, testi, helper condivisi](passes/00-fondamenta.md) | T1, T2, T3, T5, T6, V1, V2, P4 | — | [x] |
-| 01 | [Shell: sidebar e header](passes/01-shell.md) | S1, S2, S3, S4, V12 | 00 | [ ] |
+| 01 | [Shell: sidebar e header](passes/01-shell.md) | S1, S2, S3, S4, V12 | 00 | [x] |
 | 02 | [Dialog condivisi](passes/02-dialog-condivisi.md) | P5, O1, O2, L4 parz. | 00 | [ ] |
 | 03 | [Panoramica](passes/03-panoramica.md) | P1–P7, O4 | 01, 02 | [ ] |
 | 04 | [Calendario](passes/04-calendario.md) | C1–C6, T4, T5 | 01, 02 | [ ] |
