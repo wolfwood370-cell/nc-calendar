@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { PageTitle } from "@/components/page-title";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,12 +30,12 @@ import { EventTypeServiceCard } from "@/components/event-type-service-card";
 export const Route = createFileRoute("/trainer/event-types")({
   head: () => ({
     meta: [
-      { title: "Tipologie evento | NC Training Systems" },
+      { title: "Tipologie di sessione · NC Calendar" },
       {
         name: "description",
         content: "Configura durata, colore e regole di prenotazione di ogni tipologia di sessione.",
       },
-      { property: "og:title", content: "Tipologie evento | NC Training Systems" },
+      { property: "og:title", content: "Tipologie di sessione · NC Calendar" },
       {
         property: "og:description",
         content: "Configura durata, colore e regole di prenotazione di ogni tipologia di sessione.",
@@ -161,12 +162,10 @@ function EventTypesPage() {
     <div className="min-h-screen bg-surface -m-4 md:-m-6 p-6 md:p-10">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-3 mb-3">
         <div>
-          <h1 className="font-display text-4xl font-bold tracking-[-0.02em] text-aura-primary">
-            Tipologie evento
-          </h1>
+          <PageTitle>Tipologie di sessione</PageTitle>
           <p className="text-sm text-on-surface-variant mt-1">
-            La fonte di verità dei tuoi servizi: durata, buffer, prezzo e colore usati da calendario
-            e prenotazioni.
+            La fonte di verità delle tue tipologie di sessione: durata, buffer, prezzo e colore
+            usati da calendario e prenotazioni.
           </p>
         </div>
         <Dialog
@@ -215,10 +214,9 @@ function EventTypesPage() {
             <Dumbbell className="size-8" />
           </div>
           <div className="space-y-2">
-            <h3 className="text-xl font-bold text-foreground">Nessun servizio configurato</h3>
+            <h3 className="text-xl font-bold text-foreground">Nessuna tipologia di sessione</h3>
             <p className="text-sm text-muted-foreground max-w-md mx-auto">
-              Non hai ancora configurato i tuoi servizi. Inizia creando una nuova tipologia di
-              sessione.
+              Crea la prima per poter assegnare pacchetti e ricevere prenotazioni.
             </p>
           </div>
           <Button
@@ -337,7 +335,7 @@ function EventTypeDialog({
           </div>
         </div>
         <div className="space-y-2">
-          <Label>Luogo della Sessione</Label>
+          <Label>Luogo della sessione</Label>
           <RadioGroup
             value={locationType}
             onValueChange={(v) => setLocationType(v as "physical" | "online")}

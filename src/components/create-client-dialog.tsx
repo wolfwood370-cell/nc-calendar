@@ -56,10 +56,10 @@ export interface CreateClientPayload {
 }
 
 const DURATION_PRESETS: Array<{ value: string; label: string; months: number | null }> = [
-  { value: "1", label: "1 Mese", months: 1 },
-  { value: "3", label: "3 Mesi", months: 3 },
-  { value: "6", label: "6 Mesi", months: 6 },
-  { value: "12", label: "12 Mesi", months: 12 },
+  { value: "1", label: "1 mese", months: 1 },
+  { value: "3", label: "3 mesi", months: 3 },
+  { value: "6", label: "6 mesi", months: 6 },
+  { value: "12", label: "12 mesi", months: 12 },
   { value: "custom", label: "Manuale (numero blocchi)", months: null },
 ];
 
@@ -178,7 +178,7 @@ export function CreateClientDialog({
   async function handleFinalSubmit() {
     if (pathType === "free") {
       if (!freeEventTypeId) {
-        toast.error("Seleziona un Event Type per le sessioni omaggio.");
+        toast.error("Seleziona una tipologia di sessione per le sessioni omaggio.");
         return;
       }
       if (freeSessions < 0) {
@@ -192,7 +192,7 @@ export function CreateClientDialog({
       }
       for (const r of rules) {
         if (!r.eventTypeId) {
-          toast.error("Seleziona un Event Type per ogni regola.");
+          toast.error("Seleziona una tipologia di sessione per ogni regola.");
           return;
         }
         if (r.quantityPerBlock < 1) {
@@ -241,7 +241,7 @@ export function CreateClientDialog({
   return (
     <DialogContent className="sm:max-w-2xl">
       <DialogHeader>
-        <DialogTitle>Aggiungi Cliente — Step {step} di 3</DialogTitle>
+        <DialogTitle>Aggiungi cliente — passo {step} di 3</DialogTitle>
       </DialogHeader>
 
       {step === 1 && (
@@ -294,7 +294,7 @@ export function CreateClientDialog({
       {step === 2 && (
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>Tipo di Percorso</Label>
+            <Label>Tipo di percorso</Label>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <button
                 type="button"
@@ -308,7 +308,7 @@ export function CreateClientDialog({
                     : "border-white/40 bg-white/40 hover:border-primary/40"
                 }`}
               >
-                <div className="font-semibold text-sm">Percorso Fisso (Pacchetto)</div>
+                <div className="font-semibold text-sm">Percorso Fisso (pacchetto)</div>
                 <div className="text-xs text-muted-foreground">
                   Durata predefinita o numero blocchi manuale.
                 </div>
@@ -347,7 +347,7 @@ export function CreateClientDialog({
                     : "border-white/40 bg-white/40 hover:border-primary/40"
                 }`}
               >
-                <div className="font-semibold text-sm">Cliente Libero (Senza Percorso)</div>
+                <div className="font-semibold text-sm">Cliente Libero (senza percorso)</div>
                 <div className="text-xs text-muted-foreground">
                   Nessun blocco. Solo sessioni omaggio iniziali.
                 </div>
@@ -369,7 +369,7 @@ export function CreateClientDialog({
           {pathType === "fixed" && (
             <>
               <div className="space-y-2">
-                <Label>Durata Percorso</Label>
+                <Label>Durata percorso</Label>
                 <Select value={durationPreset} onValueChange={setDurationPreset}>
                   <SelectTrigger>
                     <SelectValue />
@@ -385,7 +385,7 @@ export function CreateClientDialog({
               </div>
               {durationPreset === "custom" && (
                 <div className="space-y-2">
-                  <Label>Numero di Blocchi</Label>
+                  <Label>Numero di blocchi</Label>
                   <Input
                     type="number"
                     min={1}
@@ -422,7 +422,7 @@ export function CreateClientDialog({
         <div className="space-y-4">
           <div className="rounded-[24px] bg-white/40 backdrop-blur-xl border border-white/40 shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-5 space-y-4">
             <div>
-              <h3 className="font-semibold text-sm text-on-surface">Sessioni Omaggio iniziali</h3>
+              <h3 className="font-semibold text-sm text-on-surface">Sessioni omaggio iniziali</h3>
               <p className="text-xs text-muted-foreground mt-1">
                 Verranno accreditate al cliente come crediti extra (validità 1 anno).
               </p>
@@ -431,7 +431,7 @@ export function CreateClientDialog({
               <Label className="text-xs">Tipo di sessione</Label>
               <Select value={freeEventTypeId} onValueChange={setFreeEventTypeId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Seleziona event type" />
+                  <SelectValue placeholder="Seleziona la tipologia" />
                 </SelectTrigger>
                 <SelectContent>
                   {eventTypes.map((et) => (
@@ -469,25 +469,25 @@ export function CreateClientDialog({
               onClick={addRule}
               disabled={eventTypes.length === 0}
             >
-              <Plus className="size-4" /> Aggiungi Regola
+              <Plus className="size-4" /> Aggiungi regola
             </Button>
           </div>
 
           {eventTypes.length === 0 && (
-            <p className="text-xs text-destructive">Crea prima almeno un Event Type.</p>
+            <p className="text-xs text-destructive">Crea prima almeno una tipologia di sessione.</p>
           )}
 
           <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-1">
             {rules.length === 0 ? (
               <div className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-                Nessuna regola. Clicca "Aggiungi Regola" per iniziare.
+                Nessuna regola. Clicca «Aggiungi regola» per iniziare.
               </div>
             ) : (
               rules.map((r) => (
                 <div key={r.id} className="rounded-2xl border p-3 space-y-3">
                   <div className="grid grid-cols-12 gap-2 items-end">
                     <div className="col-span-12 sm:col-span-5 space-y-1">
-                      <Label className="text-xs">Event Type</Label>
+                      <Label className="text-xs">Tipologia di sessione</Label>
                       <Select
                         value={r.eventTypeId}
                         onValueChange={(v) => updateRule(r.id, { eventTypeId: v })}

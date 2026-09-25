@@ -60,7 +60,7 @@ export function CalendarContextPanel({
       <aside className="hidden xl:flex flex-col w-80 border-l border-surface-variant bg-surface sticky top-0 h-screen">
         <div className="p-6 border-b border-surface-variant bg-white/50 backdrop-blur-md">
           <h3 className="text-lg font-bold text-aura-primary flex items-center gap-2">
-            <UserSearch className="size-5" /> Focus Cliente
+            <UserSearch className="size-5" /> Focus cliente
           </h3>
         </div>
         <div className="p-6 overflow-y-auto flex-1 space-y-4">{panel}</div>
@@ -79,7 +79,7 @@ export function CalendarContextPanel({
         >
           <SheetHeader className="p-6 border-b border-outline-variant/30 bg-surface-container-lowest/80 backdrop-blur-md text-left space-y-0">
             <SheetTitle className="text-lg font-bold text-aura-primary flex items-center gap-2">
-              <UserSearch className="size-5" /> Focus Cliente
+              <UserSearch className="size-5" /> Focus cliente
             </SheetTitle>
           </SheetHeader>
           <div className="p-6 overflow-y-auto flex-1 space-y-4">{panel}</div>

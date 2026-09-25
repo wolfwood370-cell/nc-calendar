@@ -165,8 +165,8 @@ export function BlockCreditsDialog({
       <DialogTrigger asChild>
         <button
           className="flex items-center justify-center p-1.5 rounded-full hover:bg-muted text-muted-foreground transition-colors"
-          title="Imposta Crediti"
-          aria-label="Imposta Crediti"
+          title="Imposta crediti"
+          aria-label="Imposta crediti"
         >
           <Edit3 className="size-5" />
         </button>

@@ -10,6 +10,7 @@ import {
   Check,
   AlertCircle,
 } from "lucide-react";
+import { useState } from "react";
 import { Close as PopoverClose } from "@radix-ui/react-popover";
 import { sessionLabel, type SessionType } from "@/lib/mock-data";
 import {
@@ -19,6 +20,16 @@ import {
 } from "@/components/mobile-calendar-agenda";
 import type { EventPlacement } from "@/lib/calendar-layout";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 /** Subset structural del booking richiesto dal tile (campi consumati direttamente). */
 export interface CalendarEventBooking {
@@ -83,6 +94,8 @@ export function CalendarEventTile({
   onEdit,
   onCancel,
 }: CalendarEventTileProps) {
+  // T5 (audit): conferma dell'annullamento con AlertDialog, non col confirm nativo.
+  const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
   if (isAllDayEvent(booking)) return null;
   const d = new Date(booking.scheduled_at);
   const hour = d.getHours() + d.getMinutes() / 60;
@@ -342,16 +355,39 @@ export function CalendarEventTile({
           )}
           {onCancel && (
             <button
-              onClick={() => {
-                if (confirm("Annullare questo evento?")) onCancel(booking.id);
-              }}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-full bg-[#fef2f2] py-[7px] text-xs font-bold text-error-strong hover:bg-[#fee2e2] transition-colors cursor-pointer"
+              onClick={() => setConfirmCancelOpen(true)}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-full bg-danger-soft py-[7px] text-xs font-bold text-danger-text hover:bg-danger-line/50 transition-colors cursor-pointer"
             >
               <Trash2 className="size-3.5" /> Annulla
             </button>
           )}
         </div>
       </PopoverContent>
+
+      {/* Fuori dal PopoverContent: il popover si chiude quando il dialog prende
+          il focus e smonterebbe tutto ciò che contiene. */}
+      {onCancel && (
+        <AlertDialog open={confirmCancelOpen} onOpenChange={setConfirmCancelOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Annullare questo evento?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {typeLabel}
+                {clientName ? ` con ${clientName}` : ""} · {startTime}–{endTime}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Indietro</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => onCancel(booking.id)}
+              >
+                Annulla evento
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </Popover>
   );
 }

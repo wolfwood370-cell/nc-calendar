@@ -61,7 +61,7 @@ export function CredentialsDialog({
     >
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Credenziali Generate</DialogTitle>
+          <DialogTitle>Credenziali generate</DialogTitle>
         </DialogHeader>
         {creds && (
           <div className="space-y-4">
@@ -86,7 +86,7 @@ export function CredentialsDialog({
               <Separator />
               <div>
                 <Label className="text-xs uppercase text-muted-foreground">
-                  Password Temporanea
+                  Password temporanea
                 </Label>
                 <div className="flex items-center justify-between gap-2 mt-1">
                   <code className="text-sm font-mono break-all">{creds.password}</code>
@@ -114,7 +114,7 @@ export function CredentialsDialog({
                 ) : (
                   <Copy className="size-4" />
                 )}
-                Copia Messaggio
+                Copia messaggio
               </Button>
             </DialogFooter>
           </div>

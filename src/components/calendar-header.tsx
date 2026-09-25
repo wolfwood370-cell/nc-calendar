@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Loader2, ChevronLeft, ChevronRight, RefreshCw, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PageTitle } from "@/components/page-title";
 
 /**
  * Chip filtro locale con le metriche del prototipo (13px, padding 6px 14px).
@@ -115,7 +116,7 @@ export function CalendarHeader({
   return (
     <header className="flex flex-col gap-4 mb-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="font-display text-2xl font-bold text-aura-primary">Calendario Master</h1>
+        <PageTitle>Calendario</PageTitle>
         {mirroring && (
           <div className="flex items-center gap-2 text-xs text-outline rounded-full border border-outline-variant px-3 py-1.5 bg-white">
             <Loader2 className="size-3.5 animate-spin" /> Sincronizzazione…
@@ -140,9 +141,7 @@ export function CalendarHeader({
             >
               <ChevronLeft className="size-4" />
             </button>
-            <span className="text-sm font-semibold min-w-40 text-center capitalize">
-              {weekRangeLabel}
-            </span>
+            <span className="text-sm font-semibold min-w-40 text-center">{weekRangeLabel}</span>
             <button
               onClick={onNextWeek}
               className="size-8 rounded-full hover:bg-surface-container flex items-center justify-center text-on-surface-variant"
@@ -203,7 +202,7 @@ export function CalendarHeader({
       </div>
 
       {hasBookingsError && (
-        <div className="flex items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger-text">
           <div className="flex items-center gap-2">
             <AlertCircle className="size-4" />
             Errore nel caricamento del calendario.

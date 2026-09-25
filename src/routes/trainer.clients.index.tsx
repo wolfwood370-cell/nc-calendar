@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { PageTitle } from "@/components/page-title";
 import { Input } from "@/components/ui/input";
 
 import {
@@ -57,12 +58,12 @@ import { initials } from "@/lib/initials";
 export const Route = createFileRoute("/trainer/clients/")({
   head: () => ({
     meta: [
-      { title: "Clienti | NC Training Systems" },
+      { title: "Clienti · NC Calendar" },
       {
         name: "description",
         content: "Elenco dei clienti con stato dei percorsi e crediti residui.",
       },
-      { property: "og:title", content: "Clienti | NC Training Systems" },
+      { property: "og:title", content: "Clienti · NC Calendar" },
       {
         property: "og:description",
         content: "Elenco dei clienti con stato dei percorsi e crediti residui.",
@@ -663,7 +664,7 @@ function ClientsPage() {
       toast.error("Invito non riuscito", { description: "Riprova tra qualche istante." });
       return;
     }
-    const coachName = (user.user_metadata?.full_name as string) || user.email || "il tuo Coach";
+    const coachName = (user.user_metadata?.full_name as string) || user.email || "il tuo coach";
     const r = await sendInvitationEmail({ to: data.email, clientName: data.name, coachName });
     if (r.ok) {
       toast.success("Invito creato", { description: `Email di invito inviata a ${data.email}.` });
@@ -880,7 +881,7 @@ function ClientsPage() {
   const tabs: Array<{ key: "all" | ClientStatus; label: string; count: number }> = [
     { key: "all", label: "Tutti", count: counts.all - counts.archived },
     { key: "active", label: "Attivi", count: counts.active },
-    { key: "expiring", label: "In Scadenza", count: counts.expiring },
+    { key: "expiring", label: "In scadenza", count: counts.expiring },
     { key: "archived", label: "Archiviati", count: counts.archived },
   ];
 
@@ -898,7 +899,7 @@ function ClientsPage() {
               desktop-only, navigation lives in the bottom nav. */}
           <span className="w-10 h-10" aria-hidden />
           <h1 className="text-xl font-semibold text-primary text-center absolute left-1/2 -translate-x-1/2">
-            I Tuoi Atleti
+            Clienti
           </h1>
           <Button
             type="button"
@@ -917,7 +918,7 @@ function ClientsPage() {
             <Input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Cerca atleta…"
+              placeholder="Cerca cliente…"
               className="w-full bg-surface-container-lowest border border-outline-variant rounded-full py-3 pl-12 pr-4 text-on-surface focus-visible:ring-2 focus-visible:ring-primary/20"
             />
           </div>
@@ -959,7 +960,7 @@ function ClientsPage() {
                     onClick={() => setCreateOpen(true)}
                     className="rounded-full bg-primary text-on-primary"
                   >
-                    <UserPlus className="size-4" /> Aggiungi Cliente
+                    <UserPlus className="size-4" /> Aggiungi cliente
                   </Button>
                 </div>
               ) : (
@@ -1016,9 +1017,7 @@ function ClientsPage() {
         {/* Header */}
         <div className="flex flex-wrap items-end justify-between gap-3 mb-8">
           <div>
-            <h1 className="font-display text-3xl md:text-4xl font-bold text-aura-primary tracking-tight">
-              I tuoi Clienti
-            </h1>
+            <PageTitle>Clienti</PageTitle>
             <p className="text-sm text-on-surface-variant mt-1">
               Invita nuovi clienti e gestisci il roster.
             </p>
@@ -1027,7 +1026,7 @@ function ClientsPage() {
             <Dialog open={createOpen} onOpenChange={setCreateOpen}>
               <DialogTrigger asChild>
                 <Button className="rounded-full px-6 py-3 h-auto bg-aura-primary hover:bg-primary-container text-white font-semibold shadow-soft-blue">
-                  <UserPlus className="size-4" /> Aggiungi Cliente
+                  <UserPlus className="size-4" /> Aggiungi cliente
                 </Button>
               </DialogTrigger>
               {/* Forward `open` so the child can detect the open→closed
@@ -1183,7 +1182,7 @@ function ClientsPage() {
                   onClick={() => setCreateOpen(true)}
                   className="rounded-full bg-aura-primary hover:bg-primary-container text-white"
                 >
-                  <UserPlus className="size-4" /> Aggiungi Cliente
+                  <UserPlus className="size-4" /> Aggiungi cliente
                 </Button>
               </div>
             ) : (
@@ -1211,22 +1210,22 @@ function ClientsPage() {
                 : isCompleted
                   ? "bg-surface-container text-on-surface-variant"
                   : isExpiring
-                    ? "bg-orange-50 text-orange-600"
-                    : "bg-emerald-50 text-emerald-600";
+                    ? "bg-warning-soft text-warning-text"
+                    : "bg-success-soft text-success-text";
               const badgeLabel = isArchived
                 ? "Archiviato"
                 : isCompleted
                   ? "Completato"
                   : isExpiring
-                    ? "In Scadenza"
+                    ? "In scadenza"
                     : "Attivo";
 
               // Design handoff: accento colore per stato sul bordo sinistro
-              // (5px; completato grigio-blu caldo #94a3b8 come da mock).
+              // (5px; completato grigio-blu, token outline).
               const accentClass = isArchived
                 ? "border-l-outline-variant"
                 : isCompleted
-                  ? "border-l-[#94a3b8]"
+                  ? "border-l-outline"
                   : isExpiring
                     ? "border-l-warning-strong"
                     : "border-l-success-strong";
@@ -1264,7 +1263,7 @@ function ClientsPage() {
 
                   {/* Design handoff: pacchetto con barra + riga unica
                       prossima sessione / semaforo presenza (senza label). */}
-                  <div className="mt-4 pt-3.5 border-t border-[#f1f5f9] flex flex-col gap-2.5">
+                  <div className="mt-4 pt-3.5 border-t border-surface-container-low flex flex-col gap-2.5">
                     {d.totalQty > 0 && (
                       <div>
                         <div className="flex justify-between text-xs mb-[5px]">
@@ -1338,13 +1337,13 @@ function ClientsPage() {
                       : d.status === "completed"
                         ? "Completato"
                         : d.status === "expiring"
-                          ? "In Scadenza"
+                          ? "In scadenza"
                           : "Attivo";
                   const statusPillClass =
                     d.status === "expiring"
-                      ? "bg-orange-50 text-orange-600"
+                      ? "bg-warning-soft text-warning-text"
                       : d.status === "active"
-                        ? "bg-emerald-50 text-emerald-600"
+                        ? "bg-success-soft text-success-text"
                         : "bg-surface-container text-on-surface-variant";
                   const pathLabel = c.pack_label
                     ? c.pack_label
@@ -1367,7 +1366,7 @@ function ClientsPage() {
                           goToClient();
                         }
                       }}
-                      className="cursor-pointer border-[#f1f5f9]"
+                      className="cursor-pointer border-surface-container-low"
                     >
                       <TableCell className="px-4 py-3.5">
                         <div className="flex items-center gap-3 min-w-0">

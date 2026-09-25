@@ -26,6 +26,7 @@ import {
 import { toast } from "sonner";
 import { SettingsRow, SettingsDivider } from "@/components/settings-row";
 import { useClientBlocks, useClientBookings, useCoachEventTypes } from "@/lib/queries";
+import { findCurrentBlock } from "@/lib/current-block";
 import { sessionLabel } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/client/settings")({
@@ -239,14 +240,7 @@ function ClientSettings() {
   }, [bookingsQ.data]);
 
   // Blocco che contiene "oggi" (per pool residui e scadenza percorso).
-  const activeBlock = useMemo(() => {
-    const now = Date.now();
-    return (blocksQ.data ?? []).find((b) => {
-      const start = new Date(b.start_date).getTime();
-      const end = new Date(b.end_date).getTime() + 24 * 60 * 60 * 1000;
-      return now >= start && now <= end;
-    });
-  }, [blocksQ.data]);
+  const activeBlock = useMemo(() => findCurrentBlock(blocksQ.data ?? []), [blocksQ.data]);
 
   const pathEndLabel = useMemo(() => {
     const ends = (blocksQ.data ?? []).map((b) => new Date(b.end_date).getTime());

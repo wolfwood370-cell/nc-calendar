@@ -148,7 +148,7 @@ export function TrainerBiaPanel({ clientId, coachId }: { clientId: string; coach
   return (
     <section className="bg-surface-container-lowest rounded-[28px] shadow-soft-blue p-6 flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h3 className="text-xl font-semibold text-on-surface m-0">Andamento BIA</h3>
+        <h3 className="card-title text-on-surface m-0">Andamento BIA</h3>
         <BiaMetricToggle metric={metric} onChange={setMetric} metricsOverride={COACH_METRICS} />
       </div>
 

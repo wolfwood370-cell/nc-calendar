@@ -59,9 +59,7 @@ export function CoachNotesCard({ coachId, clientId }: { coachId: string; clientI
   return (
     <section className="bg-surface-container-lowest rounded-[28px] shadow-soft-blue p-6 flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-xl font-semibold text-on-surface m-0 leading-tight">
-          Note &amp; obiettivi
-        </h3>
+        <h3 className="card-title text-on-surface m-0 leading-tight">Note &amp; obiettivi</h3>
         <span className="text-xs font-medium text-outline inline-flex items-center gap-1.5">
           {saveMut.isPending ? (
             <>

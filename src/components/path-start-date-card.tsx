@@ -37,7 +37,7 @@ export function PathStartDateCard({
     <Card className="rounded-[28px] border-0 shadow-soft-blue">
       <CardHeader>
         <CardTitle className="text-xl font-semibold text-on-surface">
-          Data Inizio Percorso
+          Data inizio percorso
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-wrap items-center gap-4">

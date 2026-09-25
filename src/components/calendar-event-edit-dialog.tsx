@@ -159,7 +159,7 @@ export function CalendarEventEditDialog({
             </Select>
           </div>
           <div className="sm:col-span-2">
-            <Label>Tipo evento</Label>
+            <Label>Tipologia di sessione</Label>
             <Select value={eventTypeId} onValueChange={setEventTypeId}>
               <SelectTrigger>
                 <SelectValue placeholder="Nessuno" />

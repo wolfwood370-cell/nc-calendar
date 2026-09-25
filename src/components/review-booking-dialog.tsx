@@ -211,7 +211,7 @@ export function ReviewBookingDialog({ bookingId, onClose }: ReviewBookingDialogP
               {markSpecial.isPending && markSpecial.variables === "personal" ? (
                 <Loader2 className="size-4 animate-spin" />
               ) : null}
-              Impegno Personale
+              Impegno personale
             </Button>
             <Button
               type="button"

@@ -40,7 +40,7 @@ export function InstallPwaButton({ className }: { className?: string }) {
         if (outcome === "accepted") setEvt(null);
       }}
     >
-      <Download className="size-4" /> Installa l'App
+      <Download className="size-4" /> Installa l'app
     </Button>
   );
 }

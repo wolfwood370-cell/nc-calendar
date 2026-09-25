@@ -20,6 +20,7 @@ import {
   useClientExtraCredits,
 } from "@/lib/queries";
 import { useCurrentBlock } from "@/hooks/use-current-block";
+import { resolveCurrentBlock } from "@/lib/current-block";
 import { sessionLabel } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { AuraCardSkeleton, AuraLineSkeleton } from "@/components/ui/aura-skeleton";
@@ -122,19 +123,8 @@ function ClientHome() {
   // dove il timestamp finisce direttamente in props/render output.
   const resolvedCurrentBlock = useMemo(() => {
     if (isRecurring) return currentBlock;
-    const all = blocksQ.data ?? [];
-    if (all.length === 0) return null;
-    const sorted = [...all].sort((a, b) => a.sequence_order - b.sequence_order);
-    const now = Date.now();
-    const inside = sorted.find((b) => {
-      const start = new Date(b.start_date).getTime();
-      const end = new Date(b.end_date).getTime() + 24 * 60 * 60 * 1000;
-      return now >= start && now <= end;
-    });
-    if (inside) return inside;
     // Path già terminato → ultimo blocco. Path non ancora iniziato → primo.
-    const futureStart = sorted.find((b) => new Date(b.start_date).getTime() > now);
-    return futureStart ?? sorted[sorted.length - 1] ?? null;
+    return resolveCurrentBlock(blocksQ.data ?? []);
   }, [isRecurring, currentBlock, blocksQ.data]);
 
   // Stats intero percorso (cumulativo dall'inizio). Total include:

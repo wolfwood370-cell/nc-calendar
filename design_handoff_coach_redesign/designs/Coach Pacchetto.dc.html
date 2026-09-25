@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&amp;family=Manrope:wght@400;500;600;700&amp;display=swap">
+<script src="./nc-icons.js"></script>
+<script src="./nc-store.js"></script>
+<style>
+*,::before,::after{box-sizing:border-box;margin:0;padding:0;border:0 solid;}
+button{font:inherit;color:inherit;background:transparent;cursor:pointer;}
+button:disabled{cursor:default;}
+a{color:#003e62;text-decoration:none;}
+a:hover{color:#005685;}
+</style>
+</helmet>
+<div onClick="{{ close }}" style="position:fixed; inset:0; z-index:100; background:rgba(25,28,31,0.32); display:grid; place-items:center; padding:24px;">
+      <div role="dialog" aria-modal="true" aria-labelledby="dlg-pkg" onClick="{{ stop }}" style="width:580px; max-width:100%; max-height:calc(100vh - 48px); overflow:auto; background:#ffffff; border-radius:28px; box-shadow:0 30px 80px rgba(0,0,0,0.25); padding:28px; display:flex; flex-direction:column; gap:18px;">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+          <div style="display:flex; flex-direction:column; gap:4px;"><h2 id="dlg-pkg" style="font-family:Sora, sans-serif; font-size:22px; font-weight:700;">Pacchetto di {{ name }}</h2><p style="font-size:13px; color:#41474f;">{{ plan }}</p></div>
+          <button onClick="{{ close }}" aria-label="Chiudi" style="width:36px; height:36px; border-radius:9999px; display:grid; place-items:center; color:#41474f;" style-hover="background:#eceef2;"><nc-icon name="X" style="width:18px; height:18px;"></nc-icon></button>
+        </div>
+        <div role="radiogroup" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:8px;">
+          <sc-for list="{{ pkgModes }}" as="m" hint-placeholder-count="3">
+            <button role="radio" aria-checked="{{ m.checked }}" onClick="{{ m.pick }}" style="display:flex; flex-direction:column; align-items:flex-start; gap:4px; padding:12px 14px; border-radius:18px; text-align:left; border:1.5px solid {{ m.border }}; background:{{ m.bg }};"><span style="font-size:14px; font-weight:700;">{{ m.label }}</span><span style="font-size:12px; line-height:1.4; color:#41474f;">{{ m.hint }}</span></button>
+          </sc-for>
+        </div>
+        <sc-if value="{{ pkgRenew }}" hint-placeholder-val="{{ false }}">
+          <div style="border-radius:20px; background:#f2f3f8; padding:16px 18px; display:flex; flex-direction:column; gap:10px;">
+            <div style="display:flex; justify-content:space-between; gap:12px; font-size:14px;"><span style="color:#41474f;">Nuovo blocco</span><strong>{{ renewRange }}</strong></div>
+            <div style="height:1px; background:#e1e2e7;"></div>
+            <sc-for list="{{ renewCredits }}" as="k" hint-placeholder-count="2"><div style="display:flex; align-items:center; gap:10px; font-size:14px;"><span style="width:8px; height:8px; border-radius:9999px; background:{{ k.color }};"></span><span style="flex:1;">{{ k.name }}</span><strong>{{ k.qty }}</strong></div></sc-for>
+          </div>
+          <p style="font-size:13px; line-height:1.5; color:#41474f;">{{ renewNote }}</p>
+        </sc-if>
+        <sc-if value="{{ pkgExtra }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <div style="display:flex; flex-wrap:wrap; gap:8px;">
+              <sc-for list="{{ pkgTypes }}" as="t" hint-placeholder-count="4"><button onClick="{{ t.pick }}" aria-pressed="{{ t.pressed }}" style="height:34px; display:flex; align-items:center; gap:8px; padding:0 14px; border-radius:9999px; font-size:13px; font-weight:600; border:1px solid {{ t.border }}; background:{{ t.bg }}; color:{{ t.fg }};"><span style="width:8px; height:8px; border-radius:9999px; background:{{ t.color }};"></span>{{ t.name }}</button></sc-for>
+            </div>
+            <div style="display:flex; align-items:center; gap:12px;"><span style="font-size:14px; font-weight:600;">Quantità</span><button onClick="{{ extraDec }}" aria-label="Meno" style="width:32px; height:32px; border-radius:9999px; border:1px solid #e1e2e7; display:grid; place-items:center;"><nc-icon name="Minus" style="width:14px; height:14px;"></nc-icon></button><strong style="width:28px; text-align:center; font-size:16px;">{{ extraQty }}</strong><button onClick="{{ extraInc }}" aria-label="Più" style="width:32px; height:32px; border-radius:9999px; border:1px solid #e1e2e7; display:grid; place-items:center; color:#003e62;"><nc-icon name="Plus" style="width:14px; height:14px;"></nc-icon></button></div>
+            <p style="font-size:12px; color:#717880;">Si aggiungono ai crediti disponibili del cliente.</p>
+          </div>
+        </sc-if>
+        <sc-if value="{{ pkgPath }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            <div style="display:flex; padding:3px; border-radius:9999px; background:#eceef2; align-self:flex-start;">
+              <sc-for list="{{ pathKinds }}" as="k" hint-placeholder-count="2"><button onClick="{{ k.pick }}" style="height:32px; padding:0 14px; border-radius:9999px; font-size:13px; font-weight:600; background:{{ k.bg }}; color:{{ k.fg }}; box-shadow:{{ k.shadow }};">{{ k.label }}</button></sc-for>
+            </div>
+            <sc-if value="{{ pathIsFixed }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex; align-items:center; gap:12px;"><span style="font-size:14px; font-weight:600;">Numero di blocchi</span><button onClick="{{ blocksDec }}" aria-label="Meno blocchi" style="width:32px; height:32px; border-radius:9999px; border:1px solid #e1e2e7; display:grid; place-items:center;"><nc-icon name="Minus" style="width:14px; height:14px;"></nc-icon></button><strong style="width:28px; text-align:center; font-size:16px;">{{ pathBlocks }}</strong><button onClick="{{ blocksInc }}" aria-label="Più blocchi" style="width:32px; height:32px; border-radius:9999px; border:1px solid #e1e2e7; display:grid; place-items:center; color:#003e62;"><nc-icon name="Plus" style="width:14px; height:14px;"></nc-icon></button><span style="font-size:12px; color:#717880;">da 4 settimane</span></div>
+            </sc-if>
+            <p style="font-size:13px; font-weight:700;">Crediti per blocco</p>
+            <div style="display:flex; flex-direction:column; border:1px solid #eceef2; border-radius:18px;">
+              <sc-for list="{{ pathCredits }}" as="k" hint-placeholder-count="4">
+                <div style="display:flex; align-items:center; gap:10px; padding:9px 14px; border-top:1px solid {{ k.sep }};">
+                  <span style="width:10px; height:10px; border-radius:3px; background:{{ k.color }};"></span><span style="flex:1; font-size:14px; font-weight:600;">{{ k.name }}</span>
+                  <button onClick="{{ k.dec }}" aria-label="{{ k.decLabel }}" style="width:30px; height:30px; border-radius:9999px; border:1px solid #e1e2e7; display:grid; place-items:center;"><nc-icon name="Minus" style="width:13px; height:13px;"></nc-icon></button>
+                  <span style="width:26px; text-align:center; font-weight:700;">{{ k.qty }}</span>
+                  <button onClick="{{ k.inc }}" aria-label="{{ k.incLabel }}" style="width:30px; height:30px; border-radius:9999px; border:1px solid #e1e2e7; display:grid; place-items:center; color:#003e62;"><nc-icon name="Plus" style="width:13px; height:13px;"></nc-icon></button>
+                </div>
+              </sc-for>
+            </div>
+            <p style="font-size:12px; color:#717880;">{{ pathStartHint }}</p>
+          </div>
+        </sc-if>
+        <div style="display:flex; justify-content:flex-end; gap:8px;">
+          <button onClick="{{ close }}" style="height:40px; padding:0 18px; border-radius:9999px; font-size:14px; font-weight:600; background:#eceef2; color:#41474f;">Annulla</button>
+          <button onClick="{{ confirmPkg }}" disabled="{{ pkgDisabled }}" style="height:40px; padding:0 20px; border-radius:9999px; font-size:14px; font-weight:600; color:#ffffff; background:{{ pkgBtnBg }};">{{ pkgConfirmLabel }}</button>
+        </div>
+      </div>
+    </div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:820,&quot;height&quot;:760},&quot;clientId&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;sara-neri&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;auto&quot;,&quot;renew&quot;,&quot;extra&quot;,&quot;path&quot;],&quot;default&quot;:&quot;auto&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;onClose&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() => void&quot;},&quot;onDone&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() => void&quot;}}">
+class Component extends DCLogic {
+  state = { P: null };
+  componentDidMount() {
+    const hook = () => { this.unsub = window.NCStore.subscribe(() => this.forceUpdate()); this.forceUpdate(); };
+    const wait = () => (window.NCStore ? hook() : (this.t = setTimeout(wait, 30)));
+    wait();
+    this.onKey = (e) => { if (e.key === "Escape") this.close(); };
+    document.addEventListener("keydown", this.onKey);
+  }
+  componentWillUnmount() { this.unsub && this.unsub(); clearTimeout(this.t); document.removeEventListener("keydown", this.onKey); }
+  close() { this.props.onClose && this.props.onClose(); }
+  renderVals() {
+    const S = window.NCStore;
+    const E = { pkgModes: [], renewCredits: [], pkgTypes: [], pathKinds: [], pathCredits: [], close: () => this.close(), stop: (e) => e.stopPropagation() };
+    const c = S ? S.client(this.props.clientId) : null;
+    if (!c) return E;
+    const free = c.pathType === "free";
+    const seg = (on) => ({ bg: on ? "#ffffff" : "transparent", fg: on ? "#003e62" : "#41474f", shadow: on ? "0 1px 3px rgba(0,0,0,0.1)" : "none" });
+    const initialMode = this.props.mode && this.props.mode !== "auto" ? this.props.mode : free ? "extra" : "renew";
+    const P = this.state.P || { mode: initialMode === "renew" && free ? "extra" : initialMode, typeId: "pt", qty: 2, pathType: "fixed", blocks: 3, credits: Object.assign({ pt: 8, bia: 1, test: 0, cons: 0 }, Object.keys(c.credits).reduce((o, k) => { o[k] = c.credits[k][1]; return o; }, {})) };
+    const upd = (p) => this.setState({ P: Object.assign({}, P, p) });
+    const MODES = (free ? [] : [["renew", "Rinnova lo stesso", "Stessi crediti, nuovo blocco."]]).concat([["extra", "Crediti extra", "Aggiungi crediti singoli."], ["path", "Nuovo percorso", free ? "Percorso fisso o abbonamento." : "Sostituisce il percorso attuale."]]);
+    const startOff = c.blockEndOff != null && c.blockEndOff >= 0 ? c.blockEndOff + 1 : 0;
+    const perBlock = S.types.reduce((s, t) => s + (P.credits[t.id] || 0), 0);
+    const left = S.remaining(c);
+    return Object.assign(E, {
+      name: c.name, plan: c.plan,
+      pkgModes: MODES.map(([id, label, hint]) => { const on = P.mode === id; return { label, hint, checked: on ? "true" : "false", border: on ? "#003e62" : "#e1e2e7", bg: on ? "rgba(0,62,98,0.05)" : "#ffffff", pick: () => upd({ mode: id }) }; }),
+      pkgRenew: P.mode === "renew", pkgExtra: P.mode === "extra", pkgPath: P.mode === "path",
+      renewRange: S.fmtDateOff(startOff) + " – " + S.fmtDateOff(startOff + 27),
+      renewCredits: Object.keys(c.credits).filter((k) => c.credits[k][1] > 0).map((k) => { const t = S.type(k); return { name: t.name, color: t.color, qty: c.credits[k][1] + (c.credits[k][1] === 1 ? " credito" : " crediti") }; }),
+      renewNote: "Il cliente può prenotare le sessioni del nuovo blocco da subito." + (left === 1 ? " Il credito residuo resta valido fino alla fine del blocco in corso." : left > 1 ? " I " + left + " crediti residui restano validi fino alla fine del blocco in corso." : ""),
+      pkgTypes: S.types.map((t) => { const on = t.id === P.typeId; return { name: t.name, color: t.color, pressed: on ? "true" : "false", border: on ? "#003e62" : "#e1e2e7", bg: on ? "rgba(0,62,98,0.08)" : "#ffffff", fg: on ? "#003e62" : "#41474f", pick: () => upd({ typeId: t.id }) }; }),
+      extraQty: P.qty, extraDec: () => upd({ qty: Math.max(1, P.qty - 1) }), extraInc: () => upd({ qty: Math.min(30, P.qty + 1) }),
+      pathKinds: [["fixed", "Percorso fisso"], ["recurring", "Abbonamento mensile"]].map(([id, label]) => Object.assign({ label, pick: () => upd({ pathType: id }) }, seg(P.pathType === id))),
+      pathIsFixed: P.pathType === "fixed", pathBlocks: P.blocks,
+      blocksDec: () => upd({ blocks: Math.max(1, P.blocks - 1) }), blocksInc: () => upd({ blocks: Math.min(24, P.blocks + 1) }),
+      pathCredits: S.types.map((t, i) => { const n = P.credits[t.id] || 0; const set = (v) => upd({ credits: Object.assign({}, P.credits, { [t.id]: v }) }); return { name: t.name, color: t.color, qty: n, sep: i === 0 ? "transparent" : "#f2f3f8", decLabel: "Meno " + t.name, incLabel: "Più " + t.name, dec: () => set(Math.max(0, n - 1)), inc: () => set(Math.min(50, n + 1)) }; }),
+      pathStartHint: "Inizia il " + S.fmtDateOff(startOff) + ". Le sessioni già prenotate restano in calendario.",
+      pkgDisabled: P.mode === "path" && perBlock === 0, pkgBtnBg: P.mode === "path" && perBlock === 0 ? "#c1c7d0" : "#003e62",
+      pkgConfirmLabel: P.mode === "renew" ? "Rinnova" : P.mode === "extra" ? "Aggiungi crediti" : "Assegna percorso",
+      confirmPkg: () => {
+        let u, msg;
+        if (P.mode === "renew") { u = S.renew(c.id); msg = "Pacchetto rinnovato per " + c.name + "."; }
+        else if (P.mode === "extra") { u = S.addExtraCredits(c.id, P.typeId, P.qty); msg = (P.qty === 1 ? "1 credito " + S.type(P.typeId).name + " aggiunto a " : P.qty + " crediti " + S.type(P.typeId).name + " aggiunti a ") + c.name + "."; }
+        else { if (perBlock === 0) return; u = S.newPath(c.id, { pathType: P.pathType, blocks: P.blocks, credits: P.credits, startOff }); msg = "Nuovo percorso assegnato a " + c.name + "."; }
+        this.props.onDone && this.props.onDone();
+        this.close();
+        S.showToast({ msg, undo: u });
+      },
+    });
+  }
+}
+</script>
+</body>
+</html>

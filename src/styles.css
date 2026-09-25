@@ -88,6 +88,21 @@
   --color-error-bright: #e53935;
   --color-consulenza: #8e24aa;
 
+  /* Redesign coach (design_handoff_coach_redesign, audit T3). I *-strong
+     sopra non arrivano a 4.5:1 sui fondi chiari a 11–12px: per il testo di
+     stato si usano i *-text, con fondi *-soft e bordi *-line. assign-* è il
+     fondo e il tratteggio degli eventi da assegnare. */
+  --color-success-text: #047857;
+  --color-success-soft: #ecfdf5;
+  --color-warning-text: #c2410c;
+  --color-warning-soft: #fff7ed;
+  --color-warning-line: #fed7aa;
+  --color-danger-text: #b91c1c;
+  --color-danger-soft: #fef2f2;
+  --color-danger-line: #fecaca;
+  --color-assign-soft: rgba(255, 220, 194, 0.55);
+  --color-assign-line: #f59e0b;
+
   /* Raggi card del design: 32px mobile, 28px desktop */
   --radius-card-mobile: 32px;
   --radius-card-desktop: 28px;
@@ -221,6 +236,27 @@
     outline: 2px solid var(--color-primary-container);
     outline-offset: 2px;
   }
+}
+
+/* Scala titoli coach (audit T2): H1 di pagina e titolo card. Utility dedicate
+   invece di --text-*: tailwind-merge scambierebbe `text-page-title` per un
+   colore e lo scarterebbe accanto a `text-on-surface` dentro cn(). Interlinea,
+   peso e spaziatura passano dalle variabili --tw-* come nelle utility text-*
+   di Tailwind, così leading-*, font-* e tracking-* espliciti hanno la meglio. */
+@utility page-title {
+  font-family: var(--font-display);
+  font-size: 36px;
+  line-height: var(--tw-leading, 1.15);
+  font-weight: var(--tw-font-weight, 700);
+  letter-spacing: var(--tw-tracking, -0.02em);
+}
+
+@utility card-title {
+  font-family: var(--font-sans);
+  font-size: 20px;
+  line-height: var(--tw-leading, 1.4);
+  font-weight: var(--tw-font-weight, 600);
+  letter-spacing: var(--tw-tracking, normal);
 }
 
 /* Design handoff — transizione d'ingresso pagina (solo senza reduced-motion) */

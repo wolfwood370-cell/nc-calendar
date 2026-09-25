@@ -84,7 +84,7 @@ function TrainerLayout() {
           <header className="hidden md:flex h-14 items-center gap-3 border-b border-white/20 px-4 sticky top-0 bg-white/40 backdrop-blur-2xl z-10">
             <SidebarTrigger />
             <div className="h-5 w-px bg-black/15" />
-            <p className="text-sm text-muted-foreground">Studio Trainer</p>
+            <p className="text-sm text-muted-foreground">NC Calendar</p>
             {/* Design handoff: campanella "Attività clienti" nell'header
                 globale, visibile da ogni pagina /trainer (su mobile resta
                 quella nella testata della Panoramica). */}

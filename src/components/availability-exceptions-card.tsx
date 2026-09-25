@@ -90,7 +90,7 @@ export function AvailabilityExceptionsCard({ coachId }: AvailabilityExceptionsCa
   return (
     <div className="bg-white rounded-[32px] shadow-[0px_4px_20px_rgba(0,86,133,0.05)] p-6 sm:p-8">
       <div className="flex items-center justify-between mb-1">
-        <h2 className="font-display text-xl font-semibold">Eccezioni</h2>
+        <h2 className="card-title">Eccezioni</h2>
         <Button
           onClick={() => addMut.mutate()}
           disabled={addMut.isPending || !date}
@@ -160,7 +160,7 @@ export function AvailabilityExceptionsCard({ coachId }: AvailabilityExceptionsCa
       )}
 
       <Input
-        placeholder="Motivo (es. Ferie)"
+        placeholder="Motivo (es. ferie)"
         value={reason}
         onChange={(e) => setReason(e.target.value)}
         className="mb-3 h-10 rounded-full bg-surface border-surface-variant px-4"

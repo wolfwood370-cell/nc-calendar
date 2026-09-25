@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&amp;family=Manrope:wght@400;500;600;700&amp;display=swap">
+<script src="./nc-icons.js"></script>
+<script src="./nc-store.js"></script>
+<title>Tipologie di sessione · NC Calendar</title>
+<style>
+*,::before,::after{box-sizing:border-box;margin:0;padding:0;border:0 solid;}
+body{margin:0;background:#f8f9fe;font-family:Manrope,ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:#191c1f;}
+button,input,textarea{font:inherit;color:inherit;background:transparent;}
+button{cursor:pointer;}
+button:disabled{cursor:default;}
+a{color:#003e62;text-decoration:none;}
+a:hover{color:#005685;}
+input::placeholder,textarea::placeholder{color:#717880;}
+:focus-visible{outline:2px solid #005685;outline-offset:2px;}
+</style>
+</helmet>
+<div style="display:flex; min-height:100vh; background:linear-gradient(135deg,#f2f3f8,#e7e8ec);">
+  <div style="position:sticky; top:0; height:100vh; flex-shrink:0;">
+    <dc-import name="Coach Sidebar" active="tipologie" hint-size="256px,100vh" style="width:256px; height:100vh;"></dc-import>
+  </div>
+  <div style="flex:1; min-width:0; display:flex; flex-direction:column;">
+    <div style="position:sticky; top:0; z-index:40;">
+      <dc-import name="Coach Header" title="Tipologie di sessione" parent="Impostazioni" hint-size="100%,56px" style="width:100%; height:56px;"></dc-import>
+    </div>
+    <main style="flex:1; background:#f8f9fe; padding:28px 40px 48px; display:flex; flex-direction:column; gap:20px; min-width:0;">
+      <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+        <div style="display:flex; flex-direction:column; gap:6px; max-width:640px;">
+          <h1 style="font-family:Sora, sans-serif; font-size:36px; line-height:1.15; font-weight:700; letter-spacing:-0.02em;">Tipologie di sessione</h1>
+          <p style="font-size:15px; line-height:1.5; color:#41474f;">Durata, margine, luogo e colore di ogni servizio. Calendario, pacchetti e prenotazioni dei clienti usano questi valori.</p>
+        </div>
+        <button onClick="{{ openNew }}" style="height:42px; display:flex; align-items:center; gap:8px; padding:0 20px; border-radius:9999px; background:#003e62; color:#ffffff; font-size:14px; font-weight:600;" style-hover="background:#005685;"><nc-icon name="Plus" style="width:16px; height:16px;"></nc-icon>Nuova tipologia</button>
+      </div>
+
+      <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#ffffff; border-radius:28px; padding:48px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:12px;">
+          <nc-icon name="Tag" style="width:32px; height:32px; color:#c1c7d0;"></nc-icon>
+          <p style="font-size:16px; font-weight:600;">Nessuna tipologia di sessione.</p>
+          <p style="font-size:14px; color:#41474f;">Crea la prima per poter assegnare pacchetti e ricevere prenotazioni.</p>
+          <button onClick="{{ openNew }}" style="height:40px; padding:0 18px; border-radius:9999px; background:#003e62; color:#ffffff; font-size:14px; font-weight:600;">Nuova tipologia</button>
+        </div>
+      </sc-if>
+
+      <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap:16px;">
+        <sc-for list="{{ cards }}" as="t" hint-placeholder-count="4">
+          <article style="position:relative; overflow:hidden; background:#ffffff; border-radius:24px; box-shadow:0px 4px 20px rgba(0,86,133,0.05); padding:22px; display:flex; flex-direction:column; gap:16px;">
+            <span style="position:absolute; top:0; left:0; right:0; height:6px; background:{{ t.color }};"></span>
+            <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding-top:4px;">
+              <div style="display:flex; align-items:center; gap:12px; min-width:0;">
+                <span style="width:40px; height:40px; border-radius:12px; display:grid; place-items:center; flex-shrink:0; background:{{ t.color }}; color:#ffffff;"><nc-icon name="{{ t.icon }}" style="width:18px; height:18px;"></nc-icon></span>
+                <div style="min-width:0; display:flex; flex-direction:column; gap:2px;">
+                  <h2 style="font-size:17px; font-weight:700;">{{ t.name }}</h2>
+                  <p style="font-size:13px; line-height:1.4; color:#41474f;">{{ t.description }}</p>
+                </div>
+              </div>
+              <button onClick="{{ t.edit }}" aria-label="{{ t.editLabel }}" style="width:34px; height:34px; border-radius:9999px; display:grid; place-items:center; color:#41474f; flex-shrink:0;" style-hover="background:#eceef2;"><nc-icon name="Pencil" style="width:15px; height:15px;"></nc-icon></button>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:12px; padding-top:14px; border-top:1px solid #f2f3f8;">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                <span style="font-size:13px; color:#41474f;">Durata</span>
+                <span style="display:flex; align-items:center; gap:8px;">
+                  <button onClick="{{ t.durDec }}" aria-label="{{ t.durDecLabel }}" style="width:30px; height:30px; border-radius:9999px; border:1px solid #e1e2e7; display:grid; place-items:center; color:#41474f;" style-hover="border-color:#005685;"><nc-icon name="Minus" style="width:13px; height:13px;"></nc-icon></button>
+                  <strong style="min-width:58px; text-align:center; font-size:14px; font-variant-numeric:tabular-nums;">{{ t.dur }}</strong>
+                  <button onClick="{{ t.durInc }}" aria-label="{{ t.durIncLabel }}" style="width:30px; height:30px; border-radius:9999px; border:1px solid #e1e2e7; display:grid; place-items:center; color:#003e62;" style-hover="border-color:#005685;"><nc-icon name="Plus" style="width:13px; height:13px;"></nc-icon></button>
+                </span>
+              </div>
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                <span style="font-size:13px; color:#41474f;">Margine dopo la sessione</span>
+                <span style="display:flex; align-items:center; gap:8px;">
+                  <button onClick="{{ t.bufDec }}" aria-label="{{ t.bufDecLabel }}" style="width:30px; height:30px; border-radius:9999px; border:1px solid #e1e2e7; display:grid; place-items:center; color:#41474f;" style-hover="border-color:#005685;"><nc-icon name="Minus" style="width:13px; height:13px;"></nc-icon></button>
+                  <strong style="min-width:58px; text-align:center; font-size:14px; font-variant-numeric:tabular-nums;">{{ t.buf }}</strong>
+                  <button onClick="{{ t.bufInc }}" aria-label="{{ t.bufIncLabel }}" style="width:30px; height:30px; border-radius:9999px; border:1px solid #e1e2e7; display:grid; place-items:center; color:#003e62;" style-hover="border-color:#005685;"><nc-icon name="Plus" style="width:13px; height:13px;"></nc-icon></button>
+                </span>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px; font-size:13px; color:#41474f;"><nc-icon name="{{ t.locIcon }}" style="width:15px; height:15px; color:#717880;"></nc-icon>{{ t.loc }}</div>
+            </div>
+            <button onClick="{{ t.toggleBook }}" role="switch" aria-checked="{{ t.bookStr }}" style="display:flex; align-items:center; gap:12px; padding:12px 14px; border-radius:16px; background:#f8f9fe; text-align:left;">
+              <span style="width:40px; height:24px; border-radius:9999px; padding:3px; display:flex; flex-shrink:0; background:{{ t.track }}; justify-content:{{ t.justify }};"><span style="width:18px; height:18px; border-radius:9999px; background:#ffffff; box-shadow:0 1px 2px rgba(0,0,0,0.2);"></span></span>
+              <span style="display:flex; flex-direction:column; gap:2px; min-width:0;"><strong style="font-size:14px;">Prenotabile dai clienti</strong><span style="font-size:12px; line-height:1.4; color:#41474f;">{{ t.bookHint }}</span></span>
+            </button>
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:12px; color:#717880;">
+              <span style="display:flex; align-items:center; gap:6px;"><nc-icon name="Activity" style="width:14px; height:14px;"></nc-icon>{{ t.usage }}</span>
+              <button onClick="{{ t.askDelete }}" style="font-size:12px; font-weight:600; color:#b91c1c;">Elimina</button>
+            </div>
+          </article>
+        </sc-for>
+      </div>
+      <sc-if value="{{ tags }}" hint-placeholder-val="{{ true }}">
+        <p style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:12px; color:#717880;">I pulsanti − e + e l'interruttore agiscono subito; il resto si modifica dalla matita.<a href="Audit%20Coach%20Desktop.dc.html#E1" style="font-size:10px; font-weight:700; color:#7c4302; background:#ffdcc2; border-radius:9999px; padding:2px 7px;">E1</a><a href="Audit%20Coach%20Desktop.dc.html#E2" style="font-size:10px; font-weight:700; color:#7c4302; background:#ffdcc2; border-radius:9999px; padding:2px 7px;">E2</a><a href="Audit%20Coach%20Desktop.dc.html#E3" style="font-size:10px; font-weight:700; color:#7c4302; background:#ffdcc2; border-radius:9999px; padding:2px 7px;">E3</a><a href="Audit%20Coach%20Desktop.dc.html#E4" style="font-size:10px; font-weight:700; color:#7c4302; background:#ffdcc2; border-radius:9999px; padding:2px 7px;">E4</a></p>
+      </sc-if>
+    </main>
+  </div>
+
+  <sc-if value="{{ formOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeForm }}" style="position:fixed; inset:0; z-index:100; background:rgba(25,28,31,0.32); display:grid; place-items:center; padding:24px;">
+      <div role="dialog" aria-modal="true" aria-labelledby="dlg-type" onClick="{{ stop }}" style="width:600px; max-width:100%; max-height:calc(100vh - 48px); overflow:auto; background:#ffffff; border-radius:28px; box-shadow:0 30px 80px rgba(0,0,0,0.25); padding:28px; display:flex; flex-direction:column; gap:18px;">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+          <div style="display:flex; align-items:center; gap:8px;"><h2 id="dlg-type" style="font-family:Sora, sans-serif; font-size:22px; font-weight:700;">{{ fTitle }}</h2><sc-if value="{{ tags }}" hint-placeholder-val="{{ true }}"><a href="Audit%20Coach%20Desktop.dc.html#E5" style="font-size:10px; font-weight:700; color:#7c4302; background:#ffdcc2; border-radius:9999px; padding:2px 7px;">E5</a></sc-if></div>
+          <button onClick="{{ closeForm }}" aria-label="Chiudi" style="width:36px; height:36px; border-radius:9999px; display:grid; place-items:center; color:#41474f;" style-hover="background:#eceef2;"><nc-icon name="X" style="width:18px; height:18px;"></nc-icon></button>
+        </div>
+        <label style="display:flex; flex-direction:column; gap:6px;"><span style="font-size:13px; font-weight:700;">Nome</span><input value="{{ fName }}" onChange="{{ onName }}" maxLength="60" placeholder="Es. Personal Training" aria-invalid="{{ fNameInvalid }}" style="height:42px; border-radius:14px; background:#f2f3f8; padding:0 14px; font-size:14px; outline:none; border:1.5px solid {{ fNameBorder }};" style-focus="background:#ffffff; box-shadow:0 0 0 2px #005685;">
+          <sc-if value="{{ fNameError }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px; font-weight:600; color:#b91c1c;">{{ fNameError }}</span></sc-if>
+        </label>
+        <label style="display:flex; flex-direction:column; gap:6px;"><span style="font-size:13px; font-weight:700;">Descrizione <span style="font-weight:500; color:#717880;">(la vedono i clienti)</span></span><textarea value="{{ fDesc }}" onChange="{{ onDesc }}" rows="2" maxLength="280" style="border-radius:14px; background:#f2f3f8; padding:10px 14px; font-size:14px; line-height:1.5; outline:none; resize:vertical;"></textarea></label>
+        <div style="display:flex; flex-wrap:wrap; gap:14px 20px;">
+          <div style="display:flex; flex-direction:column; gap:8px;"><p style="font-size:13px; font-weight:700;">Durata</p>
+            <div style="display:flex; padding:3px; border-radius:9999px; background:#eceef2; align-self:flex-start; white-space:nowrap;">
+              <sc-for list="{{ durOpts }}" as="o" hint-placeholder-count="5"><button onClick="{{ o.pick }}" style="height:32px; padding:0 11px; border-radius:9999px; font-size:13px; font-weight:600; background:{{ o.bg }}; color:{{ o.fg }}; box-shadow:{{ o.shadow }};">{{ o.label }}</button></sc-for>
+            </div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:8px;"><p style="font-size:13px; font-weight:700;">Margine dopo la sessione</p>
+            <div style="display:flex; padding:3px; border-radius:9999px; background:#eceef2; align-self:flex-start; white-space:nowrap;">
+              <sc-for list="{{ bufOpts }}" as="o" hint-placeholder-count="4"><button onClick="{{ o.pick }}" style="height:32px; padding:0 11px; border-radius:9999px; font-size:13px; font-weight:600; background:{{ o.bg }}; color:{{ o.fg }}; box-shadow:{{ o.shadow }};">{{ o.label }}</button></sc-for>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:8px;"><p style="font-size:13px; font-weight:700;">Luogo</p>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            <sc-for list="{{ locOpts }}" as="o" hint-placeholder-count="2"><button onClick="{{ o.pick }}" role="radio" aria-checked="{{ o.checked }}" style="height:44px; display:flex; align-items:center; gap:10px; padding:0 14px; border-radius:14px; font-size:14px; font-weight:600; border:1.5px solid {{ o.border }}; background:{{ o.bg }};"><nc-icon name="{{ o.icon }}" style="width:16px; height:16px; color:#003e62;"></nc-icon>{{ o.label }}</button></sc-for>
+          </div>
+          <sc-if value="{{ fIsStudio }}" hint-placeholder-val="{{ true }}"><input value="{{ fAddress }}" onChange="{{ onAddress }}" placeholder="Indirizzo, es. Via Roma 12, Bologna" aria-label="Indirizzo" style="height:42px; border-radius:14px; background:#f2f3f8; padding:0 14px; font-size:14px; outline:none;" style-focus="background:#ffffff; box-shadow:0 0 0 2px #005685;"><span style="font-size:12px; color:#717880;">I clienti possono aprirlo in Google Maps.</span></sc-if>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:8px;"><p style="font-size:13px; font-weight:700;">Colore</p>
+          <div role="radiogroup" aria-label="Colore" style="display:flex; flex-wrap:wrap; gap:8px;">
+            <sc-for list="{{ colors }}" as="k" hint-placeholder-count="12"><button role="radio" aria-checked="{{ k.checked }}" aria-label="{{ k.name }}" title="{{ k.name }}" onClick="{{ k.pick }}" style="width:32px; height:32px; border-radius:9999px; display:grid; place-items:center; color:#ffffff; background:{{ k.hex }}; box-shadow:{{ k.ring }};"><sc-if value="{{ k.on }}" hint-placeholder-val="{{ false }}"><nc-icon name="Check" stroke="3" style="width:14px; height:14px;"></nc-icon></sc-if></button></sc-for>
+          </div>
+          <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:12px; border-radius:16px; background:#f8f9fe;">
+            <span style="font-size:12px; color:#717880;">In calendario:</span>
+            <span style="display:flex; flex-direction:column; gap:1px; width:170px; padding:5px 9px; border-radius:10px; background:{{ fColor }}; color:#ffffff;"><span style="font-size:12px; font-weight:700;">Giulia Bianchi</span><span style="font-size:11px; opacity:0.92;">{{ fPreviewSub }}</span></span>
+            <sc-if value="{{ fLowContrast }}" hint-placeholder-val="{{ false }}"><span style="display:flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:#c2410c;"><nc-icon name="TriangleAlert" style="width:14px; height:14px;"></nc-icon>Testo bianco poco leggibile su questo colore</span></sc-if>
+          </div>
+        </div>
+        <button onClick="{{ toggleFBook }}" role="switch" aria-checked="{{ fBookStr }}" style="display:flex; align-items:center; gap:12px; padding:12px 14px; border-radius:16px; background:#f8f9fe; text-align:left;">
+          <span style="width:40px; height:24px; border-radius:9999px; padding:3px; display:flex; flex-shrink:0; background:{{ fTrack }}; justify-content:{{ fJustify }};"><span style="width:18px; height:18px; border-radius:9999px; background:#ffffff; box-shadow:0 1px 2px rgba(0,0,0,0.2);"></span></span>
+          <span style="display:flex; flex-direction:column; gap:2px;"><strong style="font-size:14px;">Prenotabile dai clienti</strong><span style="font-size:12px; color:#41474f;">Se disattivo, solo tu puoi fissare questa sessione.</span></span>
+        </button>
+        <sc-if value="{{ fNotBookable }}" hint-placeholder-val="{{ false }}">
+          <label style="display:flex; flex-direction:column; gap:6px;"><span style="font-size:13px; font-weight:700;">Messaggio per i clienti</span><textarea value="{{ fMessage }}" onChange="{{ onMessage }}" rows="2" maxLength="500" placeholder="Es. Per prenotare questa sessione scrivimi su WhatsApp." style="border-radius:14px; background:#f2f3f8; padding:10px 14px; font-size:14px; line-height:1.5; outline:none; resize:vertical;"></textarea></label>
+        </sc-if>
+        <div style="display:flex; justify-content:flex-end; gap:8px;">
+          <button onClick="{{ closeForm }}" style="height:40px; padding:0 18px; border-radius:9999px; font-size:14px; font-weight:600; background:#eceef2; color:#41474f;">Annulla</button>
+          <button onClick="{{ submit }}" style="height:40px; padding:0 20px; border-radius:9999px; font-size:14px; font-weight:600; color:#ffffff; background:#003e62;" style-hover="background:#005685;">{{ fCta }}</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ delOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeDel }}" style="position:fixed; inset:0; z-index:110; background:rgba(25,28,31,0.32); display:grid; place-items:center; padding:24px;">
+      <div role="alertdialog" aria-modal="true" aria-labelledby="dlg-del" onClick="{{ stop }}" style="width:460px; max-width:100%; background:#ffffff; border-radius:24px; box-shadow:0 30px 80px rgba(0,0,0,0.25); padding:24px; display:flex; flex-direction:column; gap:14px;">
+        <h2 id="dlg-del" style="font-family:Sora, sans-serif; font-size:19px; font-weight:700;">{{ delTitle }}</h2>
+        <p style="font-size:14px; line-height:1.5; color:#41474f;">{{ delBody }}</p>
+        <div style="display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap;">
+          <button onClick="{{ closeDel }}" style="height:40px; padding:0 16px; border-radius:9999px; font-size:14px; font-weight:600; background:#eceef2; color:#41474f;">Annulla</button>
+          <sc-if value="{{ delInUse }}" hint-placeholder-val="{{ false }}"><button onClick="{{ delDisable }}" style="height:40px; padding:0 16px; border-radius:9999px; font-size:14px; font-weight:600; border:1px solid #e1e2e7; color:#003e62;">Rendi non prenotabile</button></sc-if>
+          <button onClick="{{ doDelete }}" style="height:40px; padding:0 16px; border-radius:9999px; font-size:14px; font-weight:600; background:#b91c1c; color:#ffffff;">Elimina</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ toastOn }}" hint-placeholder-val="{{ false }}">
+    <div role="status" aria-live="polite" style="position:fixed; left:50%; bottom:28px; transform:translateX(-50%); z-index:200; display:flex; align-items:center; gap:14px; background:#ffffff; border:1px solid #eceef2; border-radius:18px; box-shadow:0 16px 48px rgba(0,0,0,0.18); padding:12px 12px 12px 16px; max-width:calc(100vw - 48px);">
+      <nc-icon name="{{ toastIcon }}" style="width:18px; height:18px; color:{{ toastColor }};"></nc-icon>
+      <span style="font-size:14px; font-weight:500;">{{ toastMsg }}</span>
+      <sc-if value="{{ toastUndo }}" hint-placeholder-val="{{ false }}"><button onClick="{{ undoToast }}" style="height:32px; padding:0 14px; border-radius:9999px; background:rgba(0,62,98,0.1); color:#003e62; font-size:13px; font-weight:700;">Ripristina</button></sc-if>
+      <button onClick="{{ dismissToast }}" aria-label="Chiudi" style="width:28px; height:28px; border-radius:9999px; display:grid; place-items:center; color:#717880;" style-hover="background:#eceef2;"><nc-icon name="X" style="width:14px; height:14px;"></nc-icon></button>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;auditTags&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Prototipo&quot;}}">
+class Component extends DCLogic {
+  state = { form: null, delId: null, tried: false };
+  componentDidMount() {
+    const hook = () => { this.unsub = window.NCStore.subscribe(() => this.forceUpdate()); this.forceUpdate(); };
+    const wait = () => (window.NCStore ? hook() : (this.t = setTimeout(wait, 30)));
+    wait();
+    this.onKey = (e) => { if (e.key === "Escape") this.setState({ form: null, delId: null }); };
+    document.addEventListener("keydown", this.onKey);
+  }
+  componentWillUnmount() { this.unsub && this.unsub(); clearTimeout(this.t); document.removeEventListener("keydown", this.onKey); }
+  renderVals() {
+    const S = window.NCStore;
+    const tags = this.props.auditTags ?? true;
+    if (!S) return { tags, cards: [], durOpts: [], bufOpts: [], locOpts: [], colors: [] };
+    const ss = this.state;
+    const seg = (on) => ({ bg: on ? "#ffffff" : "transparent", fg: on ? "#003e62" : "#41474f", shadow: on ? "0 1px 3px rgba(0,0,0,0.1)" : "none" });
+    const COLORS = [["#003e62", "Blu studio"], ["#d50000", "Pomodoro"], ["#e67c73", "Fenicottero"], ["#f4511e", "Mandarino"], ["#f6bf26", "Banana"], ["#33b679", "Salvia"], ["#0b8043", "Basilico"], ["#039be5", "Pavone"], ["#3f51b5", "Mirtillo"], ["#7986cb", "Lavanda"], ["#8e24aa", "Uva"], ["#616161", "Grafite"]];
+    const lum = (hex) => { const n = parseInt(hex.slice(1), 16); const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2]; };
+    const contrastWhite = (hex) => 1.05 / (lum(hex) + 0.05);
+    const open = (t) => this.setState({ tried: false, form: t ? { id: t.id, name: t.name, description: t.description || "", duration: t.duration, buffer: t.buffer || 0, location: t.location || "studio", address: t.address || "", color: t.color, bookable: t.bookable !== false, message: t.message || "", icon: t.icon } : { id: null, name: "", description: "", duration: 60, buffer: 10, location: "studio", address: "", color: "#003e62", bookable: true, message: "", icon: "Dumbbell" } });
+    const cards = S.types.map((t) => {
+      const us = S.typeUsage(t.id), on = t.bookable !== false;
+      const step = (field, d, min, max) => () => S.patchType(t.id, { [field]: Math.max(min, Math.min(max, (t[field] || 0) + d)) });
+      return {
+        name: t.name, description: t.description || "", color: t.color, icon: t.icon || "Dumbbell",
+        editLabel: "Modifica " + t.name, edit: () => open(t),
+        dur: S.fmtDur(t.duration), buf: (t.buffer || 0) + " min",
+        durDec: step("duration", -15, 15, 240), durInc: step("duration", 15, 15, 240), bufDec: step("buffer", -5, 0, 60), bufInc: step("buffer", 5, 0, 60),
+        durDecLabel: "Riduci la durata di " + t.name, durIncLabel: "Aumenta la durata di " + t.name, bufDecLabel: "Riduci il margine di " + t.name, bufIncLabel: "Aumenta il margine di " + t.name,
+        locIcon: t.location === "online" ? "Video" : "MapPin", loc: t.location === "online" ? "Online · link inviato alla prenotazione" : "In studio · " + (t.address || "indirizzo non impostato"),
+        bookStr: on ? "true" : "false", track: on ? "#003e62" : "#c1c7d0", justify: on ? "flex-end" : "flex-start",
+        bookHint: on ? "I clienti la vedono tra le sessioni prenotabili." : t.message ? "Nascosta ai clienti. Messaggio: «" + t.message + "»" : "Nascosta ai clienti: solo tu puoi fissarla.",
+        toggleBook: () => { const u = S.patchType(t.id, { bookable: !on }); S.showToast({ msg: t.name + (on ? " non è più prenotabile dai clienti." : " è di nuovo prenotabile dai clienti."), undo: u, tone: "info" }); },
+        usage: us.month + (us.month === 1 ? " sessione" : " sessioni") + " questo mese · " + us.clients + (us.clients === 1 ? " cliente con crediti" : " clienti con crediti"),
+        askDelete: () => this.setState({ delId: t.id }),
+      };
+    });
+    const out = { tags, cards, isEmpty: cards.length === 0, openNew: () => open(null), stop: (e) => e.stopPropagation() };
+
+    const f = ss.form;
+    out.formOpen = !!f; out.closeForm = () => this.setState({ form: null });
+    out.durOpts = []; out.bufOpts = []; out.locOpts = []; out.colors = [];
+    if (f) {
+      const upd = (p) => this.setState({ form: Object.assign({}, f, p) });
+      const nameErr = !f.name.trim() ? "Inserisci un nome." : S.types.some((t) => t.id !== f.id && t.name.trim().toLowerCase() === f.name.trim().toLowerCase()) ? "Esiste già una tipologia con questo nome." : false;
+      const showErr = ss.tried && nameErr;
+      Object.assign(out, {
+        fTitle: f.id ? "Modifica tipologia" : "Nuova tipologia",
+        fName: f.name, onName: (e) => upd({ name: e.target.value }),
+        fNameError: showErr || false, fNameInvalid: showErr ? "true" : "false", fNameBorder: showErr ? "#b91c1c" : "transparent",
+        fDesc: f.description, onDesc: (e) => upd({ description: e.target.value }),
+        durOpts: [30, 45, 60, 90, 120].map((v) => Object.assign({ label: S.fmtDur(v), pick: () => upd({ duration: v }) }, seg(f.duration === v))),
+        bufOpts: [0, 5, 10, 15].map((v) => Object.assign({ label: v + " min", pick: () => upd({ buffer: v }) }, seg(f.buffer === v))),
+        locOpts: [["studio", "In studio", "MapPin"], ["online", "Online", "Video"]].map(([id, label, icon]) => { const on = f.location === id; return { label, icon, checked: on ? "true" : "false", border: on ? "#003e62" : "#e1e2e7", bg: on ? "rgba(0,62,98,0.05)" : "#ffffff", pick: () => upd({ location: id }) }; }),
+        fIsStudio: f.location === "studio", fAddress: f.address, onAddress: (e) => upd({ address: e.target.value }),
+        colors: COLORS.map(([hex, name]) => { const on = f.color.toLowerCase() === hex; return { hex, name, on, checked: on ? "true" : "false", ring: on ? "0 0 0 2px #ffffff, 0 0 0 4px #191c1f" : "none", pick: () => upd({ color: hex }) }; }),
+        fColor: f.color, fPreviewSub: (f.name.trim() || "Nuova tipologia") + " · 10:30",
+        fLowContrast: contrastWhite(f.color) < 3,
+        fBookStr: f.bookable ? "true" : "false", fTrack: f.bookable ? "#003e62" : "#c1c7d0", fJustify: f.bookable ? "flex-end" : "flex-start",
+        toggleFBook: () => upd({ bookable: !f.bookable }), fNotBookable: !f.bookable,
+        fMessage: f.message, onMessage: (e) => upd({ message: e.target.value }),
+        fCta: f.id ? "Salva modifiche" : "Crea tipologia",
+        submit: () => {
+          if (nameErr) return this.setState({ tried: true });
+          const r = S.saveType({ id: f.id || undefined, name: f.name.trim(), description: f.description.trim(), duration: f.duration, buffer: f.buffer, location: f.location, address: f.location === "studio" ? f.address.trim() : "", color: f.color, bookable: f.bookable, message: f.bookable ? "" : f.message.trim(), icon: f.icon });
+          this.setState({ form: null });
+          S.showToast({ msg: f.id ? "Tipologia aggiornata." : "Tipologia «" + f.name.trim() + "» creata.", undo: r.undo });
+        },
+      });
+    }
+
+    const dt = ss.delId ? S.type(ss.delId) : null;
+    out.delOpen = !!dt; out.closeDel = () => this.setState({ delId: null });
+    if (dt) {
+      const us = S.typeUsage(dt.id), inUse = us.future > 0 || us.clients > 0;
+      Object.assign(out, {
+        delTitle: "Eliminare «" + dt.name + "»?",
+        delBody: inUse ? "È in uso: " + us.future + (us.future === 1 ? " sessione futura" : " sessioni future") + " e " + us.clients + (us.clients === 1 ? " cliente ha" : " clienti hanno") + " crediti di questo tipo. Le sessioni restano in calendario, ma non potrai più assegnare pacchetti con questa tipologia. Se vuoi solo nasconderla ai clienti, rendila non prenotabile." : "Non ci sono sessioni future né crediti di questo tipo. Le sessioni passate restano nello storico.",
+        delInUse: inUse,
+        delDisable: () => { const u = S.patchType(dt.id, { bookable: false }); this.setState({ delId: null }); S.showToast({ msg: dt.name + " non è più prenotabile dai clienti.", undo: u, tone: "info" }); },
+        doDelete: () => { const u = S.deleteType(dt.id); this.setState({ delId: null }); S.showToast({ msg: "Tipologia «" + dt.name + "» eliminata.", undo: u, tone: "info" }); },
+      });
+    }
+
+    const tst = S.getToast();
+    const TONE = { ok: ["CircleCheck", "#047857"], warn: ["UserX", "#c2410c"], info: ["Info", "#005685"] };
+    const tone = tst ? TONE[tst.tone] || TONE.ok : TONE.ok;
+    Object.assign(out, { toastOn: !!tst, toastMsg: tst ? tst.msg : "", toastUndo: !!(tst && tst.undo), toastIcon: tone[0], toastColor: tone[1], undoToast: () => S.undoToast(), dismissToast: () => S.dismissToast() });
+    return out;
+  }
+}
+</script>
+</body>
+</html>

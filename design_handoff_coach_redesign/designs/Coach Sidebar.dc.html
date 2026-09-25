@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&amp;family=Manrope:wght@400;500;600;700&amp;display=swap">
+<script src="./nc-icons.js"></script>
+<script src="./nc-store.js"></script>
+<style>
+*,::before,::after{box-sizing:border-box;margin:0;padding:0;border:0 solid;}
+body{margin:0;font-family:Manrope,ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
+button{font:inherit;color:inherit;background:transparent;cursor:pointer;}
+ul{list-style:none;}
+a{color:inherit;text-decoration:none;}
+a:hover{color:inherit;}
+</style>
+</helmet>
+<div style="width:256px; height:100%; min-height:100%; display:flex; flex-direction:column; background:rgba(255,255,255,0.4); backdrop-filter:blur(40px); -webkit-backdrop-filter:blur(40px); border-right:1px solid oklch(0.915 0.012 255); font-family:Manrope, ui-sans-serif, system-ui, sans-serif; color:#191c1f;">
+  <div style="display:flex; align-items:center; gap:10px; padding:16px;">
+    <div style="width:32px; height:32px; border-radius:8px; overflow:hidden; background:#ffffff; flex-shrink:0;">
+      <img src="./assets/ncc-logo.png" alt="NC Calendar" style="width:100%; height:100%; object-fit:cover; transform:scale(1.2);">
+    </div>
+    <div>
+      <p style="font-family:Sora, sans-serif; font-size:14px; font-weight:600; line-height:1;">NC Calendar</p>
+      <p style="font-size:12px; line-height:16px; color:#717880; margin-top:4px;">Studio</p>
+    </div>
+  </div>
+  <nav style="flex:1; min-height:0; overflow:auto; display:flex; flex-direction:column; gap:12px; padding:4px 8px;">
+    <sc-for list="{{ groups }}" as="g" hint-placeholder-count="2">
+      <div style="display:flex; flex-direction:column; gap:2px;">
+        <p style="height:32px; display:flex; align-items:center; padding:0 12px; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:#717880;">{{ g.label }}</p>
+        <ul style="display:flex; flex-direction:column; gap:4px;">
+          <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="3">
+            <li>
+              <a href="{{ it.href }}" onClick="{{ it.onClick }}" aria-current="{{ it.current }}" style="display:flex; height:36px; align-items:center; gap:12px; border-radius:9999px; padding:0 12px; font-size:14px; font-weight:{{ it.weight }}; color:{{ it.color }}; background:{{ it.bg }};" style-hover="background:rgba(0,62,98,0.06);">
+                <nc-icon name="{{ it.icon }}" style="width:16px; height:16px;"></nc-icon>
+                <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ it.label }}</span>
+                <sc-if value="{{ it.badge }}" hint-placeholder-val="{{ false }}">
+                  <span aria-label="{{ it.badgeLabel }}" title="{{ it.badgeLabel }}" style="min-width:20px; height:20px; padding:0 6px; border-radius:9999px; background:rgba(124,67,2,0.12); color:#7c4302; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center;">{{ it.badge }}</span>
+                </sc-if>
+              </a>
+            </li>
+          </sc-for>
+        </ul>
+      </div>
+    </sc-for>
+  </nav>
+  <div style="padding:16px;">
+    <div style="border-radius:16px; border:1px solid #c1c7d0; background:#ffffff; padding:12px; display:flex; flex-direction:column; gap:8px;">
+      <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+        <div style="width:32px; height:32px; border-radius:9999px; background:#003e62; color:#ffffff; display:grid; place-items:center; font-size:12px; font-weight:700; flex-shrink:0;">{{ coachIni }}</div>
+        <div style="min-width:0;">
+          <p style="font-size:14px; line-height:20px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ coachName }}</p>
+          <p style="font-size:12px; line-height:16px; color:#717880; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ coachEmail }}</p>
+        </div>
+      </div>
+      <button onClick="{{ logout }}" style="display:flex; width:100%; height:32px; align-items:center; gap:8px; border-radius:9999px; padding:0 10px; font-size:12px; font-weight:600; color:#41474f;" style-hover="background:#eceef2;"><nc-icon name="LogOut" style="width:16px; height:16px;"></nc-icon>Esci</button>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:256,&quot;height&quot;:900},&quot;active&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;panoramica&quot;,&quot;calendario&quot;,&quot;clienti&quot;,&quot;tipologie&quot;,&quot;disponibilita&quot;,&quot;integrazioni&quot;],&quot;default&quot;:&quot;panoramica&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  componentDidMount() {
+    const hook = () => { this.unsub = window.NCStore.subscribe(() => this.forceUpdate()); this.forceUpdate(); };
+    const wait = () => (window.NCStore ? hook() : (this.t = setTimeout(wait, 30)));
+    wait();
+  }
+  componentWillUnmount() { this.unsub && this.unsub(); clearTimeout(this.t); }
+  renderVals() {
+    const S = window.NCStore;
+    const active = this.props.active ?? "panoramica";
+    const toAssign = S ? S.openExternal().length : 0;
+    const mk = (key, label, icon, badge) => {
+      const p = S ? S.pages[key] : null;
+      const on = active === key;
+      return {
+        label, icon, badge: badge || false, badgeLabel: badge ? badge + (badge === 1 ? " evento da assegnare" : " eventi da assegnare") : "",
+        href: p && p.ready ? S.href(key) : "#",
+        onClick: (e) => { if (!S) return; if (!S.pages[key].ready) { e.preventDefault(); S.go(key); return; } if (S.leaveGuard && !S.leaveGuard(S.href(key))) e.preventDefault(); },
+        current: on ? "page" : "false",
+        weight: on ? 600 : 500,
+        color: on ? "#003e62" : "#41474f",
+        bg: on ? "rgba(0,62,98,0.1)" : "transparent",
+      };
+    };
+    const coach = S ? S.get().coach : { name: "", email: "" };
+    return {
+      groups: [
+        { label: "Area di lavoro", items: [
+          mk("panoramica", "Panoramica", "LayoutDashboard"),
+          mk("calendario", "Calendario", "CalendarDays", toAssign || false),
+          mk("clienti", "Clienti", "Users"),
+        ]},
+        { label: "Impostazioni", items: [
+          mk("tipologie", "Tipologie di sessione", "Tag"),
+          mk("disponibilita", "Disponibilità", "Clock"),
+          mk("integrazioni", "Integrazioni", "Plug"),
+        ]},
+      ],
+      coachName: coach.name, coachEmail: coach.email, coachIni: S ? S.initials(coach.name) : "",
+      logout: () => S && S.showToast({ msg: "Uscita simulata: nel prototipo resti connesso.", tone: "info" }),
+    };
+  }
+}
+</script>
+</body>
+</html>

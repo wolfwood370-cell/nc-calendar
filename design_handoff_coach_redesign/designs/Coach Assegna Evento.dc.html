@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&amp;family=Manrope:wght@400;500;600;700&amp;display=swap">
+<script src="./nc-icons.js"></script>
+<script src="./nc-store.js"></script>
+<style>
+*,::before,::after{box-sizing:border-box;margin:0;padding:0;border:0 solid;}
+button,input{font:inherit;color:inherit;background:transparent;}
+button{cursor:pointer;}
+button:disabled{cursor:default;}
+a{color:#003e62;text-decoration:none;}
+a:hover{color:#005685;}
+</style>
+</helmet>
+<div onClick="{{ close }}" style="position:fixed; inset:0; z-index:100; background:rgba(25,28,31,0.32); display:grid; place-items:center; padding:24px; font-family:Manrope, sans-serif; color:#191c1f;">
+  <div role="dialog" aria-modal="true" aria-labelledby="dlg-assign" onClick="{{ stop }}" style="width:560px; max-width:100%; max-height:calc(100vh - 48px); overflow:auto; background:#ffffff; border-radius:28px; box-shadow:0 30px 80px rgba(0,0,0,0.25); padding:28px; display:flex; flex-direction:column; gap:20px;">
+    <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+      <div style="display:flex; flex-direction:column; gap:4px;">
+        <h2 id="dlg-assign" style="font-family:Sora, sans-serif; font-size:22px; font-weight:700;">Assegna evento</h2>
+        <p style="font-size:14px; color:#41474f;">{{ title }} · {{ when }}</p>
+        <p style="font-size:12px; color:#717880;">Importato da Google Calendar</p>
+      </div>
+      <button onClick="{{ close }}" aria-label="Chiudi" style="width:36px; height:36px; border-radius:9999px; display:grid; place-items:center; color:#41474f;" style-hover="background:#eceef2;"><nc-icon name="X" style="width:18px; height:18px;"></nc-icon></button>
+    </div>
+
+    <div role="radiogroup" aria-label="Che cos'è questo evento" style="display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:8px;">
+      <sc-for list="{{ modes }}" as="m" hint-placeholder-count="3">
+        <button role="radio" aria-checked="{{ m.checked }}" onClick="{{ m.pick }}" style="display:flex; flex-direction:column; align-items:flex-start; gap:4px; padding:12px 14px; border-radius:18px; text-align:left; border:1.5px solid {{ m.border }}; background:{{ m.bg }};">
+          <nc-icon name="{{ m.icon }}" style="width:18px; height:18px; color:{{ m.iconColor }};"></nc-icon>
+          <span style="font-size:14px; font-weight:700;">{{ m.label }}</span>
+          <span style="font-size:12px; line-height:1.4; color:#41474f;">{{ m.hint }}</span>
+        </button>
+      </sc-for>
+    </div>
+
+    <sc-if value="{{ isClient }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+          <p style="font-size:13px; font-weight:700;">Cliente</p>
+          <sc-if value="{{ guessed }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px; color:#717880;">Suggerito dal titolo dell'evento</span></sc-if>
+        </div>
+        <div style="position:relative;">
+          <nc-icon name="Search" style="position:absolute; left:14px; top:12px; width:16px; height:16px; color:#717880; pointer-events:none;"></nc-icon>
+          <input value="{{ q }}" onChange="{{ onQ }}" placeholder="Cerca per nome" aria-label="Cerca cliente" style="width:100%; height:40px; border-radius:9999px; background:#f2f3f8; padding:0 16px 0 38px; font-size:14px; outline:none;" style-focus="background:#ffffff; box-shadow:0 0 0 2px #005685;">
+        </div>
+        <div style="max-height:196px; overflow:auto; display:flex; flex-direction:column; gap:2px; border:1px solid #eceef2; border-radius:18px; padding:4px;">
+          <sc-for list="{{ clients }}" as="c" hint-placeholder-count="4">
+            <button onClick="{{ c.pick }}" style="display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:14px; text-align:left; background:{{ c.bg }};" style-hover="background:#f2f3f8;">
+              <span style="width:32px; height:32px; border-radius:9999px; background:#d6e5ec; color:#3b494f; display:grid; place-items:center; font-size:12px; font-weight:700; flex-shrink:0;">{{ c.ini }}</span>
+              <span style="flex:1; min-width:0; display:flex; flex-direction:column;"><span style="font-size:14px; font-weight:600;">{{ c.name }}</span><span style="font-size:12px; color:#717880;">{{ c.plan }}</span></span>
+              <span style="width:20px; height:20px; border-radius:9999px; display:grid; place-items:center; flex-shrink:0; border:2px solid {{ c.ring }}; background:{{ c.fill }}; color:#ffffff;"><nc-icon name="Check" stroke="3" style="width:12px; height:12px;"></nc-icon></span>
+            </button>
+          </sc-for>
+          <sc-if value="{{ none }}" hint-placeholder-val="{{ false }}"><p style="padding:12px; font-size:13px; color:#717880;">Nessun cliente trovato.</p></sc-if>
+        </div>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <p style="font-size:13px; font-weight:700;">Tipologia di sessione</p>
+        <div style="display:flex; flex-wrap:wrap; gap:8px;">
+          <sc-for list="{{ types }}" as="t" hint-placeholder-count="4">
+            <button onClick="{{ t.pick }}" aria-pressed="{{ t.pressed }}" style="height:36px; display:flex; align-items:center; gap:8px; padding:0 14px; border-radius:9999px; font-size:13px; font-weight:600; border:1px solid {{ t.border }}; background:{{ t.bg }}; color:{{ t.fg }};"><span style="width:8px; height:8px; border-radius:9999px; background:{{ t.color }};"></span>{{ t.name }}</button>
+          </sc-for>
+        </div>
+      </div>
+      <button onClick="{{ toggleCredit }}" disabled="{{ creditDisabled }}" aria-pressed="{{ creditPressed }}" style="display:flex; align-items:flex-start; gap:12px; text-align:left; padding:14px 16px; border-radius:18px; background:#f2f3f8;">
+        <span style="width:20px; height:20px; border-radius:6px; flex-shrink:0; margin-top:1px; display:grid; place-items:center; color:#ffffff; border:2px solid {{ creditRing }}; background:{{ creditFill }};"><nc-icon name="Check" stroke="3" style="width:12px; height:12px;"></nc-icon></span>
+        <span style="display:flex; flex-direction:column; gap:2px;"><span style="font-size:14px; font-weight:600;">Scala un credito dal pacchetto</span><span style="font-size:12px; color:#41474f;">{{ creditHint }}</span></span>
+      </button>
+    </sc-if>
+
+    <sc-if value="{{ isOther }}" hint-placeholder-val="{{ false }}">
+      <p style="font-size:14px; line-height:1.5; color:#41474f; background:#f2f3f8; border-radius:18px; padding:14px 16px;">{{ otherHint }}</p>
+    </sc-if>
+
+    <div style="display:flex; justify-content:flex-end; gap:8px; padding-top:4px;">
+      <button onClick="{{ close }}" style="height:40px; padding:0 18px; border-radius:9999px; font-size:14px; font-weight:600; background:#eceef2; color:#41474f;" style-hover="background:#e1e2e7;">Annulla</button>
+      <button onClick="{{ confirm }}" disabled="{{ disabled }}" style="height:40px; padding:0 20px; border-radius:9999px; font-size:14px; font-weight:600; color:#ffffff; background:{{ btnBg }};">{{ cta }}</button>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:800,&quot;height&quot;:760},&quot;eventId&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;g1&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;onClose&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;}}">
+class Component extends DCLogic {
+  state = { mode: null, clientId: undefined, typeId: undefined, useCredit: true, q: "" };
+  componentDidMount() {
+    const hook = () => { this.unsub = window.NCStore.subscribe(() => this.forceUpdate()); this.forceUpdate(); };
+    const wait = () => (window.NCStore ? hook() : (this.t = setTimeout(wait, 30)));
+    wait();
+    this.onKey = (e) => { if (e.key === "Escape") this.close(); };
+    document.addEventListener("keydown", this.onKey);
+  }
+  componentWillUnmount() { this.unsub && this.unsub(); clearTimeout(this.t); document.removeEventListener("keydown", this.onKey); }
+  close() { this.props.onClose && this.props.onClose(); }
+  guess(S, x) {
+    const s = (x.title || "").toLowerCase();
+    let client = null, type = null;
+    S.get().clients.forEach((c) => { const first = c.name.split(" ")[0].toLowerCase(); if (s.includes(c.name.toLowerCase()) || s.includes(first)) client = client || c; });
+    S.types.forEach((t) => { if (s.includes(t.name.toLowerCase())) type = t; });
+    if (!type && /\bpt\b|allenamento/.test(s)) type = S.type("pt");
+    if (!type && /valutazione|consulenza|colloquio/.test(s)) type = S.type("cons");
+    return { client, type };
+  }
+  renderVals() {
+    const S = window.NCStore;
+    const x = S ? S.external(this.props.eventId) : null;
+    if (!x) return { modes: [], clients: [], types: [], isClient: false, isOther: false, close: () => this.close(), stop: (e) => e.stopPropagation() };
+    const g = this.guess(S, x);
+    const mode = this.state.mode || "client";
+    const clientId = this.state.clientId !== undefined ? this.state.clientId : g.client ? g.client.id : null;
+    const typeId = this.state.typeId || (g.type ? g.type.id : "pt");
+    const sel = clientId ? S.client(clientId) : null;
+    const t = S.type(typeId);
+    const crOf = sel ? S.creditsOf(sel)[typeId] : null;
+    const cred = crOf ? crOf[1] - crOf[0] : 0;
+    const canCredit = !!sel && cred > 0;
+    const useCredit = canCredit && this.state.useCredit;
+    const q = this.state.q.trim().toLowerCase();
+    const list = S.get().clients.filter((c) => !c.archived && (!q || c.name.toLowerCase().includes(q)));
+    const end = new Date(new Date(x.start).getTime() + x.dur * 60000).toISOString();
+    const MODES = [
+      { id: "client", label: "Sessione cliente", hint: "Collegata a un cliente registrato.", icon: "User" },
+      { id: "cons", label: "Consulenza esterna", hint: "Per chi non è cliente. Nessun credito.", icon: "MessageCircle" },
+      { id: "personal", label: "Impegno personale", hint: "Tempo tuo, non collegato a nessuno.", icon: "Coffee" },
+    ];
+    const done = (kind, o, msg) => {
+      const u = S.resolveExternal(x.id, kind, o);
+      this.close();
+      S.showToast({ msg, undo: u, tone: kind === "assigned" ? "ok" : "info" });
+    };
+    return {
+      title: x.title, when: S.fmtDay(x.start) + ", " + S.fmtTime(x.start) + "–" + S.fmtTime(end),
+      modes: MODES.map((m) => { const on = m.id === mode; return Object.assign({}, m, { checked: on ? "true" : "false", border: on ? "#003e62" : "#e1e2e7", bg: on ? "rgba(0,62,98,0.05)" : "#ffffff", iconColor: on ? "#003e62" : "#717880", pick: () => this.setState({ mode: m.id }) }); }),
+      isClient: mode === "client", isOther: mode !== "client",
+      otherHint: mode === "cons" ? "L'evento resta in calendario come consulenza e occupa lo slot. Non scala crediti." : "L'evento resta in calendario come impegno personale e blocca lo slot per le prenotazioni.",
+      guessed: !this.state.clientId && !!g.client,
+      q: this.state.q, onQ: (e) => this.setState({ q: e.target.value }),
+      clients: list.map((c) => { const on = c.id === clientId; return { name: c.name, plan: c.plan, ini: S.initials(c.name), bg: on ? "rgba(0,62,98,0.06)" : "transparent", ring: on ? "#003e62" : "#c1c7d0", fill: on ? "#003e62" : "#ffffff", pick: () => this.setState({ clientId: c.id }) }; }),
+      none: list.length === 0,
+      types: S.types.map((tt) => { const on = tt.id === typeId; return { name: tt.name, color: tt.color, pressed: on ? "true" : "false", border: on ? "#003e62" : "#e1e2e7", bg: on ? "rgba(0,62,98,0.08)" : "#ffffff", fg: on ? "#003e62" : "#41474f", pick: () => this.setState({ typeId: tt.id }) }; }),
+      toggleCredit: () => canCredit && this.setState({ useCredit: !this.state.useCredit }),
+      creditDisabled: !canCredit, creditPressed: useCredit ? "true" : "false",
+      creditRing: useCredit ? "#003e62" : "#c1c7d0", creditFill: useCredit ? "#003e62" : "#ffffff",
+      creditHint: !sel ? "Scegli un cliente per vedere i crediti disponibili." : cred > 0 ? sel.name + " ha " + cred + (cred === 1 ? " credito " : " crediti ") + t.name + " disponibili." : sel.name + " non ha crediti " + t.name + ": la sessione non scala dal pacchetto.",
+      disabled: mode === "client" && !sel,
+      btnBg: mode === "client" && !sel ? "#c1c7d0" : "#003e62",
+      cta: mode === "client" ? "Assegna" : mode === "cons" ? "Segna come consulenza" : "Segna come personale",
+      confirm: () => {
+        if (mode === "client") { if (!sel) return; done("assigned", { clientId: sel.id, typeId, useCredit }, "«" + x.title + "» assegnato a " + sel.name + "."); }
+        else if (mode === "cons") done("cons", {}, "«" + x.title + "» segnato come consulenza.");
+        else done("personal", {}, "«" + x.title + "» segnato come impegno personale.");
+      },
+      close: () => this.close(), stop: (e) => e.stopPropagation(),
+    };
+  }
+}
+</script>
+</body>
+</html>

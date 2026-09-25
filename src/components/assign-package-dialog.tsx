@@ -73,10 +73,10 @@ export interface AssignPackageEventType {
 }
 
 const DURATION_PRESETS: Array<{ value: string; label: string; months: number | null }> = [
-  { value: "1", label: "1 Mese", months: 1 },
-  { value: "3", label: "3 Mesi", months: 3 },
-  { value: "6", label: "6 Mesi", months: 6 },
-  { value: "12", label: "12 Mesi", months: 12 },
+  { value: "1", label: "1 mese", months: 1 },
+  { value: "3", label: "3 mesi", months: 3 },
+  { value: "6", label: "6 mesi", months: 6 },
+  { value: "12", label: "12 mesi", months: 12 },
   { value: "custom", label: "Manuale (numero blocchi)", months: null },
 ];
 
@@ -246,8 +246,8 @@ export function AssignPackageDialog({
       {
         <div className="space-y-4">
           {hasExistingPackage && (
-            <div className="rounded-2xl border border-amber-300 bg-amber-50 p-3 flex gap-3 text-xs text-amber-900">
-              <AlertTriangle className="size-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="rounded-2xl border border-warning-line bg-warning-soft p-3 flex gap-3 text-xs text-warning-text">
+              <AlertTriangle className="size-4 shrink-0 mt-0.5" />
               <span>
                 Questo cliente ha già dei blocchi: i nuovi blocchi vengono <strong>accodati</strong>{" "}
                 a partire dalla data d'inizio indicata, senza cancellare quelli esistenti.
@@ -255,15 +255,13 @@ export function AssignPackageDialog({
             </div>
           )}
           {hasCredits && (
-            <div className="rounded-2xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+            <div className="rounded-2xl border border-warning-line bg-warning-soft p-3 text-xs text-warning-text">
               Questo cliente ha già dei crediti extra: la nuova assegnazione li{" "}
               <strong>aggiunge</strong> senza cancellare quelli esistenti.
             </div>
           )}
           {eventTypes.length === 0 && (
-            <p className="text-xs text-destructive">
-              Crea prima almeno una tipologia di sessione (Event Type).
-            </p>
+            <p className="text-xs text-destructive">Crea prima almeno una tipologia di sessione.</p>
           )}
 
           <div className="space-y-2">
@@ -283,7 +281,7 @@ export function AssignPackageDialog({
               >
                 <div className="font-semibold text-sm">Cliente Libero</div>
                 <div className="text-xs text-muted-foreground">
-                  Free Session: crediti singoli, nessun percorso.
+                  Crediti singoli, nessun percorso.
                 </div>
               </button>
               <button
