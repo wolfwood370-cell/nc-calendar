@@ -12,6 +12,8 @@ export default tseslint.config(
       ".output",
       ".vinxi",
       "src/integrations/supabase/previewAuthStorage.ts",
+      // Tipi Supabase generati da Lovable a ogni migrazione: non si formattano a mano.
+      "src/integrations/supabase/types.ts",
       // Handoff di design: prototipi HTML/JS di riferimento, non codice dell'app.
       "design_handoff_coach_redesign",
     ],

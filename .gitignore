@@ -10,6 +10,10 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+
+# Pacchetti di design scaricati (es. "NC Calendar Design.zip"): il contenuto
+# utile va estratto e committato, l'archivio no.
+*.zip
 .output
 .vinxi
 .tanstack/**
