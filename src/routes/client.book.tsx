@@ -19,6 +19,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useCurrentBlock } from "@/hooks/use-current-block";
+import { resolveCurrentBlock } from "@/lib/current-block";
 import { useQuery } from "@tanstack/react-query";
 import { format, startOfMonth, addDays, startOfDay, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
@@ -112,28 +113,18 @@ function BookFlow() {
   const currentBlockQ = useCurrentBlock(meId);
   // Block resolver gemello di client.index.tsx:
   //   - recurring → trust the RPC (gestisce grace + auto-renewal)
-  //   - fixed → time-based perché l'RPC su path fixed può ritornare un
-  //     currentBlockId arbitrario tra quelli con status="active" (per
-  //     Marco Golinelli pescava Blocco 6 di Agosto invece di Blocco 3
-  //     di Maggio, saturando rangeStart fuori dall'orizzonte di 28 giorni
-  //     e generando 0 slot).
+  //   - fixed (o RPC non ancora pronta) → regola a date di resolveCurrentBlock,
+  //     perché l'RPC su path fixed può ritornare un currentBlockId arbitrario
+  //     tra quelli con status="active" (per Marco Golinelli pescava Blocco 6
+  //     di Agosto invece di Blocco 3 di Maggio, saturando rangeStart fuori
+  //     dall'orizzonte di 28 giorni e generando 0 slot).
   const block = useMemo(() => {
     const all = blocksQ.data ?? [];
-    if (all.length === 0) return null;
     if (isRecurring) {
       const fromRpc = all.find((b) => b.id === currentBlockQ.data?.currentBlockId);
       if (fromRpc) return fromRpc;
     }
-    const sorted = [...all].sort((a, b) => a.sequence_order - b.sequence_order);
-    const now = Date.now();
-    const inside = sorted.find((b) => {
-      const start = new Date(b.start_date).getTime();
-      const end = new Date(b.end_date).getTime() + 24 * 60 * 60 * 1000;
-      return now >= start && now <= end;
-    });
-    if (inside) return inside;
-    const futureStart = sorted.find((b) => new Date(b.start_date).getTime() > now);
-    return futureStart ?? sorted[sorted.length - 1] ?? null;
+    return resolveCurrentBlock(all);
   }, [isRecurring, blocksQ.data, currentBlockQ.data]);
   const coachIdForAvail = profileQ.data?.coach_id ?? null;
   const availQ = useCoachAvailability(coachIdForAvail);

@@ -1,16 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { IntegrationCard } from "@/components/integration-card";
+import { PageTitle } from "@/components/page-title";
 import { Calendar, CreditCard, Video, Check } from "lucide-react";
 
 export const Route = createFileRoute("/trainer/integrations")({
   head: () => ({
     meta: [
-      { title: "Integrazioni | NC Training Systems" },
+      { title: "Integrazioni · NC Calendar" },
       {
         name: "description",
         content: "Collega Google Calendar e gestisci la sincronizzazione degli appuntamenti.",
       },
-      { property: "og:title", content: "Integrazioni | NC Training Systems" },
+      { property: "og:title", content: "Integrazioni · NC Calendar" },
       {
         property: "og:description",
         content: "Collega Google Calendar e gestisci la sincronizzazione degli appuntamenti.",
@@ -26,9 +27,7 @@ function IntegrationsPage() {
   return (
     <div className="mx-auto w-full max-w-[920px] space-y-6">
       <div>
-        <h1 className="font-display text-3xl md:text-4xl font-bold tracking-[-0.02em] text-aura-primary">
-          Integrazioni
-        </h1>
+        <PageTitle>Integrazioni</PageTitle>
         <p className="text-sm text-on-surface-variant mt-1">
           Le integrazioni della piattaforma sono gestite centralmente.{" "}
           {/* contatore statico: le 3 integrazioni sotto sono tutte connected */}

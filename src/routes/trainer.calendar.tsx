@@ -27,13 +27,13 @@ import { isAllDayEvent, sameDay, MobileAgendaView } from "@/components/mobile-ca
 export const Route = createFileRoute("/trainer/calendar")({
   head: () => ({
     meta: [
-      { title: "Calendario | NC Training Systems" },
+      { title: "Calendario · NC Calendar" },
       {
         name: "description",
         content:
           "Tutti gli appuntamenti, i blocchi personali e la sincronizzazione con Google Calendar.",
       },
-      { property: "og:title", content: "Calendario | NC Training Systems" },
+      { property: "og:title", content: "Calendario · NC Calendar" },
       {
         property: "og:description",
         content:

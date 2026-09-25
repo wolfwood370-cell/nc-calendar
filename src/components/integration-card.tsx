@@ -56,7 +56,7 @@ export function IntegrationCard({
         </div>
       </div>
       {resolvedStatus === "error" ? (
-        <div className="mt-4 rounded-2xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+        <div className="mt-4 rounded-2xl bg-danger-soft border border-danger-line px-4 py-3 text-sm text-danger-text">
           Errore di connessione. Riprova a collegare l'account.
         </div>
       ) : (
@@ -77,7 +77,7 @@ export interface StatusPillProps {
 export function StatusPill({ status }: StatusPillProps) {
   if (status === "connected") {
     return (
-      <span className="inline-flex items-center gap-[5px] rounded-full bg-[#ecfdf5] px-2.5 py-0.5 text-[11px] font-semibold text-success-strong">
+      <span className="inline-flex items-center gap-[5px] rounded-full bg-success-soft px-2.5 py-0.5 text-[11px] font-semibold text-success-text">
         <span className="size-1.5 rounded-full bg-success-strong" />
         Connesso
       </span>
@@ -85,8 +85,8 @@ export function StatusPill({ status }: StatusPillProps) {
   }
   if (status === "error") {
     return (
-      <span className="inline-flex items-center gap-[5px] rounded-full bg-red-50 px-2.5 py-0.5 text-[11px] font-semibold text-red-700">
-        <span className="size-1.5 rounded-full bg-red-500" />
+      <span className="inline-flex items-center gap-[5px] rounded-full bg-danger-soft px-2.5 py-0.5 text-[11px] font-semibold text-danger-text">
+        <span className="size-1.5 rounded-full bg-error-strong" />
         Errore di connessione
       </span>
     );

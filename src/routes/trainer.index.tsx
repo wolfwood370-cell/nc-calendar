@@ -14,6 +14,8 @@ import { sessionLabel } from "@/lib/mock-data";
 import { initials } from "@/lib/initials";
 import { startOfToday, endOfToday, startOfYear } from "@/lib/date-windows";
 import { iconForType } from "@/lib/session-type-icon";
+import { formatCreditsLeft } from "@/lib/credits";
+import { PageTitle } from "@/components/page-title";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AuraCardSkeleton,
@@ -37,12 +39,12 @@ import {
 export const Route = createFileRoute("/trainer/")({
   head: () => ({
     meta: [
-      { title: "Panoramica coach | NC Training Systems" },
+      { title: "Panoramica · NC Calendar" },
       {
         name: "description",
         content: "Appuntamenti di oggi, clienti attivi e attività recenti in un'unica schermata.",
       },
-      { property: "og:title", content: "Panoramica coach | NC Training Systems" },
+      { property: "og:title", content: "Panoramica · NC Calendar" },
       {
         property: "og:description",
         content: "Appuntamenti di oggi, clienti attivi e attività recenti in un'unica schermata.",
@@ -267,7 +269,7 @@ function Overview() {
                     className="flex items-center gap-3 px-4 py-3 rounded-[24px] bg-surface-container-low text-on-surface font-medium active:scale-[0.98] transition-transform"
                   >
                     <ListChecks className="size-5 text-primary" />
-                    <span>Tipi di Evento</span>
+                    <span>Tipologie di sessione</span>
                     <ArrowRight className="size-4 text-outline ml-auto" />
                   </Link>
                   <Link
@@ -315,7 +317,7 @@ function Overview() {
                   {todayItems.length}
                 </span>
                 <span className="text-xl font-semibold text-on-surface">
-                  {todayItems.length === 1 ? "Sessione Programmata" : "Sessioni Programmate"}
+                  {todayItems.length === 1 ? "Sessione programmata" : "Sessioni programmate"}
                 </span>
               </div>
             </section>
@@ -335,7 +337,7 @@ function Overview() {
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-primary-container" />
                 <p className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
-                  Prossimo Evento
+                  Prossimo evento
                 </p>
               </div>
               <h3 className="text-xl font-semibold text-on-surface leading-snug">
@@ -360,7 +362,7 @@ function Overview() {
                 to="/trainer/calendar"
                 className="mt-2 bg-primary-container text-on-primary font-semibold rounded-full py-3 px-6 w-full flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition"
               >
-                Apri Calendario
+                Apri calendario
                 <ArrowRight className="size-4" />
               </Link>
             </section>
@@ -429,11 +431,9 @@ function Overview() {
       <div className="hidden md:block bg-surface text-on-background -m-6 p-6 md:p-10 min-h-[calc(100vh-3.5rem)]">
         {/* Header */}
         <header className="mb-10">
-          <h1 className="font-display text-4xl md:text-5xl font-bold text-on-background tracking-[-0.02em]">
-            Bentornato, {userName.split(" ")[0]}
-          </h1>
+          <PageTitle>Bentornato, {userName.split(" ")[0]}</PageTitle>
           <p className="text-on-surface-variant mt-2 text-lg">
-            Oggi è <span className="capitalize">{todayLabel}</span>. Hai{" "}
+            Oggi è {todayLabel}. Hai{" "}
             <strong className="text-aura-primary">{todayItems.length}</strong>{" "}
             {todayItems.length === 1 ? "sessione da svolgere" : "sessioni da svolgere"}.
           </p>
@@ -448,7 +448,7 @@ function Overview() {
             {/* Oggi */}
             <section className={`${GLASS} rounded-[32px] p-6 shadow-soft-card`}>
               <div className="flex items-center justify-between mb-5">
-                <h2 className="text-2xl font-manrope font-semibold">Oggi</h2>
+                <h2 className="card-title">Oggi</h2>
                 <Link
                   to="/trainer/calendar"
                   className="text-sm font-semibold text-aura-primary hover:underline"
@@ -529,10 +529,10 @@ function Overview() {
 
           {/* RIGHT */}
           <div className="lg:col-span-5 flex flex-col gap-6">
-            {/* Distribuzione Servizi (dal 1° gennaio) */}
+            {/* Distribuzione servizi (dal 1° gennaio) */}
             <section className={`${GLASS} rounded-[32px] p-6 shadow-soft-card`}>
               <div className="flex items-baseline justify-between mb-5 gap-3 flex-wrap">
-                <h2 className="text-2xl font-manrope font-semibold">Distribuzione Servizi</h2>
+                <h2 className="card-title">Distribuzione servizi</h2>
                 <span className="text-xs text-on-surface-variant">
                   Dal 1° gen · {distribution.total} {distribution.total === 1 ? "evento" : "eventi"}
                 </span>
@@ -573,12 +573,12 @@ function Overview() {
           <section className={`${GLASS} rounded-[32px] p-6 shadow-soft-card`}>
             <div className="flex items-center justify-between mb-5 gap-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-full bg-[#fff7ed] text-warning-strong grid place-items-center shrink-0">
+                <div className="w-9 h-9 rounded-full bg-warning-soft text-warning-text grid place-items-center shrink-0">
                   <TriangleAlert className="size-[18px]" />
                 </div>
-                <h2 className="text-xl font-manrope font-semibold">Rinnovi in scadenza</h2>
+                <h2 className="card-title">Rinnovi in scadenza</h2>
               </div>
-              <span className="text-xs font-bold text-warning-strong bg-[#fff7ed] rounded-full px-3 py-1">
+              <span className="text-xs font-bold text-warning-text bg-warning-soft rounded-full px-3 py-1">
                 {renewals.length}
               </span>
             </div>
@@ -597,22 +597,20 @@ function Overview() {
                       className="flex items-center justify-between gap-3 rounded-[20px] border border-surface-variant bg-white px-4 py-3"
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-10 h-10 rounded-full bg-[#d6e5ec] text-[#3b494f] grid place-items-center text-[13px] font-bold shrink-0">
+                        <div className="w-10 h-10 rounded-full bg-avatar-placeholder text-on-avatar-placeholder grid place-items-center text-[13px] font-bold shrink-0">
                           {initials(name)}
                         </div>
                         <div className="min-w-0">
                           <p className="font-semibold text-on-background truncate">{name}</p>
-                          <p className="text-xs text-warning-strong mt-0.5">
+                          <p className="text-xs text-warning-text mt-0.5">
                             Percorso ·{" "}
                             {r.remaining <= 1
-                              ? r.remaining === 1
-                                ? "1 sessione rimasta"
-                                : "crediti esauriti"
+                              ? formatCreditsLeft(r.remaining)
                               : r.days <= 0
-                                ? "scade oggi"
+                                ? "Scade oggi"
                                 : r.days === 1
-                                  ? "scade domani"
-                                  : `scade tra ${r.days} giorni`}
+                                  ? "Scade domani"
+                                  : `Scade tra ${r.days} giorni`}
                           </p>
                         </div>
                       </div>
@@ -637,7 +635,7 @@ function Overview() {
                 <div className="w-9 h-9 rounded-full bg-warning-container/60 text-tertiary-container grid place-items-center shrink-0">
                   <CircleHelp className="size-[18px]" />
                 </div>
-                <h2 className="text-xl font-manrope font-semibold">Da assegnare</h2>
+                <h2 className="card-title">Da assegnare</h2>
               </div>
               <span className="text-xs font-bold text-tertiary-container bg-warning-container/60 rounded-full px-3 py-1">
                 {toAssign.length}

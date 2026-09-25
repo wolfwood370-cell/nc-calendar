@@ -2,7 +2,7 @@ import { addDays, format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import { Ban, Dumbbell, Stethoscope, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { SessionType } from "@/lib/mock-data";
+import { sessionLabel, type SessionType } from "@/lib/mock-data";
 
 /** Subset structural del booking richiesto dalla card Timeline. */
 export interface TimelineBookingItem {
@@ -41,7 +41,7 @@ function iconForSession(st: SessionType): LucideIcon {
  *   - cancelled (status ∈ cancelled / late_cancelled / no_show): testo
  *     barrato, icona Ban su sfondo muted
  *   - active (scheduled o completed): icona session-type su sfondo
- *     primary/emerald + border-l-4 colorato
+ *     primary/success + border-l-4 colorato
  *
  * Durata derivata con fallback per legacy bookings: snapshot
  * `duration_min` sul row prima, poi `eventType.duration`, infine 60min.
@@ -63,7 +63,7 @@ export function TimelineBookingCard({ booking, eventType, onClick }: TimelineBoo
 
   const dayLabel = format(at, "EEE d MMM", { locale: it }).replace(/^./, (c) => c.toUpperCase());
   const timeRange = `${dayLabel}, ${format(at, "HH:mm")} - ${format(end, "HH:mm")}`;
-  const label = eventType?.name ?? booking.title ?? booking.session_type;
+  const label = eventType?.name ?? booking.title ?? sessionLabel(booking.session_type);
 
   if (isCancelled) {
     return (
@@ -89,13 +89,13 @@ export function TimelineBookingCard({ booking, eventType, onClick }: TimelineBoo
       onClick={onClick}
       className={cn(
         "cursor-pointer rounded-2xl p-3 flex items-start gap-3 shadow-sm bg-white border-l-4 hover:scale-[1.02] transition-transform",
-        isCompleted ? "border-emerald-500" : "border-primary",
+        isCompleted ? "border-success-strong" : "border-primary",
       )}
     >
       <div
         className={cn(
           "p-2 rounded-full flex-shrink-0",
-          isCompleted ? "bg-emerald-50 text-emerald-600" : "bg-primary/10 text-primary",
+          isCompleted ? "bg-success-soft text-success-text" : "bg-primary/10 text-primary",
         )}
       >
         <Icon className="size-4" />

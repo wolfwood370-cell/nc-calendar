@@ -11,6 +11,7 @@ import { AutoRenewToggleCard } from "@/components/auto-renew-toggle-card";
 import { TimelineWeekRow } from "@/components/timeline-week-row";
 import { AssignPackageDialog, type AssignPackagePayload } from "@/components/assign-package-dialog";
 import { Button } from "@/components/ui/button";
+import { PageTitle } from "@/components/page-title";
 
 import { Dialog } from "@/components/ui/dialog";
 import {
@@ -23,6 +24,7 @@ import {
   CheckCircle2,
   Clock,
   ChevronDown,
+  TriangleAlert,
 } from "lucide-react";
 type EditableStatus = "scheduled" | "completed" | "cancelled" | "late_cancelled";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,7 +32,7 @@ import { useAuth } from "@/lib/auth";
 import { useCoachEventTypes } from "@/lib/queries";
 import { gcalDeleteEvent, gcalUpdateEvent } from "@/lib/gcal.functions";
 import { queryKeys } from "@/lib/query-keys";
-import type { SessionType } from "@/lib/mock-data";
+import { sessionLabel, type SessionType } from "@/lib/mock-data";
 import { toast } from "sonner";
 import { format, addDays, startOfDay, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
@@ -38,12 +40,13 @@ import { cn, errorMessage } from "@/lib/utils";
 
 const WEEKS_PER_BLOCK = 4;
 
-// Palette chip stato "Storico sessioni" (mock Trainer Client Detail)
-const STATUS_CHIP: Record<string, { bg: string; fg: string; label: string }> = {
-  scheduled: { bg: "#e3f2fd", fg: "#1565c0", label: "Programmata" },
-  completed: { bg: "#ecfdf5", fg: "#059669", label: "Presente" },
-  late_cancelled: { bg: "#fef2f2", fg: "#dc2626", label: "No-show" },
-  cancelled: { bg: "#fef2f2", fg: "#dc2626", label: "Annullata" },
+// Chip stato "Storico sessioni" (mock Trainer Client Detail), con i token di
+// stato al posto degli hex (audit T3).
+const STATUS_CHIP: Record<string, { className: string; label: string }> = {
+  scheduled: { className: "bg-status-info-bg text-on-status-info", label: "Programmata" },
+  completed: { className: "bg-success-soft text-success-text", label: "Presente" },
+  late_cancelled: { className: "bg-danger-soft text-danger-text", label: "No-show" },
+  cancelled: { className: "bg-danger-soft text-danger-text", label: "Annullata" },
 };
 
 // Colore tipologia (mock: PT #003e62, BIA #039BE5, Test #0b8043)
@@ -57,12 +60,12 @@ function creditColor(name: string): string {
 export const Route = createFileRoute("/trainer/clients/$id")({
   head: () => ({
     meta: [
-      { title: "Scheda cliente | NC Training Systems" },
+      { title: "Profilo cliente · NC Calendar" },
       {
         name: "description",
         content: "Anagrafica, percorsi attivi, crediti e storico appuntamenti del cliente.",
       },
-      { property: "og:title", content: "Scheda cliente | NC Training Systems" },
+      { property: "og:title", content: "Profilo cliente · NC Calendar" },
       {
         property: "og:description",
         content: "Anagrafica, percorsi attivi, crediti e storico appuntamenti del cliente.",
@@ -452,7 +455,7 @@ function ClientPathPage() {
     }
     toast.success(
       usedExtraCredit
-        ? "Sessione salvata (Scalata da crediti omaggio/extra)"
+        ? "Sessione salvata (scalata dai crediti omaggio/extra)"
         : attached
           ? "Sessione associata al cliente"
           : "Sessione associata (nessun credito scalato)",
@@ -480,18 +483,8 @@ function ClientPathPage() {
     setOrphans((prev) => prev.filter((p) => p.id !== o.id));
   }
 
-  async function unlinkBooking(
-    b: ClientBooking,
-    opts: { confirmFirst?: boolean; silent?: boolean } = {},
-  ) {
-    if (opts.confirmFirst !== false) {
-      if (
-        !confirm(
-          "Scollegare questa sessione dal profilo? Verrà ignorata dallo Smart Matcher per questo cliente.",
-        )
-      )
-        return;
-    }
+  // La conferma è nell'AlertDialog di EditBookingDialog (audit T5).
+  async function unlinkBooking(b: ClientBooking, opts: { silent?: boolean } = {}) {
     // Restituisci credito se era contabilizzato
     if (b.block_id) {
       const alloc = allocations.find(
@@ -786,7 +779,7 @@ function ClientPathPage() {
   async function saveSchedule() {
     if (!user) return;
     if (!pathStart) {
-      toast.error("Imposta una Data Inizio Percorso prima di salvare");
+      toast.error("Imposta una data di inizio percorso prima di salvare");
       return;
     }
     setSaving(true);
@@ -1040,7 +1033,7 @@ function ClientPathPage() {
       allocs.forEach((a) => {
         const et = eventTypes.find((e) => e.id === a.event_type_id);
         const key = a.event_type_id ?? a.session_type;
-        const name = et?.name ?? a.session_type;
+        const name = et?.name ?? sessionLabel(a.session_type);
         const completed = clientBookings.filter((bk) => {
           if (bk.status !== "completed") return false;
           if (a.event_type_id) {
@@ -1142,11 +1135,11 @@ function ClientPathPage() {
       }),
     );
     const status = expiringSoon
-      ? { label: "In Scadenza", bg: "#fff7ed", fg: "#ea580c" }
+      ? { label: "In scadenza", className: "bg-warning-soft text-warning-text" }
       : current || hasExtraCredits
-        ? { label: "Attivo", bg: "#ecfdf5", fg: "#059669" }
+        ? { label: "Attivo", className: "bg-success-soft text-success-text" }
         : finished
-          ? { label: "Completato", bg: "#eceef2", fg: "#41474f" }
+          ? { label: "Completato", className: "bg-surface-container text-on-surface-variant" }
           : null;
     return { currentNum, expiry, expiringSoon, bars: Array.from(grouped.values()), status };
   }, [blockAggregates, totalBlocks, hasExtraCredits, today]);
@@ -1200,14 +1193,14 @@ function ClientPathPage() {
             {initials}
           </div>
           <div className="min-w-0">
-            <h1 className="font-display text-[26px] font-bold tracking-[-0.02em] text-on-surface m-0">
-              {clientName}
-            </h1>
+            <PageTitle className="m-0">{clientName}</PageTitle>
             <div className="flex flex-wrap items-center gap-2 mt-2">
               {pkg.status && (
                 <span
-                  className="text-[11px] font-semibold px-3 py-[3px] rounded-full"
-                  style={{ background: pkg.status.bg, color: pkg.status.fg }}
+                  className={cn(
+                    "text-[11px] font-semibold px-3 py-[3px] rounded-full",
+                    pkg.status.className,
+                  )}
                 >
                   {pkg.status.label}
                 </span>
@@ -1251,7 +1244,7 @@ function ClientPathPage() {
             className="h-auto rounded-full bg-aura-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-aura-primary/90"
           >
             {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-            Salva Calendario
+            Salva calendario
           </Button>
         </div>
       </section>
@@ -1263,9 +1256,7 @@ function ClientPathPage() {
           {/* Pacchetto & percorso — progresso blocchi + crediti a barre */}
           <section className="bg-surface-container-lowest rounded-[28px] shadow-soft-blue p-6">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-xl font-semibold text-on-surface m-0">
-                Pacchetto &amp; percorso
-              </h2>
+              <h2 className="card-title text-on-surface m-0">Pacchetto &amp; percorso</h2>
               <span className="text-xs text-outline">
                 Scadenza:{" "}
                 <strong className={pkg.expiringSoon ? "text-warning-strong" : "text-on-surface"}>
@@ -1329,9 +1320,10 @@ function ClientPathPage() {
               )}
             </div>
             {pkg.expiringSoon && (
-              <div className="mt-5 flex items-center justify-between gap-3 bg-[#fff7ed] border border-[#fde68a] rounded-2xl px-4 py-3">
-                <span className="text-[13px] text-[#92400e]">
-                  ⚠️ Pacchetto in esaurimento — proponi il rinnovo.
+              <div className="mt-5 flex items-center gap-2.5 bg-warning-soft border border-warning-line rounded-2xl px-4 py-3">
+                <TriangleAlert className="size-4 shrink-0 text-warning-text" aria-hidden />
+                <span className="text-[13px] text-warning-text">
+                  Pacchetto in esaurimento — proponi il rinnovo.
                 </span>
               </div>
             )}
@@ -1340,7 +1332,7 @@ function ClientPathPage() {
           {/* Storico sessioni — righe con barretta colore tipologia e chip stato */}
           <section className="bg-surface-container-lowest rounded-[28px] shadow-soft-blue p-6">
             <div className="flex items-center justify-between mb-2">
-              <h2 className="text-xl font-semibold text-on-surface m-0">Storico sessioni</h2>
+              <h2 className="card-title text-on-surface m-0">Storico sessioni</h2>
               <span className="text-xs text-outline">Tocca una sessione per modificare</span>
             </div>
             {loading ? (
@@ -1362,7 +1354,7 @@ function ClientPathPage() {
                     onClick={() => setEditingBooking(b)}
                     className={cn(
                       "w-full flex gap-3.5 py-3.5 text-left",
-                      i < arr.length - 1 && "border-b border-[#f1f5f9]",
+                      i < arr.length - 1 && "border-b border-surface-container-low",
                     )}
                   >
                     <div
@@ -1377,8 +1369,10 @@ function ClientPathPage() {
                         </span>
                       </div>
                       <span
-                        className="shrink-0 text-[11px] font-semibold px-3 py-[3px] rounded-full"
-                        style={{ background: chip.bg, color: chip.fg }}
+                        className={cn(
+                          "shrink-0 text-[11px] font-semibold px-3 py-[3px] rounded-full",
+                          chip.className,
+                        )}
                       >
                         {chip.label}
                       </span>
@@ -1414,11 +1408,11 @@ function ClientPathPage() {
             onChange={toggleAutoRenew}
           />
 
-          {/* Timeline del Percorso */}
+          {/* Timeline del percorso */}
           <div>
             <div className="mb-6">
               {/* Heading allineato alla scala titoli card del mock (20px/600) */}
-              <h2 className="text-xl font-semibold text-on-surface">Timeline del Percorso</h2>
+              <h2 className="card-title text-on-surface">Timeline del percorso</h2>
               <p className="text-sm text-muted-foreground mt-1">
                 Pianificazione e stato delle sessioni
               </p>
@@ -1432,8 +1426,8 @@ function ClientPathPage() {
               <div className="p-8 text-center rounded-2xl border border-dashed space-y-3">
                 {hasExtraCredits ? (
                   <p className="text-sm text-muted-foreground">
-                    Cliente Libero: ha crediti extra ma nessun percorso a blocchi. La Timeline
-                    mostra solo i percorsi strutturati (Fisso / Abbonamento).
+                    Cliente Libero: ha crediti extra ma nessun percorso a blocchi. La timeline
+                    mostra solo i percorsi strutturati (fisso o abbonamento).
                   </p>
                 ) : (
                   <>
@@ -1584,14 +1578,18 @@ function ClientPathPage() {
 
           {/* Engagement — presenza, no-show e frequenza (design handoff) */}
           <section className="bg-surface-container-lowest rounded-[28px] shadow-soft-blue p-6">
-            <h2 className="text-xl font-semibold text-on-surface m-0 mb-4">Engagement</h2>
+            <h2 className="card-title text-on-surface m-0 mb-4">Engagement</h2>
             <div className="flex gap-2">
               <div className="flex-1 text-center">
                 <p
-                  className="tabular-nums font-display text-2xl font-bold m-0"
-                  style={{
-                    color: engage.att >= 80 ? "#059669" : engage.att >= 60 ? "#ea580c" : "#dc2626",
-                  }}
+                  className={cn(
+                    "tabular-nums font-display text-2xl font-bold m-0",
+                    engage.att >= 80
+                      ? "text-success-text"
+                      : engage.att >= 60
+                        ? "text-warning-text"
+                        : "text-danger-text",
+                  )}
                 >
                   {engage.att}%
                 </p>
@@ -1600,8 +1598,10 @@ function ClientPathPage() {
               <div className="w-px bg-surface-container-high" />
               <div className="flex-1 text-center">
                 <p
-                  className="tabular-nums font-display text-2xl font-bold m-0"
-                  style={{ color: engage.noshow > 0 ? "#dc2626" : "#191c1f" }}
+                  className={cn(
+                    "tabular-nums font-display text-2xl font-bold m-0",
+                    engage.noshow > 0 ? "text-danger-text" : "text-on-surface",
+                  )}
                 >
                   {engage.noshow}
                 </p>
@@ -1627,9 +1627,7 @@ function ClientPathPage() {
         eventTypes={eventTypes.map((e) => ({ id: e.id, name: e.name, base_type: e.base_type }))}
         onClose={() => setEditingBooking(null)}
         onSave={saveBookingEdit}
-        onUnlink={(b: EditableBooking) =>
-          unlinkBooking(b as ClientBooking, { confirmFirst: false })
-        }
+        onUnlink={(b: EditableBooking) => unlinkBooking(b as ClientBooking)}
         onDeleteEverywhere={(b: EditableBooking) => deleteBookingEverywhere(b as ClientBooking)}
       />
 

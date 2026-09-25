@@ -24,9 +24,9 @@ type Tab = {
 };
 
 const TABS: Tab[] = [
-  { to: "/trainer", icon: Home, label: "Home", exact: true },
-  { to: "/trainer/calendar", icon: CalendarDays, label: "Calendar" },
-  { to: "/trainer/clients", icon: Users, label: "Clients" },
+  { to: "/trainer", icon: Home, label: "Panoramica", exact: true },
+  { to: "/trainer/calendar", icon: CalendarDays, label: "Calendario" },
+  { to: "/trainer/clients", icon: Users, label: "Clienti" },
 ];
 
 export function TrainerBottomNav() {

@@ -52,7 +52,7 @@ export function OrphanBookingsCard<T extends OrphanBookingItem>({
     <Card className="border-primary/40">
       <CardHeader>
         <CardTitle className="text-base flex items-center gap-2">
-          <Sparkles className="size-4 text-primary" /> Sessioni da Revisionare ({orphans.length})
+          <Sparkles className="size-4 text-primary" /> Sessioni da revisionare ({orphans.length})
         </CardTitle>
       </CardHeader>
       <CardContent className="p-0">

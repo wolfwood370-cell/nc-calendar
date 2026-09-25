@@ -96,7 +96,7 @@ export function EventTypeServiceCard({ type: t, onEdit, onDelete }: EventTypeSer
           type="button"
           role="switch"
           aria-checked={active}
-          aria-label={active ? "Servizio attivo" : "Servizio non prenotabile"}
+          aria-label={active ? "Tipologia attiva" : "Tipologia non prenotabile"}
           onClick={onEdit}
           className={`relative w-10 h-[22px] rounded-full shrink-0 cursor-pointer transition-colors duration-150 ${active ? "bg-aura-primary" : "bg-outline-variant"}`}
         >
@@ -107,7 +107,7 @@ export function EventTypeServiceCard({ type: t, onEdit, onDelete }: EventTypeSer
       </div>
 
       {/* Stepper Durata / Buffer / Prezzo */}
-      <div className="flex flex-col gap-3 border-t border-[#f1f5f9] pt-4">
+      <div className="flex flex-col gap-3 border-t border-surface-container-low pt-4">
         <StepperRow label="Durata" value={`${t.duration} min`} onEdit={onEdit} />
         <StepperRow label="Buffer" value={`${t.buffer_minutes} min`} onEdit={onEdit} />
         {/* Prezzo: campo non ancora presente nei dati, placeholder visivo */}
@@ -115,7 +115,7 @@ export function EventTypeServiceCard({ type: t, onEdit, onDelete }: EventTypeSer
       </div>
 
       {/* Footer: contatore prenotazioni + azioni discrete */}
-      <div className="flex items-center justify-between gap-2 border-t border-[#f1f5f9] pt-3">
+      <div className="flex items-center justify-between gap-2 border-t border-surface-container-low pt-3">
         <div className="flex items-center gap-1.5 text-[12px] text-outline">
           <svg
             width="14"

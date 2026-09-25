@@ -7,6 +7,6 @@ export type BookingStatus = "scheduled" | "cancelled" | "completed" | "late_canc
 
 export function sessionLabel(t: SessionType): string {
   if (t === "PT Session") return "Sessione PT";
-  if (t === "Functional Test") return "Test Funzionale";
+  if (t === "Functional Test") return "Test funzionale";
   return "BIA";
 }

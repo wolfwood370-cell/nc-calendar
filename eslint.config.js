@@ -7,7 +7,14 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["dist", ".output", ".vinxi", "src/integrations/supabase/previewAuthStorage.ts"],
+    ignores: [
+      "dist",
+      ".output",
+      ".vinxi",
+      "src/integrations/supabase/previewAuthStorage.ts",
+      // Handoff di design: prototipi HTML/JS di riferimento, non codice dell'app.
+      "design_handoff_coach_redesign",
+    ],
   },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],

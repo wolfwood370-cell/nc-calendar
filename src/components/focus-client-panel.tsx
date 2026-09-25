@@ -85,7 +85,7 @@ export function FocusClientPanel({
           className="w-full min-h-11 bg-surface-container-low text-on-surface hover:bg-surface-container rounded-full font-semibold"
         >
           <Link to="/trainer/clients/$id" params={{ id: focusClient.id }}>
-            Profilo Completo
+            Profilo completo
           </Link>
         </Button>
       </div>
@@ -113,7 +113,7 @@ export function FocusClientPanel({
       <div className={`${cardClass} p-5`}>
         <div className="flex items-center justify-between mb-3">
           <h5 className="text-label-sm uppercase tracking-wider font-bold text-on-surface">
-            Note Ultima Sessione
+            Note ultima sessione
           </h5>
           {lastNote?.scheduled_at && (
             <span className="text-label-sm text-outline">

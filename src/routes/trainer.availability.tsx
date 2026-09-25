@@ -13,7 +13,8 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import { Plus, Trash2, Copy, Loader2, Info, Save, ChartLine } from "lucide-react";
+import { Plus, Trash2, Copy, Loader2, Info, Save, ChartLine, TriangleAlert } from "lucide-react";
+import { PageTitle } from "@/components/page-title";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
@@ -23,12 +24,12 @@ import { AvailabilityExceptionsCard } from "@/components/availability-exceptions
 export const Route = createFileRoute("/trainer/availability")({
   head: () => ({
     meta: [
-      { title: "Disponibilità | NC Training Systems" },
+      { title: "Disponibilità · NC Calendar" },
       {
         name: "description",
         content: "Imposta orari di lavoro, eccezioni e regole di prenotazione.",
       },
-      { property: "og:title", content: "Disponibilità | NC Training Systems" },
+      { property: "og:title", content: "Disponibilità · NC Calendar" },
       {
         property: "og:description",
         content: "Imposta orari di lavoro, eccezioni e regole di prenotazione.",
@@ -327,7 +328,7 @@ function AvailabilityPage() {
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
           <div>
-            <h1 className="font-display text-3xl font-semibold tracking-tight">Disponibilità</h1>
+            <PageTitle>Disponibilità</PageTitle>
             <p className="text-sm text-muted-foreground mt-1">
               Configura il tuo orario settimanale, le regole di prenotazione e le eccezioni.
             </p>
@@ -342,7 +343,7 @@ function AvailabilityPage() {
             ) : (
               <Save className="size-4 mr-2" />
             )}
-            Salva Modifiche
+            Salva modifiche
           </Button>
         </div>
 
@@ -361,7 +362,7 @@ function AvailabilityPage() {
             </div>
 
             <div className="bg-white rounded-[32px] shadow-[0px_4px_20px_rgba(0,86,133,0.05)] p-6 sm:p-8">
-              <h2 className="font-display text-xl font-semibold mb-1">Orario Settimanale</h2>
+              <h2 className="card-title mb-1">Orario settimanale</h2>
               <p className="text-sm text-muted-foreground mb-6">
                 Definisci gli intervalli in cui sei disponibile per le sessioni.
               </p>
@@ -373,7 +374,7 @@ function AvailabilityPage() {
                   ))}
                 </div>
               ) : (
-                <div className="divide-y divide-slate-100">
+                <div className="divide-y divide-surface-container-low">
                   {DAYS.map((d, dayIdx) => {
                     const ds = dayOf(week, d.dow);
                     return (
@@ -385,7 +386,7 @@ function AvailabilityPage() {
                           <Switch
                             checked={ds.active}
                             onCheckedChange={(v) => toggleDay(d.dow, v)}
-                            aria-label={`Attiva ${d.label}`}
+                            aria-label={`Attiva ${d.label.toLowerCase()}`}
                             className="data-[state=checked]:bg-reschedule data-[state=unchecked]:bg-outline-variant"
                           />
                           <span
@@ -537,7 +538,7 @@ function AvailabilityPage() {
             </div>
 
             <div className="bg-white rounded-[32px] shadow-[0px_4px_20px_rgba(0,86,133,0.05)] p-6 sm:p-8">
-              <h2 className="font-display text-xl font-semibold mb-1">Regole di Prenotazione</h2>
+              <h2 className="card-title mb-1">Regole di prenotazione</h2>
               <p className="text-sm text-muted-foreground mb-3">
                 Imposta i vincoli che i tuoi clienti devono rispettare.
               </p>
@@ -545,9 +546,13 @@ function AvailabilityPage() {
                   applicati dal motore di generazione slot (preavviso 24h e
                   orizzonte 14 giorni sono per ora fissi). Avviso onesto finche'
                   non vengono collegati, per non promettere un controllo inattivo. */}
-              <div className="mb-6 rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3 text-xs text-amber-800">
-                ⚠️ Funzione in arrivo: al momento i clienti possono prenotare con 24h di preavviso
-                fino a 2 settimane in avanti. Questi valori vengono salvati ma non ancora applicati.
+              <div className="mb-6 flex items-start gap-2 rounded-2xl bg-warning-soft border border-warning-line px-4 py-3 text-xs text-warning-text">
+                <TriangleAlert className="size-4 shrink-0" aria-hidden />
+                <span>
+                  Funzione in arrivo: al momento i clienti possono prenotare con 24h di preavviso
+                  fino a 2 settimane in avanti. Questi valori vengono salvati ma non ancora
+                  applicati.
+                </span>
               </div>
 
               <div className="space-y-5">

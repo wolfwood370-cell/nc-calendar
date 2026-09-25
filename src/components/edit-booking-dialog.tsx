@@ -90,8 +90,11 @@ export function EditBookingDialog({
   const [status, setStatus] = useState<EditableBookingStatus>("scheduled");
   const [saving, setSaving] = useState(false);
   // B13 (audit): conferma eliminazione via AlertDialog dell'app invece del
-  // confirm() nativo del browser (coerente col resto + azione irreversibile).
+  // confirm nativo del browser (coerente col resto + azione irreversibile).
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  // T5 (audit): anche lo scollegamento dal profilo si conferma qui, con lo
+  // stesso AlertDialog (prima era un confirm nativo nel profilo, mai raggiunto).
+  const [confirmUnlinkOpen, setConfirmUnlinkOpen] = useState(false);
 
   useEffect(() => {
     if (!booking) return;
@@ -137,7 +140,7 @@ export function EditBookingDialog({
     <Dialog open={!!booking} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Modifica Sessione</DialogTitle>
+          <DialogTitle>Modifica sessione</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
@@ -166,7 +169,7 @@ export function EditBookingDialog({
             </Select>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Stato Sessione</Label>
+            <Label className="text-xs">Stato sessione</Label>
             <Select value={status} onValueChange={(v) => setStatus(v as EditableBookingStatus)}>
               <SelectTrigger>
                 <SelectValue />
@@ -188,12 +191,9 @@ export function EditBookingDialog({
               variant="outline"
               className="flex-1"
               disabled={saving}
-              onClick={async () => {
-                if (!booking) return;
-                await onUnlink(booking);
-              }}
+              onClick={() => setConfirmUnlinkOpen(true)}
             >
-              <Unlink className="size-4" /> Scollega dal Profilo
+              <Unlink className="size-4" /> Scollega dal profilo
             </Button>
             <Button
               variant="destructive"
@@ -237,6 +237,29 @@ export function EditBookingDialog({
                 }}
               >
                 Elimina ovunque
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={confirmUnlinkOpen} onOpenChange={setConfirmUnlinkOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Scollegare la sessione dal profilo?</AlertDialogTitle>
+              <AlertDialogDescription>
+                La sessione resta in calendario tra gli eventi da assegnare e non viene più abbinata
+                a questo cliente. Se era stato scalato un credito, torna disponibile.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={saving}>Annulla</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={async () => {
+                  if (!booking) return;
+                  await onUnlink(booking);
+                }}
+              >
+                Scollega
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
