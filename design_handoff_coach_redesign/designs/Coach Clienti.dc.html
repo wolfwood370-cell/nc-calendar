@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&amp;family=Manrope:wght@400;500;600;700&amp;display=swap">
+<script src="./nc-icons.js"></script>
+<script src="./nc-store.js"></script>
+<title>Clienti · NC Calendar</title>
+<style>
+*,::before,::after{box-sizing:border-box;margin:0;padding:0;border:0 solid;}
+body{margin:0;background:#f8f9fe;font-family:Manrope,ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:#191c1f;}
+button,input,select{font:inherit;color:inherit;background:transparent;}
+button{cursor:pointer;}
+button:disabled{cursor:default;}
+a{color:#003e62;text-decoration:none;}
+a:hover{color:#005685;}
+input::placeholder{color:#717880;}
+:focus-visible{outline:2px solid #005685;outline-offset:2px;}
+</style>
+</helmet>
+<div style="display:flex; min-height:100vh; background:linear-gradient(135deg,#f2f3f8,#e7e8ec);">
+  <div style="position:sticky; top:0; height:100vh; flex-shrink:0;">
+    <dc-import name="Coach Sidebar" active="clienti" hint-size="256px,100vh" style="width:256px; height:100vh;"></dc-import>
+  </div>
+  <div style="flex:1; min-width:0; display:flex; flex-direction:column;">
+    <div style="position:sticky; top:0; z-index:40;">
+      <dc-import name="Coach Header" title="Clienti" hint-size="100%,56px" style="width:100%; height:56px;"></dc-import>
+    </div>
+    <main style="flex:1; background:#f8f9fe; padding:28px 40px 48px; display:flex; flex-direction:column; gap:20px; min-width:0;">
+
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+        <h1 style="font-family:Sora, sans-serif; font-size:36px; line-height:1.15; font-weight:700; letter-spacing:-0.02em;">Clienti</h1>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <sc-if value="{{ tags }}" hint-placeholder-val="{{ true }}"><a href="Audit%20Coach%20Desktop.dc.html#L1" style="font-size:10px; font-weight:700; color:#7c4302; background:#ffdcc2; border-radius:9999px; padding:2px 7px;">L1</a></sc-if>
+          <button onClick="{{ openNew }}" style="height:42px; display:flex; align-items:center; gap:8px; padding:0 20px; border-radius:9999px; background:#003e62; color:#ffffff; font-size:14px; font-weight:600;" style-hover="background:#005685;"><nc-icon name="UserPlus" style="width:16px; height:16px;"></nc-icon>Nuovo cliente</button>
+        </div>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <div role="tablist" aria-label="Stato" style="display:flex; flex-wrap:wrap; padding:3px; border-radius:9999px; background:#eceef2;">
+          <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5">
+            <button role="tab" aria-selected="{{ t.sel }}" onClick="{{ t.pick }}" style="height:36px; display:flex; align-items:center; gap:8px; padding:0 16px; border-radius:9999px; font-size:14px; font-weight:600; background:{{ t.bg }}; color:{{ t.fg }}; box-shadow:{{ t.shadow }};">{{ t.label }}<span style="font-variant-numeric:tabular-nums; color:{{ t.countColor }};">{{ t.count }}</span></button>
+          </sc-for>
+        </div>
+        <sc-if value="{{ tags }}" hint-placeholder-val="{{ true }}"><a href="Audit%20Coach%20Desktop.dc.html#L2" style="font-size:10px; font-weight:700; color:#7c4302; background:#ffdcc2; border-radius:9999px; padding:2px 7px;">L2</a></sc-if>
+      </div>
+
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+        <div style="position:relative; flex:1 1 280px; max-width:420px;">
+          <nc-icon name="Search" style="position:absolute; left:14px; top:12px; width:16px; height:16px; color:#717880; pointer-events:none;"></nc-icon>
+          <input value="{{ q }}" onChange="{{ onQ }}" placeholder="Cerca per nome, email o telefono" aria-label="Cerca clienti" style="width:100%; height:40px; border-radius:9999px; background:#ffffff; border:1px solid #e1e2e7; padding:0 16px 0 38px; font-size:14px; outline:none;" style-focus="border-color:#005685; box-shadow:0 0 0 3px rgba(0,86,133,0.12);">
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:#41474f;">Ordina per
+            <select value="{{ sort }}" onChange="{{ onSort }}" style="height:36px; border-radius:9999px; background:#ffffff; border:1px solid #e1e2e7; padding:0 12px; font-size:13px; font-weight:600; color:#191c1f;">
+              <option value="name">Nome (A–Z)</option>
+              <option value="left">Crediti residui</option>
+              <option value="expiry">Scadenza del blocco</option>
+              <option value="activity">Ultima sessione svolta</option>
+              <option value="attendance">Presenza più bassa</option>
+            </select>
+          </label>
+          <sc-if value="{{ tags }}" hint-placeholder-val="{{ true }}"><a href="Audit%20Coach%20Desktop.dc.html#L7" style="font-size:10px; font-weight:700; color:#7c4302; background:#ffdcc2; border-radius:9999px; padding:2px 7px;">L7</a></sc-if>
+          <div role="radiogroup" aria-label="Vista" style="display:flex; padding:3px; border-radius:9999px; background:#eceef2;">
+            <button role="radio" aria-checked="{{ gridSel }}" aria-label="Vista a schede" onClick="{{ setGrid }}" style="width:38px; height:32px; border-radius:9999px; display:grid; place-items:center; background:{{ gridBg }}; color:{{ gridFg }};"><nc-icon name="LayoutGrid" style="width:16px; height:16px;"></nc-icon></button>
+            <button role="radio" aria-checked="{{ tableSel }}" aria-label="Vista tabella" onClick="{{ setTable }}" style="width:38px; height:32px; border-radius:9999px; display:grid; place-items:center; background:{{ tableBg }}; color:{{ tableFg }};"><nc-icon name="List" style="width:16px; height:16px;"></nc-icon></button>
+          </div>
+        </div>
+      </div>
+
+      <sc-if value="{{ showInvites }}" hint-placeholder-val="{{ false }}">
+        <section style="background:#ffffff; border-radius:24px; border:1px dashed #c1c7d0; padding:16px 20px; display:flex; flex-direction:column; gap:10px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <nc-icon name="Mail" style="width:16px; height:16px; color:#003e62;"></nc-icon>
+            <h2 style="font-size:15px; font-weight:700;">Inviti in attesa</h2>
+            <span style="font-size:13px; color:#717880;">{{ inviteCount }}</span>
+            <sc-if value="{{ tags }}" hint-placeholder-val="{{ true }}"><a href="Audit%20Coach%20Desktop.dc.html#L5" style="font-size:10px; font-weight:700; color:#7c4302; background:#ffdcc2; border-radius:9999px; padding:2px 7px;">L5</a></sc-if>
+          </div>
+          <sc-for list="{{ invites }}" as="i" hint-placeholder-count="2">
+            <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:10px 0; border-top:1px solid #f2f3f8;">
+              <span style="width:36px; height:36px; border-radius:9999px; border:1.5px dashed #c1c7d0; color:#717880; display:grid; place-items:center; font-size:12px; font-weight:700; flex-shrink:0;">{{ i.ini }}</span>
+              <div style="flex:1 1 220px; min-width:0; display:flex; flex-direction:column;"><span style="font-size:14px; font-weight:600;">{{ i.name }}</span><span style="font-size:12px; color:#717880;">{{ i.email }} · inviato {{ i.ago }}</span></div>
+              <div style="display:flex; gap:8px;">
+                <button onClick="{{ i.resend }}" style="height:34px; padding:0 14px; border-radius:9999px; border:1px solid #e1e2e7; font-size:13px; font-weight:600; color:#003e62;" style-hover="border-color:#005685;">Reinvia</button>
+                <button onClick="{{ i.cancel }}" style="height:34px; padding:0 14px; border-radius:9999px; font-size:13px; font-weight:600; color:#41474f;" style-hover="background:#eceef2;">Annulla invito</button>
+              </div>
+            </div>
+          </sc-for>
+        </section>
+      </sc-if>
+
+      <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#ffffff; border-radius:24px; padding:40px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:12px;">
+          <nc-icon name="UserSearch" style="width:32px; height:32px; color:#c1c7d0;"></nc-icon>
+          <p style="font-size:15px; font-weight:600; color:#41474f;">{{ emptyMsg }}</p>
+          <sc-if value="{{ hasQuery }}" hint-placeholder-val="{{ false }}"><button onClick="{{ clearQ }}" style="font-size:14px; font-weight:600; color:#003e62;">Cancella la ricerca</button></sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isGrid }}" hint-placeholder-val="{{ true }}">
+        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:16px;">
+          <sc-for list="{{ cards }}" as="c" hint-placeholder-count="8">
+            <div role="link" tabIndex="0" onClick="{{ c.open }}" onKeyDown="{{ c.key }}" aria-label="{{ c.aria }}" style="position:relative; background:#ffffff; border-radius:24px; padding:20px; box-shadow:0px 4px 20px rgba(0,86,133,0.05); border:1px solid #ffffff; display:flex; flex-direction:column; gap:14px; cursor:pointer; opacity:{{ c.opacity }};" style-hover="border-color:#c1c7d0; box-shadow:0px 8px 30px rgba(0,86,133,0.09);">
+              <div style="display:flex; align-items:center; gap:12px; padding-right:28px;">
+                <span style="width:48px; height:48px; border-radius:9999px; background:#d6e5ec; color:#3b494f; display:grid; place-items:center; font-size:15px; font-weight:700; flex-shrink:0;">{{ c.ini }}</span>
+                <div style="min-width:0; display:flex; flex-direction:column; gap:2px;">
+                  <span style="font-size:16px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ c.name }}</span>
+                  <span style="font-size:12px; color:#717880; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ c.email }}</span>
+                </div>
+              </div>
+              <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                <span style="font-size:11px; font-weight:700; padding:3px 10px; border-radius:9999px; background:rgba(0,62,98,0.08); color:#003e62;">{{ c.plan }}</span>
+                <span style="font-size:11px; font-weight:700; padding:3px 10px; border-radius:9999px; background:{{ c.stBg }}; color:{{ c.stFg }};">{{ c.stLabel }}</span>
+              </div>
+              <sc-if value="{{ c.hasCredits }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex; flex-direction:column; gap:6px;">
+                  <div style="display:flex; justify-content:space-between; gap:8px; font-size:12px;"><span style="font-weight:600; color:#41474f;">{{ c.creditTitle }}</span><span style="font-weight:700; font-variant-numeric:tabular-nums;">{{ c.creditLabel }}</span></div>
+                  <div style="height:6px; border-radius:9999px; background:#eceef2; overflow:hidden;"><div style="height:100%; border-radius:9999px; width:{{ c.creditW }}; background:{{ c.creditColor }};"></div></div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ c.reason }}" hint-placeholder-val="{{ false }}"><p style="font-size:12px; font-weight:600; color:#c2410c; margin-top:-6px;">{{ c.reason }}</p></sc-if>
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding-top:12px; border-top:1px solid #f2f3f8; font-size:12px;">
+                <span style="display:flex; align-items:center; gap:6px; min-width:0; color:{{ c.nextColor }};"><nc-icon name="CalendarDays" style="width:14px; height:14px; flex-shrink:0;"></nc-icon><span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ c.next }}</span></span>
+                <span title="Presenza alle sessioni" style="display:flex; align-items:center; gap:4px; font-weight:700; font-variant-numeric:tabular-nums; color:{{ c.attColor }};">{{ c.att }}</span>
+              </div>
+              <div style="position:absolute; top:12px; right:10px;">
+                <button onClick="{{ c.toggleMenu }}" aria-label="Altre azioni" aria-haspopup="menu" style="width:34px; height:34px; border-radius:9999px; display:grid; place-items:center; color:#717880;" style-hover="background:#f2f3f8; color:#191c1f;"><nc-icon name="MoreVertical" style="width:16px; height:16px;"></nc-icon></button>
+                <sc-if value="{{ c.menuOpen }}" hint-placeholder-val="{{ false }}">
+                  <div role="menu" onClick="{{ stop }}" style="position:absolute; top:38px; right:0; z-index:20; width:200px; background:#ffffff; border-radius:16px; border:1px solid #eceef2; box-shadow:0 20px 60px rgba(0,0,0,0.16); padding:6px; display:flex; flex-direction:column; cursor:default;">
+                    <button role="menuitem" onClick="{{ c.open }}" style="display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:10px; font-size:14px; text-align:left;" style-hover="background:#f2f3f8;"><nc-icon name="User" style="width:15px; height:15px; color:#41474f;"></nc-icon>Apri profilo</button>
+                    <button role="menuitem" onClick="{{ c.archive }}" style="display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:10px; font-size:14px; text-align:left;" style-hover="background:#f2f3f8;"><nc-icon name="{{ c.archiveIcon }}" style="width:15px; height:15px; color:#41474f;"></nc-icon>{{ c.archiveLabel }}</button>
+                    <div style="height:1px; background:#eceef2; margin:4px 0;"></div>
+                    <button role="menuitem" onClick="{{ c.askDelete }}" style="display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:10px; font-size:14px; text-align:left; color:#b91c1c;" style-hover="background:#fef2f2;"><nc-icon name="Trash2" style="width:15px; height:15px;"></nc-icon>Elimina…</button>
+                  </div>
+                </sc-if>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isTable }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#ffffff; border-radius:24px; box-shadow:0px 4px 20px rgba(0,86,133,0.05); overflow-x:auto;">
+          <div style="min-width:880px;">
+            <div style="display:grid; grid-template-columns:minmax(220px,2.2fr) 1.3fr 1fr 1.4fr 1.3fr 0.7fr 44px; gap:12px; padding:12px 20px; background:#f8f9fe; font-size:11px; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; color:#717880;">
+              <span>Cliente</span><span>Piano</span><span>Stato</span><span>Crediti</span><span>Prossima sessione</span><span>Presenza</span><span></span>
+            </div>
+            <sc-for list="{{ cards }}" as="c" hint-placeholder-count="6">
+              <div role="link" tabIndex="0" onClick="{{ c.open }}" onKeyDown="{{ c.key }}" aria-label="{{ c.aria }}" style="position:relative; display:grid; grid-template-columns:minmax(220px,2.2fr) 1.3fr 1fr 1.4fr 1.3fr 0.7fr 44px; gap:12px; align-items:center; padding:12px 20px; border-top:1px solid #f2f3f8; cursor:pointer; opacity:{{ c.opacity }};" style-hover="background:#fbfbfd;">
+                <span style="display:flex; align-items:center; gap:10px; min-width:0;"><span style="width:36px; height:36px; border-radius:9999px; background:#d6e5ec; color:#3b494f; display:grid; place-items:center; font-size:12px; font-weight:700; flex-shrink:0;">{{ c.ini }}</span><span style="min-width:0; display:flex; flex-direction:column;"><span style="font-size:14px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ c.name }}</span><span style="font-size:12px; color:#717880; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ c.email }}</span></span></span>
+                <span style="font-size:13px; color:#41474f;">{{ c.plan }}</span>
+                <span><span style="font-size:11px; font-weight:700; padding:3px 10px; border-radius:9999px; background:{{ c.stBg }}; color:{{ c.stFg }};">{{ c.stLabel }}</span></span>
+                <span style="display:flex; align-items:center; gap:8px; font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;"><span style="flex:1; max-width:90px; height:6px; border-radius:9999px; background:#eceef2; overflow:hidden;"><span style="display:block; height:100%; border-radius:9999px; width:{{ c.creditW }}; background:{{ c.creditColor }};"></span></span>{{ c.creditShort }}</span>
+                <span style="font-size:13px; color:{{ c.nextColor }};">{{ c.next }}</span>
+                <span style="font-size:13px; font-weight:700; font-variant-numeric:tabular-nums; color:{{ c.attColor }};">{{ c.att }}</span>
+                <span style="position:relative;">
+                  <button onClick="{{ c.toggleMenu }}" aria-label="Altre azioni" style="width:34px; height:34px; border-radius:9999px; display:grid; place-items:center; color:#717880;" style-hover="background:#f2f3f8;"><nc-icon name="MoreVertical" style="width:16px; height:16px;"></nc-icon></button>
+                  <sc-if value="{{ c.menuOpen }}" hint-placeholder-val="{{ false }}">
+                    <div role="menu" onClick="{{ stop }}" style="position:absolute; top:38px; right:0; z-index:20; width:200px; background:#ffffff; border-radius:16px; border:1px solid #eceef2; box-shadow:0 20px 60px rgba(0,0,0,0.16); padding:6px; display:flex; flex-direction:column; cursor:default;">
+                      <button role="menuitem" onClick="{{ c.open }}" style="display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:10px; font-size:14px; text-align:left;" style-hover="background:#f2f3f8;"><nc-icon name="User" style="width:15px; height:15px; color:#41474f;"></nc-icon>Apri profilo</button>
+                      <button role="menuitem" onClick="{{ c.archive }}" style="display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:10px; font-size:14px; text-align:left;" style-hover="background:#f2f3f8;"><nc-icon name="{{ c.archiveIcon }}" style="width:15px; height:15px; color:#41474f;"></nc-icon>{{ c.archiveLabel }}</button>
+                      <div style="height:1px; background:#eceef2; margin:4px 0;"></div>
+                      <button role="menuitem" onClick="{{ c.askDelete }}" style="display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:10px; font-size:14px; text-align:left; color:#b91c1c;" style-hover="background:#fef2f2;"><nc-icon name="Trash2" style="width:15px; height:15px;"></nc-icon>Elimina…</button>
+                    </div>
+                  </sc-if>
+                </span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ tags }}" hint-placeholder-val="{{ true }}">
+        <p style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:12px; color:#717880;">Tutta la scheda apre il profilo; il menu ⋮ contiene «Apri profilo», archivia ed elimina. Ricerca, stato, ordine e vista restano nell'indirizzo.<a href="Audit%20Coach%20Desktop.dc.html#L3" style="font-size:10px; font-weight:700; color:#7c4302; background:#ffdcc2; border-radius:9999px; padding:2px 7px;">L3</a><a href="Audit%20Coach%20Desktop.dc.html#L6" style="font-size:10px; font-weight:700; color:#7c4302; background:#ffdcc2; border-radius:9999px; padding:2px 7px;">L6</a><a href="Audit%20Coach%20Desktop.dc.html#L8" style="font-size:10px; font-weight:700; color:#7c4302; background:#ffdcc2; border-radius:9999px; padding:2px 7px;">L8</a><a href="Audit%20Coach%20Desktop.dc.html#P4" style="font-size:10px; font-weight:700; color:#7c4302; background:#ffdcc2; border-radius:9999px; padding:2px 7px;">P4</a><a href="Audit%20Coach%20Desktop.dc.html#T4" style="font-size:10px; font-weight:700; color:#7c4302; background:#ffdcc2; border-radius:9999px; padding:2px 7px;">T4</a></p>
+      </sc-if>
+    </main>
+  </div>
+
+  <sc-if value="{{ choiceOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeAll }}" style="position:fixed; inset:0; z-index:100; background:rgba(25,28,31,0.32); display:grid; place-items:center; padding:24px;">
+      <div role="dialog" aria-modal="true" aria-labelledby="dlg-new" onClick="{{ stop }}" style="width:560px; max-width:100%; background:#ffffff; border-radius:28px; box-shadow:0 30px 80px rgba(0,0,0,0.25); padding:28px; display:flex; flex-direction:column; gap:18px;">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+          <h2 id="dlg-new" style="font-family:Sora, sans-serif; font-size:22px; font-weight:700;">Nuovo cliente</h2>
+          <button onClick="{{ closeAll }}" aria-label="Chiudi" style="width:36px; height:36px; border-radius:9999px; display:grid; place-items:center; color:#41474f;" style-hover="background:#eceef2;"><nc-icon name="X" style="width:18px; height:18px;"></nc-icon></button>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <button onClick="{{ startWizard }}" style="display:flex; flex-direction:column; align-items:flex-start; gap:8px; padding:18px; border-radius:20px; border:1.5px solid #e1e2e7; text-align:left;" style-hover="border-color:#003e62; background:rgba(0,62,98,0.03);">
+            <nc-icon name="UserPlus" style="width:22px; height:22px; color:#003e62;"></nc-icon>
+            <span style="font-size:15px; font-weight:700;">Crea l'account ora</span>
+            <span style="font-size:13px; line-height:1.45; color:#41474f;">Imposti tu percorso e crediti. Ottieni una password da consegnare al cliente.</span>
+          </button>
+          <button onClick="{{ startInvite }}" style="display:flex; flex-direction:column; align-items:flex-start; gap:8px; padding:18px; border-radius:20px; border:1.5px solid #e1e2e7; text-align:left;" style-hover="border-color:#003e62; background:rgba(0,62,98,0.03);">
+            <nc-icon name="Send" style="width:22px; height:22px; color:#003e62;"></nc-icon>
+            <span style="font-size:15px; font-weight:700;">Invia un invito</span>
+            <span style="font-size:13px; line-height:1.45; color:#41474f;">Il cliente riceve un'email e completa la registrazione da solo. Il percorso lo assegni dopo.</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ inviteOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeAll }}" style="position:fixed; inset:0; z-index:100; background:rgba(25,28,31,0.32); display:grid; place-items:center; padding:24px;">
+      <div role="dialog" aria-modal="true" aria-labelledby="dlg-inv" onClick="{{ stop }}" style="width:480px; max-width:100%; background:#ffffff; border-radius:28px; box-shadow:0 30px 80px rgba(0,0,0,0.25); padding:28px; display:flex; flex-direction:column; gap:16px;">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+          <div style="display:flex; flex-direction:column; gap:4px;"><h2 id="dlg-inv" style="font-family:Sora, sans-serif; font-size:22px; font-weight:700;">Invia un invito</h2><p style="font-size:13px; color:#41474f;">Il cliente riceverà un link per registrarsi.</p></div>
+          <button onClick="{{ closeAll }}" aria-label="Chiudi" style="width:36px; height:36px; border-radius:9999px; display:grid; place-items:center; color:#41474f;" style-hover="background:#eceef2;"><nc-icon name="X" style="width:18px; height:18px;"></nc-icon></button>
+        </div>
+        <label style="display:flex; flex-direction:column; gap:6px;"><span style="font-size:13px; font-weight:700;">Nome e cognome</span><input value="{{ invName }}" onChange="{{ onInvName }}" style="height:42px; border-radius:14px; background:#f2f3f8; padding:0 14px; font-size:14px; outline:none;" style-focus="background:#ffffff; box-shadow:0 0 0 2px #005685;"></label>
+        <label style="display:flex; flex-direction:column; gap:6px;"><span style="font-size:13px; font-weight:700;">Email</span><input type="email" value="{{ invEmail }}" onChange="{{ onInvEmail }}" style="height:42px; border-radius:14px; background:#f2f3f8; padding:0 14px; font-size:14px; outline:none;" style-focus="background:#ffffff; box-shadow:0 0 0 2px #005685;"></label>
+        <label style="display:flex; flex-direction:column; gap:6px;"><span style="font-size:13px; font-weight:700;">Telefono <span style="font-weight:500; color:#717880;">(facoltativo, per WhatsApp)</span></span><input value="{{ invPhone }}" onChange="{{ onInvPhone }}" style="height:42px; border-radius:14px; background:#f2f3f8; padding:0 14px; font-size:14px; outline:none;" style-focus="background:#ffffff; box-shadow:0 0 0 2px #005685;"></label>
+        <div style="display:flex; justify-content:space-between; gap:8px; padding-top:4px;">
+          <button onClick="{{ backToChoice }}" style="height:40px; padding:0 4px; font-size:14px; font-weight:600; color:#41474f;">Indietro</button>
+          <button onClick="{{ sendInvite }}" disabled="{{ invDisabled }}" style="height:40px; padding:0 20px; border-radius:9999px; font-size:14px; font-weight:600; color:#ffffff; background:{{ invBtnBg }};">Invia invito</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ wizOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeAll }}" style="position:fixed; inset:0; z-index:100; background:rgba(25,28,31,0.32); display:grid; place-items:center; padding:24px;">
+      <div role="dialog" aria-modal="true" aria-labelledby="dlg-wiz" onClick="{{ stop }}" style="width:640px; max-width:100%; max-height:calc(100vh - 48px); overflow:auto; background:#ffffff; border-radius:28px; box-shadow:0 30px 80px rgba(0,0,0,0.25); padding:28px; display:flex; flex-direction:column; gap:20px;">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+          <div style="display:flex; align-items:center; gap:8px;"><h2 id="dlg-wiz" style="font-family:Sora, sans-serif; font-size:22px; font-weight:700;">{{ wTitle }}</h2><sc-if value="{{ tags }}" hint-placeholder-val="{{ true }}"><a href="Audit%20Coach%20Desktop.dc.html#L4" style="font-size:10px; font-weight:700; color:#7c4302; background:#ffdcc2; border-radius:9999px; padding:2px 7px;">L4</a></sc-if></div>
+          <button onClick="{{ closeAll }}" aria-label="Chiudi" style="width:36px; height:36px; border-radius:9999px; display:grid; place-items:center; color:#41474f;" style-hover="background:#eceef2;"><nc-icon name="X" style="width:18px; height:18px;"></nc-icon></button>
+        </div>
+        <sc-if value="{{ wShowSteps }}" hint-placeholder-val="{{ true }}">
+          <ol aria-label="Passaggi" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px;">
+            <sc-for list="{{ wSteps }}" as="s" hint-placeholder-count="3">
+              <li style="display:flex; flex-direction:column; gap:6px;"><span style="height:4px; border-radius:9999px; background:{{ s.bar }};"></span><span style="font-size:12px; font-weight:700; color:{{ s.color }};">{{ s.label }}</span></li>
+            </sc-for>
+          </ol>
+        </sc-if>
+
+        <sc-if value="{{ w1 }}" hint-placeholder-val="{{ true }}">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <label style="display:flex; flex-direction:column; gap:6px;"><span style="font-size:13px; font-weight:700;">Nome</span><input value="{{ wFirst }}" onChange="{{ onWFirst }}" style="height:42px; border-radius:14px; background:#f2f3f8; padding:0 14px; font-size:14px; outline:none;" style-focus="background:#ffffff; box-shadow:0 0 0 2px #005685;"></label>
+            <label style="display:flex; flex-direction:column; gap:6px;"><span style="font-size:13px; font-weight:700;">Cognome</span><input value="{{ wLast }}" onChange="{{ onWLast }}" style="height:42px; border-radius:14px; background:#f2f3f8; padding:0 14px; font-size:14px; outline:none;" style-focus="background:#ffffff; box-shadow:0 0 0 2px #005685;"></label>
+            <label style="display:flex; flex-direction:column; gap:6px;"><span style="font-size:13px; font-weight:700;">Email</span><input type="email" value="{{ wEmail }}" onChange="{{ onWEmail }}" style="height:42px; border-radius:14px; background:#f2f3f8; padding:0 14px; font-size:14px; outline:none;" style-focus="background:#ffffff; box-shadow:0 0 0 2px #005685;"></label>
+            <label style="display:flex; flex-direction:column; gap:6px;"><span style="font-size:13px; font-weight:700;">Telefono <span style="font-weight:500; color:#717880;">(facoltativo)</span></span><input value="{{ wPhone }}" onChange="{{ onWPhone }}" style="height:42px; border-radius:14px; background:#f2f3f8; padding:0 14px; font-size:14px; outline:none;" style-focus="background:#ffffff; box-shadow:0 0 0 2px #005685;"></label>
+          </div>
+          <p style="font-size:13px; color:#717880;">La password viene generata automaticamente: la vedrai alla fine.</p>
+        </sc-if>
+
+        <sc-if value="{{ w2 }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <p style="font-size:13px; font-weight:700;">Tipo di percorso</p>
+            <div style="display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:8px;">
+              <sc-for list="{{ wPaths }}" as="p" hint-placeholder-count="3">
+                <button role="radio" aria-checked="{{ p.checked }}" onClick="{{ p.pick }}" style="display:flex; flex-direction:column; align-items:flex-start; gap:4px; padding:12px 14px; border-radius:18px; text-align:left; border:1.5px solid {{ p.border }}; background:{{ p.bg }};"><span style="font-size:14px; font-weight:700;">{{ p.label }}</span><span style="font-size:12px; line-height:1.4; color:#41474f;">{{ p.hint }}</span></button>
+              </sc-for>
+            </div>
+          </div>
+          <sc-if value="{{ wIsFixed }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <p style="font-size:13px; font-weight:700;">Durata</p>
+              <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <div style="display:flex; padding:3px; border-radius:9999px; background:#eceef2;">
+                  <sc-for list="{{ wDurations }}" as="d" hint-placeholder-count="4">
+                    <button onClick="{{ d.pick }}" style="height:32px; padding:0 14px; border-radius:9999px; font-size:13px; font-weight:600; background:{{ d.bg }}; color:{{ d.fg }}; box-shadow:{{ d.shadow }};">{{ d.label }}</button>
+                  </sc-for>
+                </div>
+                <sc-if value="{{ wCustom }}" hint-placeholder-val="{{ false }}">
+                  <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:#41474f;"><input type="number" min="1" max="36" value="{{ wBlocks }}" onChange="{{ onWBlocks }}" style="width:72px; height:36px; border-radius:12px; background:#f2f3f8; padding:0 10px; font-size:14px; outline:none;">blocchi</label>
+                </sc-if>
+              </div>
+              <p style="font-size:12px; color:#717880;">{{ wBlocksHint }}</p>
+            </div>
+          </sc-if>
+          <sc-if value="{{ wIsRecurring }}" hint-placeholder-val="{{ false }}">
+            <p style="font-size:13px; line-height:1.5; color:#41474f; background:#f2f3f8; border-radius:14px; padding:12px 14px;">Un blocco ogni 4 settimane con rinnovo automatico. I crediti ripartono a ogni rinnovo.</p>
+          </sc-if>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <div style="display:flex; align-items:baseline; justify-content:space-between; gap:8px;"><p style="font-size:13px; font-weight:700;">{{ wCreditsTitle }}</p><sc-if value="{{ wNotFree }}" hint-placeholder-val="{{ true }}"><button onClick="{{ presetPack }}" style="font-size:12px; font-weight:600; color:#003e62;">Usa «PT Pack 3 sessioni»</button></sc-if></div>
+            <div style="display:flex; flex-direction:column; border:1px solid #eceef2; border-radius:18px;">
+              <sc-for list="{{ wCredits }}" as="k" hint-placeholder-count="4">
+                <div style="display:flex; align-items:center; gap:10px; padding:10px 14px; border-top:1px solid {{ k.sep }};">
+                  <span style="width:10px; height:10px; border-radius:3px; background:{{ k.color }};"></span>
+                  <span style="flex:1; font-size:14px; font-weight:600;">{{ k.name }}</span>
+                  <button onClick="{{ k.dec }}" aria-label="{{ k.decLabel }}" style="width:32px; height:32px; border-radius:9999px; border:1px solid #e1e2e7; display:grid; place-items:center; color:#41474f;"><nc-icon name="Minus" style="width:14px; height:14px;"></nc-icon></button>
+                  <span style="width:28px; text-align:center; font-size:15px; font-weight:700; font-variant-numeric:tabular-nums;">{{ k.qty }}</span>
+                  <button onClick="{{ k.inc }}" aria-label="{{ k.incLabel }}" style="width:32px; height:32px; border-radius:9999px; border:1px solid #e1e2e7; display:grid; place-items:center; color:#003e62;"><nc-icon name="Plus" style="width:14px; height:14px;"></nc-icon></button>
+                </div>
+              </sc-for>
+            </div>
+            <sc-if value="{{ wNotFree }}" hint-placeholder-val="{{ true }}"><p style="font-size:12px; color:#717880;">Uguali per ogni blocco. Potrai variarli per singolo blocco dal profilo del cliente.</p></sc-if>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ w3 }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; flex-direction:column; gap:12px; background:#f2f3f8; border-radius:20px; padding:18px;">
+            <div style="display:flex; justify-content:space-between; gap:12px; font-size:14px;"><span style="color:#41474f;">Cliente</span><strong style="text-align:right;">{{ sumName }}</strong></div>
+            <div style="display:flex; justify-content:space-between; gap:12px; font-size:14px;"><span style="color:#41474f;">Email</span><strong style="text-align:right;">{{ wEmail }}</strong></div>
+            <div style="display:flex; justify-content:space-between; gap:12px; font-size:14px;"><span style="color:#41474f;">Percorso</span><strong style="text-align:right;">{{ sumPath }}</strong></div>
+            <div style="display:flex; justify-content:space-between; gap:12px; font-size:14px;"><span style="color:#41474f;">{{ sumCreditsLabel }}</span><strong style="text-align:right;">{{ sumCredits }}</strong></div>
+            <div style="display:flex; justify-content:space-between; gap:12px; font-size:14px; padding-top:10px; border-top:1px solid #e1e2e7;"><span style="color:#41474f;">Sessioni totali</span><strong>{{ sumTotal }}</strong></div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ w4 }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; flex-direction:column; gap:14px;">
+            <p style="display:flex; align-items:center; gap:8px; font-size:15px; font-weight:600; color:#047857;"><nc-icon name="CircleCheck" style="width:18px; height:18px;"></nc-icon><span>Account creato per {{ sumName }}.</span></p>
+            <div style="display:flex; flex-direction:column; gap:10px; background:#f2f3f8; border-radius:20px; padding:18px;">
+              <div style="display:flex; justify-content:space-between; gap:12px; font-size:14px;"><span style="color:#41474f;">Email</span><strong>{{ wEmail }}</strong></div>
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; font-size:14px;"><span style="color:#41474f;">Password</span><span style="display:flex; align-items:center; gap:8px;"><code style="font-family:ui-monospace, Menlo, monospace; font-size:15px; font-weight:700; letter-spacing:0.04em;">{{ wPassword }}</code><button onClick="{{ copyPass }}" style="height:30px; display:flex; align-items:center; gap:6px; padding:0 12px; border-radius:9999px; background:#ffffff; font-size:12px; font-weight:700; color:#003e62;"><nc-icon name="Copy" style="width:13px; height:13px;"></nc-icon>{{ copyLabel }}</button></span></div>
+            </div>
+            <p style="font-size:13px; line-height:1.5; color:#41474f;">Consegna la password al cliente in modo sicuro. Dopo aver chiuso questa finestra non sarà più visibile.</p>
+          </div>
+        </sc-if>
+
+        <div style="display:flex; justify-content:space-between; gap:8px; padding-top:4px;">
+          <button onClick="{{ wBack }}" style="height:40px; padding:0 4px; font-size:14px; font-weight:600; color:#41474f;">{{ wBackLabel }}</button>
+          <div style="display:flex; gap:8px;">
+            <sc-if value="{{ w4 }}" hint-placeholder-val="{{ false }}"><button onClick="{{ openCreated }}" style="height:40px; padding:0 18px; border-radius:9999px; font-size:14px; font-weight:600; background:#eceef2; color:#003e62;">Apri profilo</button></sc-if>
+            <button onClick="{{ wNext }}" disabled="{{ wDisabled }}" style="height:40px; padding:0 20px; border-radius:9999px; font-size:14px; font-weight:600; color:#ffffff; background:{{ wBtnBg }};">{{ wNextLabel }}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ delOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeDel }}" style="position:fixed; inset:0; z-index:110; background:rgba(25,28,31,0.32); display:grid; place-items:center; padding:24px;">
+      <div role="alertdialog" aria-modal="true" aria-labelledby="dlg-del" onClick="{{ stop }}" style="width:460px; max-width:100%; background:#ffffff; border-radius:24px; box-shadow:0 30px 80px rgba(0,0,0,0.25); padding:24px; display:flex; flex-direction:column; gap:14px;">
+        <h2 id="dlg-del" style="font-family:Sora, sans-serif; font-size:19px; font-weight:700;">Eliminare definitivamente {{ delName }}?</h2>
+        <p style="font-size:14px; line-height:1.5; color:#41474f;">Vengono eliminati account, profilo, sessioni, blocchi e crediti. L'operazione non si può annullare. Se vuoi solo nasconderlo dall'elenco, archivialo.</p>
+        <div style="display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap;">
+          <button onClick="{{ closeDel }}" style="height:40px; padding:0 18px; border-radius:9999px; font-size:14px; font-weight:600; background:#eceef2; color:#41474f;">Annulla</button>
+          <button onClick="{{ delArchive }}" style="height:40px; padding:0 18px; border-radius:9999px; font-size:14px; font-weight:600; border:1px solid #e1e2e7; color:#003e62;">Archivia invece</button>
+          <button onClick="{{ doDelete }}" style="height:40px; padding:0 18px; border-radius:9999px; font-size:14px; font-weight:600; background:#b91c1c; color:#ffffff;" style-hover="background:#991b1b;">Elimina</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ toastOn }}" hint-placeholder-val="{{ false }}">
+    <div role="status" aria-live="polite" style="position:fixed; left:50%; bottom:28px; transform:translateX(-50%); z-index:200; display:flex; align-items:center; gap:14px; background:#ffffff; border:1px solid #eceef2; border-radius:18px; box-shadow:0 16px 48px rgba(0,0,0,0.18); padding:12px 12px 12px 16px; max-width:calc(100vw - 48px);">
+      <nc-icon name="{{ toastIcon }}" style="width:18px; height:18px; color:{{ toastColor }};"></nc-icon>
+      <span style="font-size:14px; font-weight:500;">{{ toastMsg }}</span>
+      <sc-if value="{{ toastUndo }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ undoToast }}" style="height:32px; padding:0 14px; border-radius:9999px; background:rgba(0,62,98,0.1); color:#003e62; font-size:13px; font-weight:700;" style-hover="background:rgba(0,62,98,0.16);">Ripristina</button>
+      </sc-if>
+      <button onClick="{{ dismissToast }}" aria-label="Chiudi" style="width:28px; height:28px; border-radius:9999px; display:grid; place-items:center; color:#717880;" style-hover="background:#eceef2;"><nc-icon name="X" style="width:14px; height:14px;"></nc-icon></button>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;auditTags&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Prototipo&quot;}}">
+class Component extends DCLogic {
+  state = (() => {
+    const p = new URLSearchParams(location.search);
+    const TABS = ["all", "active", "expiring", "completed", "archived"], SORTS = ["name", "left", "expiry", "activity", "attendance"];
+    return {
+      q: p.get("q") || "", tab: TABS.includes(p.get("stato")) ? p.get("stato") : "all",
+      view: p.get("vista") === "tabella" ? "table" : "grid", sort: SORTS.includes(p.get("ordina")) ? p.get("ordina") : "name",
+      menuFor: null, delId: null, dlg: p.get("new") === "cliente" ? "choice" : null,
+      inv: { name: "", email: "", phone: "" }, wiz: null, copied: false,
+    };
+  })();
+  componentDidMount() {
+    const hook = () => { this.unsub = window.NCStore.subscribe(() => this.forceUpdate()); this.forceUpdate(); };
+    const wait = () => (window.NCStore ? hook() : (this.t = setTimeout(wait, 30)));
+    wait();
+    this.onDoc = () => { if (this.state.menuFor) this.setState({ menuFor: null }); };
+    this.onKey = (e) => { if (e.key === "Escape") this.setState({ menuFor: null, dlg: null, delId: null }); };
+    document.addEventListener("click", this.onDoc);
+    document.addEventListener("keydown", this.onKey);
+  }
+  componentWillUnmount() { this.unsub && this.unsub(); clearTimeout(this.t); document.removeEventListener("click", this.onDoc); document.removeEventListener("keydown", this.onKey); }
+  componentDidUpdate() {
+    const s = this.state, p = new URLSearchParams();
+    if (s.q) p.set("q", s.q);
+    if (s.tab !== "all") p.set("stato", s.tab);
+    if (s.view === "table") p.set("vista", "tabella");
+    if (s.sort !== "name") p.set("ordina", s.sort);
+    const qs = p.toString() ? "?" + p.toString() : "";
+    if (qs !== location.search) history.replaceState(null, "", location.pathname + qs);
+  }
+  newWiz() { return { step: 1, first: "", last: "", email: "", phone: "", pathType: "fixed", months: 6, custom: false, blocks: 6, credits: { pt: 8, bia: 1, test: 0, cons: 0 }, freeCredits: { pt: 2, bia: 0, test: 0, cons: 0 }, created: null, password: "" }; }
+
+  renderVals() {
+    const S = window.NCStore;
+    const tags = this.props.auditTags ?? true;
+    if (!S) return { tags, tabs: [], cards: [], invites: [], wSteps: [], wPaths: [], wDurations: [], wCredits: [], isGrid: true };
+    const st = S.get(), ss = this.state;
+    const all = st.clients.map((c) => ({ c, status: S.clientStatus(c) }));
+    const counts = { all: 0, active: 0, expiring: 0, completed: 0, archived: 0 };
+    all.forEach((x) => { counts[x.status]++; if (x.status !== "archived") counts.all++; });
+    const seg = (on) => ({ bg: on ? "#ffffff" : "transparent", fg: on ? "#003e62" : "#41474f", shadow: on ? "0 1px 3px rgba(0,0,0,0.1)" : "none" });
+    const TL = [["all", "Tutti"], ["active", "Attivi"], ["expiring", "In scadenza"], ["completed", "Completati"], ["archived", "Archiviati"]];
+    const tabs = TL.map(([id, label]) => Object.assign({ label, count: counts[id], sel: ss.tab === id ? "true" : "false", countColor: id === "expiring" && counts[id] ? "#c2410c" : "#717880", pick: () => this.setState({ tab: id }) }, seg(ss.tab === id)));
+
+    const q = ss.q.trim().toLowerCase(), qd = q.replace(/\D/g, "");
+    let list = all.filter((x) => (ss.tab === "all" ? x.status !== "archived" : x.status === ss.tab))
+      .filter((x) => !q || x.c.name.toLowerCase().includes(q) || x.c.email.includes(q) || (qd.length > 2 && x.c.phone.replace(/\D/g, "").includes(qd)));
+    const nextOf = {}, lastOf = {}, attOf = {};
+    list.forEach((x) => { nextOf[x.c.id] = S.nextSession(x.c.id); lastOf[x.c.id] = S.lastActivity(x.c.id); attOf[x.c.id] = S.attendance(x.c.id); });
+    const SORT = {
+      name: (a, b) => a.c.name.localeCompare(b.c.name, "it"),
+      left: (a, b) => { const ta = S.totals(a.c), tb = S.totals(b.c); return (ta.total ? ta.left : 999) - (tb.total ? tb.left : 999); },
+      expiry: (a, b) => (a.c.blockEndOff == null ? 9999 : a.c.blockEndOff) - (b.c.blockEndOff == null ? 9999 : b.c.blockEndOff),
+      activity: (a, b) => (lastOf[b.c.id] ? new Date(lastOf[b.c.id].start).getTime() : 0) - (lastOf[a.c.id] ? new Date(lastOf[a.c.id].start).getTime() : 0),
+      attendance: (a, b) => (attOf[a.c.id] == null ? 101 : attOf[a.c.id]) - (attOf[b.c.id] == null ? 101 : attOf[b.c.id]),
+    };
+    list = list.slice().sort(SORT[ss.sort]);
+    const ST = { active: ["Attivo", "#ecfdf5", "#047857"], expiring: ["In scadenza", "#fff7ed", "#c2410c"], completed: ["Completato", "#eceef2", "#41474f"], archived: ["Archiviato", "#eceef2", "#41474f"] };
+
+    const cards = list.map(({ c, status }) => {
+      const tot = S.totals(c), ri = S.renewalInfo(c), nx = nextOf[c.id];
+      const open = () => S.go("cliente", { id: c.id });
+      const free = c.pathType === "free";
+      return {
+        name: c.name, email: c.email, ini: S.initials(c.name), plan: c.plan,
+        aria: "Apri il profilo di " + c.name,
+        stLabel: ST[status][0], stBg: ST[status][1], stFg: ST[status][2],
+        opacity: status === "archived" ? 0.72 : 1,
+        hasCredits: tot.total > 0,
+        creditTitle: free ? "Crediti extra" : c.pathType === "recurring" ? "Crediti del mese" : "Crediti del blocco " + c.block[0] + " di " + c.block[1],
+        creditLabel: tot.left + " di " + tot.total + (tot.left === 1 ? " rimasto" : " rimasti"), creditShort: tot.total ? tot.left + "/" + tot.total : "—",
+        creditW: tot.total ? Math.round((tot.left / tot.total) * 100) + "%" : "0%",
+        creditColor: status === "expiring" ? "#ea580c" : "#003e62",
+        reason: status === "expiring" && ri ? ri.reason : false,
+        next: nx ? S.fmtDay(nx.start) + " · " + S.fmtTime(nx.start) : "Nessuna sessione in agenda",
+        nextColor: nx ? "#191c1f" : "#717880",
+        att: attOf[c.id] == null ? "—" : attOf[c.id] + "%",
+        attColor: attOf[c.id] == null ? "#717880" : attOf[c.id] >= 80 ? "#047857" : attOf[c.id] >= 60 ? "#c2410c" : "#b91c1c",
+        open: (e) => { if (e) e.stopPropagation(); this.setState({ menuFor: null }); open(); },
+        key: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } },
+        menuOpen: ss.menuFor === c.id,
+        toggleMenu: (e) => { e.stopPropagation(); this.setState({ menuFor: ss.menuFor === c.id ? null : c.id }); },
+        archiveIcon: c.archived ? "ArchiveRestore" : "Archive", archiveLabel: c.archived ? "Ripristina" : "Archivia",
+        archive: (e) => { e.stopPropagation(); const u = S.setArchived(c.id, !c.archived); this.setState({ menuFor: null }); S.showToast({ msg: c.archived ? c.name + " ripristinato." : c.name + " archiviato.", undo: u, tone: "info" }); },
+        askDelete: (e) => { e.stopPropagation(); this.setState({ menuFor: null, delId: c.id }); },
+      };
+    });
+
+    const invites = (st.invitations || []).filter((i) => !q || i.name.toLowerCase().includes(q) || i.email.includes(q)).map((i) => ({
+      name: i.name, email: i.email, ini: S.initials(i.name), ago: S.ago(i.sent),
+      resend: () => { S.resendInvite(i.id); S.showToast({ msg: "Invito inviato di nuovo a " + i.email + ".", tone: "info" }); },
+      cancel: () => { const u = S.cancelInvite(i.id); S.showToast({ msg: "Invito a " + i.name + " annullato.", undo: u, tone: "info" }); },
+    }));
+
+    const emptyMsg = q ? "Nessun cliente corrisponde a «" + ss.q.trim() + "»." : { all: "Nessun cliente ancora. Crea il primo con «Nuovo cliente».", active: "Nessun cliente attivo.", expiring: "Nessun cliente in scadenza nei prossimi 7 giorni.", completed: "Nessun percorso completato.", archived: "Nessun cliente archiviato." }[ss.tab];
+
+    const out = {
+      tags, tabs, cards, invites,
+      q: ss.q, onQ: (e) => this.setState({ q: e.target.value }), hasQuery: !!q, clearQ: () => this.setState({ q: "" }),
+      sort: ss.sort, onSort: (e) => this.setState({ sort: e.target.value }),
+      isGrid: ss.view === "grid" && cards.length > 0, isTable: ss.view === "table" && cards.length > 0,
+      gridSel: ss.view === "grid" ? "true" : "false", tableSel: ss.view === "table" ? "true" : "false",
+      gridBg: ss.view === "grid" ? "#ffffff" : "transparent", gridFg: ss.view === "grid" ? "#003e62" : "#717880",
+      tableBg: ss.view === "table" ? "#ffffff" : "transparent", tableFg: ss.view === "table" ? "#003e62" : "#717880",
+      setGrid: () => this.setState({ view: "grid" }), setTable: () => this.setState({ view: "table" }),
+      showInvites: ss.tab === "all" && invites.length > 0, inviteCount: invites.length,
+      isEmpty: cards.length === 0, emptyMsg,
+      stop: (e) => e.stopPropagation(),
+      openNew: () => this.setState({ dlg: "choice" }),
+      closeAll: () => this.setState({ dlg: null, wiz: null }),
+      choiceOpen: ss.dlg === "choice",
+      startWizard: () => this.setState({ dlg: "wizard", wiz: this.newWiz(), copied: false }),
+      startInvite: () => this.setState({ dlg: "invite", inv: { name: "", email: "", phone: "" } }),
+      backToChoice: () => this.setState({ dlg: "choice" }),
+    };
+
+    const inv = ss.inv, invValid = inv.name.trim().length > 1 && /\S+@\S+\.\S+/.test(inv.email);
+    Object.assign(out, {
+      inviteOpen: ss.dlg === "invite",
+      invName: inv.name, invEmail: inv.email, invPhone: inv.phone,
+      onInvName: (e) => this.setState({ inv: Object.assign({}, inv, { name: e.target.value }) }),
+      onInvEmail: (e) => this.setState({ inv: Object.assign({}, inv, { email: e.target.value }) }),
+      onInvPhone: (e) => this.setState({ inv: Object.assign({}, inv, { phone: e.target.value }) }),
+      invDisabled: !invValid, invBtnBg: invValid ? "#003e62" : "#c1c7d0",
+      sendInvite: () => { if (!invValid) return; const u = S.invite({ name: inv.name.trim(), email: inv.email.trim().toLowerCase(), phone: inv.phone.trim() }); this.setState({ dlg: null, tab: "all" }); S.showToast({ msg: "Invito inviato a " + inv.email.trim() + ".", undo: u }); },
+    });
+
+    const w = ss.wiz;
+    out.wizOpen = ss.dlg === "wizard" && !!w;
+    out.wSteps = []; out.wPaths = []; out.wDurations = []; out.wCredits = [];
+    if (w) {
+      const upd = (p) => this.setState({ wiz: Object.assign({}, w, p) });
+      const free = w.pathType === "free";
+      const blocks = w.pathType === "recurring" ? 1 : w.custom ? w.blocks : w.months;
+      const cr = free ? w.freeCredits : w.credits;
+      const perBlock = S.types.reduce((s, t) => s + (cr[t.id] || 0), 0);
+      const total = free ? perBlock : perBlock * blocks;
+      const v1 = w.first.trim() && w.last.trim() && /\S+@\S+\.\S+/.test(w.email);
+      const v2 = perBlock > 0 && blocks >= 1;
+      const valid = w.step === 1 ? !!v1 : w.step === 2 ? v2 : true;
+      const credText = S.types.filter((t) => cr[t.id] > 0).map((t) => cr[t.id] + " " + t.name).join(", ") || "—";
+      const PATHS = [["fixed", "Percorso fisso", "Durata definita, blocchi da 4 settimane."], ["recurring", "Abbonamento mensile", "Si rinnova da solo ogni 4 settimane."], ["free", "Cliente libero", "Nessun percorso: solo sessioni omaggio."]];
+      Object.assign(out, {
+        wTitle: w.step === 4 ? "Cliente creato" : "Crea l'account",
+        wShowSteps: w.step < 4,
+        wSteps: ["1 · Dati", "2 · Percorso e crediti", "3 · Riepilogo"].map((label, i) => ({ label, bar: i < w.step ? "#003e62" : "#e1e2e7", color: i < w.step ? "#003e62" : "#717880" })),
+        w1: w.step === 1, w2: w.step === 2, w3: w.step === 3, w4: w.step === 4,
+        wFirst: w.first, wLast: w.last, wEmail: w.email, wPhone: w.phone,
+        onWFirst: (e) => upd({ first: e.target.value }), onWLast: (e) => upd({ last: e.target.value }),
+        onWEmail: (e) => upd({ email: e.target.value }), onWPhone: (e) => upd({ phone: e.target.value }),
+        wPaths: PATHS.map(([id, label, hint]) => { const on = w.pathType === id; return { label, hint, checked: on ? "true" : "false", border: on ? "#003e62" : "#e1e2e7", bg: on ? "rgba(0,62,98,0.05)" : "#ffffff", pick: () => upd({ pathType: id }) }; }),
+        wIsFixed: w.pathType === "fixed", wIsRecurring: w.pathType === "recurring", wNotFree: !free,
+        wDurations: [[3, "3 mesi"], [6, "6 mesi"], [12, "12 mesi"], [0, "Personalizzata"]].map(([m, label]) => { const on = m === 0 ? w.custom : !w.custom && w.months === m; return Object.assign({ label, pick: () => upd(m === 0 ? { custom: true } : { custom: false, months: m }) }, seg(on)); }),
+        wCustom: w.custom, wBlocks: String(w.blocks), onWBlocks: (e) => upd({ blocks: Math.max(1, Math.min(36, Number(e.target.value) || 1)) }),
+        wBlocksHint: blocks + (blocks === 1 ? " blocco" : " blocchi") + " da 4 settimane, senza rinnovo automatico.",
+        wCreditsTitle: free ? "Sessioni omaggio" : "Crediti per blocco",
+        presetPack: () => upd({ pathType: "fixed", custom: true, blocks: 1, credits: { pt: 3, bia: 0, test: 0, cons: 0 } }),
+        wCredits: S.types.map((t, i) => { const n = cr[t.id] || 0; const set = (v) => upd(free ? { freeCredits: Object.assign({}, w.freeCredits, { [t.id]: v }) } : { credits: Object.assign({}, w.credits, { [t.id]: v }) }); return { name: t.name, color: t.color, qty: n, sep: i === 0 ? "transparent" : "#f2f3f8", decLabel: "Meno " + t.name, incLabel: "Più " + t.name, dec: () => set(Math.max(0, n - 1)), inc: () => set(Math.min(50, n + 1)) }; }),
+        sumName: (w.first + " " + w.last).trim(),
+        sumPath: w.pathType === "recurring" ? "Abbonamento mensile, rinnovo automatico" : free ? "Cliente libero" : "Percorso fisso · " + blocks + (blocks === 1 ? " blocco" : " blocchi"),
+        sumCreditsLabel: free ? "Sessioni omaggio" : "Crediti per blocco", sumCredits: credText,
+        sumTotal: w.pathType === "recurring" ? perBlock + " al mese" : String(total),
+        wPassword: w.password, copyLabel: ss.copied ? "Copiata" : "Copia",
+        copyPass: () => { try { navigator.clipboard.writeText(w.password); } catch (e) {} this.setState({ copied: true }); },
+        wBackLabel: w.step === 4 ? "Crea un altro cliente" : "Indietro",
+        wBack: () => { if (w.step === 1) this.setState({ dlg: "choice", wiz: null }); else if (w.step === 4) this.setState({ wiz: this.newWiz(), copied: false }); else upd({ step: w.step - 1 }); },
+        wNextLabel: w.step === 3 ? "Crea cliente" : w.step === 4 ? "Fatto" : "Avanti",
+        wDisabled: !valid, wBtnBg: valid ? "#003e62" : "#c1c7d0",
+        wNext: () => {
+          if (!valid) return;
+          if (w.step < 3) return upd({ step: w.step + 1 });
+          if (w.step === 3) {
+            const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+            let pw = ""; for (let i = 0; i < 12; i++) pw += chars[Math.floor(Math.random() * chars.length)];
+            const r = S.createClient({ first: w.first.trim(), last: w.last.trim(), email: w.email.trim().toLowerCase(), phone: w.phone.trim(), pathType: w.pathType, blocks, credits: cr });
+            return upd({ step: 4, created: r.id, password: pw });
+          }
+          this.setState({ dlg: null, wiz: null });
+        },
+        openCreated: () => { this.setState({ dlg: null, wiz: null }); S.go("cliente", { id: w.created }); },
+      });
+    }
+
+    const dc = ss.delId ? S.client(ss.delId) : null;
+    Object.assign(out, {
+      delOpen: !!dc, delName: dc ? dc.name : "",
+      closeDel: () => this.setState({ delId: null }),
+      delArchive: () => { const u = S.setArchived(dc.id, true); this.setState({ delId: null }); S.showToast({ msg: dc.name + " archiviato.", undo: u, tone: "info" }); },
+      doDelete: () => { S.deleteClient(dc.id); this.setState({ delId: null }); S.showToast({ msg: dc.name + " eliminato definitivamente.", tone: "info" }); },
+    });
+
+    const tst = S.getToast();
+    const TONE = { ok: ["CircleCheck", "#047857"], warn: ["UserX", "#c2410c"], info: ["Info", "#005685"] };
+    const tone = tst ? TONE[tst.tone] || TONE.ok : TONE.ok;
+    Object.assign(out, { toastOn: !!tst, toastMsg: tst ? tst.msg : "", toastUndo: !!(tst && tst.undo), toastIcon: tone[0], toastColor: tone[1], undoToast: () => S.undoToast(), dismissToast: () => S.dismissToast() });
+    return out;
+  }
+}
+</script>
+</body>
+</html>

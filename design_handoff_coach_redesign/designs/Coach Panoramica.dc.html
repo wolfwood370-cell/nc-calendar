@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&amp;family=Manrope:wght@400;500;600;700&amp;display=swap">
+<script src="./nc-icons.js"></script>
+<script src="./nc-store.js"></script>
+<title>Panoramica · NC Calendar</title>
+<style>
+*,::before,::after{box-sizing:border-box;margin:0;padding:0;border:0 solid;}
+body{margin:0;background:#f8f9fe;font-family:Manrope,ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:#191c1f;}
+button,input{font:inherit;color:inherit;background:transparent;}
+button{cursor:pointer;}
+button:disabled{cursor:default;}
+ul{list-style:none;}
+a{color:#003e62;text-decoration:none;}
+a:hover{color:#005685;}
+input::placeholder{color:#717880;}
+:focus-visible{outline:2px solid #005685;outline-offset:2px;}
+</style>
+</helmet>
+<div style="display:flex; min-height:100vh; background:linear-gradient(135deg,#f2f3f8,#e7e8ec);">
+  <div style="position:sticky; top:0; height:100vh; flex-shrink:0;">
+    <dc-import name="Coach Sidebar" active="panoramica" hint-size="256px,100vh" style="width:256px; height:100vh;"></dc-import>
+  </div>
+  <div style="flex:1; min-width:0; display:flex; flex-direction:column;">
+    <div style="position:sticky; top:0; z-index:40;">
+      <dc-import name="Coach Header" title="Panoramica" hint-size="100%,56px" style="width:100%; height:56px;"></dc-import>
+    </div>
+    <main style="flex:1; background:#f8f9fe; padding:28px 40px 48px; display:flex; flex-direction:column; gap:24px;">
+
+      <header style="display:flex; flex-direction:column; gap:6px;">
+        <h1 style="font-family:Sora, sans-serif; font-size:36px; line-height:1.15; font-weight:700; letter-spacing:-0.02em; color:#191c1f;">{{ greeting }}</h1>
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+          <p style="font-size:16px; line-height:24px; color:#41474f;">{{ subtitle }}</p>
+          <sc-if value="{{ tags }}" hint-placeholder-val="{{ true }}"><a href="Audit%20Coach%20Desktop.dc.html#P1" style="font-size:10px; font-weight:700; color:#7c4302; background:#ffdcc2; border-radius:9999px; padding:2px 7px;">P1</a></sc-if>
+        </div>
+      </header>
+
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap:24px; align-items:start;">
+
+        <section style="background:rgba(255,255,255,0.7); border:1px solid rgba(255,255,255,0.6); border-radius:28px; padding:24px; box-shadow:0 8px 30px rgba(0,0,0,0.04); display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px;">
+            <div style="display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;">
+              <h2 style="font-size:20px; font-weight:600;">Oggi</h2>
+              <span style="font-size:13px; color:#717880;">{{ progressLabel }}</span>
+              <sc-if value="{{ tags }}" hint-placeholder-val="{{ true }}"><a href="Audit%20Coach%20Desktop.dc.html#P3" style="font-size:10px; font-weight:700; color:#7c4302; background:#ffdcc2; border-radius:9999px; padding:2px 7px;">P3</a></sc-if>
+            </div>
+            <button onClick="{{ openCalendar }}" style="display:flex; align-items:center; gap:6px; font-size:14px; font-weight:600; color:#003e62;" style-hover="color:#005685;">Apri nel calendario<nc-icon name="ArrowRight" style="width:14px; height:14px;"></nc-icon></button>
+          </div>
+          <sc-if value="{{ noSessions }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:24px 0; display:flex; flex-direction:column; align-items:center; gap:8px; text-align:center;"><p style="font-size:14px; color:#41474f;">Nessuna sessione in agenda oggi.</p><sc-if value="{{ nextLine }}" hint-placeholder-val="{{ false }}"><button onClick="{{ openNext }}" style="font-size:14px; font-weight:600; color:#003e62;">{{ nextLine }}</button></sc-if></div>
+          </sc-if>
+          <div style="display:flex; flex-direction:column;">
+            <sc-for list="{{ sessions }}" as="s" hint-placeholder-count="6">
+              <div style="display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; padding:12px; margin:0 -12px; border-radius:18px; background:{{ s.rowBg }};">
+                <div style="width:52px; flex-shrink:0; text-align:center;">
+                  <p style="font-weight:700; font-variant-numeric:tabular-nums; color:{{ s.timeColor }};">{{ s.time }}</p>
+                  <p style="font-size:12px; color:#717880;">{{ s.dur }}</p>
+                </div>
+                <div style="width:4px; height:44px; border-radius:9999px; flex-shrink:0; background:{{ s.color }}; opacity:{{ s.barOpacity }};"></div>
+                <button onClick="{{ s.openClient }}" style="display:flex; align-items:center; gap:12px; flex:1 1 180px; min-width:180px; text-align:left;">
+                  <span style="width:40px; height:40px; border-radius:9999px; background:#b2d8ff; color:#385f81; display:grid; place-items:center; font-size:14px; font-weight:700; flex-shrink:0;">{{ s.ini }}</span>
+                  <span style="min-width:0; display:flex; flex-direction:column; gap:3px;">
+                    <span style="font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" style-hover="color:#003e62;">{{ s.name }}</span>
+                    <span style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:12px; color:#41474f;">
+                      <span style="display:flex; align-items:center; gap:4px;"><nc-icon name="{{ s.icon }}" style="width:14px; height:14px;"></nc-icon>{{ s.type }}</span>
+                      <sc-if value="{{ s.chip }}" hint-placeholder-val="{{ false }}">
+                        <span style="font-size:11px; font-weight:700; padding:2px 8px; border-radius:9999px; background:{{ s.chipBg }}; color:{{ s.chipFg }};">{{ s.chip }}</span>
+                      </sc-if>
+                    </span>
+                  </span>
+                </button>
+                <div style="display:flex; align-items:center; gap:8px; flex-shrink:0; margin-left:auto;">
+                  <sc-if value="{{ s.showUndo }}" hint-placeholder-val="{{ false }}">
+                    <button onClick="{{ s.undo }}" style="height:34px; display:flex; align-items:center; gap:6px; padding:0 12px; border-radius:9999px; font-size:13px; font-weight:600; color:#41474f;" style-hover="background:#eceef2;"><nc-icon name="Undo2" style="width:14px; height:14px;"></nc-icon>{{ s.undoLabel }}</button>
+                  </sc-if>
+                  <sc-if value="{{ s.showAbsent }}" hint-placeholder-val="{{ false }}">
+                    <button onClick="{{ s.absent }}" aria-label="Segna come assente" title="Segna come assente" style="width:38px; height:38px; border-radius:9999px; display:grid; place-items:center; color:#41474f; border:1px solid #e1e2e7; background:#ffffff;" style-hover="color:#b91c1c; border-color:#fecaca;"><nc-icon name="UserX" style="width:16px; height:16px;"></nc-icon></button>
+                  </sc-if>
+                  <sc-if value="{{ s.showPrimary }}" hint-placeholder-val="{{ false }}">
+                    <button onClick="{{ s.checkin }}" style="height:38px; display:flex; align-items:center; gap:6px; padding:0 16px; border-radius:9999px; background:#005685; color:#ffffff; font-size:14px; font-weight:600;" style-hover="background:#003e62;"><nc-icon name="CheckCircle2" style="width:16px; height:16px;"></nc-icon>Check-in</button>
+                  </sc-if>
+                  <sc-if value="{{ s.showSecondary }}" hint-placeholder-val="{{ true }}">
+                    <button onClick="{{ s.checkin }}" style="height:38px; display:flex; align-items:center; gap:6px; padding:0 16px; border-radius:9999px; background:#ffffff; border:1px solid #e1e2e7; color:#003e62; font-size:14px; font-weight:600;" style-hover="border-color:#005685;"><nc-icon name="CheckCircle2" style="width:16px; height:16px;"></nc-icon>Check-in</button>
+                  </sc-if>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <sc-if value="{{ tags }}" hint-placeholder-val="{{ true }}">
+            <p style="display:flex; align-items:center; gap:6px; font-size:12px; color:#717880; margin-top:4px;"><a href="Audit%20Coach%20Desktop.dc.html#P2" style="font-size:10px; font-weight:700; color:#7c4302; background:#ffdcc2; border-radius:9999px; padding:2px 7px;">P2</a>Ogni check-in si può annullare dal messaggio di conferma o dalla riga.</p>
+          </sc-if>
+        </section>
+
+        <div style="display:flex; flex-direction:column; gap:24px; min-width:0;">
+          <section style="background:rgba(255,255,255,0.7); border:1px solid rgba(255,255,255,0.6); border-radius:28px; padding:24px; box-shadow:0 8px 30px rgba(0,0,0,0.04); display:flex; flex-direction:column; gap:14px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+              <div style="display:flex; align-items:center; gap:10px;">
+                <h2 style="font-size:20px; font-weight:600;">Rinnovi in scadenza</h2>
+                <sc-if value="{{ tags }}" hint-placeholder-val="{{ true }}"><a href="Audit%20Coach%20Desktop.dc.html#P4" style="font-size:10px; font-weight:700; color:#7c4302; background:#ffdcc2; border-radius:9999px; padding:2px 7px;">P4</a></sc-if>
+              </div>
+              <span style="font-size:12px; font-weight:700; border-radius:9999px; padding:4px 12px; background:{{ renewBadgeBg }}; color:{{ renewBadgeFg }};">{{ renewCount }}</span>
+            </div>
+            <p style="font-size:12px; color:#717880; margin-top:-6px;">Clienti con 2 crediti o meno, o con il blocco che scade entro 7 giorni.</p>
+            <sc-if value="{{ noRenewals }}" hint-placeholder-val="{{ false }}">
+              <p style="display:flex; align-items:center; gap:8px; font-size:14px; color:#41474f;"><nc-icon name="CircleCheck" style="width:16px; height:16px; color:#047857;"></nc-icon>Nessun rinnovo nei prossimi 7 giorni.</p>
+            </sc-if>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+              <sc-for list="{{ renewals }}" as="r" hint-placeholder-count="2">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; border-radius:20px; border:1px solid #e1e2e7; background:#ffffff; padding:12px 14px;">
+                  <button onClick="{{ r.openClient }}" style="display:flex; align-items:center; gap:12px; min-width:0; text-align:left;">
+                    <span style="width:40px; height:40px; border-radius:9999px; background:#d6e5ec; color:#3b494f; display:grid; place-items:center; font-size:13px; font-weight:700; flex-shrink:0;">{{ r.ini }}</span>
+                    <span style="min-width:0; display:flex; flex-direction:column; gap:2px;">
+                      <span style="font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ r.name }}</span>
+                      <span style="font-size:12px; color:#41474f;">{{ r.plan }} · <span style="color:#c2410c; font-weight:600;">{{ r.reason }}</span></span>
+                    </span>
+                  </button>
+                  <button onClick="{{ r.renew }}" style="flex-shrink:0; height:36px; padding:0 16px; border-radius:9999px; background:#003e62; color:#ffffff; font-size:13px; font-weight:600;" style-hover="background:#005685;">Rinnova</button>
+                </div>
+              </sc-for>
+            </div>
+          </section>
+
+          <section style="background:rgba(255,255,255,0.7); border:1px solid rgba(255,255,255,0.6); border-radius:28px; padding:24px; box-shadow:0 8px 30px rgba(0,0,0,0.04); display:flex; flex-direction:column; gap:14px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+              <div style="display:flex; align-items:center; gap:10px;">
+                <h2 style="font-size:20px; font-weight:600;">Da assegnare</h2>
+                <sc-if value="{{ tags }}" hint-placeholder-val="{{ true }}"><a href="Audit%20Coach%20Desktop.dc.html#P5" style="font-size:10px; font-weight:700; color:#7c4302; background:#ffdcc2; border-radius:9999px; padding:2px 7px;">P5</a></sc-if>
+              </div>
+              <span style="font-size:12px; font-weight:700; border-radius:9999px; padding:4px 12px; background:{{ assignBadgeBg }}; color:{{ assignBadgeFg }};">{{ assignCount }}</span>
+            </div>
+            <p style="font-size:12px; color:#717880; margin-top:-6px;">Eventi importati da Google Calendar senza cliente.</p>
+            <sc-if value="{{ noExternal }}" hint-placeholder-val="{{ false }}">
+              <p style="display:flex; align-items:center; gap:8px; font-size:14px; color:#41474f;"><nc-icon name="CircleCheck" style="width:16px; height:16px; color:#047857;"></nc-icon>Tutti gli eventi importati sono assegnati.</p>
+            </sc-if>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+              <sc-for list="{{ external }}" as="x" hint-placeholder-count="3">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; border-radius:20px; border:1px dashed #ffb77b; background:rgba(255,220,194,0.22); padding:12px 14px;">
+                  <div style="min-width:0; display:flex; flex-direction:column; gap:2px;">
+                    <span style="font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ x.title }}</span>
+                    <span style="font-size:12px; color:#7c4302;">{{ x.when }}</span>
+                  </div>
+                  <button onClick="{{ x.assign }}" style="flex-shrink:0; height:36px; padding:0 16px; border-radius:9999px; background:#7c4302; color:#ffffff; font-size:13px; font-weight:600;" style-hover="background:#5f3300;">Assegna</button>
+                </div>
+              </sc-for>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <section style="background:rgba(255,255,255,0.7); border:1px solid rgba(255,255,255,0.6); border-radius:28px; padding:24px; box-shadow:0 8px 30px rgba(0,0,0,0.04); display:flex; flex-direction:column; gap:16px;">
+        <div style="display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <h2 style="font-size:20px; font-weight:600;">Distribuzione servizi</h2>
+            <sc-if value="{{ tags }}" hint-placeholder-val="{{ true }}"><a href="Audit%20Coach%20Desktop.dc.html#P6" style="font-size:10px; font-weight:700; color:#7c4302; background:#ffdcc2; border-radius:9999px; padding:2px 7px;">P6</a></sc-if>
+          </div>
+          <span style="font-size:13px; color:#717880;">{{ distLabel }}</span>
+        </div>
+        <div style="display:flex; height:12px; border-radius:9999px; overflow:hidden; gap:2px; background:#e1e2e7;">
+          <sc-for list="{{ dist }}" as="d" hint-placeholder-count="4">
+            <div style="height:100%; width:{{ d.w }}; background:{{ d.color }};"></div>
+          </sc-for>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:12px 24px;">
+          <sc-for list="{{ dist }}" as="d" hint-placeholder-count="4">
+            <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+              <span style="width:10px; height:10px; border-radius:3px; flex-shrink:0; background:{{ d.color }};"></span>
+              <span style="font-size:14px; font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ d.name }}</span>
+              <span style="font-size:14px; font-variant-numeric:tabular-nums; color:#41474f;">{{ d.count }} · {{ d.pct }}%</span>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+
+      <p style="display:flex; align-items:center; gap:8px; font-size:12px; color:#717880;">Prototipo con dati di esempio.<button onClick="{{ resetData }}" style="font-size:12px; font-weight:600; color:#003e62;">Ripristina i dati</button></p>
+    </main>
+  </div>
+
+  <sc-if value="{{ assignOpen }}" hint-placeholder-val="{{ false }}">
+    <dc-import name="Coach Assegna Evento" event-id="{{ assignId }}" on-close="{{ closeDialogs }}" hint-size="100%,100%" style="position:fixed; inset:0; z-index:100;"></dc-import>
+  </sc-if>
+
+  <sc-if value="{{ renewOpen }}" hint-placeholder-val="{{ false }}">
+    <dc-import name="Coach Pacchetto" client-id="{{ renewId }}" mode="renew" on-close="{{ closeDialogs }}" hint-size="100%,100%" style="position:fixed; inset:0; z-index:100;"></dc-import>
+  </sc-if>
+
+  <sc-if value="{{ toastOn }}" hint-placeholder-val="{{ false }}">
+    <div role="status" aria-live="polite" style="position:fixed; left:50%; bottom:28px; transform:translateX(-50%); z-index:200; display:flex; align-items:center; gap:14px; background:#ffffff; border:1px solid #eceef2; border-radius:18px; box-shadow:0 16px 48px rgba(0,0,0,0.18); padding:12px 12px 12px 16px; max-width:calc(100vw - 48px);">
+      <nc-icon name="{{ toastIcon }}" style="width:18px; height:18px; color:{{ toastColor }};"></nc-icon>
+      <span style="font-size:14px; font-weight:500;">{{ toastMsg }}</span>
+      <sc-if value="{{ toastUndo }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ undoToast }}" style="height:32px; padding:0 14px; border-radius:9999px; background:rgba(0,62,98,0.1); color:#003e62; font-size:13px; font-weight:700;" style-hover="background:rgba(0,62,98,0.16);">Ripristina</button>
+      </sc-if>
+      <button onClick="{{ dismissToast }}" aria-label="Chiudi" style="width:28px; height:28px; border-radius:9999px; display:grid; place-items:center; color:#717880;" style-hover="background:#eceef2;"><nc-icon name="X" style="width:14px; height:14px;"></nc-icon></button>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;clock&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;reale&quot;,&quot;08:15&quot;,&quot;10:40&quot;,&quot;13:10&quot;,&quot;19:10&quot;],&quot;default&quot;:&quot;10:40&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototipo&quot;},&quot;auditTags&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Prototipo&quot;}}">
+class Component extends DCLogic {
+  state = { assign: null, renew: null, tick: 0 };
+  componentDidMount() {
+    const hook = () => { this.unsub = window.NCStore.subscribe(() => this.forceUpdate()); if (this.props.clock) window.NCStore.setClock(this.props.clock); this.forceUpdate(); };
+    const wait = () => (window.NCStore ? hook() : (this.t = setTimeout(wait, 30)));
+    wait();
+    this.iv = setInterval(() => this.setState((s) => ({ tick: s.tick + 1 })), 60000);
+    this.onKey = (e) => { if (e.key === "Escape") this.setState({ assign: null, renew: null }); };
+    document.addEventListener("keydown", this.onKey);
+  }
+  componentWillUnmount() { this.unsub && this.unsub(); clearTimeout(this.t); clearInterval(this.iv); document.removeEventListener("keydown", this.onKey); }
+
+  now() { return window.NCStore.now(); }
+  componentDidUpdate(prev) { if (window.NCStore && this.props.clock && prev.clock !== this.props.clock) window.NCStore.setClock(this.props.clock); }
+
+  renderVals() {
+    const S = window.NCStore;
+    const tags = this.props.auditTags ?? true;
+    const empty = { tags, sessions: [], renewals: [], external: [], dist: [], rCredits: [] };
+    if (!S) return empty;
+    const st = S.get();
+    const now = this.now();
+    const hour = new Date(now).getHours();
+    const first = st.coach.name.split(" ")[0];
+
+    const today = S.todaySessions(now);
+    const nextAny = st.bookings.filter((b) => b.clientId && !b.personal && b.status === "scheduled" && new Date(b.start).getTime() > now).sort((a, b) => new Date(a.start) - new Date(b.start))[0] || null;
+    const done = today.filter((x) => x.phase === "done").length;
+    const toconf = today.filter((x) => x.phase === "toconfirm").length;
+    let sub = S.fmtLongToday() + " · " + (today.length === 1 ? "1 sessione oggi" : today.length + " sessioni oggi");
+    if (done) sub += ", " + done + (done === 1 ? " svolta" : " svolte");
+    if (toconf) sub += ", " + toconf + " da confermare";
+
+    const P = {
+      done: { chip: "Svolta", bg: "#ecfdf5", fg: "#047857" },
+      noshow: { chip: "Assente", bg: "#fef2f2", fg: "#b91c1c" },
+      toconfirm: { chip: "Da confermare", bg: "#fff7ed", fg: "#c2410c" },
+      now: { chip: "In corso", bg: "rgba(0,62,98,0.1)", fg: "#003e62" },
+      next: { chip: "Prossima", bg: "#eceef2", fg: "#41474f" },
+      later: { chip: "", bg: "", fg: "" },
+    };
+    const sessions = today.map(({ b, phase, minsTo }) => {
+      const c = S.client(b.clientId) || { name: "Cliente", id: null };
+      const t = S.type(b.typeId);
+      const p = P[phase];
+      const finished = phase === "done" || phase === "noshow";
+      let chip = p.chip;
+      if (phase === "next" && minsTo <= 90) chip = "Prossima · tra " + minsTo + " min";
+      return {
+        time: S.fmtTime(b.start), dur: S.fmtDur(b.dur), name: c.name, ini: S.initials(c.name),
+        type: t.name, icon: t.icon, color: t.color,
+        chip, chipBg: p.bg, chipFg: p.fg,
+        rowBg: phase === "now" ? "rgba(0,62,98,0.05)" : phase === "toconfirm" ? "rgba(255,237,213,0.35)" : "transparent",
+        timeColor: finished ? "#717880" : "#191c1f",
+        barOpacity: finished ? 0.35 : 1,
+        showUndo: finished, undoLabel: phase === "noshow" ? "Annulla assenza" : "Annulla check-in",
+        showAbsent: phase === "toconfirm" || phase === "now",
+        showPrimary: phase === "toconfirm" || phase === "now",
+        showSecondary: phase === "next" || phase === "later",
+        openClient: () => c.id && S.go("cliente", { id: c.id }),
+        checkin: () => { const u = S.setBookingStatus(b.id, "completed"); S.showToast({ msg: "Sessione di " + c.name + " segnata come svolta.", undo: u }); },
+        absent: () => { const u = S.setBookingStatus(b.id, "no_show"); S.showToast({ msg: "Assenza registrata per " + c.name + ".", undo: u, tone: "warn" }); },
+        undo: () => { S.setBookingStatus(b.id, "scheduled"); S.showToast({ msg: "Stato ripristinato: " + c.name + " torna in agenda.", tone: "info" }); },
+      };
+    });
+
+    const rl = S.renewals();
+    const renewals = rl.map((r) => {
+      const c = S.client(r.clientId);
+      return { name: c.name, ini: S.initials(c.name), plan: c.plan, reason: r.reason,
+        openClient: () => S.go("cliente", { id: c.id }),
+        renew: () => this.setState({ renew: c.id, assign: null }) };
+    });
+    const ext = S.openExternal();
+    const external = ext.map((x) => ({
+      title: x.title,
+      when: S.fmtDay(x.start) + " · " + S.fmtTime(x.start) + "–" + S.fmtTime(new Date(new Date(x.start).getTime() + x.dur * 60000).toISOString()),
+      assign: () => this.setState({ assign: { id: x.id }, renew: null }),
+    }));
+
+    const ytd = st.ytd;
+    const totalYtd = S.types.reduce((s, t) => s + (ytd[t.id] || 0), 0);
+    const dist = S.types.map((t) => {
+      const n = ytd[t.id] || 0; const pct = totalYtd ? Math.round((n / totalYtd) * 100) : 0;
+      return { name: t.name, color: t.color, count: n, pct, w: (totalYtd ? (n / totalYtd) * 100 : 0) + "%" };
+    }).sort((a, b) => b.count - a.count);
+
+    const assignVals = { assignOpen: !!this.state.assign, assignId: this.state.assign ? this.state.assign.id : null };
+
+    const renewVals = { renewOpen: !!this.state.renew, renewId: this.state.renew };
+
+    const tst = S.getToast();
+    const TONE = { ok: ["CircleCheck", "#047857"], warn: ["UserX", "#c2410c"], info: ["Info", "#005685"] };
+    const tone = tst ? TONE[tst.tone] || TONE.ok : TONE.ok;
+
+    return Object.assign({
+      tags,
+      greeting: (hour < 13 ? "Buongiorno, " : hour < 18 ? "Buon pomeriggio, " : "Buonasera, ") + first,
+      subtitle: sub,
+      progressLabel: today.length ? done + " di " + today.length + " svolte" : "",
+      noSessions: today.length === 0,
+      nextLine: nextAny ? "Prossima: " + S.dayLabel(nextAny.start).long + " alle " + S.fmtTime(nextAny.start) + " con " + (S.client(nextAny.clientId) || { name: "un cliente" }).name : false,
+      openNext: () => nextAny && S.go("calendario", { date: S.isoDate(nextAny.start), event: nextAny.id }),
+      sessions,
+      openCalendar: () => S.go("calendario", { date: S.isoDate(new Date()), view: "day" }),
+      renewals, noRenewals: rl.length === 0, renewCount: rl.length,
+      renewBadgeBg: rl.length ? "#fff7ed" : "#eceef2", renewBadgeFg: rl.length ? "#c2410c" : "#717880",
+      external, noExternal: ext.length === 0, assignCount: ext.length,
+      assignBadgeBg: ext.length ? "rgba(255,220,194,0.6)" : "#eceef2", assignBadgeFg: ext.length ? "#7c4302" : "#717880",
+      dist, distLabel: "Dal 1° gennaio · " + totalYtd + " sessioni",
+      closeDialogs: () => this.setState({ assign: null, renew: null }),
+      stop: (e) => e.stopPropagation(),
+      toastOn: !!tst, toastMsg: tst ? tst.msg : "", toastUndo: !!(tst && tst.undo),
+      toastIcon: tone[0], toastColor: tone[1],
+      undoToast: () => S.undoToast(), dismissToast: () => S.dismissToast(),
+      resetData: () => { S.reset(); S.showToast({ msg: "Dati di esempio ripristinati.", tone: "info" }); },
+    }, assignVals, renewVals);
+  }
+}
+</script>
+</body>
+</html>

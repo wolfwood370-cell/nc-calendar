@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&amp;family=Manrope:wght@400;500;600;700&amp;display=swap">
+<script src="./nc-icons.js"></script>
+<script src="./nc-store.js"></script>
+<style>
+*,::before,::after{box-sizing:border-box;margin:0;padding:0;border:0 solid;}
+body{margin:0;font-family:Manrope,ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
+button,input{font:inherit;color:inherit;background:transparent;}
+button{cursor:pointer;}
+a{color:inherit;text-decoration:none;}
+a:hover{color:inherit;}
+input::placeholder{color:#717880;}
+</style>
+</helmet>
+<div ref="{{ root }}" style="position:relative; z-index:40; height:56px; display:flex; align-items:center; gap:12px; padding:0 24px; border-bottom:1px solid rgba(255,255,255,0.5); background:rgba(255,255,255,0.4); backdrop-filter:blur(40px); -webkit-backdrop-filter:blur(40px); font-family:Manrope, sans-serif; color:#191c1f;">
+  <nav aria-label="Percorso" style="display:flex; align-items:center; gap:8px; flex:0 0 auto; max-width:calc(100% - 360px); min-width:0; font-size:14px;">
+    <sc-if value="{{ hasParent }}" hint-placeholder-val="{{ false }}">
+      <sc-if value="{{ parentIsLink }}" hint-placeholder-val="{{ false }}"><a href="{{ parentHref }}" onClick="{{ onParent }}" style="color:#717880; font-weight:500; white-space:nowrap;" style-hover="color:#003e62;">{{ parent }}</a></sc-if>
+      <sc-if value="{{ parentIsText }}" hint-placeholder-val="{{ false }}"><span style="color:#717880; font-weight:500; white-space:nowrap;">{{ parent }}</span></sc-if>
+      <nc-icon name="ChevronRight" style="width:14px; height:14px; color:#c1c7d0;"></nc-icon>
+    </sc-if>
+    <span style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;">{{ title }}</span>
+  </nav>
+  <div style="margin-left:auto; display:flex; align-items:center; gap:10px; flex:1 1 0; min-width:0; justify-content:flex-end;">
+    <div style="position:relative; flex:0 1 300px; min-width:150px;">
+      <nc-icon name="Search" style="position:absolute; left:14px; top:11px; width:16px; height:16px; color:#717880; pointer-events:none;"></nc-icon>
+      <input ref="{{ inputRef }}" value="{{ q }}" onChange="{{ onQ }}" onFocus="{{ onFocus }}" onKeyDown="{{ onKey }}" placeholder="Cerca cliente" aria-label="Cerca cliente" style="width:100%; height:38px; border-radius:9999px; background:#ffffff; border:1px solid rgba(193,199,208,0.6); padding:0 52px 0 38px; font-size:14px; outline:none;" style-focus="border-color:#005685; box-shadow:0 0 0 3px rgba(0,86,133,0.12);">
+      <span style="position:absolute; right:10px; top:9px; height:20px; padding:0 6px; border-radius:6px; background:#eceef2; color:#717880; font-size:11px; font-weight:600; display:flex; align-items:center; pointer-events:none;">⌘K</span>
+      <sc-if value="{{ showResults }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute; top:46px; left:0; right:0; background:#ffffff; border-radius:18px; border:1px solid #eceef2; box-shadow:0 20px 60px rgba(0,0,0,0.16); padding:6px; display:flex; flex-direction:column;">
+          <sc-for list="{{ results }}" as="r" hint-placeholder-count="0">
+            <button onClick="{{ r.open }}" onMouseEnter="{{ r.hover }}" style="display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:12px; text-align:left; background:{{ r.bg }};">
+              <span style="width:32px; height:32px; border-radius:9999px; background:#d6e5ec; color:#3b494f; display:grid; place-items:center; font-size:12px; font-weight:700; flex-shrink:0;">{{ r.ini }}</span>
+              <span style="flex:1; min-width:0; display:flex; flex-direction:column;">
+                <span style="font-size:14px; font-weight:600;">{{ r.name }}</span>
+                <span style="font-size:12px; color:#717880;">{{ r.plan }}</span>
+              </span>
+              <nc-icon name="ArrowRight" style="width:14px; height:14px; color:#717880;"></nc-icon>
+            </button>
+          </sc-for>
+          <sc-if value="{{ noResults }}" hint-placeholder-val="{{ false }}">
+            <p style="padding:14px 10px; font-size:13px; color:#717880;">Nessun cliente trovato per «{{ q }}».</p>
+          </sc-if>
+        </div>
+      </sc-if>
+    </div>
+    <div style="position:relative;">
+      <button onClick="{{ toggleMenu }}" aria-haspopup="menu" aria-expanded="{{ menuOpenStr }}" style="height:38px; display:flex; align-items:center; gap:6px; padding:0 14px 0 16px; border-radius:9999px; background:#003e62; color:#ffffff; font-size:14px; font-weight:600;" style-hover="background:#005685;">
+        <nc-icon name="Plus" style="width:16px; height:16px;"></nc-icon>Nuovo<nc-icon name="ChevronDown" style="width:14px; height:14px; opacity:0.8;"></nc-icon>
+      </button>
+      <sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
+        <div role="menu" style="position:absolute; top:46px; right:0; width:220px; background:#ffffff; border-radius:18px; border:1px solid #eceef2; box-shadow:0 20px 60px rgba(0,0,0,0.16); padding:6px; display:flex; flex-direction:column;">
+          <button role="menuitem" onClick="{{ newEvent }}" style="display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:12px; font-size:14px; font-weight:500; text-align:left;" style-hover="background:#f2f3f8;"><nc-icon name="CalendarPlus" style="width:16px; height:16px; color:#003e62;"></nc-icon>Nuova sessione</button>
+          <button role="menuitem" onClick="{{ newClient }}" style="display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:12px; font-size:14px; font-weight:500; text-align:left;" style-hover="background:#f2f3f8;"><nc-icon name="UserPlus" style="width:16px; height:16px; color:#003e62;"></nc-icon>Nuovo cliente</button>
+        </div>
+      </sc-if>
+    </div>
+    <div style="position:relative;">
+      <button onClick="{{ toggleBell }}" aria-label="{{ bellLabel }}" style="position:relative; width:38px; height:38px; border-radius:9999px; background:#ffffff; border:1px solid rgba(193,199,208,0.6); display:grid; place-items:center; color:#41474f;" style-hover="color:#003e62;">
+        <nc-icon name="Bell" style="width:18px; height:18px;"></nc-icon>
+        <sc-if value="{{ unread }}" hint-placeholder-val="{{ false }}">
+          <span style="position:absolute; top:-4px; right:-4px; min-width:18px; height:18px; padding:0 4px; border-radius:9999px; background:#e53935; color:#ffffff; font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; border:2px solid #f8f9fe;">{{ unreadLabel }}</span>
+        </sc-if>
+      </button>
+      <sc-if value="{{ bellOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute; top:46px; right:0; width:360px; background:#ffffff; border-radius:18px; border:1px solid #eceef2; box-shadow:0 20px 60px rgba(0,0,0,0.2); overflow:hidden;">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:14px 18px; border-bottom:1px solid #f2f3f8;">
+            <span style="font-family:Sora, sans-serif; font-size:15px; font-weight:700;">Attività clienti</span>
+            <sc-if value="{{ unread }}" hint-placeholder-val="{{ false }}">
+              <button onClick="{{ markAll }}" style="font-size:12px; font-weight:600; color:#005685;">Segna tutte come lette</button>
+            </sc-if>
+          </div>
+          <div style="max-height:420px; overflow:auto; padding:6px; display:flex; flex-direction:column; gap:2px;">
+            <sc-for list="{{ notes }}" as="n" hint-placeholder-count="0">
+              <button onClick="{{ n.open }}" style="display:flex; align-items:flex-start; gap:12px; padding:12px; border-radius:14px; text-align:left; background:{{ n.bg }};" style-hover="background:#f2f3f8;">
+                <span style="width:34px; height:34px; border-radius:10px; background:rgba(0,62,98,0.08); color:#003e62; display:grid; place-items:center; flex-shrink:0;"><nc-icon name="{{ n.icon }}" style="width:17px; height:17px;"></nc-icon></span>
+                <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px;">
+                  <span style="font-size:13px; font-weight:700;">{{ n.title }}</span>
+                  <span style="font-size:12px; color:#41474f;">{{ n.body }}</span>
+                  <span style="font-size:12px; color:#41474f;">{{ n.when }}</span>
+                  <span style="font-size:11px; color:#717880; margin-top:2px;">{{ n.ago }} · Apri nel calendario</span>
+                </span>
+                <span style="width:8px; height:8px; border-radius:9999px; margin-top:6px; flex-shrink:0; background:{{ n.dot }};"></span>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1184,&quot;height&quot;:480},&quot;title&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Panoramica&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;parent&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;parentPage&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;panoramica&quot;,&quot;calendario&quot;,&quot;clienti&quot;,&quot;tipologie&quot;,&quot;disponibilita&quot;,&quot;integrazioni&quot;],&quot;default&quot;:&quot;clienti&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  state = { q: "", focus: false, hi: 0, menuOpen: false, bellOpen: false };
+  root = React.createRef();
+  inputRef = React.createRef();
+  componentDidMount() {
+    const hook = () => { this.unsub = window.NCStore.subscribe(() => this.forceUpdate()); this.forceUpdate(); };
+    const wait = () => (window.NCStore ? hook() : (this.t = setTimeout(wait, 30)));
+    wait();
+    this.onDoc = (e) => { if (this.root.current && !this.root.current.contains(e.target)) this.setState({ focus: false, menuOpen: false, bellOpen: false }); };
+    this.onKeyDoc = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); this.inputRef.current && this.inputRef.current.focus(); }
+      if (e.key === "Escape") this.setState({ focus: false, menuOpen: false, bellOpen: false });
+    };
+    document.addEventListener("mousedown", this.onDoc);
+    document.addEventListener("keydown", this.onKeyDoc);
+  }
+  componentWillUnmount() {
+    this.unsub && this.unsub(); clearTimeout(this.t);
+    document.removeEventListener("mousedown", this.onDoc);
+    document.removeEventListener("keydown", this.onKeyDoc);
+  }
+  renderVals() {
+    const S = window.NCStore;
+    const { q, focus, hi, menuOpen, bellOpen } = this.state;
+    const found = S ? S.searchClients(q) : [];
+    const openClient = (c) => { this.setState({ q: "", focus: false }); S.go("cliente", { id: c.id }); };
+    const results = found.map((c, i) => ({
+      name: c.name, plan: c.plan, ini: S.initials(c.name),
+      bg: i === hi ? "#f2f3f8" : "transparent",
+      open: () => openClient(c),
+      hover: () => this.setState({ hi: i }),
+    }));
+    const st = S ? S.get() : { notifications: [] };
+    const notes = st.notifications.slice().sort((a, b) => new Date(b.created) - new Date(a.created)).map((n) => {
+      const c = S.client(n.clientId);
+      const b = st.bookings.find((x) => x.id === n.bookingId);
+      const t = b ? S.type(b.typeId) : null;
+      const moved = n.kind === "rescheduled";
+      return {
+        icon: moved ? "Repeat" : "CalendarPlus",
+        title: moved ? "Sessione spostata" : "Nuova prenotazione",
+        body: (c ? c.name : "Cliente") + (t ? " · " + t.name : ""),
+        when: moved ? S.fmtDay(n.from) + " " + S.fmtTime(n.from) + " → " + S.fmtDay(n.when) + " " + S.fmtTime(n.when) : S.fmtDay(n.when) + " · " + S.fmtTime(n.when),
+        ago: S.ago(n.created),
+        bg: n.read ? "transparent" : "rgba(0,62,98,0.04)",
+        dot: n.read ? "transparent" : "#003e62",
+        open: () => { S.markNotificationRead(n.id); this.setState({ bellOpen: false }); S.go("calendario", { date: S.isoDate(n.when), event: n.bookingId }); },
+      };
+    });
+    const unread = S ? S.unreadCount() : 0;
+    const parentPage = this.props.parentPage;
+    return {
+      root: this.root, inputRef: this.inputRef,
+      title: this.props.title ?? "Panoramica",
+      parent: this.props.parent ?? "",
+      hasParent: !!this.props.parent,
+      parentIsLink: !!this.props.parent && !!parentPage,
+      parentIsText: !!this.props.parent && !parentPage,
+      parentHref: S && parentPage && S.pages[parentPage] && S.pages[parentPage].ready ? S.href(parentPage) : "#",
+      onParent: (e) => { if (!S || !parentPage) { e.preventDefault(); return; } if (!S.pages[parentPage].ready) { e.preventDefault(); S.go(parentPage); return; } if (S.leaveGuard && !S.leaveGuard(S.href(parentPage))) e.preventDefault(); },
+      q,
+      onQ: (e) => this.setState({ q: e.target.value, focus: true, hi: 0 }),
+      onFocus: () => this.setState({ focus: true, menuOpen: false, bellOpen: false }),
+      onKey: (e) => {
+        if (e.key === "ArrowDown") { e.preventDefault(); this.setState({ hi: Math.min(found.length - 1, hi + 1) }); }
+        if (e.key === "ArrowUp") { e.preventDefault(); this.setState({ hi: Math.max(0, hi - 1) }); }
+        if (e.key === "Enter" && found[hi]) openClient(found[hi]);
+      },
+      showResults: focus && q.trim().length > 0,
+      results, noResults: found.length === 0,
+      menuOpen, menuOpenStr: menuOpen ? "true" : "false",
+      toggleMenu: () => this.setState({ menuOpen: !menuOpen, bellOpen: false, focus: false }),
+      newEvent: () => { this.setState({ menuOpen: false }); S.go("calendario", { new: "sessione" }); },
+      newClient: () => { this.setState({ menuOpen: false }); S.go("clienti", { new: "cliente" }); },
+      bellOpen, notes,
+      toggleBell: () => this.setState({ bellOpen: !bellOpen, menuOpen: false, focus: false }),
+      unread: unread > 0, unreadLabel: unread > 99 ? "99+" : String(unread),
+      bellLabel: unread ? "Notifiche, " + unread + " non lette" : "Notifiche",
+      markAll: () => S.markAllRead(),
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&amp;family=Manrope:wght@400;500;600;700&amp;display=swap">
+<script src="./nc-icons.js"></script>
+<script src="./nc-store.js"></script>
+<title>Integrazioni · NC Calendar</title>
+<style>
+*,::before,::after{box-sizing:border-box;margin:0;padding:0;border:0 solid;}
+body{margin:0;background:#f8f9fe;font-family:Manrope,ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:#191c1f;}
+button{font:inherit;color:inherit;background:transparent;cursor:pointer;}
+button:disabled{cursor:default;}
+ul{list-style:none;}
+a{color:#003e62;text-decoration:none;}
+a:hover{color:#005685;}
+:focus-visible{outline:2px solid #005685;outline-offset:2px;}
+</style>
+</helmet>
+<div style="display:flex; min-height:100vh; background:linear-gradient(135deg,#f2f3f8,#e7e8ec);">
+  <div style="position:sticky; top:0; height:100vh; flex-shrink:0;">
+    <dc-import name="Coach Sidebar" active="integrazioni" hint-size="256px,100vh" style="width:256px; height:100vh;"></dc-import>
+  </div>
+  <div style="flex:1; min-width:0; display:flex; flex-direction:column;">
+    <div style="position:sticky; top:0; z-index:40;">
+      <dc-import name="Coach Header" title="Integrazioni" parent="Impostazioni" hint-size="100%,56px" style="width:100%; height:56px;"></dc-import>
+    </div>
+    <main style="flex:1; background:#f8f9fe; padding:28px 40px 48px; display:flex; flex-direction:column; gap:20px; min-width:0;">
+      <div style="display:flex; flex-direction:column; gap:6px; max-width:680px;">
+        <h1 style="font-family:Sora, sans-serif; font-size:36px; line-height:1.15; font-weight:700; letter-spacing:-0.02em;">Integrazioni</h1>
+        <p style="font-size:15px; line-height:1.5; color:#41474f;">I servizi collegati a NC Calendar sono configurati per tutto lo studio. Qui ne vedi lo stato e tieni allineato Google Calendar.</p>
+      </div>
+
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap:20px; align-items:start; max-width:1200px;">
+        <div style="display:flex; flex-direction:column; gap:20px; min-width:0;">
+          <section style="background:#ffffff; border-radius:28px; box-shadow:0px 4px 20px rgba(0,86,133,0.05); padding:24px; display:flex; flex-direction:column; gap:18px;">
+            <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:14px; flex-wrap:wrap;">
+              <div style="display:flex; align-items:center; gap:14px;">
+                <span style="width:48px; height:48px; border-radius:14px; background:#4285f4; color:#ffffff; display:grid; place-items:center; flex-shrink:0;"><nc-icon name="CalendarDays" style="width:24px; height:24px;"></nc-icon></span>
+                <div style="display:flex; flex-direction:column; gap:4px;">
+                  <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;"><h2 style="font-size:20px; font-weight:600;">Google Calendar</h2><span style="display:flex; align-items:center; gap:5px; font-size:11px; font-weight:700; padding:3px 10px; border-radius:9999px; background:{{ gBg }}; color:{{ gFg }};"><span style="width:6px; height:6px; border-radius:9999px; background:{{ gFg }};"></span>{{ gStatus }}</span><sc-if value="{{ tags }}" hint-placeholder-val="{{ true }}"><a href="Audit%20Coach%20Desktop.dc.html#I1" style="font-size:10px; font-weight:700; color:#7c4302; background:#ffdcc2; border-radius:9999px; padding:2px 7px;">I1</a></sc-if></div>
+                  <p style="font-size:13px; color:#41474f;">Calendario condiviso dello studio</p>
+                </div>
+              </div>
+              <button onClick="{{ syncNow }}" disabled="{{ busy }}" style="height:38px; display:flex; align-items:center; gap:8px; padding:0 16px; border-radius:9999px; border:1px solid #e1e2e7; font-size:14px; font-weight:600; color:#003e62;" style-hover="border-color:#005685;"><nc-icon name="RefreshCw" style="width:15px; height:15px;"></nc-icon>Sincronizza ora</button>
+            </div>
+            <sc-if value="{{ isError }}" hint-placeholder-val="{{ false }}">
+              <div role="alert" style="display:flex; flex-direction:column; gap:8px; padding:14px 16px; border-radius:18px; background:#fef2f2; border:1px solid #fecaca;">
+                <p style="display:flex; align-items:center; gap:8px; font-size:14px; font-weight:700; color:#b91c1c;"><nc-icon name="CircleAlert" style="width:16px; height:16px;"></nc-icon>Google Calendar non risponde dalle 10:12</p>
+                <p style="font-size:13px; line-height:1.5; color:#7f1d1d;">Le prenotazioni continuano a funzionare nell'app. Le sessioni senza evento su Google vengono ricreate alla prossima sincronizzazione riuscita. Se l'errore resta, avvisa chi gestisce l'account dello studio.</p>
+              </div>
+            </sc-if>
+            <div style="display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px;">
+              <div style="display:flex; flex-direction:column; gap:2px; padding:12px 14px; border-radius:16px; background:#f8f9fe;"><span style="font-size:12px; color:#717880;">Ultimo aggiornamento</span><strong style="font-size:15px;">{{ syncLabel }}</strong></div>
+              <button onClick="{{ goAssign }}" style="display:flex; flex-direction:column; gap:2px; padding:12px 14px; border-radius:16px; background:#f8f9fe; text-align:left;" style-hover="background:#f2f3f8;"><span style="font-size:12px; color:#717880;">Eventi da assegnare</span><strong style="font-size:15px; color:{{ extColor }};">{{ extCount }}</strong></button>
+              <div style="display:flex; flex-direction:column; gap:2px; padding:12px 14px; border-radius:16px; background:#f8f9fe;"><span style="font-size:12px; color:#717880;">Sessioni non su Google</span><strong style="font-size:15px; color:{{ missColor }};">{{ missCount }}</strong></div>
+            </div>
+            <sc-if value="{{ hasMissing }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex; flex-direction:column; gap:8px;">
+                <sc-for list="{{ missing }}" as="m" hint-placeholder-count="1">
+                  <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; padding:10px 14px; border-radius:14px; background:#fff7ed;">
+                    <div style="display:flex; flex-direction:column;"><span style="font-size:13px; font-weight:600;">{{ m.name }}</span><span style="font-size:12px; color:#c2410c;">{{ m.when }} · non presente su Google</span></div>
+                    <button onClick="{{ m.repair }}" style="height:32px; padding:0 12px; border-radius:9999px; background:#003e62; color:#ffffff; font-size:12px; font-weight:600;">Ricrea su Google</button>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+            <div style="display:flex; flex-direction:column; gap:10px; padding-top:14px; border-top:1px solid #f2f3f8;">
+              <div style="display:flex; align-items:center; gap:8px;"><p style="font-size:12px; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; color:#717880;">Cosa fa</p><sc-if value="{{ tags }}" hint-placeholder-val="{{ true }}"><a href="Audit%20Coach%20Desktop.dc.html#I3" style="font-size:10px; font-weight:700; color:#7c4302; background:#ffdcc2; border-radius:9999px; padding:2px 7px;">I3</a><a href="Audit%20Coach%20Desktop.dc.html#I4" style="font-size:10px; font-weight:700; color:#7c4302; background:#ffdcc2; border-radius:9999px; padding:2px 7px;">I4</a></sc-if></div>
+              <ul style="display:flex; flex-direction:column; gap:8px; font-size:14px; line-height:1.45; color:#41474f;">
+                <li style="display:flex; gap:10px;"><nc-icon name="Check" stroke="2.5" style="width:16px; height:16px; color:#4285f4; margin-top:2px;"></nc-icon><span>Crea l'evento su Google quando una sessione viene prenotata o confermata.</span></li>
+                <li style="display:flex; gap:10px;"><nc-icon name="Check" stroke="2.5" style="width:16px; height:16px; color:#4285f4; margin-top:2px;"></nc-icon><span>Invia al cliente l'invito via email, con gli aggiornamenti se la sessione cambia.</span></li>
+                <li style="display:flex; gap:10px;"><nc-icon name="Check" stroke="2.5" style="width:16px; height:16px; color:#4285f4; margin-top:2px;"></nc-icon><span>Promemoria 24 ore prima, poi 30 minuti prima per le sessioni online o 2 ore prima per quelle in studio.</span></li>
+                <li style="display:flex; gap:10px;"><nc-icon name="Video" style="width:16px; height:16px; color:#00897b; margin-top:2px;"></nc-icon><span>Aggiunge il link Google Meet alle sessioni online.</span></li>
+                <li style="display:flex; gap:10px;"><nc-icon name="Repeat" style="width:16px; height:16px; color:#4285f4; margin-top:2px;"></nc-icon><span>Riporta nell'app gli spostamenti e le cancellazioni fatti direttamente su Google.</span></li>
+              </ul>
+            </div>
+          </section>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:20px; min-width:0;">
+          <section style="background:#ffffff; border-radius:28px; box-shadow:0px 4px 20px rgba(0,86,133,0.05); padding:24px; display:flex; flex-direction:column; gap:14px;">
+            <div style="display:flex; align-items:center; gap:8px;"><h2 style="font-size:20px; font-weight:600;">Sincronizzazione completa</h2><sc-if value="{{ tags }}" hint-placeholder-val="{{ true }}"><a href="Audit%20Coach%20Desktop.dc.html#I2" style="font-size:10px; font-weight:700; color:#7c4302; background:#ffdcc2; border-radius:9999px; padding:2px 7px;">I2</a><a href="Audit%20Coach%20Desktop.dc.html#C1" style="font-size:10px; font-weight:700; color:#7c4302; background:#ffdcc2; border-radius:9999px; padding:2px 7px;">C1</a></sc-if></div>
+            <p style="font-size:14px; line-height:1.5; color:#41474f;">{{ fullDesc }}</p>
+            <sc-if value="{{ fsIdle }}" hint-placeholder-val="{{ true }}">
+              <button onClick="{{ askFull }}" style="align-self:flex-start; height:40px; display:flex; align-items:center; gap:8px; padding:0 18px; border-radius:9999px; background:#003e62; color:#ffffff; font-size:14px; font-weight:600;" style-hover="background:#005685;"><nc-icon name="History" style="width:16px; height:16px;"></nc-icon>Avvia sincronizzazione completa</button>
+            </sc-if>
+            <sc-if value="{{ fsRunning }}" hint-placeholder-val="{{ false }}">
+              <div role="status" aria-live="polite" style="display:flex; flex-direction:column; gap:8px;">
+                <div style="display:flex; justify-content:space-between; gap:8px; font-size:13px;"><span style="font-weight:600;">{{ fsStep }}</span><span style="font-variant-numeric:tabular-nums; color:#41474f;">{{ fsPct }}</span></div>
+                <div style="height:8px; border-radius:9999px; background:#eceef2; overflow:hidden;"><div style="height:100%; border-radius:9999px; width:{{ fsPct }}; background:#003e62;"></div></div>
+                <p style="font-size:12px; color:#c2410c;">Tieni aperta questa pagina finché non termina.</p>
+              </div>
+            </sc-if>
+            <sc-if value="{{ fsDone }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex; flex-direction:column; gap:8px; padding:14px 16px; border-radius:18px; background:#ecfdf5;">
+                <p style="display:flex; align-items:center; gap:8px; font-size:14px; font-weight:700; color:#047857;"><nc-icon name="CircleCheck" style="width:16px; height:16px;"></nc-icon>Sincronizzazione completata</p>
+                <p style="font-size:13px; color:#065f46;">{{ fsResult }}</p>
+                <button onClick="{{ resetFull }}" style="align-self:flex-start; font-size:13px; font-weight:600; color:#003e62;">Chiudi</button>
+              </div>
+            </sc-if>
+          </section>
+
+          <section style="background:#ffffff; border-radius:28px; box-shadow:0px 4px 20px rgba(0,86,133,0.05); padding:24px; display:flex; flex-direction:column; gap:12px;">
+            <div style="display:flex; align-items:center; gap:14px;">
+              <span style="width:48px; height:48px; border-radius:14px; background:#635bff; color:#ffffff; display:grid; place-items:center; flex-shrink:0;"><nc-icon name="CreditCard" style="width:24px; height:24px;"></nc-icon></span>
+              <div style="display:flex; flex-direction:column; gap:4px;">
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;"><h2 style="font-size:20px; font-weight:600;">Pagamenti · Stripe</h2><span style="font-size:11px; font-weight:700; padding:3px 10px; border-radius:9999px; background:#eceef2; color:#41474f;">Gestito dallo studio</span></div>
+                <p style="font-size:13px; color:#41474f;">I clienti pagano i Booster con carta o wallet.</p>
+              </div>
+            </div>
+            <p style="font-size:13px; line-height:1.5; color:#717880;">Non serve nessuna azione da parte tua. I crediti acquistati compaiono in automatico nel profilo del cliente.</p>
+          </section>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <sc-if value="{{ confirmOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeConfirm }}" style="position:fixed; inset:0; z-index:110; background:rgba(25,28,31,0.32); display:grid; place-items:center; padding:24px;">
+      <div role="alertdialog" aria-modal="true" aria-labelledby="dlg-full" onClick="{{ stop }}" style="width:460px; max-width:100%; background:#ffffff; border-radius:24px; box-shadow:0 30px 80px rgba(0,0,0,0.25); padding:24px; display:flex; flex-direction:column; gap:14px;">
+        <h2 id="dlg-full" style="font-family:Sora, sans-serif; font-size:19px; font-weight:700;">Avviare la sincronizzazione completa?</h2>
+        <p style="font-size:14px; line-height:1.5; color:#41474f;">{{ confirmBody }}</p>
+        <div style="display:flex; justify-content:flex-end; gap:8px;">
+          <button onClick="{{ closeConfirm }}" style="height:40px; padding:0 16px; border-radius:9999px; font-size:14px; font-weight:600; background:#eceef2; color:#41474f;">Annulla</button>
+          <button onClick="{{ startFull }}" style="height:40px; padding:0 16px; border-radius:9999px; font-size:14px; font-weight:600; background:#003e62; color:#ffffff;">Avvia</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ toastOn }}" hint-placeholder-val="{{ false }}">
+    <div role="status" aria-live="polite" style="position:fixed; left:50%; bottom:28px; transform:translateX(-50%); z-index:200; display:flex; align-items:center; gap:14px; background:#ffffff; border:1px solid #eceef2; border-radius:18px; box-shadow:0 16px 48px rgba(0,0,0,0.18); padding:12px 12px 12px 16px; max-width:calc(100vw - 48px);">
+      <nc-icon name="{{ toastIcon }}" style="width:18px; height:18px; color:{{ toastColor }};"></nc-icon>
+      <span style="font-size:14px; font-weight:500;">{{ toastMsg }}</span>
+      <sc-if value="{{ toastUndo }}" hint-placeholder-val="{{ false }}"><button onClick="{{ undoToast }}" style="height:32px; padding:0 14px; border-radius:9999px; background:rgba(0,62,98,0.1); color:#003e62; font-size:13px; font-weight:700;">Ripristina</button></sc-if>
+      <button onClick="{{ dismissToast }}" aria-label="Chiudi" style="width:28px; height:28px; border-radius:9999px; display:grid; place-items:center; color:#717880;" style-hover="background:#eceef2;"><nc-icon name="X" style="width:14px; height:14px;"></nc-icon></button>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;googleState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;ok&quot;,&quot;error&quot;],&quot;default&quot;:&quot;ok&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototipo&quot;},&quot;auditTags&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Prototipo&quot;}}">
+class Component extends DCLogic {
+  state = { fs: "idle", pct: 0, confirm: false, syncing: false };
+  componentDidMount() {
+    const hook = () => { this.unsub = window.NCStore.subscribe(() => this.forceUpdate()); this.forceUpdate(); };
+    const wait = () => (window.NCStore ? hook() : (this.t = setTimeout(wait, 30)));
+    wait();
+    this.iv = setInterval(() => this.forceUpdate(), 30000);
+    this.onUnload = (e) => { if (this.state.fs === "running") { e.preventDefault(); e.returnValue = ""; } };
+    window.addEventListener("beforeunload", this.onUnload);
+  }
+  componentWillUnmount() { this.unsub && this.unsub(); clearTimeout(this.t); clearInterval(this.iv); clearInterval(this.run); window.removeEventListener("beforeunload", this.onUnload); window.NCStore && window.NCStore.setLeaveGuard(null); }
+  renderVals() {
+    const S = window.NCStore;
+    const tags = this.props.auditTags ?? true;
+    if (!S) return { tags, missing: [], fsIdle: true };
+    const st = S.get(), ss = this.state;
+    const err = (this.props.googleState ?? "ok") === "error";
+    const missing = S.notOnGoogle(), ext = S.openExternal();
+    const syncMin = Math.round((Date.now() - new Date(st.lastSync).getTime()) / 60000);
+    const year = new Date().getFullYear();
+    const total = S.types.reduce((n, t) => n + ((st.ytd || {})[t.id] || 0), 0) || st.bookings.filter((b) => !b.allDay && !b.personal && new Date(b.start).getFullYear() === year).length;
+    const done = Math.round((ss.pct / 100) * total);
+    return {
+      tags, isError: err,
+      gStatus: err ? "Errore di connessione" : "Collegato", gBg: err ? "#fef2f2" : "#ecfdf5", gFg: err ? "#b91c1c" : "#047857",
+      busy: ss.syncing || ss.fs === "running",
+      syncNow: () => {
+        this.setState({ syncing: true });
+        setTimeout(() => { this.setState({ syncing: false }); if (err) S.showToast({ msg: "Google Calendar non risponde. Riprova tra qualche minuto.", tone: "warn" }); else { S.syncNow(); S.showToast({ msg: "Sincronizzato: nessuna differenza trovata.", tone: "info" }); } }, 900);
+      },
+      syncLabel: err ? "non riuscito" : ss.syncing ? "in corso…" : syncMin < 1 ? "adesso" : S.ago(st.lastSync),
+      extCount: String(ext.length), extColor: ext.length ? "#7c4302" : "#191c1f",
+      goAssign: () => S.go("calendario", { filter: "assign" }),
+      missCount: String(missing.length), missColor: missing.length ? "#c2410c" : "#191c1f",
+      hasMissing: missing.length > 0,
+      missing: missing.map((b) => { const c = S.client(b.clientId), t = S.type(b.typeId); return { name: (c ? c.name : "Sessione") + (t ? " · " + t.name : ""), when: S.fmtDay(b.start) + " · " + S.fmtTime(b.start), repair: () => { const u = S.repairGcal(b.id); S.showToast({ msg: "Evento ricreato su Google Calendar.", undo: u }); } }; }),
+      fullDesc: "Ricontrolla tutte le sessioni dal 1° gennaio " + year + " e le allinea con Google Calendar, nei due sensi. Serve solo se noti differenze tra i due calendari; la sincronizzazione normale avviene da sola.",
+      fsIdle: ss.fs === "idle", fsRunning: ss.fs === "running", fsDone: ss.fs === "done",
+      fsPct: Math.round(ss.pct) + "%", fsStep: ss.pct < 40 ? "Ricreo su Google gli eventi mancanti…" : "Controllo le sessioni: " + done + " di " + total,
+      fsResult: "Controllate " + total + " sessioni dal 1° gennaio. 2 spostate e 1 annullata per allinearle a Google; " + (missing.length ? missing.length + " ricreate su Google." : "nessuna da ricreare."),
+      askFull: () => this.setState({ confirm: true }),
+      confirmOpen: ss.confirm, closeConfirm: () => this.setState({ confirm: false }),
+      confirmBody: "Vengono controllate circa " + total + " sessioni. Può richiedere qualche minuto e la pagina deve restare aperta fino alla fine.",
+      startFull: () => {
+        if (err) { this.setState({ confirm: false }); return S.showToast({ msg: "Impossibile avviare: Google Calendar non risponde.", tone: "warn" }); }
+        this.setState({ confirm: false, fs: "running", pct: 0 });
+        S.setLeaveGuard(() => { S.showToast({ msg: "Attendi la fine della sincronizzazione completa.", tone: "warn" }); return false; });
+        clearInterval(this.run);
+        this.run = setInterval(() => {
+          const p = Math.min(100, this.state.pct + 4 + Math.random() * 6);
+          if (p >= 100) { clearInterval(this.run); S.setLeaveGuard(null); S.notOnGoogle().forEach((b) => S.repairGcal(b.id)); S.syncNow(); this.setState({ pct: 100, fs: "done" }); }
+          else this.setState({ pct: p });
+        }, 220);
+      },
+      resetFull: () => this.setState({ fs: "idle", pct: 0 }),
+      stop: (e) => e.stopPropagation(),
+      ...(() => { const tst = S.getToast(); const TONE = { ok: ["CircleCheck", "#047857"], warn: ["CircleAlert", "#c2410c"], info: ["Info", "#005685"] }; const tone = tst ? TONE[tst.tone] || TONE.ok : TONE.ok; return { toastOn: !!tst, toastMsg: tst ? tst.msg : "", toastUndo: !!(tst && tst.undo), toastIcon: tone[0], toastColor: tone[1], undoToast: () => S.undoToast(), dismissToast: () => S.dismissToast() }; })(),
+    };
+  }
+}
+</script>
+</body>
+</html>

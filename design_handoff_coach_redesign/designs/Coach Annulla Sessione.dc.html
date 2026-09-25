@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&amp;family=Manrope:wght@400;500;600;700&amp;display=swap">
+<script src="./nc-icons.js"></script>
+<script src="./nc-store.js"></script>
+<style>
+*,::before,::after{box-sizing:border-box;margin:0;padding:0;border:0 solid;}
+button{font:inherit;color:inherit;background:transparent;cursor:pointer;}
+a{color:#003e62;text-decoration:none;}
+a:hover{color:#005685;}
+</style>
+</helmet>
+<div onClick="{{ close }}" style="position:fixed; inset:0; z-index:110; background:rgba(25,28,31,0.32); display:grid; place-items:center; padding:24px; font-family:Manrope, sans-serif; color:#191c1f;">
+  <div role="alertdialog" aria-modal="true" aria-labelledby="dlg-cancel" aria-describedby="dlg-cancel-body" onClick="{{ stop }}" style="width:460px; max-width:100%; background:#ffffff; border-radius:24px; box-shadow:0 30px 80px rgba(0,0,0,0.25); padding:24px; display:flex; flex-direction:column; gap:14px;">
+    <h2 id="dlg-cancel" style="font-family:Sora, sans-serif; font-size:19px; font-weight:700;">{{ title }}</h2>
+    <p style="font-size:14px; font-weight:600; color:#41474f;">{{ when }}</p>
+    <p id="dlg-cancel-body" style="font-size:14px; line-height:1.5; color:#41474f;">{{ body }}</p>
+    <sc-if value="{{ askCharge }}" hint-placeholder-val="{{ false }}">
+      <div role="radiogroup" aria-label="Credito" style="display:flex; flex-direction:column; gap:8px;">
+        <sc-for list="{{ chargeOpts }}" as="o" hint-placeholder-count="2">
+          <button role="radio" aria-checked="{{ o.checked }}" onClick="{{ o.pick }}" style="display:flex; align-items:flex-start; gap:10px; padding:12px 14px; border-radius:16px; text-align:left; border:1.5px solid {{ o.border }}; background:{{ o.bg }};">
+            <span style="width:18px; height:18px; border-radius:9999px; flex-shrink:0; margin-top:1px; border:2px solid {{ o.ring }}; display:grid; place-items:center;"><span style="width:8px; height:8px; border-radius:9999px; background:{{ o.dot }};"></span></span>
+            <span style="display:flex; flex-direction:column; gap:2px;"><strong style="font-size:14px;">{{ o.label }}</strong><span style="font-size:12px; line-height:1.4; color:#41474f;">{{ o.hint }}</span></span>
+          </button>
+        </sc-for>
+      </div>
+    </sc-if>
+    <div style="display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap; padding-top:2px;">
+      <button onClick="{{ close }}" style="height:40px; padding:0 18px; border-radius:9999px; font-size:14px; font-weight:600; background:#eceef2; color:#41474f;">Indietro</button>
+      <button onClick="{{ confirm }}" style="height:40px; padding:0 18px; border-radius:9999px; font-size:14px; font-weight:600; background:#b91c1c; color:#ffffff;" style-hover="background:#991b1b;">{{ cta }}</button>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:720,&quot;height&quot;:560},&quot;bookingId&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;b1&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;action&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;cancel&quot;,&quot;delete&quot;],&quot;default&quot;:&quot;cancel&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;onClose&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;},&quot;onDone&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;}}">
+class Component extends DCLogic {
+  state = { charge: false };
+  componentDidMount() {
+    const hook = () => { this.unsub = window.NCStore.subscribe(() => this.forceUpdate()); this.forceUpdate(); };
+    const wait = () => (window.NCStore ? hook() : (this.t = setTimeout(wait, 30)));
+    wait();
+    this.onKey = (e) => { if (e.key === "Escape") this.close(); };
+    document.addEventListener("keydown", this.onKey);
+  }
+  componentWillUnmount() { this.unsub && this.unsub(); clearTimeout(this.t); document.removeEventListener("keydown", this.onKey); }
+  close() { this.props.onClose && this.props.onClose(); }
+  renderVals() {
+    const S = window.NCStore;
+    const base = { close: () => this.close(), stop: (e) => e.stopPropagation(), chargeOpts: [] };
+    const b = S ? S.booking(this.props.bookingId) : null;
+    if (!b) return base;
+    const action = this.props.action ?? "cancel";
+    const c = b.clientId ? S.client(b.clientId) : null;
+    const t = b.typeId ? S.type(b.typeId) : null;
+    const end = new Date(new Date(b.start).getTime() + b.dur * 60000).toISOString();
+    const when = S.dayLabel(b.start).long + " · " + S.fmtTime(b.start) + "–" + S.fmtTime(end) + (t ? " · " + t.name : "");
+    const done = (fn, msg) => { const u = fn(); this.props.onDone && this.props.onDone(); this.close(); S.showToast({ msg, undo: u, tone: "info" }); };
+    if (b.personal) {
+      return Object.assign(base, { title: "Eliminare l'impegno «" + (b.title || "Impegno") + "»?", when, body: "Lo slot torna libero per le prenotazioni. L'evento viene rimosso anche da Google Calendar.", askCharge: false, cta: "Elimina impegno", confirm: () => done(() => S.deleteBooking(b.id), "Impegno eliminato.") });
+    }
+    if (action === "delete") {
+      return Object.assign(base, {
+        title: "Eliminare la sessione" + (c ? " di " + c.name : "") + "?", when,
+        body: "Usa questa azione solo per sessioni inserite per errore: sparisce da calendario, storico e Google Calendar, e non conta per crediti e presenza. Se la sessione semplicemente non si terrà, annullala.",
+        askCharge: false, cta: "Elimina sessione", confirm: () => done(() => S.deleteBooking(b.id), "Sessione eliminata."),
+      });
+    }
+    const late = !!c && S.isLate(b);
+    const charge = late && this.state.charge;
+    return Object.assign(base, {
+      title: "Annullare la sessione" + (c ? " di " + c.name : "") + "?", when,
+      body: late ? (new Date(b.start).getTime() <= S.now() ? "La sessione è già iniziata o passata." : "Mancano meno di 24 ore.") + " Scegli cosa fare con il credito: l'evento viene comunque rimosso da Google Calendar." : "Il credito torna disponibile" + (c ? " per " + c.name : "") + " e l'evento viene rimosso da Google Calendar. Nello storico resta come «Annullata».",
+      askCharge: late,
+      chargeOpts: [[false, "Restituisci il credito", "Annulli tu o per un motivo valido del cliente."], [true, "Addebita il credito", "Cancellazione tardiva: la sessione conta come usata."]].map(([v, label, hint]) => { const on = charge === v; return { label, hint, checked: on ? "true" : "false", border: on ? "#003e62" : "#e1e2e7", bg: on ? "rgba(0,62,98,0.05)" : "#ffffff", ring: on ? "#003e62" : "#c1c7d0", dot: on ? "#003e62" : "transparent", pick: () => this.setState({ charge: v }) }; }),
+      cta: "Annulla sessione",
+      confirm: () => done(() => S.cancelBooking(b.id, charge), charge ? "Sessione annullata, credito addebitato." : "Sessione annullata, credito restituito."),
+    });
+  }
+}
+</script>
+</body>
+</html>

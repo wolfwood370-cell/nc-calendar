@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&amp;family=Manrope:wght@400;500;600;700&amp;display=swap">
+<script src="./nc-icons.js"></script>
+<style>
+*,::before,::after{box-sizing:border-box;margin:0;padding:0;border:0 solid;}
+body{margin:0;background:#f8f9fe;font-family:Manrope,ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:#191c1f;}
+button{font:inherit;color:inherit;background:transparent;cursor:pointer;}
+ul,ol{list-style:none;}
+a{color:#003e62;text-decoration:none;}
+a:hover{color:#005685;text-decoration:underline;}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.92em;}
+</style>
+</helmet>
+<div style="max-width:1360px; margin:0 auto; padding:56px 40px 96px; display:flex; flex-direction:column; gap:56px;">
+
+  <header style="display:flex; flex-direction:column; gap:16px; max-width:860px;">
+    <p style="font-size:12px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:#717880;">NC Calendar · Audit UX/UI · 24 settembre 2026</p>
+    <h1 style="font-family:Sora, sans-serif; font-size:44px; line-height:1.1; font-weight:700; letter-spacing:-0.02em; color:#003e62;">Lato Coach, vista desktop</h1>
+    <p style="font-size:17px; line-height:1.6; color:#41474f; text-wrap:pretty;">Gli audit precedenti (6 e 21 settembre) coprivano sicurezza, dati e architettura. Questo copre ciò che vede e usa il coach: flussi quotidiani, gerarchia delle informazioni, coerenza di interfaccia e testi. È basato sulla lettura del codice attuale e copre la struttura comune (sidebar e header) e tutte e sette le pagine coach; nomi e numeri nella ricostruzione sono di esempio. Il prototipo navigabile applica le correzioni proposte, e ogni modifica è marcata con il codice del punto corrispondente.</p>
+    <a href="Coach%20Panoramica.dc.html" style="align-self:flex-start; height:42px; display:flex; align-items:center; gap:8px; padding:0 20px; border-radius:9999px; background:#003e62; color:#ffffff; font-size:14px; font-weight:600; text-decoration:none;">Apri il prototipo con le correzioni<nc-icon name="ArrowRight" style="width:16px; height:16px;"></nc-icon></a>
+  </header>
+
+  <section style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:16px;">
+    <div style="background:#ffffff; border-radius:24px; padding:24px; box-shadow:0px 4px 20px rgba(0,86,133,0.05); display:flex; flex-direction:column; gap:14px;">
+      <p style="font-size:13px; font-weight:600; color:#717880;">Problemi rilevati</p>
+      <div style="display:flex; gap:24px; align-items:baseline; flex-wrap:wrap;">
+        <div style="display:flex; align-items:baseline; gap:8px;"><span style="font-family:Sora, sans-serif; font-size:34px; font-weight:700; color:#dc2626;">{{ nAlta }}</span><span style="font-size:13px; color:#41474f;">alta</span></div>
+        <div style="display:flex; align-items:baseline; gap:8px;"><span style="font-family:Sora, sans-serif; font-size:34px; font-weight:700; color:#ea580c;">{{ nMedia }}</span><span style="font-size:13px; color:#41474f;">media</span></div>
+        <div style="display:flex; align-items:baseline; gap:8px;"><span style="font-family:Sora, sans-serif; font-size:34px; font-weight:700; color:#41474f;">{{ nBassa }}</span><span style="font-size:13px; color:#41474f;">bassa</span></div>
+      </div>
+      <p style="font-size:13px; line-height:1.5; color:#41474f;">Alta: dato sbagliato o azione irreversibile senza rete. Media: attrito ricorrente nei flussi quotidiani. Bassa: coerenza e rifinitura.</p>
+    </div>
+    <div style="background:#ffffff; border-radius:24px; padding:24px; box-shadow:0px 4px 20px rgba(0,86,133,0.05); display:flex; flex-direction:column; gap:12px; grid-column:span 2; min-width:0;">
+      <p style="font-size:13px; font-weight:600; color:#717880;">Ordine di intervento consigliato</p>
+      <ol style="display:flex; flex-direction:column; gap:8px; font-size:14px; line-height:1.5; color:#191c1f;">
+        <li style="display:flex; gap:12px;"><span style="font-weight:700; color:#003e62; width:18px;">1</span><span>Correggere il conteggio sessioni della Panoramica e mostrare la giornata completa (<a href="#P1">P1</a>, <a href="#P3">P3</a>).</span></li>
+        <li style="display:flex; gap:12px;"><span style="font-weight:700; color:#003e62; width:18px;">2</span><span>Aggiungere "Annulla" al check-in (<a href="#P2">P2</a>).</span></li>
+        <li style="display:flex; gap:12px;"><span style="font-weight:700; color:#003e62; width:18px;">3</span><span>Unificare la regola "in scadenza" tra Panoramica e Clienti (<a href="#P4">P4</a>).</span></li>
+        <li style="display:flex; gap:12px;"><span style="font-weight:700; color:#003e62; width:18px;">4</span><span>Avviso modifiche non salvate nel profilo cliente (<a href="#K1">K1</a>).</span></li>
+        <li style="display:flex; gap:12px;"><span style="font-weight:700; color:#003e62; width:18px;">5</span><span>Stato di calendario e roster nell'URL, così notifiche e "Assegna" aprono il punto giusto (<a href="#T4">T4</a>, <a href="#S4">S4</a>, <a href="#P5">P5</a>).</span></li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="verifica" style="display:flex; flex-direction:column; gap:16px;">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <h2 style="font-family:Sora, sans-serif; font-size:26px; font-weight:700; letter-spacing:-0.01em;">Seconda verifica del prototipo · 25 settembre</h2>
+      <p style="font-size:14px; line-height:1.5; color:#41474f; max-width:860px;">Controllo incrociato delle sette pagine rifatte: testi, componenti, misure e coerenza dei dati tra una pagina e l'altra. 12 incoerenze trovate e corrette; 4 punti richiedevano una decisione, ora presa e applicata.</p>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap:16px;">
+      <div style="background:#ffffff; border-radius:24px; padding:22px 24px; box-shadow:0px 4px 20px rgba(0,86,133,0.05); display:flex; flex-direction:column; gap:10px;">
+        <p style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; color:#047857;"><nc-icon name="CircleCheck" style="width:16px; height:16px;"></nc-icon>Corrette</p>
+        <ol style="display:flex; flex-direction:column; gap:10px; font-size:14px; line-height:1.5; color:#191c1f;">
+          <li style="display:flex; gap:10px;"><strong style="color:#003e62; width:30px; flex-shrink:0;">V1</strong><span>«Annulla» indicava sia l'annullamento di un'azione (nel messaggio di conferma) sia la cancellazione di sessioni e inviti: «Sessione annullata · Annulla». Il pulsante del messaggio ora è «Ripristina».</span></li>
+          <li style="display:flex; gap:10px;"><strong style="color:#003e62; width:30px; flex-shrink:0;">V2</strong><span>Unità miste: «2 sessioni rimaste», «6 di 13 rimasti», «8 sessioni» per lo stesso dato. Ora sempre crediti («2 crediti rimasti»).</span></li>
+          <li style="display:flex; gap:10px;"><strong style="color:#003e62; width:30px; flex-shrink:0;">V3</strong><span>Lo stesso gesto aveva nomi diversi: «Annulla» in Panoramica, «Riporta a programmata» in Calendario. Ora «Annulla check-in» o «Annulla assenza» in entrambe.</span></li>
+          <li style="display:flex; gap:10px;"><strong style="color:#003e62; width:30px; flex-shrink:0;">V4</strong><span>«Nuovo › Nuova sessione» apriva una finestra intitolata «Nuovo evento». Ora il titolo segue la scelta: «Nuova sessione» o «Nuovo impegno».</span></li>
+          <li style="display:flex; gap:10px;"><strong style="color:#003e62; width:30px; flex-shrink:0;">V5</strong><span>La presenza era un numero fisso mentre le assenze erano calcolate dallo storico: un cliente poteva risultare al 74% con 0 assenze. Ora è calcolata dalle ultime 8 settimane in elenco, profilo e ordinamento.</span></li>
+          <li style="display:flex; gap:10px;"><strong style="color:#003e62; width:30px; flex-shrink:0;">V6</strong><span>I crediti non tornavano con le sessioni: 3 crediti residui ma 5 sessioni già prenotate nello stesso blocco. Ora i crediti usati si contano dalle sessioni del blocco in corso (svolte, assenze e prenotate), in tutte le pagine: il credito si impegna alla prenotazione, quindi il check-in segna la sessione come svolta senza cambiare il residuo.</span></li>
+          <li style="display:flex; gap:10px;"><strong style="color:#003e62; width:30px; flex-shrink:0;">V7</strong><span>Alcune sessioni di esempio cadevano fuori disponibilità (sabato sera, venerdì oltre le 20). Orari e dati riallineati: nessuna sessione futura fuori orario.</span></li>
+          <li style="display:flex; gap:10px;"><strong style="color:#003e62; width:30px; flex-shrink:0;">V8</strong><span>L'ora simulata valeva solo in Panoramica e Calendario; profilo e clienti usavano l'ora reale, con stati diversi per la stessa sessione. Ora un'unica ora per tutte le pagine.</span></li>
+          <li style="display:flex; gap:10px;"><strong style="color:#003e62; width:30px; flex-shrink:0;">V9</strong><span>Titoli delle card a 18px in Integrazioni contro 20px altrove; margine superiore diverso in Panoramica e inferiore in Calendario. Allineati.</span></li>
+          <li style="display:flex; gap:10px;"><strong style="color:#003e62; width:30px; flex-shrink:0;">V10</strong><span>Controlli segmentati di cinque altezze diverse (28–36px). Ora 36px per i tab di pagina e 32px per filtri e finestre; resta a 28px solo il selettore compatto della BIA.</span></li>
+          <li style="display:flex; gap:10px;"><strong style="color:#003e62; width:30px; flex-shrink:0;">V11</strong><span>Finestre di conferma larghe 440 o 460px a seconda della pagina. Ora tutte 460px.</span></li>
+          <li style="display:flex; gap:10px;"><strong style="color:#003e62; width:30px; flex-shrink:0;">V12</strong><span>Il numero accanto a «Calendario» nella sidebar non aveva un'etichetta: uno screen reader leggeva solo «3». Ora «3 eventi da assegnare».</span></li>
+        </ol>
+      </div>
+      <div style="background:#ffffff; border-radius:24px; padding:22px 24px; box-shadow:0px 4px 20px rgba(0,86,133,0.05); display:flex; flex-direction:column; gap:10px; align-self:start;">
+        <p style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; color:#003e62;"><nc-icon name="ListChecks" style="width:16px; height:16px;"></nc-icon>Decisioni prese e applicate nel prototipo</p>
+        <ol style="display:flex; flex-direction:column; gap:0; font-size:14px; line-height:1.5; color:#191c1f;">
+          <li style="display:flex; flex-direction:column; gap:6px; padding-top:12px; border-top:1px solid #f2f3f8;"><p style="display:flex; gap:10px; font-weight:700;"><strong style="color:#003e62; width:30px; flex-shrink:0;">O1</strong><span>Quando si annulla una sessione e quando la si elimina?</span></p><p style="padding-left:40px; color:#41474f;"><strong style="color:#191c1f;">Funzionale.</strong> Sono due azioni distinte. <em>Annulla</em> vale per una sessione che non si terrà: resta nello storico come «Annullata»; se mancano meno di 24 ore il coach sceglie se restituire o addebitare il credito (nuovo stato «Annullata tardi»). <em>Elimina</em> vale solo per sessioni inserite per errore: sparisce da calendario, storico, crediti e presenza. Lo stato «Annullata» non si sceglie più dal selettore di stato, perché ha conseguenze sui crediti.</p><p style="padding-left:40px; color:#41474f;"><strong style="color:#191c1f;">Design.</strong> Un solo dialog condiviso tra Calendario e Profilo. «Annulla sessione» è il pulsante rosso secondario; «Elimina» è un link testuale in fondo, con la frase «Inserita per errore?». Una sessione annullata si può rimettere in agenda dal dialog di modifica.</p></li>
+          <li style="display:flex; flex-direction:column; gap:6px; padding-top:12px; border-top:1px solid #f2f3f8;"><p style="display:flex; gap:10px; font-weight:700;"><strong style="color:#003e62; width:30px; flex-shrink:0;">O2</strong><span>Una o due finestre di rinnovo?</span></p><p style="padding-left:40px; color:#41474f;"><strong style="color:#191c1f;">Funzionale.</strong> Una sola: il componente del profilo, con le tre scelte (rinnova lo stesso, crediti extra, nuovo percorso). Dalla Panoramica si apre già su «Rinnova lo stesso», quindi il rinnovo resta a un clic.</p><p style="padding-left:40px; color:#41474f;"><strong style="color:#191c1f;">Design.</strong> Stessa finestra, stessi testi e stesso riepilogo (periodo del nuovo blocco, crediti, crediti residui) ovunque si rinnovi.</p></li>
+          <li style="display:flex; flex-direction:column; gap:6px; padding-top:12px; border-top:1px solid #f2f3f8;"><p style="display:flex; gap:10px; font-weight:700;"><strong style="color:#003e62; width:30px; flex-shrink:0;">O3</strong><span>Come si usano con la tastiera i controlli a scelta?</span></p><p style="padding-left:40px; color:#41474f;"><strong style="color:#191c1f;">Funzionale.</strong> Segue lo schema standard dei gruppi di opzioni: Tab entra nel gruppo, le frecce spostano la scelta, Home ed End vanno al primo e all'ultimo elemento. La scelta si applica subito, perché il risultato è sulla stessa pagina.</p><p style="padding-left:40px; color:#41474f;"><strong style="color:#191c1f;">Design.</strong> Nessun cambio visivo: resta l'anello di focus blu già usato ovunque. Le frecce non cambiano più settimana nel Calendario quando il focus è su un filtro.</p></li>
+          <li style="display:flex; flex-direction:column; gap:6px; padding-top:12px; border-top:1px solid #f2f3f8;"><p style="display:flex; gap:10px; font-weight:700;"><strong style="color:#003e62; width:30px; flex-shrink:0;">O4</strong><span>Cosa mostra la Panoramica nei giorni senza sessioni?</span></p><p style="padding-left:40px; color:#41474f;"><strong style="color:#191c1f;">Funzionale.</strong> I dati di esempio seguono il giorno reale: dal lunedì al venerdì la giornata piena, il sabato tre sessioni entro l'orario (8–13), la domenica nessuna.</p><p style="padding-left:40px; color:#41474f;"><strong style="color:#191c1f;">Design.</strong> La domenica, o in qualunque giorno vuoto, la card «Oggi» mostra lo stato vuoto con la prossima sessione in agenda cliccabile, così la pagina resta utile.</p></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section style="display:flex; flex-direction:column; gap:20px;">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <h2 style="font-family:Sora, sans-serif; font-size:26px; font-weight:700; letter-spacing:-0.01em;">Panoramica, ricostruita a 1280px</h2>
+      <p style="font-size:14px; color:#41474f;">Struttura, stili e testi dal codice (<code>trainer.tsx</code>, <code>trainer.index.tsx</code>). I badge rimandano ai problemi sotto.</p>
+    </div>
+    <div style="overflow-x:auto; border-radius:20px; box-shadow:0 20px 60px rgba(0,30,60,0.10); background:#ffffff;">
+      <div data-screen-label="Panoramica" style="width:1280px; height:1010px; display:flex; background:linear-gradient(135deg,#f2f3f8,#e7e8ec); font-family:Manrope, sans-serif; color:#191c1f; position:relative;">
+        <div style="position:relative; display:flex;">
+          <dc-import name="Coach Sidebar" active="panoramica" hint-size="256px,1010px" style="width:256px; height:1010px;"></dc-import>
+          <a href="#S3" style="position:absolute; top:78px; right:-14px; display:{{ pinDisplay }}; z-index:3; min-width:34px; height:24px; padding:0 8px; border-radius:9999px; background:#717880; color:#ffffff; font-size:11px; font-weight:700; align-items:center; justify-content:center; text-decoration:none; box-shadow:0 0 0 3px #ffffff;">S3</a>
+        </div>
+        <div style="flex:1; min-width:0; display:flex; flex-direction:column;">
+          <div style="position:relative; height:56px; display:flex; align-items:center; gap:12px; padding:0 16px; border-bottom:1px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.4);">
+            <div style="width:28px; height:28px; display:grid; place-items:center; color:#191c1f;"><nc-icon name="PanelLeft" style="width:16px; height:16px;"></nc-icon></div>
+            <div style="width:1px; height:20px; background:rgba(0,0,0,0.15);"></div>
+            <p style="font-size:14px; color:#717880;">Studio Trainer</p>
+            <a href="#S1" style="display:{{ pinDisplay }}; min-width:34px; height:24px; padding:0 8px; border-radius:9999px; background:#ea580c; color:#ffffff; font-size:11px; font-weight:700; align-items:center; justify-content:center; text-decoration:none; box-shadow:0 0 0 3px #ffffff;">S1</a>
+            <a href="#S2" style="display:{{ pinDisplay }}; min-width:34px; height:24px; padding:0 8px; border-radius:9999px; background:#ea580c; color:#ffffff; font-size:11px; font-weight:700; align-items:center; justify-content:center; text-decoration:none; box-shadow:0 0 0 3px #ffffff;">S2</a>
+            <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
+              <a href="#S4" style="display:{{ pinDisplay }}; min-width:34px; height:24px; padding:0 8px; border-radius:9999px; background:#ea580c; color:#ffffff; font-size:11px; font-weight:700; align-items:center; justify-content:center; text-decoration:none; box-shadow:0 0 0 3px #ffffff;">S4</a>
+              <div style="position:relative; width:38px; height:38px; border-radius:9999px; background:#ffffff; border:1px solid rgba(193,199,208,0.4); display:grid; place-items:center; color:#41474f;">
+                <nc-icon name="Bell" style="width:18px; height:18px;"></nc-icon>
+                <span style="position:absolute; top:-4px; right:-4px; min-width:16px; height:16px; padding:0 4px; border-radius:9999px; background:#e53935; color:#ffffff; font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; border:2px solid #f8f9fe;">3</span>
+              </div>
+            </div>
+          </div>
+          <div style="flex:1; margin:24px; margin-top:0; padding:40px; background:#f8f9fe; display:flex; flex-direction:column;">
+            <div style="margin-bottom:40px; position:relative;">
+              <h1 style="font-family:Sora, sans-serif; font-size:48px; line-height:1; font-weight:700; letter-spacing:-0.02em; color:#191c1f;">Bentornato, Nicola</h1>
+              <p style="margin-top:8px; font-size:18px; line-height:28px; color:#41474f;">Oggi è Giovedì 24 Settembre. Hai <strong style="color:#003e62;">5</strong> sessioni da svolgere.</p>
+              <a href="#P1" style="position:absolute; left:590px; top:58px; display:{{ pinDisplay }}; min-width:34px; height:24px; padding:0 8px; border-radius:9999px; background:#dc2626; color:#ffffff; font-size:11px; font-weight:700; align-items:center; justify-content:center; text-decoration:none; box-shadow:0 0 0 3px #ffffff;">P1</a>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(12, minmax(0,1fr)); gap:24px; margin-bottom:24px;">
+              <section style="grid-column:span 7; position:relative; background:rgba(255,255,255,0.6); border:1px solid rgba(255,255,255,0.4); border-radius:32px; padding:24px; box-shadow:0 8px 30px rgba(0,0,0,0.04);">
+                <a href="#P3" style="position:absolute; top:-12px; right:24px; display:{{ pinDisplay }}; min-width:34px; height:24px; padding:0 8px; border-radius:9999px; background:#ea580c; color:#ffffff; font-size:11px; font-weight:700; align-items:center; justify-content:center; text-decoration:none; box-shadow:0 0 0 3px #ffffff;">P3</a>
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
+                  <h2 style="font-size:24px; font-weight:600;">Oggi</h2>
+                  <span style="font-size:14px; font-weight:600; color:#003e62;">Vedi tutto</span>
+                </div>
+                <div style="display:flex; flex-direction:column;">
+                  <sc-for list="{{ today }}" as="s" hint-placeholder-count="5">
+                    <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 0; border-bottom:1px solid rgba(225,226,231,0.6);">
+                      <div style="display:flex; align-items:center; gap:16px; min-width:0;">
+                        <div style="width:64px; text-align:center; flex-shrink:0;">
+                          <p style="font-weight:600;">{{ s.time }}</p>
+                          <p style="font-size:12px; color:#41474f;">{{ s.dur }}</p>
+                        </div>
+                        <div style="width:4px; height:48px; border-radius:9999px; background:#003e62; flex-shrink:0;"></div>
+                        <div style="width:40px; height:40px; border-radius:9999px; background:#b2d8ff; display:grid; place-items:center; flex-shrink:0; font-size:14px; font-weight:700; color:#385f81;">{{ s.ini }}</div>
+                        <div style="min-width:0;">
+                          <p style="font-weight:600;">{{ s.name }}</p>
+                          <div style="display:flex; align-items:center; gap:4px; color:#41474f;"><nc-icon name="{{ s.icon }}" style="width:16px; height:16px;"></nc-icon><span style="font-size:12px;">{{ s.type }}</span></div>
+                        </div>
+                      </div>
+                      <span style="display:inline-flex; align-items:center; gap:6px; border-radius:9999px; padding:8px 16px; font-size:14px; font-weight:600; background:#005685; color:#91cbff; flex-shrink:0;"><nc-icon name="CheckCircle2" style="width:16px; height:16px;"></nc-icon>Check-in</span>
+                    </div>
+                  </sc-for>
+                </div>
+                <a href="#P2" style="position:absolute; top:112px; right:-14px; display:{{ pinDisplay }}; min-width:34px; height:24px; padding:0 8px; border-radius:9999px; background:#dc2626; color:#ffffff; font-size:11px; font-weight:700; align-items:center; justify-content:center; text-decoration:none; box-shadow:0 0 0 3px #ffffff;">P2</a>
+              </section>
+              <section style="grid-column:span 5; position:relative; align-self:start; background:rgba(255,255,255,0.6); border:1px solid rgba(255,255,255,0.4); border-radius:32px; padding:24px; box-shadow:0 8px 30px rgba(0,0,0,0.04);">
+                <a href="#P6" style="position:absolute; top:-12px; right:24px; display:{{ pinDisplay }}; min-width:34px; height:24px; padding:0 8px; border-radius:9999px; background:#717880; color:#ffffff; font-size:11px; font-weight:700; align-items:center; justify-content:center; text-decoration:none; box-shadow:0 0 0 3px #ffffff;">P6</a>
+                <div style="display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:20px;">
+                  <h2 style="font-size:24px; font-weight:600;">Distribuzione Servizi</h2>
+                  <span style="font-size:12px; color:#41474f;">Dal 1° gen · 458 eventi</span>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:16px;">
+                  <sc-for list="{{ dist }}" as="d" hint-placeholder-count="4">
+                    <div>
+                      <div style="display:flex; justify-content:space-between; gap:8px; font-size:14px; font-weight:600; margin-bottom:6px;"><span>{{ d.label }}</span><span style="color:{{ d.color }};">{{ d.count }} ({{ d.pct }}%)</span></div>
+                      <div style="height:8px; border-radius:9999px; background:#e1e2e7; overflow:hidden;"><div style="height:100%; border-radius:9999px; width:{{ d.w }}; background:{{ d.color }};"></div></div>
+                    </div>
+                  </sc-for>
+                </div>
+              </section>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">
+              <section style="position:relative; background:rgba(255,255,255,0.6); border:1px solid rgba(255,255,255,0.4); border-radius:32px; padding:24px; box-shadow:0 8px 30px rgba(0,0,0,0.04);">
+                <a href="#P4" style="position:absolute; top:-12px; left:24px; display:{{ pinDisplay }}; min-width:34px; height:24px; padding:0 8px; border-radius:9999px; background:#ea580c; color:#ffffff; font-size:11px; font-weight:700; align-items:center; justify-content:center; text-decoration:none; box-shadow:0 0 0 3px #ffffff;">P4</a>
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
+                  <div style="display:flex; align-items:center; gap:10px;"><div style="width:36px; height:36px; border-radius:9999px; background:#fff7ed; color:#ea580c; display:grid; place-items:center;"><nc-icon name="TriangleAlert" style="width:18px; height:18px;"></nc-icon></div><h2 style="font-size:20px; font-weight:600;">Rinnovi in scadenza</h2></div>
+                  <span style="font-size:12px; font-weight:700; color:#ea580c; background:#fff7ed; border-radius:9999px; padding:4px 12px;">2</span>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:10px;">
+                  <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; border-radius:20px; border:1px solid #e1e2e7; background:#ffffff; padding:12px 16px;">
+                    <div style="display:flex; align-items:center; gap:12px;"><div style="width:40px; height:40px; border-radius:9999px; background:#d6e5ec; color:#3b494f; display:grid; place-items:center; font-size:13px; font-weight:700;">MB</div><div><p style="font-weight:600;">Marco Bianchi</p><p style="font-size:12px; color:#ea580c; margin-top:2px;">Percorso · 1 sessione rimasta</p></div></div>
+                    <span style="position:relative; border-radius:9999px; background:#003e62; color:#ffffff; padding:8px 18px; font-size:13px; font-weight:600;">Rinnova<a href="#P5" style="position:absolute; top:-16px; right:-16px; display:{{ pinDisplay }}; min-width:34px; height:24px; padding:0 8px; border-radius:9999px; background:#ea580c; color:#ffffff; font-size:11px; font-weight:700; align-items:center; justify-content:center; text-decoration:none; box-shadow:0 0 0 3px #ffffff;">P5</a></span>
+                  </div>
+                  <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; border-radius:20px; border:1px solid #e1e2e7; background:#ffffff; padding:12px 16px;">
+                    <div style="display:flex; align-items:center; gap:12px;"><div style="width:40px; height:40px; border-radius:9999px; background:#d6e5ec; color:#3b494f; display:grid; place-items:center; font-size:13px; font-weight:700;">SC</div><div><p style="font-weight:600;">Sara Conti</p><p style="font-size:12px; color:#ea580c; margin-top:2px;">Percorso · scade tra 4 giorni</p></div></div>
+                    <span style="border-radius:9999px; background:#003e62; color:#ffffff; padding:8px 18px; font-size:13px; font-weight:600;">Rinnova</span>
+                  </div>
+                </div>
+              </section>
+              <section style="position:relative; background:rgba(255,255,255,0.6); border:1px solid rgba(255,255,255,0.4); border-radius:32px; padding:24px; box-shadow:0 8px 30px rgba(0,0,0,0.04);">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
+                  <div style="display:flex; align-items:center; gap:10px;"><div style="width:36px; height:36px; border-radius:9999px; background:rgba(255,220,194,0.6); color:#7c4302; display:grid; place-items:center;"><nc-icon name="CircleHelp" style="width:18px; height:18px;"></nc-icon></div><h2 style="font-size:20px; font-weight:600;">Da assegnare</h2></div>
+                  <span style="position:relative; font-size:12px; font-weight:700; color:#7c4302; background:rgba(255,220,194,0.6); border-radius:9999px; padding:4px 12px;">0<a href="#P7" style="position:absolute; top:-16px; right:-20px; display:{{ pinDisplay }}; min-width:34px; height:24px; padding:0 8px; border-radius:9999px; background:#717880; color:#ffffff; font-size:11px; font-weight:700; align-items:center; justify-content:center; text-decoration:none; box-shadow:0 0 0 3px #ffffff;">P7</a></span>
+                </div>
+                <p style="font-size:14px; color:#41474f;">Nessun evento da assegnare.</p>
+              </section>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section style="display:flex; flex-direction:column; gap:40px;">
+    <div style="display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:16px;">
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <h2 style="font-family:Sora, sans-serif; font-size:26px; font-weight:700; letter-spacing:-0.01em;">Problemi per area</h2>
+        <p style="font-size:14px; color:#41474f;">Ogni voce indica il file di riferimento e una proposta. Mostrati: {{ filterLabel }}.</p>
+      </div>
+    </div>
+    <sc-for list="{{ groups }}" as="g" hint-placeholder-count="5">
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div style="display:flex; align-items:baseline; gap:12px; border-bottom:1px solid #e1e2e7; padding-bottom:10px;">
+          <h3 style="font-family:Sora, sans-serif; font-size:18px; font-weight:700; color:#003e62;">{{ g.title }}</h3>
+          <span style="font-size:13px; color:#717880;">{{ g.sub }}</span>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%, 400px), 1fr)); gap:16px;">
+          <sc-for list="{{ g.items }}" as="f" hint-placeholder-count="3">
+            <article id="{{ f.id }}" style="background:#ffffff; border-radius:24px; padding:22px 24px; box-shadow:0px 4px 20px rgba(0,86,133,0.05); display:flex; flex-direction:column; gap:12px; scroll-margin-top:24px;">
+              <div style="display:flex; align-items:center; gap:10px;">
+                <span style="font-family:Sora, sans-serif; font-size:13px; font-weight:700; color:#003e62;">{{ f.id }}</span>
+                <span style="font-size:11px; font-weight:700; padding:3px 10px; border-radius:9999px; background:{{ f.bg }}; color:{{ f.fg }};">{{ f.sevLabel }}</span>
+              </div>
+              <h4 style="font-size:16px; line-height:1.35; font-weight:700; text-wrap:pretty;">{{ f.t }}</h4>
+              <p style="font-size:14px; line-height:1.55; color:#41474f; text-wrap:pretty;">{{ f.d }}</p>
+              <div style="display:flex; flex-direction:column; gap:4px; background:#f2f3f8; border-radius:14px; padding:12px 14px;">
+                <span style="font-size:11px; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; color:#717880;">Proposta</span>
+                <p style="font-size:14px; line-height:1.5; color:#191c1f; text-wrap:pretty;">{{ f.r }}</p>
+              </div>
+              <p style="font-size:12px; color:#717880; font-family:ui-monospace, SFMono-Regular, Menlo, monospace;">{{ f.src }}</p>
+            </article>
+          </sc-for>
+        </div>
+      </div>
+    </sc-for>
+  </section>
+
+  <section style="display:flex; flex-direction:column; gap:16px;">
+    <h2 style="font-family:Sora, sans-serif; font-size:22px; font-weight:700;">Cosa funziona già</h2>
+    <ul style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:12px; font-size:14px; line-height:1.5; color:#41474f;">
+      <li style="background:#ffffff; border-radius:18px; padding:16px 18px;">Skeleton coerenti con il layout finale: niente salti al caricamento.</li>
+      <li style="background:#ffffff; border-radius:18px; padding:16px 18px;">Dialog di revisione eventi unico e globale, apribile da qualsiasi pagina con un parametro.</li>
+      <li style="background:#ffffff; border-radius:18px; padding:16px 18px;">Tabella clienti navigabile da tastiera; archivio ed eliminazione con conferma esplicita.</li>
+      <li style="background:#ffffff; border-radius:18px; padding:16px 18px;">Stati vuoti presenti in tutte le sezioni della Panoramica e della lista clienti.</li>
+    </ul>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;severity&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;tutte&quot;,&quot;media&quot;,&quot;alta&quot;],&quot;default&quot;:&quot;tutte&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;showPins&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const filter = this.props.severity ?? "tutte";
+    const SEV = {
+      alta: { bg: "#ffdad6", fg: "#ba1a1a", l: "Alta" },
+      media: { bg: "#ffdcc2", fg: "#7c4302", l: "Media" },
+      bassa: { bg: "#eceef2", fg: "#41474f", l: "Bassa" },
+    };
+    const G = [
+      { title: "Panoramica", sub: "trainer.index.tsx", items: [
+        ["P1","alta","Il sottotitolo non supera mai «5 sessioni»","La lista di oggi è tagliata a 5 elementi (slice(0,5)) e lo stesso array alimenta «Hai N sessioni da svolgere». Con 7 appuntamenti il coach legge 5, e la lista non indica che ne mancano.","Contare sull'elenco completo; se la lista resta limitata, aggiungere una riga «+2 altre» che porta al Calendario sul giorno di oggi.","trainer.index.tsx:99-114, 417-421"],
+        ["P2","alta","Check-in immediato e senza annulla","Un clic segna la sessione come completata e scala il credito. Non c'è conferma né «Annulla»; la riga sparisce subito. Durante il salvataggio tutti i pulsanti Check-in della lista vengono disabilitati, non solo quello premuto.","Toast con «Annulla» per 8-10 secondi; la riga resta visibile con stato «Completata». Disabilitare solo la riga in corso.","trainer.index.tsx:148-164, 505-512"],
+        ["P3","media","La giornata non mostra il suo andamento","Sono elencate solo le sessioni «scheduled»: quelle già svolte scompaiono. Non si distingue la sessione in corso o la prossima, né quelle passate ancora da confermare.","Elenco completo della giornata con tre stati: svolta, in corso/prossima (evidenziata), passata da confermare (con Check-in in primo piano).","trainer.index.tsx:102-106"],
+        ["P4","media","«In scadenza» ha due definizioni","Panoramica: crediti ≤ 1 o blocco che termina entro 7 giorni. Clienti: fatturazione entro 5 giorni oppure ≤ 2 sessioni residue. Lo stesso cliente può comparire in un elenco e non nell'altro.","Una sola regola in un helper condiviso, usata da entrambe le pagine e dal badge di stato.","trainer.index.tsx:218-243 · trainer.clients.index.tsx:680-688"],
+        ["P5","media","I pulsanti d'azione portano altrove","«Rinnova» apre solo il profilo cliente, senza aprire l'assegnazione pacchetto. «Assegna» porta al Calendario invece di aprire il dialog in pagina, anche se il dialog è globale. L'etichetta «Percorso ·» è fissa anche per abbonamenti e clienti liberi.","«Rinnova» apre direttamente il dialog Assegna pacchetto. «Assegna» apre il dialog restando in Panoramica. Etichetta basata sul tipo di percorso.","trainer.index.tsx:614-620, 671-678"],
+        ["P6","bassa","Gerarchia: il dato annuale occupa il posto delle azioni","La Distribuzione servizi da inizio anno è in alto a destra, accanto agli appuntamenti; Rinnovi e Da assegnare, che richiedono un'azione, sono sotto la piega a 1280px.","Rinnovi e Da assegnare nella colonna destra accanto a «Oggi»; la distribuzione in fondo o nelle statistiche del cliente.","trainer.index.tsx:525-566"],
+        ["P7","bassa","Contatori in arancione anche a zero","I badge «0» di Rinnovi e Da assegnare usano il colore d'allerta: segnalano urgenza anche quando non c'è nulla.","Badge neutro o nascosto a zero; colore d'allerta solo con valori > 0.","trainer.index.tsx:579-581, 637-639"],
+      ]},
+      { title: "Shell", sub: "trainer.tsx · trainer-sidebar.tsx · trainer-notifications-bell.tsx", items: [
+        ["S1","media","L'header globale non orienta","L'header da 56px mostra sempre il testo statico «Studio Trainer»: nessun titolo di pagina, percorso o azione. Nel profilo cliente non c'è un percorso Clienti › Nome.","Titolo pagina o breadcrumb nell'header; il titolo grande dentro la pagina diventa facoltativo.","trainer.tsx:84-94"],
+        ["S2","media","Nessuna ricerca né creazione rapida","Per trovare un cliente bisogna andare su Clienti e usare il campo di ricerca. Non esiste un'azione globale «Nuovo evento» o «Nuovo cliente».","Ricerca clienti nell'header (anche con ⌘K) e un pulsante «Nuovo» con menu evento/cliente.","trainer.tsx:84-94"],
+        ["S3","bassa","Configurazione mescolata all'operatività","Tipologie evento, Disponibilità e Integrazioni stanno sotto «Area di lavoro» insieme a Panoramica, Calendario e Clienti. Su mobile sono già separate in «Impostazioni rapide».","Due gruppi in sidebar: «Area di lavoro» e «Impostazioni».","trainer-sidebar.tsx"],
+        ["S4","media","Le notifiche non portano all'evento","Qualsiasi notifica apre il Calendario sulla settimana corrente, non su quella dell'evento né sull'evento stesso.","Navigare alla settimana dell'evento ed evidenziarlo; per «Sessione spostata» mostrare vecchio e nuovo orario.","trainer-notifications-bell.tsx:228-233"],
+      ]},
+      { title: "Calendario", sub: "trainer.calendar.tsx", items: [
+        ["C1","media","Tre modi di sincronizzare Google","Il pulsante Aggiorna esegue già la riconciliazione; c'è poi il pannello di revisione Google e il pulsante «Sincronizza tutto dal 1° gen», sempre visibile sopra la griglia pur essendo un'operazione pesante e rara.","Un solo «Aggiorna» nel calendario; la sincronizzazione completa si sposta in Integrazioni, con conferma e avanzamento.","trainer.calendar.tsx:341-373"],
+        ["C3","media","Pannello «Focus cliente» sempre aperto e spesso vuoto","Da 1280px in su una colonna di 320px resta fissa a destra e si riempie solo dopo aver premuto «Profilo» nel popover di un evento. Dettagli evento e dettagli cliente sono in due posti diversi.","Un solo pannello laterale che si apre al clic sull'evento, con dettagli, azioni (check-in, modifica, annulla), crediti e ultima nota del cliente.","calendar-context-panel.tsx · calendar-event-tile.tsx"],
+        ["C4","bassa","Tile: il cliente è in secondo piano","Il titolo del tile è la tipologia, già comunicata dal colore; il nome del cliente è una riga secondaria a 10px. Il badge «✓ cliente» è a 8px.","Nome del cliente come titolo, tipologia e ora sotto; conferma del cliente come icona di spunta con etichetta accessibile.","calendar-event-tile.tsx:245-275"],
+        ["C5","bassa","Manca l'ora corrente e la vista giorno","La griglia è solo settimanale e non indica l'ora attuale: durante la giornata bisogna cercare a occhio dove si è.","Linea dell'ora corrente sul giorno di oggi e vista Giorno, raggiungibile anche cliccando l'intestazione di un giorno.","trainer.calendar.tsx"],
+        ["C6","media","Il coach non può creare una sessione dall'app","Nel codice del lato coach non esiste un'azione di creazione: le sessioni arrivano dalle prenotazioni dei clienti o da Google, e poi vanno assegnate.","Clic su uno spazio vuoto o «Nuovo › Nuova sessione» apre la creazione con cliente, tipologia, orario e avvisi di sovrapposizione o fuori disponibilità.","trainer.calendar.tsx"],
+        ["C2","bassa","Filtri combinabili che danno sempre vuoto","«Solo personali» e «Solo da assegnare» si possono attivare insieme, ma un evento da assegnare non è mai personale: la griglia resta vuota.","Rendere i due filtri mutuamente esclusivi (segmented: Tutti / Da assegnare / Personali).","trainer.calendar.tsx:266-268"],
+      ]},
+      { title: "Clienti", sub: "trainer.clients.index.tsx", items: [
+        ["L1","media","«Aggiungi Cliente» e «Invita»: differenza non spiegata","Due CTA affiancate: una crea l'account con password e pacchetto, l'altra invia un invito email. Dall'interfaccia non si capisce quale usare.","Un solo pulsante «Nuovo cliente» che chiede come procedere: crea account ora / invia invito.","trainer.clients.index.tsx:1018-1045"],
+        ["L2","bassa","Stato «Completato» senza tab","Lo stato viene calcolato e mostrato sulle card, ma non ha un tab né compare nella barra di riepilogo. La barra ripete i numeri già presenti nei tab.","Aggiungere il tab «Completati» o unire barra e tab in un solo controllo con conteggi.","trainer.clients.index.tsx:941-946, 1052-1075"],
+        ["L4","media","Creazione cliente con termini tecnici","La procedura in 3 passi usa «Step 1 di 3», «Event Type», «Q.tà / blocco», «Dal blocco / Al blocco», «Aggiungi Regola». Non c'è un riepilogo prima della conferma e la password compare in un secondo dialog separato.","Etichette in italiano, crediti per blocco con contatori +/−, riepilogo prima di creare e password mostrata nello stesso dialog con «Copia».","create-client-dialog.tsx:244-540 · credentials-dialog.tsx"],
+        ["L5","bassa","Inviti in una tabella separata, senza «Reinvia»","Gli inviti in attesa sono una tabella a sé sopra le card, con la sola azione «Annulla» e nessuna data di invio.","Elenco compatto nella lista clienti con data di invio, «Reinvia» e «Annulla invito» con possibilità di ripristino.","pending-invitations-card.tsx"],
+        ["L6","bassa","«Modifica dettagli» apre solo il profilo","La prima voce del menu ⋮ promette una modifica ma porta alla pagina del cliente.","Rinominarla «Apri profilo».","client-card-menu.tsx:58-62"],
+        ["L7","bassa","«Scadenza pacchetto» confronta giorni e sessioni","L'ordinamento usa i giorni alla fatturazione per gli abbonamenti e le sessioni residue per gli altri, sulla stessa scala: l'ordine risultante non ha un significato preciso.","Due ordinamenti distinti: «Crediti residui» e «Scadenza del blocco».","trainer.clients.index.tsx:785-792"],
+        ["L8","bassa","«Pacchetto PT» somma tutto il percorso","L'etichetta dice PT ma il contatore somma tutte le tipologie su tutti i blocchi: «4/24» non dice quante sessioni restano ora.","Mostrare i crediti del blocco in corso («6 di 13 rimasti · blocco 3 di 6»).","trainer.clients.index.tsx:1245-1262"],
+        ["L3","bassa","Card cliccabile solo in parte","Nella griglia solo il blocco nome/avatar è un link; barra pacchetto e prossima sessione non portano al profilo.","Tutta la card cliccabile, con il menu azioni isolato.","trainer.clients.index.tsx:1215-1240"],
+      ]},
+      { title: "Profilo cliente", sub: "trainer.clients.$id.tsx", items: [
+        ["K1","alta","Modifiche perse senza avviso","«Salva Calendario» è in cima alla pagina, mentre le date si modificano nella Timeline in fondo. Nel progetto non c'è alcun blocco di navigazione né avviso all'uscita con modifiche non salvate.","Barra di salvataggio fissa in basso quando ci sono modifiche, più avviso all'uscita (useBlocker).","trainer.clients.$id.tsx:1248-1256"],
+        ["K2","media","Sei sezioni impilate, impostazioni in mezzo","Colonna sinistra: Pacchetto, Storico, Orfani, Data inizio, Rinnovo automatico, Timeline. Le impostazioni del percorso separano i dati dal lavoro di pianificazione.","Tab o sezioni: Panoramica (pacchetto, storico, engagement) · Pianificazione (timeline, data inizio) · Impostazioni (rinnovo automatico).","trainer.clients.$id.tsx:1262-1418"],
+        ["K4","bassa","«Limitazioni» mostra sempre un trattino","La card Note e obiettivi ha un riquadro Limitazioni che non è collegato a nessun dato: mostra «—» per tutti i clienti.","Renderlo un campo modificabile, salvato insieme all'obiettivo, oppure toglierlo.","coach-notes-card.tsx:104-111"],
+        ["K5","media","Spostare una settimana è nascosto e senza riscontro","Le date si cambiano da un piccolo calendario dentro la pillola della settimana; la modifica resta in sospeso fino a «Salva Calendario» in cima. «Ricalcola» riporta tutte le date allo standard senza conferma.","Data modificabile direttamente sulla settimana, etichetta «Spostata · da salvare», barra di salvataggio in basso e conferma prima di ripristinare le date.","timeline-week-row.tsx · trainer.clients.$id.tsx:1240-1246"],
+        ["K6","bassa","«Sessioni da Revisionare» si confonde con «Da assegnare»","La card delle sessioni importate senza blocco usa un nome simile alla coda «Da assegnare» ma riguarda un'altra cosa; «Conferma / Scarta» non dice cosa succede ai crediti.","«Sessioni fuori percorso» con azioni «Collega al blocco in corso» e «Ignora», e una riga che spiega l'effetto sui crediti.","orphan-bookings-card.tsx"],
+        ["K7","bassa","Nessun contatto nel profilo","L'intestazione del profilo mostra solo l'email. Il telefono e WhatsApp sono raggiungibili solo dal pannello del calendario.","Email, telefono e WhatsApp cliccabili sotto il nome.","trainer.clients.$id.tsx:1216-1224"],
+        ["K3","bassa","Storico limitato e testi da mobile","Lo storico mostra 12 sessioni senza «Vedi tutte». Il suggerimento dice «Tocca una sessione» anche su desktop.","Link «Vedi tutte (N)»; testo «Clic su una sessione per modificarla».","trainer.clients.$id.tsx:1344-1350"],
+      ]},
+      { title: "Tipologie di sessione", sub: "trainer.event-types.tsx · event-type-service-card.tsx", items: [
+        ["E1","media","Controlli che sembrano attivi ma non lo sono","Sulle card i pulsanti − e + di Durata, Margine e Prezzo, l'interruttore «attivo» e il quadrato colore aprono tutti il dialog di modifica: nessuno cambia davvero il valore.","−/+ e interruttore agiscono subito sulla card; la matita apre il dialog per il resto.","event-type-service-card.tsx:24-58, 96-108"],
+        ["E2","media","Dati segnaposto mostrati come reali","«Prezzo — €» e «— prenotazioni questo mese» compaiono su ogni card ma non sono collegati a nessun dato; il sottotitolo della pagina cita anche il prezzo.","Mostrare utilizzo reale (sessioni del mese, clienti con crediti) e togliere il prezzo finché non esiste il campo.","event-type-service-card.tsx:112-138 · trainer.event-types.tsx:168"],
+        ["E3","bassa","Doppia negazione sulla prenotabilità","Nel dialog c'è «Blocca prenotazione lato cliente» (selezionato = non prenotabile), mentre sulla card l'interruttore è «attivo». Le card non prenotabili sono al 50% di opacità e sembrano disabilitate anche per il coach.","Un solo concetto in positivo, «Prenotabile dai clienti», con la stessa opacità per tutte le card e il messaggio ai clienti visibile.","trainer.event-types.tsx:405-420"],
+        ["E4","bassa","Eliminazione senza informazioni sull'uso","La conferma dice che le prenotazioni esistenti non cambiano, ma non indica quante sessioni future e quanti pacchetti usano la tipologia.","Mostrare sessioni future e clienti con crediti; se è in uso proporre «Rendi non prenotabile».","event-type-service-card.tsx:148-171"],
+        ["E5","bassa","Validazione solo con notifica e nessun «Annulla»","Gli errori del modulo compaiono in un toast («Dati non validi») e il dialog ha solo il pulsante di conferma. La durata è un campo numerico libero.","Errori sotto il campo, pulsante «Annulla», durate e margini predefiniti, anteprima del colore sul tile con avviso di contrasto.","trainer.event-types.tsx:288-431"],
+      ]},
+      { title: "Disponibilità", sub: "trainer.availability.tsx · availability-exceptions-card.tsx", items: [
+        ["D1","media","Regole modificabili che non hanno effetto","Preavviso minimo e orizzonte di prenotazione sono campi modificabili e salvati, ma un avviso nella stessa card dice che non vengono applicati: i clienti prenotano comunque con 24 ore di preavviso fino a 2 settimane.","Mostrarli come valori fissi finché il sistema non li usa, con una riga che lo spiega; renderli modificabili solo quando funzionano.","trainer.availability.tsx:536-583"],
+        ["D2","media","Due margini tra sessioni e un'anteprima approssimata","Qui c'è un «Buffer tra sessioni» globale, in Tipologie un «Margine dopo la sessione» per tipologia: non è chiaro quale vale. L'anteprima conta slot da 60 minuti fissi.","Un solo margine, per tipologia; anteprima in ore disponibili e stima delle sessioni con durata e margine reali.","trainer.availability.tsx:108-129, 554-563"],
+        ["D3","bassa","«Copia su tutti i giorni» solo dal lunedì","L'icona di copia compare solo sulla riga del lunedì, senza etichetta, e copia sui soli giorni già attivi.","«Copia su…» su ogni giorno, con scelta dei giorni di destinazione e scorciatoia Lun–Ven.","trainer.availability.tsx:473-484"],
+        ["D4","bassa","Salvataggio in cima e senza avviso","«Salva Modifiche» è in alto con un colore diverso dagli altri pulsanti principali; non c'è indicazione di modifiche in sospeso né avviso all'uscita.","Barra di salvataggio in basso quando ci sono modifiche e conferma prima di uscire, come nel profilo cliente.","trainer.availability.tsx:334-346"],
+        ["D5","bassa","Stato di Google Calendar sempre «sincronizzato»","Il riquadro «Sincronizzato con Google Calendar» è fisso e non riflette lo stato reale dell'integrazione.","Stato reale (collegato, ultimo aggiornamento) con link a Integrazioni.","trainer.availability.tsx:352-361"],
+        ["D6","bassa","Eccezioni solo per un giorno alla volta","Ogni eccezione ha una sola data: per una settimana di ferie servono sette voci. Non si vede se l'eccezione copre sessioni già prenotate.","Periodo «dal – al», fascia oraria facoltativa, avviso sulle sessioni già prenotate con link al calendario.","availability-exceptions-card.tsx"],
+      ]},
+      { title: "Integrazioni", sub: "trainer.integrations.tsx · integration-card.tsx", items: [
+        ["I1","media","Stato «Connesso» sempre fisso","Le tre card mostrano «Connesso» e il contatore «3 attive» è scritto nel codice: se Google Calendar smette di rispondere la pagina continua a dire che è tutto a posto.","Stato reale con ultimo aggiornamento, conteggio di eventi da assegnare e sessioni non presenti su Google, e un messaggio chiaro in caso di errore.","trainer.integrations.tsx:30-37, 45-52"],
+        ["I2","media","La pagina non permette nessuna azione","Gli strumenti di sincronizzazione stanno nel Calendario (C1); qui ci sono solo descrizioni.","Portare qui «Sincronizza ora», il ripristino degli eventi mancanti e la sincronizzazione completa dal 1° gennaio, con conferma, avanzamento e riepilogo.","trainer.integrations.tsx · trainer.calendar.tsx:131-178"],
+        ["I3","bassa","Termini tecnici rivolti al coach","Compaiono «sendUpdates=all», «Lovable Connector», «workspace».","Descrivere cosa succede in parole semplici (inviti, promemoria, link Meet, spostamenti riportati nell'app).","trainer.integrations.tsx:57-67, 88"],
+        ["I4","bassa","Google Meet presentato come integrazione separata","Meet ha una card propria con stato «Connesso», ma è una funzione del collegamento a Google Calendar.","Elencarlo tra le funzioni di Google Calendar; Stripe come servizio «gestito dallo studio».","trainer.integrations.tsx:94-116"],
+      ]},
+      { title: "Trasversali", sub: "tutte le pagine coach", items: [
+        ["T1","media","Nomi diversi per le stesse cose","Il prodotto si chiama NC Calendar (sidebar), Studio Trainer (header) e NC Training Systems (titolo scheda). I clienti diventano «atleti» su mobile. Le tipologie compaiono come «Tipologie evento», «Tipi di Evento», «tipologia di sessione» e «servizio».","Glossario breve: NC Calendar, Clienti, Tipologie di sessione. Applicarlo a nav, titoli, dialog e stati vuoti.","trainer.tsx:89 · trainer.index.tsx:274 · trainer.event-types.tsx:218,299"],
+        ["T2","media","Ogni pagina ha un titolo diverso","H1: Panoramica 48px bold nero; Clienti 36px bold blu; Tipologie 36px bold blu; Disponibilità 30px semibold nero; profilo cliente 26px bold nero.","Un solo stile H1 per pagina (es. Sora 36px bold, #191c1f) e uno per il titolo delle card (20px/600).","trainer.*.tsx"],
+        ["T3","bassa","Colori fuori dai token ed emoji","Stati e avvisi usano valori scritti a mano (orange-50, emerald-50, #fff7ed, #92400e, #059669, #dc2626, #94a3b8) accanto ai token equivalenti. Il banner di esaurimento usa l'emoji ⚠️.","Sostituire con i token success/warning/error-strong e i rispettivi container; icona TriangleAlert al posto dell'emoji.","trainer.clients.index.tsx · trainer.clients.$id.tsx:1334"],
+        ["T4","media","Lo stato della vista non sopravvive alla navigazione","Settimana del calendario, filtri, vista griglia/tabella, ordinamento, tab e ricerca clienti vivono in useState. Tornando dal profilo cliente si riparte da capo; non si può condividere un link a una settimana.","Portarli nei parametri di ricerca della route (come già fatto per reviewEventId).","trainer.calendar.tsx · trainer.clients.index.tsx:238-246"],
+        ["T5","bassa","Conferme miste","Annullare un evento dal calendario e scollegare una sessione usano confirm() del browser; archiviazione ed eliminazione usano il dialog dell'app.","Usare ovunque AlertDialog, come già fatto in edit-booking-dialog.","calendar-event-tile.tsx:346 · trainer.clients.$id.tsx:489"],
+        ["T6","bassa","Maiuscole incoerenti","«Aggiungi Cliente», «In Scadenza», «Salva Calendario», «Distribuzione Servizi» accanto a «Rinnovi in scadenza», «Da assegnare», «Assegna pacchetto».","Solo iniziale maiuscola, come nel resto dell'interfaccia.","vari file"],
+      ]},
+    ];
+    const all = G.flatMap((g) => g.items);
+    const count = (s) => all.filter((i) => i[1] === s).length;
+    const groups = G.map((g) => ({
+      title: g.title, sub: g.sub,
+      items: g.items
+        .filter((i) => filter === "tutte" || (filter === "alta" ? i[1] === "alta" : i[1] !== "bassa"))
+        .map(([id, s, t, d, r, src]) => ({ id, t, d, r, src, sevLabel: SEV[s].l, bg: SEV[s].bg, fg: SEV[s].fg })),
+    })).filter((g) => g.items.length);
+    const dist = [
+      { label: "Personal Training", count: 312, pct: 68, color: "#003e62" },
+      { label: "Consulenza", count: 84, pct: 18, color: "#005685" },
+      { label: "Misurazione BIA", count: 41, pct: 9, color: "#385f81" },
+      { label: "Check-up", count: 21, pct: 5, color: "#7c4302" },
+    ].map((d) => ({ ...d, w: d.pct + "%" }));
+    return {
+      nAlta: count("alta"), nMedia: count("media"), nBassa: count("bassa"),
+      filterLabel: { tutte: "tutte le severità", media: "alta e media", alta: "solo alta" }[filter],
+      groups, dist,
+      pinDisplay: this.props.showPins === false ? "none" : "inline-flex",
+      today: [
+        { time: "07:30", dur: "1h", ini: "GF", name: "Giulia Ferri", type: "Personal Training", icon: "Dumbbell" },
+        { time: "09:00", dur: "1h", ini: "MB", name: "Marco Bianchi", type: "Personal Training", icon: "Dumbbell" },
+        { time: "12:30", dur: "30m", ini: "SC", name: "Sara Conti", type: "Consulenza", icon: "Stethoscope" },
+        { time: "18:00", dur: "1h", ini: "LM", name: "Luca Moretti", type: "Personal Training", icon: "Dumbbell" },
+        { time: "19:00", dur: "30m", ini: "ER", name: "Elena Rinaldi", type: "Misurazione BIA", icon: "Scale" },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>
