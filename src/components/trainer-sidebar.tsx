@@ -1,108 +1,159 @@
-import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarHeader,
-  SidebarFooter,
-} from "@/components/ui/sidebar";
-import { LayoutDashboard, CalendarDays, Users, LogOut, Plug, Clock, Tag } from "lucide-react";
+  LayoutDashboard,
+  CalendarDays,
+  Users,
+  LogOut,
+  Plug,
+  Clock,
+  Tag,
+  type LucideIcon,
+} from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { Button } from "@/components/ui/button";
-import { InstallPwaButton } from "@/components/install-pwa-button";
+import { useCoachBookings } from "@/lib/queries";
+import { countToAssign, formatToAssign } from "@/lib/to-assign";
+import { initials } from "@/lib/initials";
 import logoUrl from "@/assets/ncc-logo.png";
 
-const items = [
-  { title: "Panoramica", url: "/trainer", icon: LayoutDashboard, exact: true },
-  { title: "Calendario", url: "/trainer/calendar", icon: CalendarDays },
-  { title: "Clienti", url: "/trainer/clients", icon: Users },
-  { title: "Tipologie di sessione", url: "/trainer/event-types", icon: Tag },
-  { title: "Disponibilità", url: "/trainer/availability", icon: Clock },
-  { title: "Integrazioni", url: "/trainer/integrations", icon: Plug },
+type TrainerPath =
+  | "/trainer"
+  | "/trainer/calendar"
+  | "/trainer/clients"
+  | "/trainer/event-types"
+  | "/trainer/availability"
+  | "/trainer/integrations";
+
+interface NavItem {
+  title: string;
+  url: TrainerPath;
+  icon: LucideIcon;
+  exact?: boolean;
+}
+
+// Audit S3: il lavoro di tutti i giorni separato dalla configurazione, come
+// già nelle «Impostazioni rapide» mobile.
+const groups: { label: string; items: NavItem[] }[] = [
+  {
+    label: "Area di lavoro",
+    items: [
+      { title: "Panoramica", url: "/trainer", icon: LayoutDashboard, exact: true },
+      { title: "Calendario", url: "/trainer/calendar", icon: CalendarDays },
+      { title: "Clienti", url: "/trainer/clients", icon: Users },
+    ],
+  },
+  {
+    label: "Impostazioni",
+    items: [
+      { title: "Tipologie di sessione", url: "/trainer/event-types", icon: Tag },
+      { title: "Disponibilità", url: "/trainer/availability", icon: Clock },
+      { title: "Integrazioni", url: "/trainer/integrations", icon: Plug },
+    ],
+  },
 ];
 
+/** Sidebar desktop del coach (256px): Link imposta aria-current="page" sulla voce attiva. */
 export function TrainerSidebar() {
-  const path = useRouterState({ select: (s) => s.location.pathname });
   const { user, signOut } = useAuth();
-  const displayName = (user?.user_metadata?.full_name as string) || user?.email || "";
   const navigate = useNavigate();
+  const displayName = (user?.user_metadata?.full_name as string) || user?.email || "";
+
+  // Audit V12: stessa query e stesso criterio del filtro «Da assegnare» del Calendario.
+  const bookingsQ = useCoachBookings(user?.id);
+  const toAssign = countToAssign(bookingsQ.data);
 
   return (
-    <Sidebar
-      collapsible="icon"
-      className="[&_[data-sidebar=sidebar]]:bg-white/40 [&_[data-sidebar=sidebar]]:backdrop-blur-2xl [&_[data-sidebar=sidebar]]:border-r [&_[data-sidebar=sidebar]]:border-white/20"
-    >
-      <SidebarHeader>
-        <div className="flex items-center gap-2 px-2 py-2">
-          <div className="size-8 rounded-[8px] overflow-hidden bg-white flex-shrink-0">
-            <img
-              src={logoUrl}
-              alt="NC Calendar"
-              className="w-full h-full object-cover object-center scale-[1.2]"
-            />
-          </div>
-          <div className="group-data-[collapsible=icon]:hidden">
-            <p className="font-display text-sm font-semibold leading-none">NC Calendar</p>
-            <p className="text-xs text-muted-foreground mt-1">Studio</p>
-          </div>
+    <div className="sticky top-0 flex h-svh w-64 flex-col border-r bg-white/40 text-on-surface backdrop-blur-2xl">
+      <div className="flex items-center gap-2.5 p-4">
+        <div className="size-8 shrink-0 overflow-hidden rounded-[8px] bg-white">
+          <img
+            src={logoUrl}
+            alt="NC Calendar"
+            className="h-full w-full scale-[1.2] object-cover object-center"
+          />
         </div>
-      </SidebarHeader>
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-[11px] font-semibold uppercase tracking-[0.05em] text-outline">
-            Area di lavoro
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {items.map((item) => {
-                const active = item.exact ? path === item.url : path.startsWith(item.url);
-                return (
-                  <SidebarMenuItem key={item.url}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={active}
-                      tooltip={item.title}
-                      className="rounded-full gap-3 px-3 font-medium text-on-surface-variant data-[active=true]:bg-aura-primary/10 data-[active=true]:text-aura-primary data-[active=true]:font-semibold hover:bg-white/60"
-                    >
-                      <Link to={item.url}>
-                        <item.icon className="size-4" />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-      <SidebarFooter>
-        <div className="px-2 pb-2 group-data-[collapsible=icon]:hidden">
-          <div className="rounded-xl border border-outline-variant bg-card p-3">
-            <p className="text-sm font-medium truncate">{displayName}</p>
-            <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
-            <div className="mt-2 flex flex-col gap-1">
-              <InstallPwaButton className="w-full justify-start" />
-              <Button
-                size="sm"
-                variant="ghost"
-                className="w-full justify-start"
-                onClick={async () => {
-                  await signOut();
-                  navigate({ to: "/auth" });
-                }}
+        <div>
+          <p className="font-display text-sm leading-none font-semibold">NC Calendar</p>
+          <p className="mt-1 text-xs leading-4 text-outline">Studio</p>
+        </div>
+      </div>
+
+      <nav
+        aria-label="Menu principale"
+        className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-2 py-1"
+      >
+        {groups.map((group) => {
+          const labelId = `sidebar-${group.label.replace(/\s+/g, "-").toLowerCase()}`;
+          return (
+            <div key={group.label} className="flex flex-col gap-0.5">
+              <p
+                id={labelId}
+                className="flex h-8 items-center px-3 text-[11px] font-semibold tracking-[0.05em] text-outline uppercase"
               >
-                <LogOut className="size-4" /> Esci
-              </Button>
+                {group.label}
+              </p>
+              <ul aria-labelledby={labelId} className="flex flex-col gap-1">
+                {group.items.map((item) => {
+                  const badge = item.url === "/trainer/calendar" ? toAssign : 0;
+                  return (
+                    <li key={item.url}>
+                      <Link
+                        to={item.url}
+                        activeOptions={{ exact: item.exact ?? false, includeSearch: false }}
+                        className="flex h-9 items-center gap-3 rounded-full px-3 text-sm transition-colors"
+                        activeProps={{
+                          className: "bg-aura-primary/10 font-semibold text-aura-primary",
+                        }}
+                        inactiveProps={{
+                          className: "font-medium text-on-surface-variant hover:bg-aura-primary/6",
+                        }}
+                      >
+                        <item.icon className="size-4 shrink-0" aria-hidden />
+                        <span className="min-w-0 flex-1 truncate">{item.title}</span>
+                        {badge > 0 && (
+                          <span
+                            aria-label={formatToAssign(badge)}
+                            title={formatToAssign(badge)}
+                            className="flex h-5 min-w-5 items-center justify-center rounded-full bg-tertiary-container/12 px-1.5 text-[11px] font-bold text-tertiary-container tabular-nums"
+                          >
+                            {badge}
+                          </span>
+                        )}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          );
+        })}
+      </nav>
+
+      <div className="p-4">
+        <div className="flex flex-col gap-2 rounded-[16px] border border-outline-variant bg-white p-3">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span
+              aria-hidden
+              className="grid size-8 shrink-0 place-items-center rounded-full bg-aura-primary text-xs font-bold text-white"
+            >
+              {initials(displayName, user?.email)}
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm leading-5 font-semibold">{displayName}</p>
+              <p className="truncate text-xs leading-4 text-outline">{user?.email}</p>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={async () => {
+              await signOut();
+              navigate({ to: "/auth" });
+            }}
+            className="flex h-8 w-full items-center gap-2 rounded-full px-2.5 text-xs font-semibold text-on-surface-variant transition-colors hover:bg-surface-container"
+          >
+            <LogOut className="size-4" aria-hidden /> Esci
+          </button>
         </div>
-      </SidebarFooter>
-    </Sidebar>
+      </div>
+    </div>
   );
 }

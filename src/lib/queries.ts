@@ -95,6 +95,9 @@ export interface ProfileRow {
   phone: string | null;
   coach_id: string | null;
   status: string;
+  // Piano mostrato nella ricerca clienti dell'header (clientPlanLabel).
+  path_type: string;
+  pack_label: string | null;
 }
 
 /* ---------- queries ---------- */
@@ -114,7 +117,7 @@ export function useCoachClients(coachId?: string) {
     queryFn: async (): Promise<ProfileRow[]> => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, email, phone, coach_id, status")
+        .select("id, full_name, email, phone, coach_id, status, path_type, pack_label")
         .eq("coach_id", coachId!)
         .is("deleted_at", null);
       if (error) throw error;

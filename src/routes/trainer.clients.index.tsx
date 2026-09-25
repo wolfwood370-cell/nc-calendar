@@ -55,7 +55,16 @@ import { ClientStatusTabs } from "@/components/client-status-tabs";
 import { PendingInvitationsCard } from "@/components/pending-invitations-card";
 import { initials } from "@/lib/initials";
 
+// Il menu «Nuovo» dell'header coach porta qui con `new=cliente` (passata 01);
+// l'apertura del dialog di creazione arriva con la passata 05.
+interface ClientsSearch {
+  new?: "cliente";
+}
+
 export const Route = createFileRoute("/trainer/clients/")({
+  validateSearch: (search: Record<string, unknown>): ClientsSearch => ({
+    new: search.new === "cliente" ? "cliente" : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Clienti · NC Calendar" },
@@ -699,6 +708,8 @@ function ClientsPage() {
       return;
     }
     toast.success(status === "archived" ? "Cliente archiviato" : "Cliente ripristinato");
+    // La ricerca clienti dell'header legge questa cache ed esclude gli archiviati.
+    qc.invalidateQueries({ queryKey: queryKeys.clients.coach(user?.id) });
     load();
   }
 

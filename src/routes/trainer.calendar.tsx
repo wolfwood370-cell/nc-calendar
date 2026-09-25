@@ -20,11 +20,31 @@ import {
 } from "@/lib/queries";
 import { queryKeys } from "@/lib/query-keys";
 import { gcalReconcileEvents, gcalRepairMissingEvents } from "@/lib/gcal.functions";
+import { isoDateParam, uuidParam } from "@/lib/search-params";
+import { isToAssign } from "@/lib/to-assign";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
+import { parseISO } from "date-fns";
 import { isAllDayEvent, sameDay, MobileAgendaView } from "@/components/mobile-calendar-agenda";
 
+// Parametri con cui l'header coach apre il Calendario (passata 01): le
+// notifiche portano `date` (e `event`), il menu «Nuovo» porta `new=sessione`.
+// Per ora si legge solo `date`; `event` e `new` li userà la passata 04.
+interface CalendarSearch {
+  /** Un giorno qualsiasi della settimana da mostrare (YYYY-MM-DD). */
+  date?: string;
+  /** Prenotazione da selezionare. */
+  event?: string;
+  /** Apre la creazione di una sessione. */
+  new?: "sessione";
+}
+
 export const Route = createFileRoute("/trainer/calendar")({
+  validateSearch: (search: Record<string, unknown>): CalendarSearch => ({
+    date: isoDateParam(search.date),
+    event: uuidParam(search.event),
+    new: search.new === "sessione" ? "sessione" : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Calendario · NC Calendar" },
@@ -75,7 +95,31 @@ function fmtRange(start: Date, end: Date): string {
 function CalendarPage() {
   const { user } = useAuth();
   const qc = useQueryClient();
-  const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()));
+  const navigate = useNavigate();
+  const search = Route.useSearch();
+  const { date } = search;
+  const [weekStart, setWeekStart] = useState<Date>(() =>
+    startOfWeek(date ? parseISO(date) : new Date()),
+  );
+  // Audit S4: una notifica apre ?date=… sulla settimana dell'evento, anche
+  // quando il Calendario è già aperto.
+  useEffect(() => {
+    if (!date) return;
+    const target = startOfWeek(parseISO(date));
+    setWeekStart((prev) => (prev.getTime() === target.getTime() ? prev : target));
+  }, [date]);
+  // Cambiando settimana a mano `date` non vale più: si toglie dall'URL, così
+  // riaprire la stessa notifica riporta di nuovo alla sua settimana.
+  const goToWeek = (start: Date) => {
+    setWeekStart(start);
+    if (date) {
+      void navigate({
+        to: "/trainer/calendar",
+        search: { ...search, date: undefined },
+        replace: true,
+      });
+    }
+  };
   const [showAvailability, setShowAvailability] = useState(false);
   const [onlyPersonal, setOnlyPersonal] = useState(false);
   const [onlyToAssign, setOnlyToAssign] = useState(false);
@@ -232,7 +276,6 @@ function CalendarPage() {
   // from the URL search param. Calendar tiles just navigate with the
   // booking id, the dialog opens automatically. Same param works from
   // Dashboard, Mobile views, deep links shared via chat, etc.
-  const navigate = useNavigate();
   const openReview = (bookingId: string) => {
     navigate({
       to: "/trainer/calendar",
@@ -260,8 +303,8 @@ function CalendarPage() {
     for (const b of bookings) {
       if (b.status === "cancelled") continue;
       const isPersonal = !!b.is_personal;
-      const isUnassigned = !isPersonal && !b.client_id;
-      if (onlyToAssign && !isUnassigned) continue;
+      // Stesso criterio del badge «Da assegnare» della sidebar (audit V12).
+      if (onlyToAssign && !isToAssign(b)) continue;
       if (onlyPersonal && !isPersonal) continue;
       if (selectedTypeIds.size > 0) {
         if (!b.event_type_id || !selectedTypeIds.has(b.event_type_id)) continue;
@@ -318,9 +361,9 @@ function CalendarPage() {
         <CalendarHeader
           mirroring={false}
           weekRangeLabel={fmtRange(weekStart, weekEnd)}
-          onToday={() => setWeekStart(startOfWeek(new Date()))}
-          onPrevWeek={() => setWeekStart(addDays(weekStart, -7))}
-          onNextWeek={() => setWeekStart(addDays(weekStart, 7))}
+          onToday={() => goToWeek(startOfWeek(new Date()))}
+          onPrevWeek={() => goToWeek(addDays(weekStart, -7))}
+          onNextWeek={() => goToWeek(addDays(weekStart, 7))}
           showAvailability={showAvailability}
           onToggleAvailability={() => setShowAvailability((v) => !v)}
           onlyPersonal={onlyPersonal}

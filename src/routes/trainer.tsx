@@ -6,12 +6,12 @@ import {
   useRouterState,
 } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { TrainerSidebar } from "@/components/trainer-sidebar";
-import { TrainerNotificationsBell } from "@/components/trainer-notifications-bell";
+import { TrainerHeader } from "@/components/trainer-header";
 import { TrainerBottomNav } from "@/components/trainer-bottom-nav";
 import { ReviewBookingDialog } from "@/components/review-booking-dialog";
 import { useAuth, pathForRole } from "@/lib/auth";
+import { uuidParam } from "@/lib/search-params";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -22,17 +22,12 @@ interface TrainerSearch {
   reviewEventId?: string;
 }
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 export const Route = createFileRoute("/trainer")({
   component: TrainerLayout,
   validateSearch: (search: Record<string, unknown>): TrainerSearch => ({
     // M4 (audit Wave 3): only accept a valid UUID — anything else is
     // dropped silently to avoid a Postgres 22P02 bubbling into the UI.
-    reviewEventId:
-      typeof search.reviewEventId === "string" && UUID_RE.test(search.reviewEventId)
-        ? search.reviewEventId
-        : undefined,
+    reviewEventId: uuidParam(search.reviewEventId),
   }),
 });
 
@@ -68,49 +63,38 @@ function TrainerLayout() {
   };
 
   return (
-    <SidebarProvider>
-      {/* Design handoff: su desktop la pagina ha il gradiente del mock
-          (135deg #f2f3f8→#e7e8ec) che traspare sotto sidebar/header glass. */}
-      <div className="min-h-screen flex w-full bg-background md:bg-[linear-gradient(135deg,#f2f3f8,#e7e8ec)]">
-        {/* Sidebar: desktop only. On mobile the TrainerBottomNav at the
-            bottom of the viewport replaces it (mobile layer integration). */}
-        <div className="hidden md:flex">
-          <TrainerSidebar />
-        </div>
-        <SidebarInset>
-          {/* Desktop top bar — kept md+ only to preserve the existing
-              SidebarTrigger UX on desktop. The mobile views render their
-              own glassmorphic header inside each page. */}
-          <header className="hidden md:flex h-14 items-center gap-3 border-b border-white/20 px-4 sticky top-0 bg-white/40 backdrop-blur-2xl z-10">
-            <SidebarTrigger />
-            <div className="h-5 w-px bg-black/15" />
-            <p className="text-sm text-muted-foreground">NC Calendar</p>
-            {/* Design handoff: campanella "Attività clienti" nell'header
-                globale, visibile da ogni pagina /trainer (su mobile resta
-                quella nella testata della Panoramica). */}
-            <div className="ml-auto">
-              <TrainerNotificationsBell />
-            </div>
-          </header>
-          {/* pb on mobile clears the bottom nav (64px nav + safe-area).
-              Desktop: mock = main #f8f9fe dentro il gradiente di pagina; il
-              padding resta 24px perché molte route lo compensano con -m-6
-              per i propri sfondi full-bleed. */}
-          <main className="p-0 md:p-6 pb-[88px] md:pb-6 md:bg-surface">
-            {/* key sul pathname: rimonta la vista a ogni navigazione così
-                l'animazione page-enter (design handoff) riparte. */}
-            <div key={path} className="page-enter">
-              <Outlet />
-            </div>
-          </main>
-          {/* Global review modal — reachable from any /trainer/* page via
-              navigate({ search: { reviewEventId: bookingId } }). One
-              component, one mount point, consistent UX. */}
-          <ReviewBookingDialog bookingId={reviewEventId ?? null} onClose={closeReviewDialog} />
-        </SidebarInset>
-        {/* Mobile bottom navigation. Hidden on md+ by the component itself. */}
-        <TrainerBottomNav />
+    // Design handoff: su desktop la pagina ha il gradiente del mock
+    // (135deg #f2f3f8→#e7e8ec) che traspare sotto sidebar/header glass.
+    <div className="min-h-screen flex w-full bg-background md:bg-[linear-gradient(135deg,#f2f3f8,#e7e8ec)]">
+      {/* Sidebar: desktop only, sticky a tutta altezza. On mobile the
+          TrainerBottomNav at the bottom of the viewport replaces it. */}
+      <div className="hidden md:block">
+        <TrainerSidebar />
       </div>
-    </SidebarProvider>
+      {/* Colonna contenuto: su desktop niente fondo, così il gradiente
+          traspare sotto l'header come nel mock (su mobile resta bg-background). */}
+      <div className="relative flex w-full flex-1 flex-col bg-background md:bg-transparent">
+        {/* Desktop header (percorso, ricerca, «Nuovo», notifiche). The
+            mobile views render their own glassmorphic header inside each page. */}
+        <TrainerHeader />
+        {/* pb on mobile clears the bottom nav (64px nav + safe-area).
+            Desktop: mock = main #f8f9fe dentro il gradiente di pagina; il
+            padding resta 24px perché molte route lo compensano con -m-6
+            per i propri sfondi full-bleed. */}
+        <main className="p-0 md:p-6 pb-[88px] md:pb-6 md:bg-surface">
+          {/* key sul pathname: rimonta la vista a ogni navigazione così
+              l'animazione page-enter (design handoff) riparte. */}
+          <div key={path} className="page-enter">
+            <Outlet />
+          </div>
+        </main>
+        {/* Global review modal — reachable from any /trainer/* page via
+            navigate({ search: { reviewEventId: bookingId } }). One
+            component, one mount point, consistent UX. */}
+        <ReviewBookingDialog bookingId={reviewEventId ?? null} onClose={closeReviewDialog} />
+      </div>
+      {/* Mobile bottom navigation. Hidden on md+ by the component itself. */}
+      <TrainerBottomNav />
+    </div>
   );
 }
