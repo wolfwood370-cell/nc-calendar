@@ -1,6 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useMemo } from "react";
+import { CalendarGcalReview } from "@/components/calendar-gcal-review";
+import { GcalFullSyncButton } from "@/components/gcal-full-sync-button";
 import { IntegrationCard } from "@/components/integration-card";
 import { PageTitle } from "@/components/page-title";
+import { useAuth } from "@/lib/auth";
+import { useCoachBookings, useCoachClients, useCoachEventTypes } from "@/lib/queries";
 import { Calendar, CreditCard, Video, Check } from "lucide-react";
 
 export const Route = createFileRoute("/trainer/integrations")({
@@ -24,6 +29,22 @@ export const Route = createFileRoute("/trainer/integrations")({
 });
 
 function IntegrationsPage() {
+  // Riconciliazione con Google Calendar e sync dal 1° gennaio: spostate qui
+  // dal Calendario (passata 04, audit C1), così com'erano.
+  const { user } = useAuth();
+  const bookingsQ = useCoachBookings(user?.id);
+  const clientsQ = useCoachClients(user?.id);
+  const eventTypesQ = useCoachEventTypes(user?.id);
+  const bookings = bookingsQ.data ?? [];
+  const clientsMap = useMemo(
+    () => new Map((clientsQ.data ?? []).map((c) => [c.id, c])),
+    [clientsQ.data],
+  );
+  const eventTypesMap = useMemo(
+    () => new Map((eventTypesQ.data ?? []).map((e) => [e.id, e])),
+    [eventTypesQ.data],
+  );
+
   return (
     <div className="mx-auto w-full max-w-[920px] space-y-6">
       <div>
@@ -64,6 +85,18 @@ function IntegrationsPage() {
             Gestita dal workspace via Lovable Connector — nessuna azione richiesta.
           </p>
         </IntegrationCard>
+
+        <div>
+          {/* Riconciliazione bidirezionale Google <-> app (sola lettura) */}
+          <CalendarGcalReview
+            coachId={user?.id}
+            bookings={bookings}
+            clientsMap={clientsMap}
+            eventTypesMap={eventTypesMap}
+          />
+          {/* Sync forzato sull'intero anno corrente */}
+          <GcalFullSyncButton coachId={user?.id} />
+        </div>
 
         {/* Stripe — gestito centralmente via connettore Lovable (chiave
             STRIPE_SECRET_KEY del workspace). Nessun flusso Connect per-coach:

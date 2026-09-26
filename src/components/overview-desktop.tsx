@@ -262,7 +262,7 @@ export function OverviewDesktop() {
               </div>
               <Link
                 to="/trainer/calendar"
-                search={{ date: today }}
+                search={{ date: today, view: "day" }}
                 className="flex shrink-0 items-center gap-1.5 text-sm font-semibold text-aura-primary hover:text-primary-container"
               >
                 Apri nel calendario

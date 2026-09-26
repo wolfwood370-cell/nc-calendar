@@ -1,59 +1,59 @@
-import { AllDayPill, type AllDayPillBooking } from "@/components/mobile-calendar-agenda";
+// ----------------------------------------------------------------------------
+// Striscia «Tutto il giorno» della griglia desktop (passata 04)
+// ----------------------------------------------------------------------------
+// Compare solo se nel periodo ci sono eventi giornalieri di Google
+// (compleanni, ricorrenze).
+// ----------------------------------------------------------------------------
 
-/**
- * Subset structural del booking richiesto dal pill all-day. Estende
- * `AllDayPillBooking` (title + notes letti da AllDayPill) e aggiunge `id`
- * per la prop `key` del .map. HIGH-7: prima l'interface aveva solo `id`
- * e il pill veniva passato con `booking={b as any}`. Estendere il subset
- * elimina il cast senza forzare BookingRow completo sul caller.
- */
-export interface AllDayStripBooking extends AllDayPillBooking {
+import { IMPORT_PREFIX } from "@/components/mobile-calendar-agenda";
+
+export interface AllDayItem {
   id: string;
+  title: string | null;
+  notes: string | null;
 }
 
-export interface CalendarAllDayStripProps<T extends AllDayStripBooking> {
-  /** 7 giorni della settimana — usata solo per index del map (no rendering della data). */
-  weekDays: readonly Date[];
-  /** Array di array (per giorno) dei booking all-day visibili. */
-  allDayByDay: readonly (readonly T[])[];
+export interface CalendarAllDayStripProps {
+  gridCols: string;
+  allDayByDay: ReadonlyArray<readonly AllDayItem[]>;
 }
 
-/**
- * Strip "Tutto il dì" che renderizza i Google all-day events (compleanni,
- * anniversari, ecc.) sopra il time grid. Restituisce null se nessun
- * giorno della settimana ha all-day events — così il parent non deve
- * scrivere il guard `{allDayByDay.some(d => d.length > 0) && (...)}`.
- */
-export function CalendarAllDayStrip<T extends AllDayStripBooking>({
-  weekDays,
-  allDayByDay,
-}: CalendarAllDayStripProps<T>) {
-  const hasAny = allDayByDay.some((d) => d.length > 0);
-  if (!hasAny) return null;
+function allDayTitle(b: AllDayItem): string {
+  const title = b.title?.trim();
+  if (title) return title;
+  const notes = b.notes?.trim().replace(IMPORT_PREFIX, "").trim();
+  return notes || "Evento giornaliero";
+}
 
+export function CalendarAllDayStrip({ gridCols, allDayByDay }: CalendarAllDayStripProps) {
+  if (!allDayByDay.some((d) => d.length > 0)) return null;
   return (
     <div
-      className="flex border-b border-surface-container bg-surface/60"
-      aria-label="Eventi giornalieri"
+      className="grid border-b border-surface-container bg-[#fbfbfd]"
+      style={{ gridTemplateColumns: gridCols }}
     >
-      <div className="w-16 shrink-0 border-r border-surface-container flex items-center justify-center">
-        <span className="text-[10px] uppercase tracking-wider text-outline">Tutto il dì</span>
+      <div className="px-1.5 py-2 text-right text-[10px] font-bold uppercase tracking-[0.04em] text-outline">
+        Tutto il giorno
       </div>
-      <div className="flex-1 grid grid-cols-7">
-        {weekDays.map((_, i) => {
-          const items = allDayByDay[i] ?? [];
-          return (
-            <div
-              key={i}
-              className="border-r border-surface-container last:border-r-0 px-1.5 py-1.5 flex flex-col gap-1 min-h-[36px]"
-            >
-              {items.map((b) => (
-                <AllDayPill key={b.id} booking={b} compact />
-              ))}
-            </div>
-          );
-        })}
-      </div>
+      {allDayByDay.map((items, i) => (
+        <div
+          key={i}
+          className="flex min-w-0 flex-col gap-1 border-l border-surface-container-low p-1.5"
+        >
+          {items.map((b) => {
+            const title = allDayTitle(b);
+            return (
+              <span
+                key={b.id}
+                title={title}
+                className="truncate rounded-lg bg-surface-container px-2 py-[3px] text-xs font-semibold text-on-surface-variant"
+              >
+                {title}
+              </span>
+            );
+          })}
+        </div>
+      ))}
     </div>
   );
 }
