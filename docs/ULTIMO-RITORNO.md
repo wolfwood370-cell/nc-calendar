@@ -1,328 +1,285 @@
-# Ultimo ritorno · Redesign coach, passata 04 (Calendario)
+# Ultimo ritorno · Redesign coach, passata 05 (Clienti)
 
-26/09/2026. Brief: `design_handoff_coach_redesign/passes/04-calendario.md`, prototipo `designs/Coach Calendario.dc.html`. Audit: C1–C6, T4, T5.
+26/09/2026. Brief: `design_handoff_coach_redesign/passes/05-clienti.md`, prototipo `designs/Coach Clienti.dc.html`. Audit: L1–L8, T4, V5.
 
 ## Ramo e hash
 
-- **Ramo pubblicato:** `redesign/coach-04-calendario`, col primo push, `git push origin HEAD:redesign/coach-04-calendario`.
-- **Base:** `git rev-parse origin/main` = `ec0331e6328203b73e7742256e4769438c0f4d25`, come atteso (merge della PR #69). Il ramo l'ho creato da lì, prima di ogni modifica.
+- **Ramo pubblicato:** `redesign/coach-05-clienti`, col primo push, `git push origin HEAD:redesign/coach-05-clienti`.
+- **Base:** `git rev-parse origin/main` = `ee8ecb93a95e921b6edc809ba7074a96898a3a31`, come atteso (merge della PR #70). Il ramo l'ho creato da lì, prima di ogni modifica.
 - **Commit, in ordine:**
-  1. `73ab5c9` helper puri e test: URL, filtri, ora, disponibilità, creazione e modifica dal coach, finto archivio in memoria;
-  2. `437e787` dialog «Nuova sessione» / «Modifica sessione»;
-  3. `138f2dd` sincronizzazione con Google in un hook condiviso;
-  4. `e223012` Calendario desktop: testata, griglia, pannello dettagli, route. Qui si toglie il vecchio dialog di modifica;
-  5. `5904b05` Integrazioni: riconciliazione e «Sincronizza tutto»;
-  6. `7ab1e58` Panoramica: «Apri nel calendario» in vista giorno;
-  7. `34292c8` CHECKLIST;
-  8. questo file, in un commit a parte, per ultimo.
-- **Come ho committato:** file aggiunti per nome, mai `git add -A` o `git add .`. Prima di ogni commit ho rimesso `bun.lock` com'era (`git checkout -- bun.lock`).
-- **Typecheck commit per commit.** L'ho verificato in una copia di lavoro separata: `tsc --noEmit` esce con 0 su tutti e sei i commit di codice.
-- **Un incidente, corretto prima del push.** L'eliminazione di `calendar-event-edit-dialog.tsx`, già in stage, era finita nel commit 1, e quel commit non compilava. Ho ricostruito i commit 1–4 con gli stessi messaggi e l'eliminazione nel 4. L'albero finale non cambia. Il ramo non era ancora pubblicato.
+  1. `025bd93` stati, tab, crediti, presenza, ordinamenti e URL: helper puri e test;
+  2. `3a62763` creazione, inviti e archivio con le scritture di prima: helper, archivi Supabase e test;
+  3. `369ed23` lista Clienti desktop e «Nuovo cliente». Si tolgono i tre componenti che usava solo il desktop di prima;
+  4. `cdf5ab3` Profilo: presenza da `getAttendance` e ritorno alla lista;
+  5. `0da8050` CHECKLIST;
+  6. questo file, in un commit a parte, per ultimo.
+- **Come ho committato:** file aggiunti per nome, mai `git add -A` o `git add .`. Prima di ogni commit ho rimesso `bun.lock` com'era.
+- **Typecheck commit per commit:** in una copia di lavoro separata, `tsc --noEmit` esce con 0 su tutti e quattro i commit di codice.
 
 ## PR
 
-https://github.com/wolfwood370-cell/nc-calendar/pull/70: verso `main`, aperta, non in bozza, **non** unita. `gh` non c'è nella VM, quindi l'ho aperta con lo strumento GitHub della sessione.
+https://github.com/wolfwood370-cell/nc-calendar/pull/71: verso `main`, aperta, non in bozza, **non** unita. `gh` non c'è nella VM, quindi l'ho aperta con lo strumento GitHub della sessione.
 
 ## Manifesto
 
-**NUOVI (23)**
+**NUOVI (14)**
 
 - Helper puri e test (`src/lib/`):
-  - `calendar-search.ts` + test: parametri dell'URL, periodo, frecce, etichetta del periodo, filtri esclusivi;
-  - `calendar-time.ts` + test: griglia 07–22, ora del clic al quarto d'ora, disponibilità con le eccezioni, sovrapposizioni;
-  - `calendar-events.ts` + test: tipo di evento, filtri, tile, «non su Google», stato e righe del pannello;
-  - `session-create.ts` + test: credito previsto, creazione della sessione cliente e dell'impegno, messaggi per il coach;
-  - `session-edit.ts` + test: modifica di data, ora, tipologia, durata e note, e il suo «Ripristina».
+  - `client-list.ts` + test: stato del cliente, conteggi dei tab, crediti in scheda, presenza, prossima e ultima sessione, ricerca, i cinque ordinamenti, i parametri dell'URL e la ricerca con cui il Profilo torna alla lista;
+  - `client-create.ts` + test: da «crediti per blocco» alle regole di prima; le scritture della creazione di prima, spostate qui; la password;
+  - `client-actions.ts` + test: «Annulla invito» e «Archivia» con «Ripristina», scritture condizionate allo stato di partenza.
 - Resto di `src/lib/`:
-  - `calendar-store.ts`: lo store Supabase della creazione e della modifica;
-  - `all-day-event.ts`: `isAllDayEvent`, spostato qui invariato da `mobile-calendar-agenda.tsx`;
-  - `testing/memory-calendar-store.ts` e `testing/calendar-seed.ts`: finto archivio per i test, con l'ordine dei trigger d'inserimento, `reschedule_booking` e l'ora fissa del 25/09/2026 10:40.
+  - `client-stores.ts`: gli archivi Supabase, con le stesse chiamate di prima;
+  - `testing/clients-seed.ts`: dati di prova, ora 25/09/2026 10:40.
 - Componenti:
-  - `calendar-desktop.tsx`: il Calendario desktop;
-  - `calendar-mobile.tsx`: il Calendario del telefono, estratto invariato dalla vecchia route;
-  - `calendar-toolbar.tsx`: la testata;
-  - `calendar-grid.tsx`: la griglia;
-  - `calendar-details-panel.tsx`: il pannello dettagli;
-  - `session-form-dialog.tsx`: i dialog di creazione e modifica;
-  - `segmented-control.tsx`: i segmentati;
-  - `gcal-full-sync-button.tsx`: «Sincronizza tutto dal 1° gen».
-- `src/hooks/use-gcal-sync.ts`: la riconciliazione all'apertura e il sync completo, estratti invariati.
+  - `clients-desktop.tsx`: la lista desktop;
+  - `new-client-dialog.tsx`: scelta, invito, «Crea l'account» a tre passi;
+  - `client-row-menu.tsx`: il menu ⋮;
+  - `delete-client-dialog.tsx`: «Eliminare definitivamente <Nome>?».
 
-**MODIFICATI (11)**
+**MODIFICATI (6)**
 
-- `src/routes/trainer.calendar.tsx`:
-  - `validateSearch` passa a `parseCalendarSearch`;
-  - sotto md monta `CalendarMobile`, da md in su `CalendarDesktop`;
-  - una sola sincronizzazione all'apertura per tutti e due.
-- `src/components/calendar-event-tile.tsx`, `calendar-days-header.tsx`, `calendar-all-day-strip.tsx`: riscritti per la griglia nuova. Li usava solo la griglia desktop.
-- `src/components/mobile-calendar-agenda.tsx`: tolta la definizione di `isAllDayEvent`, che ora sta in `src/lib/all-day-event.ts`. Nient'altro.
-- `src/components/calendar-gcal-review.tsx`: solo l'import di `isAllDayEvent` (:44).
-- `src/lib/credit-order.ts`: aggiunto `pickInsertAllocation`, l'ordine del trigger d'inserimento.
-- `src/routes/trainer.integrations.tsx`: sotto la card di Google Calendar, `CalendarGcalReview` e «Sincronizza tutto», così com'erano.
-- `src/components/overview-desktop.tsx:265`: `search={{ date: today, view: "day" }}`.
-- `design_handoff_coach_redesign/CHECKLIST.md`: la 04 passa a `[x]`.
+- `src/routes/trainer.clients.index.tsx`:
+  - `validateSearch` passa a `parseClientsSearch`;
+  - stati e crediti vengono da `buildClientRows`, al posto di `cardData` e della copia locale di `findCurrentBlock`;
+  - il blocco `block md:hidden` non cambia, e il desktop passa a `ClientsDesktop`;
+  - la creazione passa da `writeNewClient`;
+  - «Annulla invito» e «Archivia» hanno «Ripristina»;
+  - si aggiunge la lettura di `extra_credits` per i «Crediti extra».
+- `src/routes/trainer.clients.$id.tsx`: solo il calcolo della presenza (:879) e la freccia «Torna ai clienti» (:882, :899).
+- `src/lib/attendance.ts`: `profileEngagement`, il riquadro Engagement del Profilo con la presenza di `getAttendance` (:81-106).
+- `src/lib/client-search.ts`: `matchesClient`, la stessa regola della ricerca dell'header, archiviati compresi.
+- `design_handoff_coach_redesign/CHECKLIST.md`: la 05 passa a `[x]`.
 - `docs/ULTIMO-RITORNO.md`: questo file.
 
-**ELIMINATI (1)**
+**ELIMINATI (3)**
 
-- `src/components/calendar-event-edit-dialog.tsx`. Lo sostituisce «Modifica sessione». Nessun altro file lo importava.
+- `src/components/client-card-menu.tsx`, `pending-invitations-card.tsx`, `invite-client-dialog.tsx`. Li usava solo il desktop di prima (`grep` senza altri import).
 
 **NON TOCCATI**
 
 - **Niente database, lock, dipendenze, tipi generati o CI.** `git diff origin/main..HEAD --stat -- supabase/ bun.lock package.json src/integrations/supabase/types.ts .github` è vuoto (0 righe).
-- **Altri file:** `src/routes/client.*`, `trainer-header.tsx`, `trainer-bottom-nav.tsx`, `calendar-header.tsx`, `calendar-context-panel.tsx`, `focus-client-panel.tsx`, `trainer-notifications-bell.tsx`.
-- **Il telefono resta com'era.** A 390 px ho confrontato 5 stati, due giri su `origin/main` e due sul ramo, con lo stesso finto backend e l'ora fissa. I risultati sono nella tabella sotto:
-  - **impronta del DOM visibile** (per ogni elemento mostrato: tag, riquadro, testo e stili che si vedono): identica in tutti i giri;
-  - **hash del PNG a pagina intera:** uguale su 1, 2, 4 e 5. Sul 3 cambia da un giro all'altro anche fra due giri di `origin/main`: sono pixel di antialiasing ai bordi arrotondati. L'ho verificato con una differenza pixel per pixel, 102 pixel sparsi. Gli hash del 3 visti sul ramo (`053131cb…`) sono gli stessi visti sulla base.
+- **Altri file:** `src/routes/client.*`, `trainer-header.tsx`, `trainer-bottom-nav.tsx`, `create-client-dialog.tsx`, `credentials-dialog.tsx`, `client-status-tabs.tsx`.
+- **Il telefono resta com'era.** A 390 px ho confrontato 5 stati, due giri su `origin/main` e due sul ramo, col finto backend e l'ora fissa:
+  1. lista;
+  2. tab «In scadenza»;
+  3. ricerca «gi»;
+  4. «+» con il dialog di creazione del telefono;
+  5. `?new=cliente`.
+
+  Risultati:
+  - **impronta del DOM visibile** (tag, riquadro, testo e stili che si vedono di ogni elemento mostrato): identica in tutti i giri;
+  - **hash del PNG a pagina intera:** uguale negli stati 1, 3, 4 e 5. Nello stato 2 cinque pixel (x 18–20, y 87–89, sul bordo dell'icona di ricerca) differiscono di 1–2 unità RGB fra i due alberi. È antialiasing, come già nella 04: il DOM è identico.
 
   | stato | DOM base (2 giri) | DOM ramo (2 giri) |
   |---|---|---|
-  | 1 · settimana di oggi | `741b0e2cead045c8` | `741b0e2cead045c8` |
-  | 2 · link di notifica `?date=2026-09-29&event=…` | `d0f978c9d30b08d3` | `d0f978c9d30b08d3` |
-  | 3 · `?new=sessione` (menu «Nuovo») | `741b0e2cead045c8` | `741b0e2cead045c8` |
-  | 4 · Focus Cliente nello Sheet | `8bed252100f55857` | `8bed252100f55857` |
-  | 5 · settimana successiva | `9dd877bc5f487a4a` | `9dd877bc5f487a4a` |
-
-  Dal confronto ho escluso solo il `<div class="md:hidden">`, trasparente, che sul ramo avvolge l'albero del telefono. Prima di ogni scatto la pagina torna in posizione 0,0: a 390 px sfora di 24 px (`-m-6`) anche su `origin/main`, e a volte restava scorsa in orizzontale.
+  | 1 · lista | `d44e32606c5a1033` | `d44e32606c5a1033` |
+  | 2 · In scadenza | `2807fcf97e4ff4cd` | `2807fcf97e4ff4cd` |
+  | 3 · ricerca | `d3dfdc317b781830` | `d3dfdc317b781830` |
+  | 4 · «+» | `7f0054295aa0884f` | `7f0054295aa0884f` |
+  | 5 · `new=cliente` | `7e4705a04a312300` | `7e4705a04a312300` |
 
 ## Ambiente
 
-- **Dipendenze:** installate da `bun.lock`. Ho riscritto in locale il registro di Lovable verso `registry.npmjs.org`, poi `bun install --frozen-lockfile` (Bun 1.3.11) ha dato «Checked 724 installs across 846 packages (no changes)». Poi ho rimesso `bun.lock` com'era.
-- **Browser:** la Chromium di Playwright preinstallata (`/opt/pw-browsers`), senza download.
-- **Finto backend:** quello delle passate 02 e 03, esteso per la 04. Ora applica:
-  - il trigger della durata;
-  - i trigger d'inserimento su blocchi ed extra;
-  - `reschedule_booking` lato coach;
-  - il vincolo di non sovrapposizione;
-  - `trainer_availability` e `availability_exceptions`.
+- **Dipendenze:** ho riscritto in `bun.lock` gli indirizzi del registro di Lovable (`europe-west1/4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/`) verso `https://registry.npmjs.org/`. Poi `bun install --frozen-lockfile` (Bun 1.3.11) ha dato «Checked 724 installs across 846 packages (no changes)». Infine ho rimesso `bun.lock` com'era.
+- **Browser:** la Chromium di Playwright preinstallata (`/opt/pw-browsers`).
+- **Finto backend:** quello delle passate 02-04, esteso per la 05. Ora ha:
+  - la selezione annidata `training_blocks → block_allocations`;
+  - il default `status = 'pending'` degli inviti;
+  - le funzioni edge `admin-create-user`, `admin-delete-user` e `send-email`, finte;
+  - `ensure_all_recurring_for_coach`.
 
-  Vive nella cartella di lavoro della sessione, non nel repo. Nessuna richiesta è uscita verso Supabase o Google: il banco le conta, zero.
+  Vive nella cartella di lavoro della sessione, non nel repo. Nessuna richiesta è uscita verso Supabase, Google o l'invio email: il banco le conta, zero.
 
 ## Controlli
 
-Base (`ec0331e`) e fine (`7ab1e58`, ultimo commit di codice), stessi comandi e stesso ambiente.
+Base (`ee8ecb9`, albero non toccato) e fine (`cdf5ab3`, ultimo commit di codice), stessi comandi e stesso ambiente.
 
 | | Base | Fine |
 |---|---|---|
-| build (`npm run build`) | esce con 0: `✓ built in 12.57s`, `3.07s`, `12.95s` | esce con 0: `✓ built in 10.46s`, `3.69s`, `11.70s` |
+| build (`npm run build`) | esce con 0: `✓ built in 11.28s`, `3.61s`, `11.33s` | esce con 0: `✓ built in 9.86s`, `3.32s`, `11.25s` |
 | typecheck (`npx tsc --noEmit`) | 0 errori | 0 errori |
-| lint (`npx eslint .`) | `✖ 24 problems (0 errors, 24 warnings)` | `✖ 22 problems (0 errors, 22 warnings)` |
-| test (`npx vitest run`) | `Tests  223 passed (223)`, 16 file | `Tests  297 passed (297)`, 21 file |
+| lint (`npx eslint .`) | `✖ 22 problems (0 errors, 22 warnings)` | `✖ 22 problems (0 errors, 22 warnings)` |
+| test (`npx vitest run`) | `Tests  297 passed (297)`, 21 file | `Tests  334 passed (334)`, 24 file |
 
-**Lint.** Rispetto alla base:
-
-- spariscono i 4 avvisi della vecchia `trainer.calendar.tsx`;
-- in `calendar-mobile.tsx`, che è lo stesso codice spostato, ne restano 3;
-- `mobile-calendar-agenda.tsx` scende da 4 a 3.
-
-**Test.** I 74 test nuovi:
-
-- `session-create`: 14;
-- `session-edit`: 12;
-- `calendar-search`: 14;
-- `calendar-time`: 20;
-- `calendar-events`: 14.
+- **Base:** uguale a quella misurata da Cowork.
+- **Lint:** gli avvisi sono gli stessi file per file.
+- **Test nuovi (37):**
+  - `client-list`: 19;
+  - `client-create`: 12;
+  - `client-actions`: 6.
 
 ## Ricognizione del §4
 
-**1. Impegni personali e consulenze esterne.** Prima di questa passata l'app non creava impegni da zero. Li otteneva in due modi:
+**1. Cosa scrive la creazione, e quanti blocchi per durata.** Su `ee8ecb9`, `trainer.clients.index.tsx:747-892`:
 
-- **`mark_booking_special`** (`supabase/migrations/20260522204517_…sql:391-435`) marca un evento esistente: `is_personal = true`, `category` a `personal` o `consulenza`, `client_id`, `block_id` ed `event_type_id` a NULL (:429).
-- **`gcalImportEvent`** (`src/lib/gcal.functions.ts:779-894`) importa da Google. Il modo `consulenza` scrive `client_id = coachId` per saltare il trigger dei crediti (:878-886), `category = 'consulenza'` e `is_personal = false` (:864-870).
+- **account:** funzione edge `admin-create-user` con email, password, nome e cognome (:749-756). Crea anche un invito, che la registrazione segna subito «accepted» (`supabase/functions/admin-create-user/index.ts:109-147`);
+- **cliente libero** (:765-790): una riga `extra_credits` (tipologia scelta, quantità, `expires_at` 2100-01-01) e il profilo con `path_type free`, `auto_renew` e `auto_renew_blocks` a false, `pack_label` «Cliente Libero»;
+- **fisso e mensile:**
+  - N blocchi da 30 giorni da oggi (:792-811);
+  - un'allocazione per blocco e per regola, «dal blocco X al blocco Y», settimana 1 (:820-847);
+  - il profilo (:849-873): `path_type`; `auto_renew` e `auto_renew_blocks` uguali a `autoRenew`; `pack_label`; `path_start_date` a oggi; `next_billing_date` a +30 giorni solo per il mensile.
 
-Quindi i tile «consulenza esterna» sono `category = 'consulenza'` oppure `client_id = coach_id` non personale (`calendar-events.ts`, `eventKind`).
+Il dialog di prima (`create-client-dialog.tsx`) decideva durata e rinnovo:
 
-«Nuovo impegno» scrive quello che scrive `mark_booking_special` per un impegno: `is_personal = true`, `category = 'personal'`, senza cliente, blocco né tipologia (`session-create.ts:248-249`). L'evento Google lo crea lo stesso percorso della 02 (`createGoogleEvent`).
+- **blocchi:** mensile 1, fisso quanti i mesi del preset (1, 3, 6, 12) o il numero scelto con «Manuale» (:58-64, :128-133), libero 0 (:229);
+- **rinnovo:** `autoRenew: pathType === "recurring"` (:231);
+- **«PT Pack»:** fisso, 1 blocco, 3 PT, `pack_label` «Pacchetto 3 sessioni» (:135-151).
 
-**2. Cosa blocca il coach** (`reschedule_booking`, `20260827143053_…sql:139-298`).
+Adesso queste scritture stanno in `client-create.ts:229-325` (`writeNewClient`), riga per riga:
 
-- Il coach può chiamarla: il controllo di :178-180 accetta `coach_id = auth.uid()`.
-- Rifiuta le sessioni non programmate o eliminate (:183-184).
-- Rifiuta impegni, eventi senza cliente e quelli col coach come cliente (:186-187, «non e riprogrammabile dal cliente»). Per questi la modifica fa un `update`.
-- Rifiuta la stessa ora (:191): se l'ora non cambia, il form non la chiama.
-- Il credito della nuova data lo prende da tutti i blocchi del cliente, e se manca dà «Credito esaurito per la nuova data. Acquista un Booster.» (:275). Il coach vede invece «Il cliente non ha più crediti per questa tipologia: la sessione non è stata salvata.» (`coachWriteError`).
-- `zz_trg_revalidate_client_reschedule` (`20260606120000_…sql:94-112`, trigger a :411-414) e `a_trg_enforce_client_booking_insert` (`20260605222541_…sql:52-53`) escono subito per il ruolo coach.
-- **Il vincolo che conta per il brief** è `bookings_no_overlap_per_coach` (`20260522204517_…sql:147-150`): due eventi `scheduled` non possono sovrapporsi, impegni ed eventi da assegnare compresi. È il motivo per cui l'avviso di sovrapposizione blocca (vedi Divergenze).
-- **Trigger della durata** (`20260814102120_…sql:26-28`): con una tipologia, senza evento Google e con durata 60 (o vuota), il server salva la durata della tipologia.
+- **da dove si chiamano:** dal dialog nuovo e da quello del telefono (`trainer.clients.index.tsx:454`);
+- **durata:** 3, 6 e 12 mesi danno 3, 6 e 12 blocchi; «Personalizzata» il numero scelto (`blocksOf`, :79);
+- **crediti per blocco:** una regola per tipologia dal blocco 1 al blocco N (`creationPayload`, :95);
+- **rinnovo:** `autoRenewFor` (:87).
 
-**3. Conferma e note.**
+**2. Come si annulla un invito, e il suo «Ripristina».**
 
-- **Conferma di presenza:** `bookings.client_confirmed_at` (`src/lib/queries.ts:46`, letta con `BOOKINGS_COLS_FULL_CONFIRM` :149-151).
-- **Note della sessione:** `bookings.trainer_notes`.
-  - Le scriveva il vecchio dialog di modifica (`calendar-event-edit-dialog.tsx:73,91` su `origin/main`).
-  - Il cliente le vede nel dettaglio della sessione (`src/components/client-booking-detail-view.tsx:284-286`, «Note del Coach»).
-  - `use-coach-notes.ts` è un'altra cosa: `coach_client_notes`, note sul cliente e non sulla sessione.
+- **Oggi:** `client_invitations.status = 'cancelled'` per id (`ee8ecb9`, `trainer.clients.index.tsx:691-703`).
+- **Com'è fatto un invito:** non ha token né link suo. L'email porta a `appOrigin` (`src/lib/email.ts:54-64`), e la registrazione aggancia l'invito per email finché è `pending` (`handle_new_user`, `20260603201215_…sql:17-31`).
+- **«Ripristina»:** rimettere la stessa riga a `pending` ridà lo stesso invito (`client-actions.ts:42`). La scrittura è condizionata a `status = 'cancelled'`.
+- **Quando non si può:** se nel frattempo è partito un altro invito alla stessa email, l'indice unico `idx_client_invitations_email_pending` (`20260509203659_…sql:35-36`) lo impedisce. Il toast lo dice («C'è già un altro invito in attesa per questa email.») e non si toccano inviti.
 
-  «Note del coach» e «Nota dell'ultima sessione» usano quindi `trainer_notes`.
+**3. Presenza del Profilo contro `getAttendance`.**
 
-**4. Disponibilità ed eccezioni.**
+- **Profilo prima:** `ee8ecb9`, `trainer.clients.$id.tsx:870-894`, presenza a :873. Contava le svolte su tutte le sessioni non programmate, annullate dal coach comprese, senza limite di tempo, e dava 100 senza dati.
+- **`getAttendance`:** conta svolte / (svolte + assenze + annullate tardi), solo nelle ultime 8 settimane, e dà null senza dati.
+- **Esempio** (`clients-seed.ts`, Giulia): 5 svolte e 1 assenza nelle ultime 8 settimane, più 1 sessione annullata dal coach. Il Profilo diceva **71%** (5/7); `getAttendance` dice **83%** (5/6), e ora lo dicono tutte e due le pagine.
+- **La lista prima:** usava un terzo calcolo, senza limite di tempo.
+- **Quando mancano i dati:** nel Profilo compare «—», come in scheda.
 
-- `trainer_availability.day_of_week` va da 1 = lunedì a 7 = domenica (`src/lib/booking-slots.ts:36`).
-- `availability_exceptions` con `start_time`/`end_time` vuoti chiude tutto il giorno (`booking-slots.ts:13`, `queries.ts:51-58`).
-- Le letture ci sono già: `useCoachAvailability` (`queries.ts:382`) e `useCoachAvailabilityExceptions` (`queries.ts:607`).
-- `get_coach_busy` serve le prenotazioni occupate al lato cliente e non guarda la disponibilità: il coach non la usa.
-- Il calcolo del tratteggio e dell'avviso sta in `calendar-time.ts`, `closedRanges` e `isWithinAvailability`, in ora locale come le fasce che vedono i clienti.
+**4. Come il Profilo tornava alla lista.**
 
-**5. File condivisi col telefono.** `mobile-calendar-agenda.tsx` esporta:
+- **Prima:** `<Link to="/trainer/clients">` senza parametri (`ee8ecb9`, `trainer.clients.$id.tsx:911`), quindi ricerca, tab, ordine e vista si perdevano. La ricerca e il tab erano stato locale, non nell'URL.
+- **Adesso:** la lista scrive lo stato nell'URL (`replace`). Aprendo il Profilo, la scheda porta nello stato della cronologia la ricerca della lista (`clients-desktop.tsx:162`). La freccia del Profilo la rilegge con `backToListSearch` (`client-list.ts:419`) e torna lì. Anche il «Indietro» del browser ritrova l'URL.
+- **Da altre pagine:** Panoramica e ricerca dell'header non portano quello stato, e si torna alla lista di base.
 
-- `DAY_LABELS` (:8);
-- `IMPORT_PREFIX` (:18);
-- `AllDayPill` (:48);
-- `personalBlockTitle` (:89);
-- `sameDay` (:101);
-- `MobileAgendaView` (:136).
+**5. Cosa condivide il telefono col desktop, e la prova.**
 
-L'unico helper spostato è `isAllDayEvent` (era a :17 su `origin/main`), con la stessa regex. Ho aggiornato i tre file che lo importavano: `calendar-mobile.tsx`, `calendar-gcal-review.tsx`, `calendar-events.ts`. La prova che il telefono non cambia è nel Manifesto.
-
-## La strada scelta per la tipologia
-
-**Il credito si sposta.** Cambiando tipologia a una sessione che ha un credito:
-
-- si trova il credito da rendere, nell'ordine della 02;
-- si calcola quello da prendere per la tipologia nuova, nell'ordine del trigger, su tutti i blocchi del cliente;
-- si aggiornano tipologia e blocco della sessione con una scrittura condizionata;
-- si prende il credito nuovo (`moveCredit +1`) e si rende il vecchio (`moveCredit −1`) (`session-edit.ts`, `retype`, :248).
-
-Se la presa fallisce, la sessione torna com'era. Se fallisce la restituzione, il toast lo dice. Senza credito della tipologia nuova il dialog lo dice prima di salvare e offre «Pacchetto»: non cambia niente, nemmeno la data.
-
-«Ripristina» rimette tipologia, crediti, data, durata e note. Se nel frattempo il credito di prima è stato usato, o la sessione è cambiata, lo dice e non tocca niente.
-
-**Perché:** bloccare la tipologia avrebbe tolto al coach una correzione normale (PT prenotato come BIA). Le scritture condizionate e il «Ripristina» della 02 coprono il caso. Le prove: `session-edit.test.ts`, «il credito si sposta», «senza credito della tipologia nuova…», «data, tipologia, durata e note tornano com'erano, crediti compresi». Nel browser: Paolo 30/09, PT 3→2 e BIA 1→2, poi di nuovo 3 e 1.
+- **Prima:** in `ee8ecb9`, `trainer.clients.index.tsx`, il blocco `block md:hidden` (:909-1024) usava gli stessi `q`, `activeTab`, `tabs` (4 tab, senza «Completati», :894-899), `visibleCards` (:623-660), `loading` e `createOpen`. Il suo «+» apriva `CreateClientDialog`, e dopo la creazione compariva `CredentialsDialog`. Tutti e due erano montati dentro il blocco desktop (:1039-1066) ma in un portale, quindi visibili anche sul telefono.
+- **Adesso:**
+  - il telefono tiene ricerca e tab locali;
+  - tiene i 4 tab e il filtro di prima (nome o email) con l'ordine per nome (:317);
+  - legge gli stati dallo stesso `buildClientRows`, che per lo stato fa lo stesso conto di prima;
+  - `CreateClientDialog` e `CredentialsDialog` sono montati fuori dai due blocchi (:633-635).
+- **Prova:** l'impronta a 390 px (Manifesto) e il confronto degli stati (Verifica nel browser).
 
 ## Prove rosse
 
 Ogni difetto l'ho messo nel file e poi l'ho tolto rimettendo la copia originale. Ho rifatto il test anche col codice giusto.
 
-**1. Senza il controllo del credito prima di salvare** (`session-create.ts`: `if (!plan && false) throw new NoCreditError(…)`)
+**1. Rinnovo automatico acceso anche per il fisso** (`client-create.ts`: `return pathType === "recurring" || pathType === "fixed";`)
 
 ```
-× nessun credito: niente inserimento e il messaggio per il coach
-AssertionError: expected a thrown error to be NoCreditError: Luca non ha crediti Person…
-      Tests  1 failed | 13 passed (14)
+× fisso e libero spenti, mensile acceso
+× un percorso fisso nasce senza rinnovo automatico nel profilo scritto
+× scorciatoia PT Pack: 1 blocco, 3 PT e la sua etichetta
+AssertionError: expected true to be false // Object.is equality
+      Tests  3 failed | 9 passed (12)
 ```
 
-Col codice giusto: `Tests  14 passed (14)`.
+Col codice giusto: `Tests  12 passed (12)`.
 
-**2. Data e ora di una sessione cliente con un `update` invece di `reschedule_booking`** (`session-edit.ts`: `if (isClient && false) { await store.rescheduleSession(…) }`)
-
-```
-× sessione cliente: passa da reschedule_booking e il credito segue la settimana
-AssertionError: expected [] to have a length of 1 but got +0
-× solo data: il credito torna sulla sua settimana
-AssertionError: expected +0 to be 1 // Object.is equality
-      Tests  2 failed | 10 passed (12)
-```
-
-La seconda cade proprio sul credito: con un `update` non si sposta sulla settimana nuova. Col codice giusto: `Tests  12 passed (12)`.
-
-**3. «Da assegnare» e «Personali» insieme** (`calendar-search.ts`: `personal` tiene `assign: prev.assign`)
+**2. Gli archiviati dentro «Tutti»** (`client-list.ts`: `return tab === "all" ? true : status === tab;`)
 
 ```
-× «Da assegnare» e «Personali» non stanno mai insieme
-AssertionError: expected [ true, true ] to deeply equal [ false, true ]
-      Tests  1 failed | 13 passed (14)
+× conteggi dei tab, «Tutti» senza archiviati
+AssertionError: expected [ 'giulia', 'luca', 'marta', …(6) ] to not include 'roberto'
+× nome, con la parità risolta per id   (e gli altri quattro ordinamenti: Roberto entra in lista)
+      Tests  6 failed | 13 passed (19)
 ```
 
-Col codice giusto: `Tests  14 passed (14)`.
+Col codice giusto: `Tests  19 passed (19)`.
 
-**4. Arrotondamento per difetto invece che al quarto d'ora più vicino** (`calendar-time.ts`: `Math.floor` al posto di `Math.round`)
-
-```
-× clic alle 10:08 → 10:15   (expected '10:00' to be '10:15')
-× clic alle 10:38 → 10:45   (expected '10:30' to be '10:45')
-× clic alle 10:53 → 11:00
-      Tests  3 failed | 17 passed (20)
-```
-
-Col codice giusto: `Tests  20 passed (20)`.
-
-**5. Disponibilità che ignora le eccezioni** (`calendar-time.ts`: `if (blocked && false) return false;`)
+**3. «Presenza più bassa» al contrario** (`client-list.ts`: `attendance: (r) => (r.attendance === null ? null : -r.attendance)`)
 
 ```
-× un'eccezione che tocca la fascia la chiude        (expected true to be false)
-× un'eccezione senza orari chiude tutto il giorno   (expected true to be false)
-      Tests  2 failed | 18 passed (20)
+× presenza più bassa in cima, senza dati in fondo, parità per nome
+AssertionError: expected [ [ 'davide', 100 ], …(7) ] to deeply equal [ [ 'andrea', 50 ], …(7) ]
+      Tests  1 failed | 18 passed (19)
 ```
 
-Col codice giusto: `Tests  20 passed (20)`.
+Col codice giusto: `Tests  19 passed (19)`.
+
+**4. Il Profilo col calcolo vecchio della presenza** (`attendance.ts`, in `profileEngagement`: la formula di prima)
+
+```
+× per ogni cliente
+AssertionError: giulia: expected 71 to be 83 // Object.is equality
+      Tests  1 failed | 18 passed (19)
+```
+
+Col codice giusto: `Tests  19 passed (19)`.
+
+**5. `ordina` tolto dalla scrittura dell'URL** (`client-list.ts`: `ordina: undefined,`)
+
+```
+× legge e scrive tutti i parametri
+× tornando dal Profilo ricerca, tab, ordine e vista sono quelli di prima
+AssertionError: expected { q: 'giulia', tab: 'active', …(2) } to deeply equal { q: 'giulia', tab: 'active', …(2) }
+      Tests  2 failed | 17 passed (19)
+```
+
+Col codice giusto: `Tests  19 passed (19)`.
 
 ## Verifica nel browser
 
-Il banco ha lo stesso seme della 03, simile al prototipo: 11 clienti, 4 tipologie, 6 eventi da assegnare. Ora fissa venerdì 25/09/2026 10:40 a Roma. Viewport 1440×900, poi 390×844. Tutto è segnato su Google tranne una sessione (la BIA di Andrea dell'01/10), come nel prototipo. **61 controlli, 61 OK, 0 KO.**
+Il banco ha il seme delle passate 03-04, simile al prototipo: 11 clienti (uno archiviato), 4 tipologie, 2 inviti in attesa. Ora fissa venerdì 25/09/2026 10:40 a Roma, viewport 1440×900. **36 controlli, 36 OK, 0 KO.**
 
 **Accettazione**
 
-- **Link di notifica:** `?date=2026-09-29&event=<id>` apre «28 set – 4 ott 2026» col pannello su Giulia Bianchi, «Martedì 29 settembre · 09:00–10:00», e il tile selezionato. Con solo `?event=<id>` apre la settimana dell'evento.
-- **«Da assegnare» e «Personali»:** «Personali» spegne «Da assegnare» (`filter=personal`, «Da assegnare» `aria-checked=false`). Una tipologia riporta su «Tutti».
-- **Nessun `confirm()`:** 0 dialog nativi in tutto il giro, e `grep confirm(` sui file del Calendario è vuoto.
-- **Nessun pannello vuoto:** all'apertura il pannello non c'è; Esc e ✕ lo chiudono e tolgono `event`.
-- **Toast con «Ripristina»:**
-  - creazione: «Sessione creata per Luca Verdi.» → «Ripristina» elimina la sessione e rende il credito (5 → 4);
-  - modifica di data: `reschedule_booking` chiamata, 29/09 09:00 → 01/10 11:00, «Ripristina» la riporta (seconda chiamata);
-  - modifica di tipologia: sopra;
-  - annullamento dal pannello (dialog 02): il pannello resta con «Annullata», «Ripristina» la rimette programmata.
-
-**Creazione**
-
-- **Con credito.** Clic su martedì 29 alle 11:00, Luca Verdi, Personal Training. La riga ha coach, cliente, tipologia, `scheduled`, `client_session` e il blocco di Luca. Il trigger ha preso il credito (4 → 5), l'evento Google è creato e il pannello si apre sulla sessione nuova.
-- **Senza credito.** `?new=sessione&client=<Chiara>&date=2026-09-29`: il dialog si apre e `new` e `client` spariscono dall'URL. Compare «Chiara non ha crediti Personal Training disponibili.», «Crea sessione» è disabilitato e nessuna riga viene scritta. «Pacchetto» apre il dialog della 02.
-- **Impegno.** «Dentista» sabato 26 alle 09:00: `is_personal = true`, `category = personal`, senza cliente né blocco.
-- **Avvisi.**
-  - Il clic su giovedì 24 alle 16:12 propone 16:15.
-  - Con Luca compare «È fuori dalla tua disponibilità…»: l'eccezione di giovedì pomeriggio.
-  - Venerdì 25 alle 09:30 compare «Si sovrappone a Giulia Bianchi (09:00–10:00).» e il salvataggio è disabilitato.
+- **Ritorno dal Profilo.** Con tab «Attivi», ricerca «a», «Presenza più bassa» e tabella, si apre Giulia e si torna con la freccia: l'URL ha gli stessi parametri, il campo dice «a» e il tab è «Attivi».
+- **Stessi «In scadenza» della Panoramica:** Federico Galli, Marta Conti e Sara Neri sulle due pagine.
+- **Presenza scheda = Profilo:** controllata su Giulia, Paolo, Sara e Chiara.
 
 **Il resto**
 
-- **Griglia.** Linea dell'ora solo su venerdì 25. Vista giorno «Venerdì 25 settembre 2026» con la linea. Il clic sull'intestazione di giovedì apre il giorno.
-- **Disponibilità.** Tratteggia anche l'eccezione: giovedì ha una fascia chiusa in più di mercoledì.
-- **Filtri.** Con Test funzionale nella settimana dopo compare il banner «Nessun evento con questi filtri…»; «Rimuovi filtri» toglie `types` e `filter`.
-- **Frecce.** ← → cambiano settimana e sono ignorate col focus sul segmentato.
-- **Check-in dal pannello.** Check-in e «Annulla check-in» su Giulia di oggi.
-- **Da assegnare.** Il tile da assegnare apre «Assegna evento», senza pannello. «Da assegnare 6» è uguale al badge della sidebar (6).
-- **Google.** Chip «1 sessione non è su Google» → popover → «Ricrea su Google»: l'evento viene creato e il chip sparisce.
-- **Panoramica e Integrazioni.** Da Panoramica, «Apri nel calendario» apre `view=day`. Integrazioni mostra «Riconciliazione Google Calendar» e «Sincronizza tutto dal 1° gen 2026». Sul Calendario desktop non ci sono più.
-- **Rete ed errori.** 0 errori nella pagina, 0 richieste esterne.
+- **Testata e tab.** Un solo «Nuovo cliente» e nessun «Invita». Tab «Tutti 10 · Attivi 7 · In scadenza 3 · Completati 0 · Archiviati 1», e «Tutti» senza Roberto. La barra riepilogo non c'è più.
+- **Nuovo cliente, percorso fisso.** Si parte da `?new=cliente`, che apre la scelta e si toglie dall'URL. Poi Dati, Percorso (6 mesi, 8 PT e 1 BIA) e Riepilogo («Percorso fisso · 6 blocchi», «Sessioni totali 54»).
+  - **Riga scritta:** 6 blocchi e 12 allocazioni; `auto_renew` e `auto_renew_blocks` a **false**, anche se il finto `admin-create-user` crea il profilo con `true`, come fa il default vero; `next_billing_date` vuoto.
+  - **Password:** 10 caratteri, mostrata una volta. Non compare in URL, `localStorage`, `sessionStorage`, stato della cronologia, toast, console o registro delle richieste del finto backend; chiuso il dialog, non si vede più.
+- **Nuovo cliente, mensile:** 1 blocco, rinnovo acceso, prossima fatturazione scritta.
+- **Invito.**
+  - La riga è scritta come prima (email, nome, telefono, coach) e l'email parte.
+  - «Reinvia» manda una seconda email, con toast.
+  - «Annulla invito» scrive `cancelled` e la riga sparisce; «Ripristina» rimette la stessa riga in attesa.
+- **Archivio ed eliminazione.** «Archivia» su Paolo è immediato, con toast; «Ripristina» lo rimette attivo. «Elimina…» apre «Eliminare definitivamente Paolo Moretti?» con Annulla, Archivia invece ed Elimina. Con Annulla non parte nessuna eliminazione.
+- **Scheda.** Il ⋮ non apre il Profilo. Il clic sull'email o Invio sulla scheda sì.
+- **Tabella** a 1000 px: il riquadro scorre (`scrollWidth` 880, `clientWidth` 664) e la pagina no.
+- **Stati uguali a `origin/main`** (`s2-stati.mjs`, stessi dati sui due alberi): stato di ogni cliente identico. Anche nella variante con Chiara che ha svolto tutte le 8 sessioni, dove diventa «Completato» su tutti e due.
 - **Telefono a 390 px:** vedi Manifesto.
+- **Rete ed errori.** 0 dialog nativi, 0 richieste esterne, 0 errori nella pagina.
 
 ## Divergenze
 
-- **L'avviso di sovrapposizione blocca.** Il brief lo vuole «senza bloccare», ma il server rifiuterebbe comunque il salvataggio (`bookings_no_overlap_per_coach`, `20260522204517_…sql:147-150`). Il dialog lo dice e disabilita «Crea sessione» (`session-form-dialog.tsx:245`, testo a :357). L'avviso di fuori disponibilità non blocca.
-- **Arrotondamento al quarto d'ora più vicino** (`calendar-time.ts:47`). Il prototipo arrotonda per difetto (`Math.floor(…) * 15`). Ho seguito il brief e la prova rossa 4 del prompt.
-- **«Note del coach» le vede anche il cliente.** Il prototipo dice «Visibili solo a te», ma la colonna della sessione è `trainer_notes`, che il cliente legge (§4.3). Il segnaposto dice «Il cliente le vede nel dettaglio della sessione.» (`session-form-dialog.tsx:606`). Note private servirebbero una colonna nuova, cioè una migrazione.
-- **Niente «Apri in Google Calendar».** Delle sessioni salviamo solo `google_event_id`: né il calendario né `htmlLink`, quindi un link funzionante non si costruisce. Il pannello lo omette (`calendar-details-panel.tsx`).
-- **Il telefono tiene la riconciliazione e «Sincronizza tutto».** Il §3.5 li sposta in Integrazioni, e sul desktop è fatto. Ma il divieto sul mobile chiede che il telefono resti identico, quindi lì restano (`calendar-mobile.tsx:229-238`). Sono anche in Integrazioni.
-- **Durata 60.** Con una tipologia che non dura 60 minuti e «1h» scelto, il server salva la durata della tipologia (§4.2). Il dialog lo scrive sotto i campi (`session-form-dialog.tsx:362`, testo a :562).
-- **`event=` su un evento da assegnare** apre «Assegna evento» al posto del pannello, come il clic sul tile (`calendar-desktop.tsx:255`). Un `event=` che non esiste più mostra «Evento non trovato…» e si toglie dall'URL (:248).
-- **Sessioni annullate aperte da un link.** Il pannello le mostra con lo stato «Annullata» e senza azioni (`calendar-events.ts:167`, `calendar-desktop.tsx:510-511`). Il brief elenca quattro stati: questo è in più, per le notifiche di annullamento.
-- **«Annulla sessione» per le sessioni cliente, anche svolte o assenti** (il brief dice «sempre»). Passa dal dialog della 02. Per impegni e consulenze il pulsante è «Elimina impegno» (dialog della 02 in modalità elimina) e non c'è «Inserita per errore? Elimina» (`calendar-desktop.tsx:511`).
-- **«Ricrea su Google» ha un toast semplice, senza «Ripristina»** (`calendar-desktop.tsx:414-415`). Crea solo l'evento Google e nell'app non c'è niente da annullare.
-- **Credito per una data fuori da ogni blocco.** Vengono solo i crediti extra (`block_id` vuoto, trigger degli extra). Se la data cade in un blocco, il credito si cerca in tutti i blocchi del cliente, nell'ordine del server (`session-create.ts`, `planSessionCredit`).
-- **Consulenza senza tipologia:** viola `#8e24aa` (`calendar-desktop.tsx:97`), il colore del prototipo.
-- **La griglia parte dalle 07:00** come nel prototipo, tranne quando si apre un evento da un link.
-- **Il pannello è montato in `body`** (`calendar-desktop.tsx:614`). Nella pagina un antenato ha un `transform` che spostava il `position: fixed`.
-- **`new=sessione` sul telefono resta ignorato**, come prima (`calendar-desktop.tsx:223`).
-- **Il testo dell'avviso di sovrapposizione è più lungo** del brief: aggiunge «Due eventi programmati non possono sovrapporsi: scegli un altro orario.», perché blocca.
+- **Il telefono tiene il dialog di creazione di prima e `CredentialsDialog`.** Il brief toglie `CredentialsDialog`, ma il suo solo uso è il «+» del telefono, che deve restare identico (§5). Il telefono scrive comunque attraverso `writeNewClient`, come il desktop (`trainer.clients.index.tsx:477`, :633-635). Sul desktop il `CredentialsDialog` non c'è più.
+- **«Crea l'account» non chiede il telefono.** Il brief e il prototipo hanno «Telefono (facoltativo)» fra i dati. La creazione di oggi non lo scrive: `admin-create-user` non lo accetta, e l'aggiornamento del profilo non lo tocca. Aggiungerlo sarebbe una scrittura in più, contro il punto 4 del §0. Il telefono resta nell'invito, dove si scrive già (`new-client-dialog.tsx:172`).
+- **Blocchi da 30 giorni, non «4 settimane»** (`new-client-dialog.tsx:213-214`, :437, :444). Il prototipo dice «blocchi da 4 settimane», ma il codice che scrive fa blocchi da 30 giorni (`client-create.ts`, `BLOCK_DAYS`). Il testo dice quello che succede.
+- **Sessioni omaggio del cliente libero per tipologia.** Il dialog di prima ne dava una tipologia sola; il brief chiede −/+ per tipologia. Scrivo una riga `extra_credits` per ogni tipologia con sessioni, ognuna uguale a quella di prima (`client-create.ts:248-259`). Con una tipologia sola la scrittura è identica.
+- **La password** si genera con la stessa regola di prima (10 caratteri, maiuscola, minuscola, cifra, simbolo, senza caratteri ambigui), ma con `crypto.getRandomValues` al posto di `Math.random` (`client-create.ts:136`).
+- **La presenza del Profilo senza dati è «—»,** non più 100%. È la conseguenza di `getAttendance` (null senza sessioni concluse); il resto del riquadro non cambia. Resta com'era una stranezza: «No-show» conta le annullate tardi (`attendance.ts`, `profileEngagement`), roba della passata 06.
+- **«Invito inviato a …» senza «Ripristina».** Il prototipo ne mette uno anche all'invio, ma l'email è già partita e annullare l'invito non la richiama. «Annulla invito» resta nella card degli inviti.
+- **L'ordine «Scadenza del blocco»** usa la fine del blocco di riferimento (`resolveCurrentBlock`, lo stesso di «In scadenza»). I clienti liberi vanno in fondo. **«Crediti residui»** usa i crediti del blocco in corso, del mese o extra, e chi non ne ha va in fondo (`client-list.ts:323-332`).
+- **Il messaggio di lista vuota di «In scadenza»** è «Nessun cliente in scadenza.». Il prototipo dice «…nei prossimi 7 giorni», ma «In scadenza» conta anche i crediti.
+- **La tabella scorre grazie a `contain: inline-size`** (`clients-desktop.tsx:557`). Senza, il riquadro si allargava col contenuto e la pagina intera scorreva, perché il layout `/trainer` non ha `min-w-0` (e non l'ho toccato).
+- **La freccia del Profilo riporta i filtri, il «Clienti» dell'header no.** Il breadcrumb è in `trainer-header.tsx`, che non si tocca (§5): da lì si torna alla lista di base. Il «Indietro» del browser ritrova l'URL coi filtri.
 
 ## Cosa non ho fatto e perché
 
-- **«Apri in Google Calendar»:** vedi Divergenze.
-- **Redesign del Calendario sul telefono:** il §5 lo vieta. Sul telefono restano Focus Cliente, i filtri vecchi, la riconciliazione e l'agenda.
-- **Redesign di Integrazioni:** è della passata 09. Ho solo spostato i due pezzi.
-- **Trascinamento dei tile per spostare le sessioni:** non è nel brief.
-- **Verifica con dati veri.** Il divieto vale anche in lettura. Il finto backend riproduce l'ordine dei trigger, `reschedule_booking`, la durata e il vincolo di sovrapposizione come li ho letti nelle migrazioni. Non prova le policy RLS, i tempi di rete e le risposte vere di Google.
+- **Il telefono non passa al dialog nuovo:** il §5 lo vieta; vedi Divergenze.
+- **Il telefono nella creazione dell'account:** vedi Divergenze. Serve una decisione (e forse un parametro in più in `admin-create-user`, cioè `supabase/`).
+- **Il redesign del Profilo:** è della passata 06. Qui cambiano solo la presenza e la freccia.
+- **`ensure_all_recurring_for_coach`** l'ho lasciata dov'era (`trainer.clients.index.tsx:281-285`), come chiede il §3.2.
+- **Verifica con dati veri.** Il divieto vale anche in lettura. Il finto backend riproduce le chiamate e i default che ho letto nelle migrazioni e nella funzione edge. Non prova le policy RLS e le risposte vere di `admin-create-user` e `send-email`.
 
 ## Cosa resta a Nicolò
 
 - **Prova sull'anteprima Lovable, con dati veri:**
-  - una sessione creata dal Calendario a un cliente con crediti: il credito sale nel Profilo, l'evento compare su Google;
-  - lo stesso con un cliente senza crediti: nessun salvataggio, «Pacchetto»;
-  - spostare una sessione a un'altra settimana del blocco, poi «Ripristina»;
-  - cambiare tipologia (PT → BIA) a un cliente con un credito BIA, poi «Ripristina»;
-  - un impegno personale e la sua eliminazione;
-  - un link da una notifica.
-- **Decidere:**
-  - se «Note del coach» devono essere private: serve una colonna nuova, cioè una migrazione;
-  - se sovrapporre eventi deve essere permesso: oggi lo vieta il vincolo del database;
-  - se si vuole «Apri in Google Calendar»: va salvato `htmlLink` alla creazione, anche questa una migrazione.
-- **Passata 09:** il redesign di Integrazioni, che ora contiene la riconciliazione e «Sincronizza tutto».
+  - creare un cliente con percorso fisso: nel Profilo l'interruttore del rinnovo deve essere spento;
+  - un invito, «Reinvia», «Annulla invito» e «Ripristina»;
+  - «Archivia» e «Ripristina»;
+  - aprire un profilo con ricerca e filtri, e tornare con la freccia;
+  - confrontare «In scadenza» con la Panoramica e la presenza in scheda col Profilo.
+- **Decidere il telefono nella creazione dell'account:** o si scrive nel profilo dopo la creazione (una colonna in più nella stessa scrittura), o `admin-create-user` lo accetta (tocca `supabase/functions`).
+- **Decidere se il «+» del telefono passa al dialog nuovo.** Allora `CredentialsDialog` e `create-client-dialog.tsx` si possono togliere.
+- **I percorsi fissi già creati col rinnovo acceso** restano da spegnere sui dati, come deciso il 26/09. Da oggi il desktop li crea spenti, come già faceva il dialog di prima.
