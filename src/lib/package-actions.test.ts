@@ -188,12 +188,16 @@ describe("canRenew e crediti del rinnovo", () => {
   });
 
   it("nota con i residui del blocco in corso", () => {
-    expect(renewNote("5 ott 2026", 3)).toBe(
+    const oct5 = new Date(2026, 9, 5);
+    expect(renewNote(oct5, 3)).toBe(
       "Il cliente può prenotare le sessioni del nuovo blocco dal 5 ott 2026. I 3 crediti residui restano validi fino alla fine del blocco in corso.",
     );
-    expect(renewNote("5 ott 2026", 1)).toContain("Il credito residuo resta valido");
-    expect(renewNote("5 ott 2026", 0)).toBe(
+    expect(renewNote(oct5, 1)).toContain("Il credito residuo resta valido");
+    expect(renewNote(oct5, 0)).toBe(
       "Il cliente può prenotare le sessioni del nuovo blocco dal 5 ott 2026.",
+    );
+    expect(renewNote(new Date(2027, 0, 11), 0)).toBe(
+      "Il cliente può prenotare le sessioni del nuovo blocco dall'11 gen 2027.",
     );
   });
 });

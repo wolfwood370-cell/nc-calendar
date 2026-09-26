@@ -49,7 +49,7 @@ import {
 import { supabasePackageStore } from "@/lib/package-store";
 import { useClientBlocks, useCoachEventTypes } from "@/lib/queries";
 import { queryKeys } from "@/lib/query-keys";
-import { formatShortDate } from "@/lib/session-time";
+import { formatShortDate, shortDateWithArticle } from "@/lib/session-time";
 import { toastWithUndo } from "@/lib/toast";
 import { supabase } from "@/integrations/supabase/client";
 import { cn, errorMessage } from "@/lib/utils";
@@ -228,7 +228,8 @@ function PackageBody({
   const last = lastBlock(blocks);
   // Rinnovo e nuovo percorso partono entrambi il giorno dopo l'ultimo blocco.
   const newBlock = nextBlockDates(last, today, blockLength(last));
-  const firstDay = formatShortDate(parseISO(newBlock.start));
+  const firstDate = parseISO(newBlock.start);
+  const firstDay = formatShortDate(firstDate);
   const residual = sumCredits(
     getCurrentBlockCredits(
       blocksQ.data ?? [],
@@ -357,7 +358,7 @@ function PackageBody({
           ))}
         </div>
         <p className="text-[13px] leading-normal text-on-surface-variant">
-          {renewNote(firstDay, residual)}
+          {renewNote(firstDate, residual)}
         </p>
       </>
     );
@@ -452,7 +453,7 @@ function PackageBody({
           ))}
         </div>
         <p className="text-xs text-outline">
-          Inizia il {firstDay}. Le sessioni già prenotate restano in calendario.
+          Inizia {shortDateWithArticle(firstDate)}. Le sessioni già prenotate restano in calendario.
         </p>
       </div>
     );

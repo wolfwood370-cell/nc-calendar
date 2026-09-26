@@ -22,6 +22,7 @@
 
 import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
 import type { SessionType } from "@/lib/mock-data";
+import { shortDateWithArticle } from "@/lib/session-time";
 
 export const BLOCK_DAYS = 28;
 export const EXTRA_MIN = 1;
@@ -127,8 +128,8 @@ export function formatCredits(n: number): string {
 }
 
 /** Nota del rinnovo con i crediti residui del blocco in corso. */
-export function renewNote(firstDay: string, residual: number): string {
-  const opens = `Il cliente può prenotare le sessioni del nuovo blocco dal ${firstDay}.`;
+export function renewNote(firstDay: Date, residual: number): string {
+  const opens = `Il cliente può prenotare le sessioni del nuovo blocco ${shortDateWithArticle(firstDay, "da")}.`;
   if (residual <= 0) return opens;
   return residual === 1
     ? `${opens} Il credito residuo resta valido fino alla fine del blocco in corso.`
