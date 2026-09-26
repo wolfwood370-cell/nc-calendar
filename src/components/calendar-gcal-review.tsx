@@ -41,7 +41,7 @@ import { toast } from "sonner";
 import { gcalListEventsForReview, gcalImportEvent } from "@/lib/gcal.functions";
 import { queryKeys } from "@/lib/query-keys";
 import type { BookingRow, ProfileRow, EventTypeRow } from "@/lib/queries";
-import { isAllDayEvent } from "@/components/mobile-calendar-agenda";
+import { isAllDayEvent } from "@/lib/all-day-event";
 import { cn } from "@/lib/utils";
 
 interface Props {

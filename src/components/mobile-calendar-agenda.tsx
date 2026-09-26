@@ -7,17 +7,6 @@ import { cn } from "@/lib/utils";
 
 export const DAY_LABELS = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
 
-// Heuristic detection for Google Calendar all-day events (birthdays,
-// anniversaries, holidays). il connettore Lovable normalizza Google
-// `start.date` (date-only, no time) to `"<yyyy-MM-dd>T00:00:00Z"`, so
-// the `Z`-suffixed midnight pattern is the marker. A regular event
-// scheduled at midnight Italy time would be saved as
-// `"...T22:00:00+00:00"` after conversion, so the false-positive risk
-// is low for the Italy-based business timezone the app is built for.
-export function isAllDayEvent(b: { scheduled_at: string }): boolean {
-  return /T00:00:00(?:\.000)?Z$/i.test(b.scheduled_at);
-}
-
 // 🎂 for birthday-like all-day events, 🎉 for everything else. Keeps
 // the strip glanceable at a tiny size where text alone gets noisy.
 function allDayIcon(b: { title: string | null; notes: string | null }): string {
