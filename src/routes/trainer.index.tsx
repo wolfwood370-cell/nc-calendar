@@ -1,7 +1,5 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useMemo } from "react";
 import { useAuth } from "@/lib/auth";
 import {
   useCoachClients,
@@ -9,33 +7,18 @@ import {
   useCoachBlocks,
   useCoachEventTypes,
 } from "@/lib/queries";
-import { queryKeys } from "@/lib/query-keys";
 import { sessionLabel } from "@/lib/mock-data";
 import { initials } from "@/lib/initials";
-import { startOfToday, endOfToday, startOfYear } from "@/lib/date-windows";
-import { iconForType } from "@/lib/session-type-icon";
-import { formatCreditsLeft } from "@/lib/credits";
-import { PageTitle } from "@/components/page-title";
-import { PackageDialog } from "@/components/package-dialog";
-import { Skeleton } from "@/components/ui/skeleton";
+import { startOfToday, endOfToday } from "@/lib/date-windows";
+import { OverviewDesktop } from "@/components/overview-desktop";
 import {
   AuraCardSkeleton,
   AuraLineSkeleton,
   AuraPillSkeleton,
 } from "@/components/ui/aura-skeleton";
-import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { TrainerNotificationsBell } from "@/components/trainer-notifications-bell";
-import { toast } from "sonner";
-import {
-  Sparkles,
-  CheckCircle2,
-  Clock,
-  ListChecks,
-  ArrowRight,
-  TriangleAlert,
-  CircleHelp,
-} from "lucide-react";
+import { Sparkles, Clock, ListChecks, ArrowRight } from "lucide-react";
 
 export const Route = createFileRoute("/trainer/")({
   head: () => ({
@@ -57,15 +40,9 @@ export const Route = createFileRoute("/trainer/")({
   component: Overview,
 });
 
-const GLASS = "bg-white/60 backdrop-blur-[20px] border border-white/40";
-
 function Overview() {
   const { user } = useAuth();
   const coachId = user?.id;
-  const qc = useQueryClient();
-  const navigate = useNavigate();
-  // Cliente di cui è aperto il dialog «Pacchetto» (da «Rinnova»).
-  const [renewClientId, setRenewClientId] = useState<string | null>(null);
 
   const clientsQ = useCoachClients(coachId);
   const bookingsQ = useCoachBookings(coachId);
@@ -78,7 +55,6 @@ function Overview() {
   // recompute on every render, defeating the memoization.
   const clients = useMemo(() => clientsQ.data ?? [], [clientsQ.data]);
   const bookings = useMemo(() => bookingsQ.data ?? [], [bookingsQ.data]);
-  const blocks = useMemo(() => blocksQ.data ?? [], [blocksQ.data]);
   const eventTypes = useMemo(() => eventTypesQ.data ?? [], [eventTypesQ.data]);
 
   const clientById = useMemo(() => {
@@ -96,7 +72,8 @@ function Overview() {
   // eventi senza cliente avviene ora dal Calendario (filtro "Eventi da
   // Assegnare" + dialog di review). La sezione qui era ridondante.
 
-  // Today's appointments
+  // Today's appointments — solo per il layout mobile: la Panoramica desktop
+  // usa getTodayAgenda (today-agenda.ts), senza tagli.
   const todayItems = useMemo(() => {
     const s = startOfToday().getTime(),
       e = endOfToday().getTime();
@@ -113,64 +90,12 @@ function Overview() {
       .slice(0, 5);
   }, [bookings]);
 
-  // Service distribution YTD (dal 1° gennaio dell'anno corrente)
-  const distribution = useMemo(() => {
-    const s = startOfYear().getTime();
-    const counts = new Map<string, { count: number; color: string }>();
-    let total = 0;
-    for (const b of bookings) {
-      const t = new Date(b.scheduled_at).getTime();
-      if (t < s) continue;
-      if (b.status === "cancelled") continue;
-      const et = b.event_type_id ? eventTypeById.get(b.event_type_id) : null;
-      const label = et?.name ?? sessionLabel(b.session_type);
-      const color = et?.color ?? "#003e62";
-      const prev = counts.get(label);
-      counts.set(label, { count: (prev?.count ?? 0) + 1, color: prev?.color ?? color });
-      total++;
-    }
-    const arr = Array.from(counts.entries())
-      .map(([label, { count, color }]) => ({
-        key: label,
-        label,
-        color,
-        count,
-        pct: total ? Math.round((count / total) * 100) : 0,
-      }))
-      .sort((a, b) => b.count - a.count);
-    return { items: arr, total };
-  }, [bookings, eventTypeById]);
-
-  // Mutations
-  const checkIn = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("bookings")
-        .update({ status: "completed" })
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(user?.id) });
-      qc.invalidateQueries({ queryKey: queryKeys.blocks.coach(user?.id) });
-      qc.invalidateQueries({ queryKey: queryKeys.clients.coach(user?.id) });
-      toast.success("Sessione completata e contatori aggiornati");
-    },
-    onError: (e: Error) => toast.error("Errore", { description: e.message }),
-  });
-
   // ignoreBooking / restoreBooking / markPersonalQuick / openReview RIMOSSI
   // insieme al Centro Revisione (2026-06-06): erano usati solo da quella
   // sezione. L'assegnazione eventi avviene dal Calendario.
 
   const loading = clientsQ.isLoading || bookingsQ.isLoading || blocksQ.isLoading;
   const userName = (user?.user_metadata?.full_name as string) || user?.email || "Coach";
-  const todayLabel = new Date().toLocaleDateString("it-IT", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
-
   // Next upcoming session (for the mobile "Prossimo Evento" card). Looks at
   // all assigned future bookings, picks the closest one. Reused on mobile
   // since the desktop "Oggi" list shows today only.
@@ -189,44 +114,6 @@ function Overview() {
     day: "numeric",
     month: "long",
   });
-
-  // Rinnovi in scadenza — derivato dai blocchi già caricati (useCoachBlocks):
-  // clienti con crediti quasi esauriti o con l'ultimo blocco attivo che
-  // termina entro 7 giorni. Nessuna query nuova.
-  const renewals = useMemo(() => {
-    const now = Date.now();
-    const byClient = new Map<string, { remaining: number; end: number }>();
-    for (const bl of blocks) {
-      if (bl.status !== "active") continue;
-      const end = new Date(bl.end_date).getTime();
-      const cur = byClient.get(bl.client_id) ?? { remaining: 0, end: 0 };
-      cur.remaining += bl.allocations.reduce(
-        (s, a) => s + Math.max(0, a.quantity_assigned - a.quantity_booked),
-        0,
-      );
-      cur.end = Math.max(cur.end, end);
-      byClient.set(bl.client_id, cur);
-    }
-    return Array.from(byClient.entries())
-      .map(([clientId, v]) => ({
-        clientId,
-        remaining: v.remaining,
-        days: Math.ceil((v.end - now) / 86_400_000),
-      }))
-      .filter((r) => r.days >= 0 && (r.remaining <= 1 || r.days <= 7))
-      .sort((a, b) => a.days - b.days)
-      .slice(0, 4);
-  }, [blocks]);
-
-  // Da assegnare — eventi esterni senza cliente, stesso criterio del filtro
-  // "Eventi da Assegnare" del Calendario. Il bottone apre il dialog di
-  // review (montato nel layout /trainer) via ?reviewEventId.
-  const toAssign = useMemo(() => {
-    return bookings
-      .filter((b) => !b.is_personal && !b.client_id && b.status === "scheduled")
-      .sort((a, b) => +new Date(a.scheduled_at) - +new Date(b.scheduled_at))
-      .slice(0, 4);
-  }, [bookings]);
 
   return (
     <>
@@ -428,288 +315,8 @@ function Overview() {
         </main>
       </div>
 
-      {/* ============================================================
-          DESKTOP LAYOUT (hidden md:block) — original dashboard,
-          UNCHANGED below this divider.
-          ============================================================ */}
-      <div className="hidden md:block bg-surface text-on-background -m-6 p-6 md:p-10 min-h-[calc(100vh-3.5rem)]">
-        {/* Header */}
-        <header className="mb-10">
-          <PageTitle>Bentornato, {userName.split(" ")[0]}</PageTitle>
-          <p className="text-on-surface-variant mt-2 text-lg">
-            Oggi è {todayLabel}. Hai{" "}
-            <strong className="text-aura-primary">{todayItems.length}</strong>{" "}
-            {todayItems.length === 1 ? "sessione da svolgere" : "sessioni da svolgere"}.
-          </p>
-        </header>
-
-        {/* 2-column grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
-          {/* LEFT */}
-          <div className="lg:col-span-7 flex flex-col gap-6">
-            {/* Centro Revisione desktop RIMOSSO (2026-06-06) — assegnazione dal Calendario. */}
-
-            {/* Oggi */}
-            <section className={`${GLASS} rounded-[32px] p-6 shadow-soft-card`}>
-              <div className="flex items-center justify-between mb-5">
-                <h2 className="card-title">Oggi</h2>
-                <Link
-                  to="/trainer/calendar"
-                  className="text-sm font-semibold text-aura-primary hover:underline"
-                >
-                  Vedi tutto
-                </Link>
-              </div>
-              {loading ? (
-                <div className="space-y-3">
-                  <Skeleton className="h-16 w-full" />
-                  <Skeleton className="h-16 w-full" />
-                </div>
-              ) : todayItems.length === 0 ? (
-                <p className="text-sm text-on-surface-variant py-6 text-center">
-                  Nessuna sessione prevista per oggi. Goditi la giornata!
-                </p>
-              ) : (
-                <div className="flex flex-col">
-                  {todayItems.map((b) => {
-                    const c = clientById.get(b.client_id!);
-                    const name = c?.full_name ?? c?.email ?? "Cliente";
-                    const et = b.event_type_id ? eventTypeById.get(b.event_type_id) : null;
-                    const label = et?.name ?? sessionLabel(b.session_type);
-                    const Icon = iconForType(label);
-                    const start = new Date(b.scheduled_at);
-                    // H3: per-booking snapshot so changing the event type
-                    // duration today doesn't relabel sessions already on
-                    // the agenda.
-                    const dur = b.duration_min ?? et?.duration ?? 60;
-                    const time = start.toLocaleTimeString("it-IT", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    });
-                    return (
-                      <div
-                        key={b.id}
-                        className="group flex items-center justify-between py-3 border-b border-surface-variant/60 last:border-0"
-                      >
-                        <div className="flex items-center gap-4 min-w-0">
-                          <div className="w-16 text-center shrink-0">
-                            <p className="font-semibold text-on-background">{time}</p>
-                            <p className="text-xs text-on-surface-variant">
-                              {dur >= 60
-                                ? `${Math.floor(dur / 60)}h${dur % 60 ? ` ${dur % 60}m` : ""}`
-                                : `${dur}m`}
-                            </p>
-                          </div>
-                          <div className="w-1 h-12 bg-aura-primary rounded-full shrink-0" />
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center shrink-0">
-                              <span className="font-bold text-on-secondary-container text-sm">
-                                {initials(name)}
-                              </span>
-                            </div>
-                            <div className="min-w-0">
-                              <p className="font-semibold text-on-background truncate">{name}</p>
-                              <div className="flex items-center gap-1 text-on-surface-variant">
-                                <Icon className="size-4" />
-                                <span className="text-xs">{label}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        <Button
-                          className="rounded-full h-auto px-4 py-2 text-sm font-semibold gap-1.5 bg-primary-container text-on-primary-container hover:bg-primary-container/85 ml-2 shrink-0"
-                          onClick={() => checkIn.mutate(b.id)}
-                          disabled={checkIn.isPending}
-                        >
-                          <CheckCircle2 className="size-4" /> Check-in
-                        </Button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
-          </div>
-
-          {/* RIGHT */}
-          <div className="lg:col-span-5 flex flex-col gap-6">
-            {/* Distribuzione servizi (dal 1° gennaio) */}
-            <section className={`${GLASS} rounded-[32px] p-6 shadow-soft-card`}>
-              <div className="flex items-baseline justify-between mb-5 gap-3 flex-wrap">
-                <h2 className="card-title">Distribuzione servizi</h2>
-                <span className="text-xs text-on-surface-variant">
-                  Dal 1° gen · {distribution.total} {distribution.total === 1 ? "evento" : "eventi"}
-                </span>
-              </div>
-              {loading ? (
-                <Skeleton className="h-20 w-full" />
-              ) : distribution.items.length === 0 ? (
-                <p className="text-sm text-on-surface-variant">
-                  Nessuna sessione registrata da inizio anno.
-                </p>
-              ) : (
-                <div className="flex flex-col gap-4">
-                  {distribution.items.map((d) => (
-                    <div key={d.key}>
-                      <div className="flex justify-between text-sm font-semibold mb-1.5 gap-2">
-                        <span className="text-on-background truncate">{d.label}</span>
-                        <span className="tabular-nums whitespace-nowrap" style={{ color: d.color }}>
-                          {d.count} ({d.pct}%)
-                        </span>
-                      </div>
-                      <div className="w-full h-2 bg-surface-variant rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full bar-grow"
-                          style={{ width: `${d.pct}%`, backgroundColor: d.color }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-          </div>
-        </div>
-
-        {/* Riga widget inferiore: Rinnovi in scadenza + Da assegnare */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Rinnovi in scadenza */}
-          <section className={`${GLASS} rounded-[32px] p-6 shadow-soft-card`}>
-            <div className="flex items-center justify-between mb-5 gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-full bg-warning-soft text-warning-text grid place-items-center shrink-0">
-                  <TriangleAlert className="size-[18px]" />
-                </div>
-                <h2 className="card-title">Rinnovi in scadenza</h2>
-              </div>
-              <span className="text-xs font-bold text-warning-text bg-warning-soft rounded-full px-3 py-1">
-                {renewals.length}
-              </span>
-            </div>
-            {loading ? (
-              <Skeleton className="h-16 w-full" />
-            ) : renewals.length === 0 ? (
-              <p className="text-sm text-on-surface-variant">Nessun rinnovo imminente.</p>
-            ) : (
-              <div className="flex flex-col gap-2.5">
-                {renewals.map((r) => {
-                  const c = clientById.get(r.clientId);
-                  const name = c?.full_name ?? c?.email ?? "Cliente";
-                  return (
-                    <div
-                      key={r.clientId}
-                      className="flex items-center justify-between gap-3 rounded-[20px] border border-surface-variant bg-white px-4 py-3"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-10 h-10 rounded-full bg-avatar-placeholder text-on-avatar-placeholder grid place-items-center text-[13px] font-bold shrink-0">
-                          {initials(name)}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-semibold text-on-background truncate">{name}</p>
-                          <p className="text-xs text-warning-text mt-0.5">
-                            Percorso ·{" "}
-                            {r.remaining <= 1
-                              ? formatCreditsLeft(r.remaining)
-                              : r.days <= 0
-                                ? "Scade oggi"
-                                : r.days === 1
-                                  ? "Scade domani"
-                                  : `Scade tra ${r.days} giorni`}
-                          </p>
-                        </div>
-                      </div>
-                      {/* P5 / O2: il rinnovo si fa sul posto, nel dialog «Pacchetto». */}
-                      <button
-                        type="button"
-                        onClick={() => setRenewClientId(r.clientId)}
-                        className="shrink-0 rounded-full bg-aura-primary text-white px-[18px] py-2 text-[13px] font-semibold hover:opacity-90 transition"
-                      >
-                        Rinnova
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-
-          {/* Da assegnare */}
-          <section className={`${GLASS} rounded-[32px] p-6 shadow-soft-card`}>
-            <div className="flex items-center justify-between mb-5 gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-full bg-warning-container/60 text-tertiary-container grid place-items-center shrink-0">
-                  <CircleHelp className="size-[18px]" />
-                </div>
-                <h2 className="card-title">Da assegnare</h2>
-              </div>
-              <span className="text-xs font-bold text-tertiary-container bg-warning-container/60 rounded-full px-3 py-1">
-                {toAssign.length}
-              </span>
-            </div>
-            {loading ? (
-              <Skeleton className="h-16 w-full" />
-            ) : toAssign.length === 0 ? (
-              <p className="text-sm text-on-surface-variant">Nessun evento da assegnare.</p>
-            ) : (
-              <div className="flex flex-col gap-2.5">
-                {toAssign.map((b) => {
-                  const et = b.event_type_id ? eventTypeById.get(b.event_type_id) : null;
-                  const label = b.title ?? et?.name ?? sessionLabel(b.session_type);
-                  const d = new Date(b.scheduled_at);
-                  const dateLabel = d.toLocaleDateString("it-IT", {
-                    weekday: "short",
-                    day: "numeric",
-                    month: "short",
-                  });
-                  const timeLabel = d.toLocaleTimeString("it-IT", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  });
-                  return (
-                    <div
-                      key={b.id}
-                      className="flex items-center justify-between gap-3 rounded-[20px] border border-dashed border-warning-border bg-warning-container/25 px-4 py-3"
-                    >
-                      <div className="min-w-0">
-                        <p className="font-semibold text-on-background truncate">
-                          {label} · {dateLabel}
-                        </p>
-                        <p className="text-xs text-tertiary-container mt-0.5">
-                          Evento esterno · {timeLabel}
-                        </p>
-                      </div>
-                      {/* P5: il dialog condiviso si apre sul posto (layout /trainer). */}
-                      <button
-                        type="button"
-                        onClick={() =>
-                          void navigate({
-                            to: ".",
-                            search: (prev: Record<string, unknown>) => ({
-                              ...prev,
-                              reviewEventId: b.id,
-                            }),
-                          })
-                        }
-                        className="shrink-0 rounded-full bg-tertiary-container text-white px-[18px] py-2 text-[13px] font-semibold hover:opacity-90 transition"
-                      >
-                        Assegna
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-        </div>
-
-        {/* «Assegna evento» è montato nel layout /trainer (src/routes/trainer.tsx)
-          e si apre con ?reviewEventId; «Pacchetto» si apre qui sul posto. */}
-        <PackageDialog
-          clientId={renewClientId}
-          initialMode="renew"
-          onClose={() => setRenewClientId(null)}
-        />
-      </div>
+      {/* Desktop: Panoramica del redesign (passata 03). */}
+      <OverviewDesktop />
     </>
   );
 }

@@ -98,6 +98,8 @@ export interface ProfileRow {
   // Piano mostrato nella ricerca clienti dell'header (clientPlanLabel).
   path_type: string;
   pack_label: string | null;
+  // Rinnovo automatico dei blocchi: serve a «In scadenza» (renewal.ts).
+  auto_renew_blocks: boolean | null;
 }
 
 /* ---------- queries ---------- */
@@ -117,7 +119,9 @@ export function useCoachClients(coachId?: string) {
     queryFn: async (): Promise<ProfileRow[]> => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, email, phone, coach_id, status, path_type, pack_label")
+        .select(
+          "id, full_name, email, phone, coach_id, status, path_type, pack_label, auto_renew_blocks",
+        )
         .eq("coach_id", coachId!)
         .is("deleted_at", null);
       if (error) throw error;
@@ -228,7 +232,7 @@ async function loadBookingsWithFallback(
 // filtering/sorting proprio downstream, quindi il cambio di default non
 // rompe nessuno — verificato grep dei call site su client.{index,book},
 // trainer.{index,calendar,clients.$id}, mobile-calendar-agenda).
-const BOOKINGS_FETCH_LIMIT = 1000;
+export const BOOKINGS_FETCH_LIMIT = 1000;
 
 async function selectBookingsByCoach(coachId: string): Promise<BookingRow[]> {
   return loadBookingsWithFallback((cols) =>
