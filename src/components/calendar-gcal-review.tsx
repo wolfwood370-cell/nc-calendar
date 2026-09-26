@@ -106,7 +106,8 @@ export function CalendarGcalReview({ coachId, bookings, clientsMap, eventTypesMa
     const lowerMs = now - 24 * 60 * 60_000;
     const upperMs = now + 89 * 24 * 60 * 60_000;
     const pOnly = bookings.filter((b) => {
-      if (b.status === "cancelled") return false;
+      // Annullate (anche con credito addebitato): l'evento Google è stato tolto apposta.
+      if (b.status === "cancelled" || b.status === "late_cancelled") return false;
       if (b.deleted_at) return false;
       // Promemoria interni (decisione utente 2026-06-06): all-day + personali
       // restano solo nell'app -> non sono "errori da rivedere".

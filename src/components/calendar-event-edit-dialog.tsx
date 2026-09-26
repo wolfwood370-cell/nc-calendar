@@ -26,7 +26,9 @@ import type { BookingRow, EventTypeRow, ProfileRow } from "@/lib/queries";
 /**
  * Modifica inline di un booking dal calendario. Apre un dialog sopra la
  * pagina /trainer/calendar invece di navigare via. Permette di cambiare
- * data/ora, durata, tipo evento, cliente, note e status.
+ * data/ora, durata, tipo evento, cliente, note e status. Annullare non è uno
+ * stato da scegliere qui: passa dal dialog condiviso «Annulla o elimina
+ * sessione» (passata 02), che restituisce il credito e toglie l'evento Google.
  */
 export interface CalendarEventEditDialogProps {
   booking: BookingRow | null;
@@ -34,6 +36,8 @@ export interface CalendarEventEditDialogProps {
   eventTypes: EventTypeRow[];
   coachId: string | undefined;
   onClose: () => void;
+  /** Apre il dialog condiviso di annullamento per questo booking. */
+  onCancelSession: (bookingId: string) => void;
 }
 
 function toLocalDateTimeInput(iso: string): string {
@@ -48,6 +52,7 @@ export function CalendarEventEditDialog({
   eventTypes,
   coachId,
   onClose,
+  onCancelSession,
 }: CalendarEventEditDialogProps) {
   const qc = useQueryClient();
   const [scheduledAt, setScheduledAt] = useState("");
@@ -82,7 +87,7 @@ export function CalendarEventEditDialog({
           duration_min: durationMin,
           event_type_id: eventTypeId === "none" ? null : eventTypeId,
           client_id: clientId === "none" ? null : clientId,
-          status: status as "scheduled" | "completed" | "cancelled",
+          status: status as "scheduled" | "completed",
           trainer_notes: trainerNotes || null,
           meeting_link: meetingLink || null,
         })
@@ -98,24 +103,8 @@ export function CalendarEventEditDialog({
     onError: (e: Error) => toast.error("Errore", { description: e.message }),
   });
 
-  const remove = useMutation({
-    mutationFn: async () => {
-      if (!booking) return;
-      const { error } = await supabase
-        .from("bookings")
-        .update({ status: "cancelled" })
-        .eq("id", booking.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(coachId) });
-      toast.success("Evento annullato");
-      onClose();
-    },
-    onError: (e: Error) => toast.error("Errore", { description: e.message }),
-  });
-
   const open = !!booking;
+  const isCommitment = !!booking && (!!booking.is_personal || !booking.client_id);
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -154,7 +143,6 @@ export function CalendarEventEditDialog({
               <SelectContent>
                 <SelectItem value="scheduled">Programmato</SelectItem>
                 <SelectItem value="completed">Completato</SelectItem>
-                <SelectItem value="cancelled">Annullato</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -215,10 +203,10 @@ export function CalendarEventEditDialog({
           <Button
             variant="ghost"
             className="text-destructive hover:text-destructive"
-            onClick={() => remove.mutate()}
-            disabled={remove.isPending || save.isPending}
+            onClick={() => booking && onCancelSession(booking.id)}
+            disabled={save.isPending}
           >
-            Annulla evento
+            {isCommitment ? "Elimina impegno" : "Annulla sessione"}
           </Button>
           <div className="flex-1" />
           <Button variant="outline" onClick={onClose}>

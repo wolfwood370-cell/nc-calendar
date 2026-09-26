@@ -1,5 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -16,6 +16,7 @@ import { startOfToday, endOfToday, startOfYear } from "@/lib/date-windows";
 import { iconForType } from "@/lib/session-type-icon";
 import { formatCreditsLeft } from "@/lib/credits";
 import { PageTitle } from "@/components/page-title";
+import { PackageDialog } from "@/components/package-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AuraCardSkeleton,
@@ -62,6 +63,9 @@ function Overview() {
   const { user } = useAuth();
   const coachId = user?.id;
   const qc = useQueryClient();
+  const navigate = useNavigate();
+  // Cliente di cui è aperto il dialog «Pacchetto» (da «Rinnova»).
+  const [renewClientId, setRenewClientId] = useState<string | null>(null);
 
   const clientsQ = useCoachClients(coachId);
   const bookingsQ = useCoachBookings(coachId);
@@ -614,13 +618,14 @@ function Overview() {
                           </p>
                         </div>
                       </div>
-                      <Link
-                        to="/trainer/clients/$id"
-                        params={{ id: r.clientId }}
+                      {/* P5 / O2: il rinnovo si fa sul posto, nel dialog «Pacchetto». */}
+                      <button
+                        type="button"
+                        onClick={() => setRenewClientId(r.clientId)}
                         className="shrink-0 rounded-full bg-aura-primary text-white px-[18px] py-2 text-[13px] font-semibold hover:opacity-90 transition"
                       >
                         Rinnova
-                      </Link>
+                      </button>
                     </div>
                   );
                 })}
@@ -673,13 +678,22 @@ function Overview() {
                           Evento esterno · {timeLabel}
                         </p>
                       </div>
-                      <Link
-                        to="/trainer/calendar"
-                        search={{ reviewEventId: b.id }}
+                      {/* P5: il dialog condiviso si apre sul posto (layout /trainer). */}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void navigate({
+                            to: ".",
+                            search: (prev: Record<string, unknown>) => ({
+                              ...prev,
+                              reviewEventId: b.id,
+                            }),
+                          })
+                        }
                         className="shrink-0 rounded-full bg-tertiary-container text-white px-[18px] py-2 text-[13px] font-semibold hover:opacity-90 transition"
                       >
                         Assegna
-                      </Link>
+                      </button>
                     </div>
                   );
                 })}
@@ -688,9 +702,13 @@ function Overview() {
           </section>
         </div>
 
-        {/* The Assign / Personal / Consulenza dialog is now mounted globally
-          at the /trainer layout (src/routes/trainer.tsx) and driven by
-          ?reviewEventId. openReview() just navigates. */}
+        {/* «Assegna evento» è montato nel layout /trainer (src/routes/trainer.tsx)
+          e si apre con ?reviewEventId; «Pacchetto» si apre qui sul posto. */}
+        <PackageDialog
+          clientId={renewClientId}
+          initialMode="renew"
+          onClose={() => setRenewClientId(null)}
+        />
       </div>
     </>
   );
