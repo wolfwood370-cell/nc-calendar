@@ -10,6 +10,7 @@ import { CalendarEventTile } from "@/components/calendar-event-tile";
 import { CalendarContextPanel } from "@/components/calendar-context-panel";
 import { CalendarGcalReview } from "@/components/calendar-gcal-review";
 import { CalendarEventEditDialog } from "@/components/calendar-event-edit-dialog";
+import { SessionCancelDialog } from "@/components/session-cancel-dialog";
 import { layoutDay } from "@/lib/calendar-layout";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -133,6 +134,8 @@ function CalendarPage() {
     if (raw) setLastSyncAt(Number(raw));
   }, []);
   const [editBookingId, setEditBookingId] = useState<string | null>(null);
+  // Dialog condiviso «Annulla o elimina sessione» (passata 02).
+  const [cancelBookingId, setCancelBookingId] = useState<string | null>(null);
 
   const bookingsQ = useCoachBookings(user?.id);
   const clientsQ = useCoachClients(user?.id);
@@ -301,7 +304,9 @@ function CalendarPage() {
     const timed: BookingRow[][] = Array.from({ length: 7 }, () => []);
     const allDay: BookingRow[][] = Array.from({ length: 7 }, () => []);
     for (const b of bookings) {
-      if (b.status === "cancelled") continue;
+      // Annullate dal coach: restano nello storico (deleted_at vuoto) ma non
+      // occupano più la griglia, con o senza credito addebitato.
+      if (b.status === "cancelled" || b.status === "late_cancelled") continue;
       const isPersonal = !!b.is_personal;
       // Stesso criterio del badge «Da assegnare» della sidebar (audit V12).
       if (onlyToAssign && !isToAssign(b)) continue;
@@ -349,6 +354,9 @@ function CalendarPage() {
     () => (editBookingId ? (bookings.find((b) => b.id === editBookingId) ?? null) : null),
     [editBookingId, bookings],
   );
+  const cancellingBooking = cancelBookingId
+    ? (bookings.find((b) => b.id === cancelBookingId) ?? null)
+    : null;
 
   // ----- Render helpers -----
   const today = new Date();
@@ -492,20 +500,7 @@ function CalendarPage() {
                             onOpenReview={openReview}
                             onFocusClient={setFocusClientId}
                             onEdit={(id) => setEditBookingId(id)}
-                            onCancel={async (id) => {
-                              const { error } = await supabase
-                                .from("bookings")
-                                .update({ status: "cancelled" })
-                                .eq("id", id);
-                              if (error) {
-                                toast.error("Errore", { description: error.message });
-                              } else {
-                                toast.success("Evento annullato");
-                                qc.invalidateQueries({
-                                  queryKey: queryKeys.bookings.coach(user?.id),
-                                });
-                              }
-                            }}
+                            onCancel={setCancelBookingId}
                           />
                         );
                       })}
@@ -540,6 +535,26 @@ function CalendarPage() {
         eventTypes={eventTypes}
         coachId={user?.id}
         onClose={() => setEditBookingId(null)}
+        onCancelSession={(id) => {
+          setEditBookingId(null);
+          setCancelBookingId(id);
+        }}
+      />
+
+      <SessionCancelDialog
+        session={cancellingBooking}
+        removal="cancel"
+        clientName={
+          cancellingBooking?.client_id
+            ? (clientsMap.get(cancellingBooking.client_id)?.full_name ?? null)
+            : null
+        }
+        typeName={
+          cancellingBooking?.event_type_id
+            ? (eventTypesMap.get(cancellingBooking.event_type_id)?.name ?? null)
+            : null
+        }
+        onClose={() => setCancelBookingId(null)}
       />
     </div>
   );
