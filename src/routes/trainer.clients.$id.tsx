@@ -1,4 +1,10 @@
-import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Link,
+  useNavigate,
+  useParams,
+  useRouterState,
+} from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { BlockCreditsDialog } from "@/components/block-credits-dialog";
@@ -35,6 +41,8 @@ import { useAuth } from "@/lib/auth";
 import { useCoachEventTypes } from "@/lib/queries";
 import { gcalUpdateEvent } from "@/lib/gcal.functions";
 import { findCreditToReturn, type SessionRemoval } from "@/lib/cancel-session";
+import { profileEngagement } from "@/lib/attendance";
+import { backToListSearch } from "@/lib/client-list";
 import { getRenewalInfo, type RenewalClient } from "@/lib/renewal";
 import { supabaseSessionStore } from "@/lib/session-store";
 import type { PackageMode } from "@/lib/package-actions";
@@ -867,31 +875,11 @@ function ClientPathPage() {
     return { currentNum, expiry, expiringSoon, bars: Array.from(grouped.values()), status };
   }, [blockAggregates, totalBlocks, hasExtraCredits, today, renewalProfile, blocks, allocations]);
 
-  const engage = useMemo(() => {
-    const past = clientBookings.filter((b) => b.status !== "scheduled");
-    const done = past.filter((b) => b.status === "completed").length;
-    const att = past.length ? Math.round((done / past.length) * 100) : 100;
-    const noshow = past.filter((b) => b.status === "late_cancelled").length;
-    const completedTimes = clientBookings
-      .filter((b) => b.status === "completed")
-      .map((b) => new Date(b.scheduled_at).getTime());
-    let perWeek = "—";
-    if (completedTimes.length > 0) {
-      const weeks =
-        Math.max(
-          1,
-          Math.round((Math.max(...completedTimes) - Math.min(...completedTimes)) / (7 * 86400000)),
-        ) + 1;
-      perWeek = `~${Math.max(1, Math.round(completedTimes.length / weeks))}`;
-    }
-    const last = past[0];
-    return {
-      att,
-      noshow,
-      perWeek,
-      lastLabel: last ? format(new Date(last.scheduled_at), "EEE d MMM", { locale: it }) : "—",
-    };
-  }, [clientBookings]);
+  // Presenza di getAttendance, la stessa della lista Clienti (passata 05).
+  const engage = useMemo(() => profileEngagement(clientBookings, new Date()), [clientBookings]);
+  // Ritorno alla lista Clienti con ricerca, tab, ordine e vista di prima.
+  const listState = useRouterState({ select: (s) => s.location.state.clientsSearch });
+  const listSearch = useMemo(() => backToListSearch({ clientsSearch: listState }), [listState]);
 
   const initials =
     clientName
@@ -908,7 +896,7 @@ function ClientPathPage() {
       <section className="bg-surface-container-lowest rounded-[28px] shadow-soft-blue p-6 flex flex-wrap items-center justify-between gap-6">
         <div className="flex items-center gap-5 min-w-0">
           <Button variant="ghost" size="icon" asChild className="shrink-0 -ml-2">
-            <Link to="/trainer/clients" aria-label="Torna ai clienti">
+            <Link to="/trainer/clients" search={listSearch} aria-label="Torna ai clienti">
               <ArrowLeft className="size-4" />
             </Link>
           </Button>
@@ -1315,14 +1303,16 @@ function ClientPathPage() {
                 <p
                   className={cn(
                     "tabular-nums font-display text-2xl font-bold m-0",
-                    engage.att >= 80
-                      ? "text-success-text"
-                      : engage.att >= 60
-                        ? "text-warning-text"
-                        : "text-danger-text",
+                    engage.att === null
+                      ? "text-outline"
+                      : engage.att >= 80
+                        ? "text-success-text"
+                        : engage.att >= 60
+                          ? "text-warning-text"
+                          : "text-danger-text",
                   )}
                 >
-                  {engage.att}%
+                  {engage.att === null ? "—" : `${engage.att}%`}
                 </p>
                 <p className="text-[11px] text-outline mt-1 m-0">Presenza</p>
               </div>
