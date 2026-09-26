@@ -156,6 +156,26 @@ export function pickConsumeAllocation(
   return firstInServerOrder(candidates, s, blockStartDate);
 }
 
+/**
+ * Allocazione che il trigger validate_booking_block_allocation scalerà
+ * all'inserimento di una sessione con `block_id = s.block_id`
+ * (20260827143053_…sql:37-53): tra le allocazioni con capienza di **tutti** i
+ * blocchi del cliente (il chiamante passa solo quelle dei blocchi non
+ * eliminati), la prima nell'ordine del server. La settimana si conta
+ * dall'inizio del blocco passato, `refBlockStart`, come fa il trigger.
+ */
+export function pickInsertAllocation(
+  s: CreditSession,
+  allocations: readonly OrderedAllocation[],
+  refBlockStart: string,
+): OrderedAllocation | null {
+  if (!s.block_id) return null;
+  const candidates = allocations.filter(
+    (a) => a.quantity_assigned > a.quantity_booked && inPool(a, s),
+  );
+  return firstInServerOrder(candidates, s, refBlockStart);
+}
+
 function byExpiry(credits: OrderedExtraCredit[]): OrderedExtraCredit | null {
   return (
     [...credits].sort(
