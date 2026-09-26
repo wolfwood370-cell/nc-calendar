@@ -54,6 +54,7 @@ import { ClientCardMenu } from "@/components/client-card-menu";
 import { ClientStatusTabs } from "@/components/client-status-tabs";
 import { PendingInvitationsCard } from "@/components/pending-invitations-card";
 import { initials } from "@/lib/initials";
+import { getRenewalInfo } from "@/lib/renewal";
 
 // Il menu «Nuovo» dell'header coach porta qui con `new=cliente` (passata 01);
 // l'apertura del dialog di creazione arriva con la passata 05.
@@ -117,6 +118,8 @@ interface BlockLite {
   // applied server-side, so legacy rows are guaranteed non-null at
   // read time.
   grace_days: number;
+  // training_blocks.status: serve a «In scadenza» (renewal.ts).
+  status: string;
 }
 interface AllocLite {
   block_id: string;
@@ -303,7 +306,7 @@ function ClientsPage() {
         .from("training_blocks")
         .select(
           `
-          id, client_id, sequence_order, start_date, end_date,
+          id, client_id, sequence_order, start_date, end_date, status,
           block_allocations (
             block_id, event_type_id, session_type, quantity_assigned, quantity_booked
           )
@@ -335,6 +338,7 @@ function ClientsPage() {
           // Defaults to migration's GRACE_DAYS_DEFAULT (7). Replace with
           // b.grace_days once `grace_days` is in generated Supabase types.
           grace_days: 7,
+          status: b.status,
         });
         if (b.block_allocations) {
           for (const a of b.block_allocations) {
@@ -585,15 +589,13 @@ function ClientsPage() {
           lastActivityMs = t;
       }
 
+      // «In scadenza» viene dalla regola unica di renewal.ts, la stessa di
+      // Panoramica e Profilo; viene prima di «completed», così un cliente da
+      // rinnovare in Panoramica è in scadenza anche qui.
       let status: ClientStatus;
       if (c.status === "archived") status = "archived";
+      else if (getRenewalInfo(c, cb, cAllocsAll, today)) status = "expiring";
       else if (totalQty > 0 && totalUsed >= totalQty) status = "completed";
-      else if (c.path_type === "recurring") {
-        status =
-          daysToBilling !== null && daysToBilling <= 5 && daysToBilling >= 0
-            ? "expiring"
-            : "active";
-      } else if (totalQty > 0 && totalQty - totalUsed <= 2) status = "expiring";
       else status = "active";
 
       return {

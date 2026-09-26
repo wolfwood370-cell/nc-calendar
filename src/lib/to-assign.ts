@@ -19,6 +19,22 @@ export function countToAssign(bookings: readonly ToAssignFields[] | undefined): 
   return bookings ? bookings.filter(isToAssign).length : 0;
 }
 
+/**
+ * Gli eventi da assegnare in ordine di data, tutti: la card della Panoramica
+ * li elenca dallo stesso insieme del badge, così lista e numero coincidono.
+ */
+export function listToAssign<T extends ToAssignFields & Pick<BookingRow, "id" | "scheduled_at">>(
+  bookings: readonly T[] | undefined,
+): T[] {
+  return (bookings ?? [])
+    .filter(isToAssign)
+    .sort(
+      (a, b) =>
+        new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime() ||
+        a.id.localeCompare(b.id),
+    );
+}
+
 /** Etichetta del badge per gli screen reader: «1 evento da assegnare», «3 eventi da assegnare». */
 export function formatToAssign(n: number): string {
   return n === 1 ? "1 evento da assegnare" : `${n} eventi da assegnare`;
