@@ -44,6 +44,17 @@ function matchRank(c: SearchableClient, q: string, digits: string): number | nul
   return null;
 }
 
+/**
+ * Il cliente corrisponde alla ricerca, con le stesse regole della ricerca
+ * dell'header (nome, email, telefono da 3 cifre), archiviati compresi: la
+ * lista Clienti li filtra per tab.
+ */
+export function matchesClient(c: Omit<SearchableClient, "status">, query: string): boolean {
+  const q = fold(query.trim());
+  if (!q) return true;
+  return matchRank({ ...c, status: "active" }, q, query.replace(/\D/g, "")) !== null;
+}
+
 export function searchClients<T extends SearchableClient>(
   clients: readonly T[],
   query: string,
