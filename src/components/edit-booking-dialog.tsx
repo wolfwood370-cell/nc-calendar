@@ -2,14 +2,16 @@
 // EditBookingDialog — coach-side editor for a single booking
 // ----------------------------------------------------------------------------
 // Extracted from trainer.clients.$id.tsx. Lets the coach reschedule a
-// session, change its event type, mark it completed / cancelled, unlink
-// it from the client, or delete it everywhere (including Google).
+// session, change its event type, mark it completed or unlink it from the
+// client. Annullare ed eliminare passano dal dialog condiviso «Annulla o
+// elimina sessione» (passata 02): lo stato «annullata» non si sceglie più a
+// mano, così il credito segue sempre la stessa regola (lib/cancel-session.ts).
 // Parent owns the persistence handlers and passes them as props.
 // ----------------------------------------------------------------------------
 
 import { useEffect, useState } from "react";
 import { format, parseISO } from "date-fns";
-import { Unlink, Trash2, Loader2, Save } from "lucide-react";
+import { Unlink, Trash2, Loader2, Save, Ban } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -39,9 +41,10 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import { canCancel } from "@/lib/cancel-session";
 import type { SessionType } from "@/lib/mock-data";
 
-export type EditableBookingStatus = "scheduled" | "completed" | "cancelled" | "late_cancelled";
+export type EditableBookingStatus = "scheduled" | "completed";
 
 // Local copy of the parent's ClientBooking — just the fields the dialog
 // reads. Kept loose so a parent shape change doesn't force a dialog
@@ -60,11 +63,8 @@ export interface EditBookingSaveInput {
   scheduled_at: string;
   event_type_id: string | null;
   session_type: SessionType;
-  status: EditableBookingStatus;
-  block_id: string | null;
-  prevStatus: string;
-  prevEventTypeId: string | null;
-  prevSessionType: SessionType;
+  /** Stato da scrivere; null lascia quello attuale (sessioni annullate). */
+  status: EditableBookingStatus | null;
 }
 
 export interface EditBookingDialogProps {
@@ -73,8 +73,18 @@ export interface EditBookingDialogProps {
   onClose: () => void;
   onSave: (input: EditBookingSaveInput) => Promise<void>;
   onUnlink: (b: EditableBooking) => Promise<void>;
-  onDeleteEverywhere: (b: EditableBooking) => Promise<void>;
+  /** Apre il dialog condiviso per annullare la sessione. */
+  onCancelSession: (b: EditableBooking) => void;
+  /** Apre il dialog condiviso per eliminarla (sessioni inserite per errore). */
+  onDeleteSession: (b: EditableBooking) => void;
 }
+
+// Senza «credito restituito»: le sessioni annullate dal Calendario prima della
+// passata 02 hanno lo stato `cancelled` ma il credito non è mai tornato.
+const CANCELLED_LINE: Record<string, string> = {
+  cancelled: "Sessione annullata.",
+  late_cancelled: "Sessione annullata, credito addebitato.",
+};
 
 export function EditBookingDialog({
   booking,
@@ -82,18 +92,16 @@ export function EditBookingDialog({
   onClose,
   onSave,
   onUnlink,
-  onDeleteEverywhere,
+  onCancelSession,
+  onDeleteSession,
 }: EditBookingDialogProps) {
   const [date, setDate] = useState<string>("");
   const [time, setTime] = useState<string>("");
   const [eventTypeId, setEventTypeId] = useState<string>("");
   const [status, setStatus] = useState<EditableBookingStatus>("scheduled");
   const [saving, setSaving] = useState(false);
-  // B13 (audit): conferma eliminazione via AlertDialog dell'app invece del
-  // confirm nativo del browser (coerente col resto + azione irreversibile).
-  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
-  // T5 (audit): anche lo scollegamento dal profilo si conferma qui, con lo
-  // stesso AlertDialog (prima era un confirm nativo nel profilo, mai raggiunto).
+  // T5 (audit): anche lo scollegamento dal profilo si conferma con un
+  // AlertDialog (prima era un confirm nativo nel profilo, mai raggiunto).
   const [confirmUnlinkOpen, setConfirmUnlinkOpen] = useState(false);
 
   useEffect(() => {
@@ -102,13 +110,14 @@ export function EditBookingDialog({
     setDate(format(d, "yyyy-MM-dd"));
     setTime(format(d, "HH:mm"));
     setEventTypeId(booking.event_type_id ?? "");
-    const s = booking.status as EditableBookingStatus;
-    setStatus(
-      ["scheduled", "completed", "cancelled", "late_cancelled"].includes(s) ? s : "scheduled",
-    );
+    setStatus(booking.status === "completed" ? "completed" : "scheduled");
   }, [booking]);
 
   if (!booking) return null;
+
+  const cancelledLine = CANCELLED_LINE[booking.status];
+  // Solo programmata e svolta si scelgono qui; assente e annullata restano come sono.
+  const statusEditable = booking.status === "scheduled" || booking.status === "completed";
 
   async function handleSave() {
     if (!booking) return;
@@ -125,11 +134,7 @@ export function EditBookingDialog({
         scheduled_at: iso,
         event_type_id: eventTypeId || null,
         session_type: et?.base_type ?? booking.session_type,
-        status,
-        block_id: booking.block_id,
-        prevStatus: booking.status,
-        prevEventTypeId: booking.event_type_id,
-        prevSessionType: booking.session_type,
+        status: statusEditable ? status : null,
       });
     } finally {
       setSaving(false);
@@ -143,6 +148,11 @@ export function EditBookingDialog({
           <DialogTitle>Modifica sessione</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
+          {cancelledLine && (
+            <p className="rounded-2xl bg-surface-container-low px-3 py-2.5 text-sm text-on-surface-variant">
+              {cancelledLine}
+            </p>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label className="text-xs">Data</Label>
@@ -168,45 +178,49 @@ export function EditBookingDialog({
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Stato sessione</Label>
-            <Select value={status} onValueChange={(v) => setStatus(v as EditableBookingStatus)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="scheduled">Pianificata</SelectItem>
-                <SelectItem value="completed">Completata</SelectItem>
-                <SelectItem value="late_cancelled">Cancellata — Addebitata</SelectItem>
-                <SelectItem value="cancelled">Cancellata — Rimborsata</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {statusEditable && (
+            <div className="space-y-1">
+              <Label className="text-xs">Stato sessione</Label>
+              <Select value={status} onValueChange={(v) => setStatus(v as EditableBookingStatus)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="scheduled">Pianificata</SelectItem>
+                  <SelectItem value="completed">Completata</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
 
-        <div className="border-t pt-4 mt-2 space-y-2">
-          <Label className="text-xs uppercase tracking-wide text-muted-foreground">Elimina</Label>
-          <div className="flex flex-col sm:flex-row gap-2">
+        <div className="border-t pt-4 mt-2 flex flex-col sm:flex-row flex-wrap gap-2">
+          {canCancel(booking.status) && (
             <Button
               variant="outline"
-              className="flex-1"
+              className="flex-1 border-danger-line bg-danger-soft text-danger-text hover:bg-danger-line/50 hover:text-danger-text"
               disabled={saving}
-              onClick={() => setConfirmUnlinkOpen(true)}
+              onClick={() => onCancelSession(booking)}
             >
-              <Unlink className="size-4" /> Scollega dal profilo
+              <Ban className="size-4" /> Annulla sessione
             </Button>
-            <Button
-              variant="destructive"
-              className="flex-1"
-              disabled={saving}
-              onClick={() => {
-                if (!booking) return;
-                setConfirmDeleteOpen(true);
-              }}
-            >
-              <Trash2 className="size-4" /> Elimina ovunque
-            </Button>
-          </div>
+          )}
+          <Button
+            variant="outline"
+            className="flex-1"
+            disabled={saving}
+            onClick={() => setConfirmUnlinkOpen(true)}
+          >
+            <Unlink className="size-4" /> Scollega dal profilo
+          </Button>
+          <Button
+            variant="ghost"
+            className="flex-1 text-danger-text hover:text-danger-text"
+            disabled={saving}
+            onClick={() => onDeleteSession(booking)}
+          >
+            <Trash2 className="size-4" /> Elimina
+          </Button>
         </div>
 
         <DialogFooter className="gap-2 sm:gap-2">
@@ -218,29 +232,6 @@ export function EditBookingDialog({
             Salva
           </Button>
         </DialogFooter>
-
-        <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Eliminare la sessione ovunque?</AlertDialogTitle>
-              <AlertDialogDescription>
-                L'evento verrà eliminato definitivamente, anche da Google Calendar. L'azione non può
-                essere annullata.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={saving}>Annulla</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={async () => {
-                  if (!booking) return;
-                  await onDeleteEverywhere(booking);
-                }}
-              >
-                Elimina ovunque
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
 
         <AlertDialog open={confirmUnlinkOpen} onOpenChange={setConfirmUnlinkOpen}>
           <AlertDialogContent>

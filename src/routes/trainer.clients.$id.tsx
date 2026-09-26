@@ -2,18 +2,22 @@ import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-r
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { BlockCreditsDialog } from "@/components/block-credits-dialog";
-import { EditBookingDialog, type EditableBooking } from "@/components/edit-booking-dialog";
+import {
+  EditBookingDialog,
+  type EditableBooking,
+  type EditBookingSaveInput,
+} from "@/components/edit-booking-dialog";
+import { SessionCancelDialog } from "@/components/session-cancel-dialog";
 import { OrphanBookingsCard } from "@/components/orphan-bookings-card";
 import { PathStartDateCard } from "@/components/path-start-date-card";
 import { TrainerBiaPanel } from "@/components/trainer-bia-panel";
 import { CoachNotesCard } from "@/components/coach-notes-card";
 import { AutoRenewToggleCard } from "@/components/auto-renew-toggle-card";
 import { TimelineWeekRow } from "@/components/timeline-week-row";
-import { AssignPackageDialog, type AssignPackagePayload } from "@/components/assign-package-dialog";
+import { PackageDialog } from "@/components/package-dialog";
 import { Button } from "@/components/ui/button";
 import { PageTitle } from "@/components/page-title";
 
-import { Dialog } from "@/components/ui/dialog";
 import {
   ArrowLeft,
   Loader2,
@@ -26,11 +30,13 @@ import {
   ChevronDown,
   TriangleAlert,
 } from "lucide-react";
-type EditableStatus = "scheduled" | "completed" | "cancelled" | "late_cancelled";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useCoachEventTypes } from "@/lib/queries";
-import { gcalDeleteEvent, gcalUpdateEvent } from "@/lib/gcal.functions";
+import { gcalUpdateEvent } from "@/lib/gcal.functions";
+import { findCreditToReturn, type SessionRemoval } from "@/lib/cancel-session";
+import { supabaseSessionStore } from "@/lib/session-store";
+import type { PackageMode } from "@/lib/package-actions";
 import { queryKeys } from "@/lib/query-keys";
 import { sessionLabel, type SessionType } from "@/lib/mock-data";
 import { toast } from "sonner";
@@ -45,7 +51,7 @@ const WEEKS_PER_BLOCK = 4;
 const STATUS_CHIP: Record<string, { className: string; label: string }> = {
   scheduled: { className: "bg-status-info-bg text-on-status-info", label: "Programmata" },
   completed: { className: "bg-success-soft text-success-text", label: "Presente" },
-  late_cancelled: { className: "bg-danger-soft text-danger-text", label: "No-show" },
+  late_cancelled: { className: "bg-warning-soft text-warning-text", label: "Annullata tardi" },
   cancelled: { className: "bg-danger-soft text-danger-text", label: "Annullata" },
 };
 
@@ -162,18 +168,21 @@ function ClientPathPage() {
   const [orphans, setOrphans] = useState<OrphanBooking[]>([]);
   const [clientBookings, setClientBookings] = useState<ClientBooking[]>([]);
   const [editingBooking, setEditingBooking] = useState<ClientBooking | null>(null);
+  // Dialog condiviso «Annulla o elimina sessione» (passata 02).
+  const [removal, setRemoval] = useState<{
+    booking: ClientBooking;
+    removal: SessionRemoval;
+  } | null>(null);
   // Block auto-renew toggle (profiles.auto_renew_blocks, added by
   // 20260524110000_block_auto_renew.sql). Loaded lazily so we don't
   // block the rest of the page if the column hasn't been regenerated
   // in the Supabase types yet.
   const [autoRenewBlocks, setAutoRenewBlocks] = useState<boolean | null>(null);
   const [autoRenewSaving, setAutoRenewSaving] = useState(false);
-  // "Assegna pacchetto" — configura percorso/crediti su un cliente esistente
-  // (es. invitato, mai configurato). hasExtraCredits + blocks.length servono
-  // come guardia: in v1 non sovrascriviamo un pacchetto già attivo.
-  const [assignOpen, setAssignOpen] = useState(false);
+  // Dialog condiviso «Pacchetto» (passata 02): rinnovo, crediti extra, nuovo
+  // percorso. null = chiuso; altrimenti la scelta con cui si apre.
+  const [packageMode, setPackageMode] = useState<PackageMode | "auto" | null>(null);
   const [hasExtraCredits, setHasExtraCredits] = useState(false);
-  const [assigning, setAssigning] = useState(false);
 
   const totalBlocks = blocks.length;
   const totalWeeks = totalBlocks * WEEKS_PER_BLOCK;
@@ -485,40 +494,12 @@ function ClientPathPage() {
 
   // La conferma è nell'AlertDialog di EditBookingDialog (audit T5).
   async function unlinkBooking(b: ClientBooking, opts: { silent?: boolean } = {}) {
-    // Restituisci credito se era contabilizzato
-    if (b.block_id) {
-      const alloc = allocations.find(
-        (a) =>
-          a.block_id === b.block_id &&
-          (b.event_type_id
-            ? a.event_type_id === b.event_type_id
-            : a.session_type === b.session_type) &&
-          a.quantity_booked > 0,
-      );
-      if (alloc) {
-        await supabase
-          .from("block_allocations")
-          .update({ quantity_booked: Math.max(0, alloc.quantity_booked - 1) })
-          .eq("id", alloc.id);
-      }
-    } else if (b.event_type_id) {
-      // Refund extra_credits per cliente indipendente / booster
-      const { data: ecRows } = await supabase
-        .from("extra_credits")
-        .select("id, quantity_booked")
-        .eq("client_id", clientId)
-        .eq("event_type_id", b.event_type_id)
-        .gt("quantity_booked", 0)
-        .order("expires_at", { ascending: true })
-        .limit(1);
-      const ec = (ecRows ?? [])[0];
-      if (ec) {
-        await supabase
-          .from("extra_credits")
-          .update({ quantity_booked: Math.max(0, ec.quantity_booked - 1) })
-          .eq("id", ec.id);
-      }
-    }
+    // Il credito da restituire, se è ancora impegnato: la stessa allocazione che
+    // sceglierebbe il server (lib/cancel-session.ts); una sessione già annullata
+    // con rimborso non ne restituisce un secondo. Si cerca prima di scollegare
+    // (servono cliente e blocco) e si restituisce solo a scollegamento riuscito.
+    const stored = await supabaseSessionStore.getSession(b.id);
+    const credit = stored ? await findCreditToReturn(supabaseSessionStore, stored) : null;
     // Anti-ghosting: aggiungi clientId a ignored_by_clients
     const { data: row } = await supabase
       .from("bookings")
@@ -536,6 +517,11 @@ function ClientPathPage() {
       toast.error("Scollegamento non riuscito", { description: error.message });
       return;
     }
+    if (credit && !(await supabaseSessionStore.moveCredit(credit, -1).catch(() => false))) {
+      toast.error("Il credito non è stato restituito.", {
+        description: "Controlla i crediti del blocco dal profilo.",
+      });
+    }
     // Rimozione istantanea dalla griglia
     setClientBookings((prev) => prev.filter((x) => x.id !== b.id));
     setEditingBooking(null);
@@ -543,81 +529,16 @@ function ClientPathPage() {
     void load();
   }
 
-  async function deleteBookingEverywhere(b: ClientBooking) {
-    // Sync Google Calendar delete via Lovable Connector
-    if (b.google_event_id) {
-      try {
-        await gcalDeleteEvent({ data: { googleEventId: b.google_event_id } });
-      } catch (err) {
-        console.error("gcalDeleteEvent failed", err);
-      }
-    }
-    // Restituisci credito se era contabilizzato
-    if (b.block_id) {
-      const alloc = allocations.find(
-        (a) =>
-          a.block_id === b.block_id &&
-          (b.event_type_id
-            ? a.event_type_id === b.event_type_id
-            : a.session_type === b.session_type) &&
-          a.quantity_booked > 0,
-      );
-      if (alloc) {
-        await supabase
-          .from("block_allocations")
-          .update({ quantity_booked: Math.max(0, alloc.quantity_booked - 1) })
-          .eq("id", alloc.id);
-      }
-    } else if (b.event_type_id) {
-      // Refund extra_credits per cliente indipendente / booster
-      const { data: ecRows } = await supabase
-        .from("extra_credits")
-        .select("id, quantity_booked")
-        .eq("client_id", clientId)
-        .eq("event_type_id", b.event_type_id)
-        .gt("quantity_booked", 0)
-        .order("expires_at", { ascending: true })
-        .limit(1);
-      const ec = (ecRows ?? [])[0];
-      if (ec) {
-        await supabase
-          .from("extra_credits")
-          .update({ quantity_booked: Math.max(0, ec.quantity_booked - 1) })
-          .eq("id", ec.id);
-      }
-    }
-    const { error } = await supabase
-      .from("bookings")
-      .update({ deleted_at: new Date().toISOString(), status: "cancelled" })
-      .eq("id", b.id);
-    if (error) {
-      toast.error("Eliminazione non riuscita", { description: error.message });
-      return;
-    }
-    setClientBookings((prev) => prev.filter((x) => x.id !== b.id));
-    setEditingBooking(null);
-    toast.success("Evento eliminato definitivamente");
-    void load();
-  }
-
-  async function saveBookingEdit(input: {
-    id: string;
-    scheduled_at: string;
-    event_type_id: string | null;
-    session_type: SessionType;
-    status: EditableStatus;
-    block_id: string | null;
-    prevStatus: string;
-    prevEventTypeId: string | null;
-    prevSessionType: SessionType;
-  }) {
+  // Annullare ed eliminare passano dal dialog condiviso (SessionCancelDialog):
+  // qui si salvano solo data, ora, tipologia e lo stato programmata/svolta.
+  async function saveBookingEdit(input: EditBookingSaveInput) {
     const { error } = await supabase
       .from("bookings")
       .update({
         scheduled_at: input.scheduled_at,
         event_type_id: input.event_type_id,
         session_type: input.session_type,
-        status: input.status,
+        ...(input.status ? { status: input.status } : {}),
       })
       .eq("id", input.id);
     if (error) {
@@ -625,84 +546,42 @@ function ClientPathPage() {
       return;
     }
 
-    // Restore credit if newly cancelled (refunded)
-    const wasActive = input.prevStatus === "scheduled" || input.prevStatus === "completed";
-    if (input.status === "cancelled" && wasActive && input.block_id) {
-      const alloc = allocations.find(
-        (a) =>
-          a.block_id === input.block_id &&
-          (input.prevEventTypeId
-            ? a.event_type_id === input.prevEventTypeId
-            : a.session_type === input.prevSessionType) &&
-          a.quantity_booked > 0,
-      );
-      if (alloc) {
-        await supabase
-          .from("block_allocations")
-          .update({ quantity_booked: Math.max(0, alloc.quantity_booked - 1) })
-          .eq("id", alloc.id);
-      }
-    } else if (
-      input.status === "cancelled" &&
-      wasActive &&
-      !input.block_id &&
-      input.prevEventTypeId
-    ) {
-      // Refund extra_credits per cliente indipendente / booster
-      const { data: ecRows } = await supabase
-        .from("extra_credits")
-        .select("id, quantity_booked")
-        .eq("client_id", clientId)
-        .eq("event_type_id", input.prevEventTypeId)
-        .gt("quantity_booked", 0)
-        .order("expires_at", { ascending: true })
-        .limit(1);
-      const ec = (ecRows ?? [])[0];
-      if (ec) {
-        await supabase
-          .from("extra_credits")
-          .update({ quantity_booked: Math.max(0, ec.quantity_booked - 1) })
-          .eq("id", ec.id);
-      }
-    }
-
     // A3 (audit 2026-06-06): sincronizza Google Calendar. Prima saveBookingEdit
     // aggiornava SOLO il DB -> spostare l'orario lasciava un promemoria Google
-    // sbagliato e annullare lasciava l'evento Google "fantasma" coi reminder.
-    // Fire-and-forget come gli altri call-site gcal: l'esito non blocca
-    // l'aggiornamento DB gia' riuscito.
+    // sbagliato. Fire-and-forget come gli altri call-site gcal: l'esito non
+    // blocca l'aggiornamento DB gia' riuscito. Le sessioni annullate non hanno
+    // più l'evento su Google.
     const editedBk = clientBookings.find((x) => x.id === input.id);
     const googleEventId = editedBk?.google_event_id ?? null;
-    if (googleEventId) {
-      if (input.status === "cancelled") {
-        void gcalDeleteEvent({ data: { googleEventId } }).catch((e) =>
-          console.error("gcalDeleteEvent (saveBookingEdit) failed", e),
-        );
-      } else {
-        const durationMin =
-          (input.event_type_id
-            ? eventTypes.find((et) => et.id === input.event_type_id)?.duration
-            : undefined) ??
-          editedBk?.duration_min ??
-          60;
-        const startISO = new Date(input.scheduled_at).toISOString();
-        const endISO = new Date(
-          new Date(input.scheduled_at).getTime() + durationMin * 60_000,
-        ).toISOString();
-        void gcalUpdateEvent({ data: { googleEventId, startISO, endISO } }).catch((e) =>
-          console.error("gcalUpdateEvent (saveBookingEdit) failed", e),
-        );
-      }
+    const cancelled = editedBk?.status === "cancelled" || editedBk?.status === "late_cancelled";
+    if (googleEventId && !cancelled) {
+      const durationMin =
+        (input.event_type_id
+          ? eventTypes.find((et) => et.id === input.event_type_id)?.duration
+          : undefined) ??
+        editedBk?.duration_min ??
+        60;
+      const startISO = new Date(input.scheduled_at).toISOString();
+      const endISO = new Date(
+        new Date(input.scheduled_at).getTime() + durationMin * 60_000,
+      ).toISOString();
+      void gcalUpdateEvent({ data: { googleEventId, startISO, endISO } }).catch((e) =>
+        console.error("gcalUpdateEvent (saveBookingEdit) failed", e),
+      );
     }
 
-    toast.success("Sessione aggiornata e contatori sincronizzati");
+    toast.success("Sessione aggiornata");
+    refreshClientCaches();
+    setEditingBooking(null);
+    void load();
+  }
+
+  function refreshClientCaches() {
     qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(user?.id) });
     qc.invalidateQueries({ queryKey: queryKeys.bookings.client(clientId) });
     qc.invalidateQueries({ queryKey: queryKeys.blocks.client(clientId) });
     qc.invalidateQueries({ queryKey: queryKeys.extraCredits.client(clientId) });
     qc.invalidateQueries({ queryKey: queryKeys.clients.coach(user?.id) });
-    setEditingBooking(null);
-    void load();
   }
 
   function regenerateFromStart(start: Date) {
@@ -816,176 +695,6 @@ function ClientPathPage() {
       setSaving(false);
     }
   }
-
-  // Assegna un pacchetto a QUESTO cliente (esistente). Replica la logica di
-  // onboarding di trainer.clients.index.tsx (createClientAccount) ma senza
-  // creare l'utente: si limita a creare blocchi+allocations oppure
-  // extra_credits e a impostare i metadati del profilo (incl. path_start_date,
-  // la cui assenza lasciava i clienti invitati "vuoti").
-  // GUARDIA: il dialog è in sola lettura se il cliente ha già blocchi o crediti;
-  // ricontrolliamo anche qui server-side-ish prima di scrivere.
-  async function assignPackage(data: AssignPackagePayload) {
-    if (!user) return;
-    setAssigning(true);
-    let clampedNote = false;
-    try {
-      if (data.pathType === "free") {
-        // Cliente Libero / PT Pack: crediti extra (validità 1 anno), nessun blocco.
-        const qty = Math.max(0, data.freeSessions ?? 0);
-        const eventTypeId = data.freeEventTypeId ?? "";
-        if (qty > 0 && eventTypeId) {
-          const expires = new Date("2100-01-01T00:00:00Z");
-          const { error: ecErr } = await supabase.from("extra_credits").insert({
-            client_id: clientId,
-            event_type_id: eventTypeId,
-            quantity: qty,
-            quantity_booked: 0,
-            expires_at: expires.toISOString(),
-          });
-          if (ecErr) throw ecErr;
-        }
-        const { error: pErr } = await supabase
-          .from("profiles")
-          .update({
-            path_type: "free",
-            auto_renew: false,
-            auto_renew_blocks: false,
-            pack_label: data.packLabel,
-            next_billing_date: null,
-          })
-          .eq("id", clientId);
-        if (pErr) throw pErr;
-      } else {
-        // Percorso Fisso / Abbonamento: blocchi da 4 settimane. I nuovi blocchi
-        // partono dalla data scelta dalla coach nel dialog (data.startDate) e
-        // vengono accodati in coda per sequence_order, senza cancellare quelli
-        // esistenti. Se la data scelta cade prima della fine dell'ultimo blocco
-        // esistente, si parte comunque dal giorno dopo la sua fine: due blocchi
-        // attivi che si sovrappongono darebbero crediti/disponibilità errati.
-        const { data: existing, error: exErr } = await supabase
-          .from("training_blocks")
-          .select("sequence_order, end_date")
-          .eq("client_id", clientId)
-          .is("deleted_at", null)
-          .order("sequence_order", { ascending: false })
-          .limit(1);
-        if (exErr) throw exErr;
-        const last = existing?.[0];
-        const seqOffset = last ? (last.sequence_order as number) : 0;
-        const DAY = 86400000;
-        let firstStart = new Date(`${data.startDate}T00:00:00Z`);
-        if (last?.end_date) {
-          const minStart = new Date(`${last.end_date}T00:00:00Z`);
-          minStart.setTime(minStart.getTime() + DAY);
-          if (firstStart < minStart) {
-            firstStart = minStart;
-            clampedNote = true;
-          }
-        }
-        const blocksToInsert = Array.from({ length: data.totalBlocks }, (_, i) => {
-          const start = new Date(firstStart.getTime() + i * 28 * DAY);
-          const end = new Date(start.getTime() + 27 * DAY);
-          return {
-            client_id: clientId,
-            coach_id: user.id,
-            start_date: start.toISOString().slice(0, 10),
-            end_date: end.toISOString().slice(0, 10),
-            status: "active" as const,
-            sequence_order: seqOffset + i + 1,
-            duration_days: 28,
-          };
-        });
-        const { data: blocksRes, error: bErr } = await supabase
-          .from("training_blocks")
-          .insert(blocksToInsert)
-          .select("id, sequence_order, end_date");
-        if (bErr) throw bErr;
-        const blockBySeq = new Map<number, { id: string; end_date: string }>();
-        (blocksRes ?? []).forEach((b) =>
-          blockBySeq.set(b.sequence_order as number, {
-            id: b.id as string,
-            end_date: b.end_date as string,
-          }),
-        );
-
-        const allocsToInsert: Array<{
-          block_id: string;
-          week_number: number;
-          session_type: SessionType;
-          event_type_id: string;
-          quantity_assigned: number;
-          quantity_booked: number;
-          valid_until: string | null;
-        }> = [];
-        for (const rule of data.rules) {
-          for (let m = rule.startBlock; m <= rule.endBlock; m++) {
-            const b = blockBySeq.get(seqOffset + m);
-            if (!b) continue;
-            allocsToInsert.push({
-              block_id: b.id,
-              week_number: 1,
-              session_type: rule.sessionType,
-              event_type_id: rule.eventTypeId,
-              quantity_assigned: rule.quantityPerBlock,
-              quantity_booked: 0,
-              valid_until: null,
-            });
-          }
-        }
-        if (allocsToInsert.length > 0) {
-          const { error: aErr } = await supabase.from("block_allocations").insert(allocsToInsert);
-          if (aErr) throw aErr;
-        }
-
-        // path_start_date = start del blocco 1 della catena. Se il cliente ha
-        // già dei blocchi, l'ancora esistente NON va toccata (repair ricalcola
-        // le date da lì); si imposta solo quando manca.
-        const lastNewEnd = blocksToInsert[blocksToInsert.length - 1]?.end_date ?? null;
-        const pathStartIso = pathStart ? toIso(pathStart) : (blocksToInsert[0]?.start_date ?? null);
-        const { error: pErr } = await supabase
-          .from("profiles")
-          .update({
-            path_type: data.pathType,
-            auto_renew: data.autoRenew,
-            auto_renew_blocks: data.autoRenew,
-            pack_label: data.packLabel,
-            path_start_date: pathStartIso,
-            next_billing_date: data.pathType === "recurring" ? lastNewEnd : null,
-          })
-          .eq("id", clientId);
-        if (pErr) throw pErr;
-      }
-
-      toast.success("Pacchetto assegnato", {
-        description:
-          data.pathType === "free"
-            ? "Crediti accreditati al cliente."
-            : `Creati ${data.totalBlocks} blocchi con i crediti impostati.${
-                clampedNote
-                  ? " La data d'inizio è stata spostata al giorno dopo la fine del blocco precedente, per evitare sovrapposizioni."
-                  : ""
-              }`,
-      });
-      setAssignOpen(false);
-      qc.invalidateQueries({ queryKey: queryKeys.clients.coach(user.id) });
-      qc.invalidateQueries({ queryKey: queryKeys.blocks.coach(user.id) });
-      await load();
-    } catch (e) {
-      toast.error("Assegnazione non riuscita", { description: errorMessage(e) });
-    } finally {
-      setAssigning(false);
-    }
-  }
-
-  // Default per "Data di inizio primo blocco": il giorno dopo la fine
-  // dell'ultimo blocco esistente, così i nuovi blocchi non si sovrappongono.
-  const nextBlockStartDefault = useMemo(() => {
-    const last = [...blocks].sort((a, b) => a.sequence_order - b.sequence_order).at(-1);
-    if (!last?.end_date) return undefined;
-    const d = new Date(`${last.end_date}T00:00:00Z`);
-    d.setTime(d.getTime() + 86400000);
-    return d.toISOString().slice(0, 10);
-  }, [blocks]);
 
   const dirty = useMemo(() => {
     if (rows.length !== originalRows.length) return true;
@@ -1224,8 +933,8 @@ function ClientPathPage() {
         <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
-            onClick={() => setAssignOpen(true)}
-            disabled={loading || assigning}
+            onClick={() => setPackageMode("auto")}
+            disabled={loading}
             className="h-auto rounded-full border-0 bg-surface-container px-5 py-2.5 text-sm font-semibold text-on-surface-variant hover:bg-surface-container-high"
           >
             <Plus className="size-4" /> Assegna pacchetto
@@ -1322,9 +1031,17 @@ function ClientPathPage() {
             {pkg.expiringSoon && (
               <div className="mt-5 flex items-center gap-2.5 bg-warning-soft border border-warning-line rounded-2xl px-4 py-3">
                 <TriangleAlert className="size-4 shrink-0 text-warning-text" aria-hidden />
-                <span className="text-[13px] text-warning-text">
+                <span className="flex-1 text-[13px] text-warning-text">
                   Pacchetto in esaurimento — proponi il rinnovo.
                 </span>
+                {/* P5: il rinnovo si fa qui, nel dialog condiviso. */}
+                <button
+                  type="button"
+                  onClick={() => setPackageMode("renew")}
+                  className="shrink-0 rounded-full bg-aura-primary px-4 py-1.5 text-[13px] font-semibold text-white hover:bg-primary-container"
+                >
+                  Rinnova
+                </button>
               </div>
             )}
           </section>
@@ -1434,7 +1151,7 @@ function ClientPathPage() {
                     <p className="text-sm text-muted-foreground">
                       Questo cliente non ha ancora un pacchetto assegnato.
                     </p>
-                    <Button onClick={() => setAssignOpen(true)} disabled={assigning}>
+                    <Button onClick={() => setPackageMode("auto")}>
                       <Plus className="size-4" /> Assegna pacchetto
                     </Button>
                   </>
@@ -1628,20 +1345,44 @@ function ClientPathPage() {
         onClose={() => setEditingBooking(null)}
         onSave={saveBookingEdit}
         onUnlink={(b: EditableBooking) => unlinkBooking(b as ClientBooking)}
-        onDeleteEverywhere={(b: EditableBooking) => deleteBookingEverywhere(b as ClientBooking)}
+        onCancelSession={(b: EditableBooking) => {
+          setEditingBooking(null);
+          setRemoval({ booking: b as ClientBooking, removal: "cancel" });
+        }}
+        onDeleteSession={(b: EditableBooking) => {
+          setEditingBooking(null);
+          setRemoval({ booking: b as ClientBooking, removal: "delete" });
+        }}
       />
 
-      <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
-        <AssignPackageDialog
-          open={assignOpen}
-          clientName={clientName}
-          eventTypes={eventTypes.map((e) => ({ id: e.id, name: e.name, base_type: e.base_type }))}
-          hasExistingPackage={blocks.length > 0}
-          hasCredits={hasExtraCredits}
-          defaultStartDate={nextBlockStartDefault}
-          onAssign={assignPackage}
-        />
-      </Dialog>
+      <SessionCancelDialog
+        session={
+          removal
+            ? {
+                ...removal.booking,
+                client_id: clientId,
+                coach_id: user?.id ?? null,
+                is_personal: false,
+              }
+            : null
+        }
+        removal={removal?.removal ?? "cancel"}
+        clientName={clientName}
+        typeName={
+          removal?.booking.event_type_id
+            ? (eventTypes.find((e) => e.id === removal.booking.event_type_id)?.name ?? null)
+            : null
+        }
+        onClose={() => setRemoval(null)}
+        onChanged={() => void load()}
+      />
+
+      <PackageDialog
+        clientId={packageMode ? clientId : null}
+        initialMode={packageMode === "auto" ? undefined : (packageMode ?? undefined)}
+        onClose={() => setPackageMode(null)}
+        onChanged={() => void load()}
+      />
 
       {/* Suppress unused warning */}
       <span className="hidden">
