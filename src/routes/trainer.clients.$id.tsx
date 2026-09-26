@@ -35,6 +35,7 @@ import { useAuth } from "@/lib/auth";
 import { useCoachEventTypes } from "@/lib/queries";
 import { gcalUpdateEvent } from "@/lib/gcal.functions";
 import { findCreditToReturn, type SessionRemoval } from "@/lib/cancel-session";
+import { getRenewalInfo, type RenewalClient } from "@/lib/renewal";
 import { supabaseSessionStore } from "@/lib/session-store";
 import type { PackageMode } from "@/lib/package-actions";
 import { queryKeys } from "@/lib/query-keys";
@@ -93,7 +94,9 @@ interface WeekRow {
 interface BlockRecord {
   id: string;
   sequence_order: number;
+  start_date: string;
   end_date: string;
+  status: string;
 }
 
 interface AllocationRecord {
@@ -178,6 +181,9 @@ function ClientPathPage() {
   // block the rest of the page if the column hasn't been regenerated
   // in the Supabase types yet.
   const [autoRenewBlocks, setAutoRenewBlocks] = useState<boolean | null>(null);
+  // Campi del profilo per «In scadenza» (renewal.ts), con auto_renew_blocks
+  // com'è salvato: null vale spento, come nel server.
+  const [renewalProfile, setRenewalProfile] = useState<RenewalClient | null>(null);
   const [autoRenewSaving, setAutoRenewSaving] = useState(false);
   // Dialog condiviso «Pacchetto» (passata 02): rinnovo, crediti extra, nuovo
   // percorso. null = chiuso; altrimenti la scelta con cui si apre.
@@ -225,6 +231,8 @@ function ClientPathPage() {
                 email: string | null;
                 path_start_date: string | null;
                 auto_renew_blocks: boolean | null;
+                status: string;
+                path_type: string | null;
               } | null;
             }>;
           };
@@ -233,7 +241,7 @@ function ClientPathPage() {
     };
     const { data: profile } = await sbProfile
       .from("profiles")
-      .select("id, full_name, email, path_start_date, auto_renew_blocks")
+      .select("id, full_name, email, path_start_date, auto_renew_blocks, status, path_type")
       .eq("id", clientId)
       .maybeSingle();
     if (isStale()) return;
@@ -252,10 +260,15 @@ function ClientPathPage() {
     setLastName(parts.slice(1).join(" "));
     setPathStart(profile.path_start_date ? parseISO(profile.path_start_date) : undefined);
     setAutoRenewBlocks(profile.auto_renew_blocks ?? true);
+    setRenewalProfile({
+      status: profile.status,
+      path_type: profile.path_type,
+      auto_renew_blocks: profile.auto_renew_blocks,
+    });
 
     const { data: bls } = await supabase
       .from("training_blocks")
-      .select("id, sequence_order, end_date")
+      .select("id, sequence_order, start_date, end_date, status")
       .eq("client_id", clientId)
       .is("deleted_at", null)
       .order("sequence_order", { ascending: true });
@@ -263,7 +276,9 @@ function ClientPathPage() {
     const blockList = (bls ?? []).map((b) => ({
       id: b.id as string,
       sequence_order: b.sequence_order as number,
+      start_date: b.start_date as string,
       end_date: b.end_date as string,
+      status: b.status as string,
     }));
     setBlocks(blockList);
     const blockIds = blockList.map((b) => b.id);
@@ -650,6 +665,7 @@ function ClientPathPage() {
       setAutoRenewBlocks(prev);
       toast.error("Errore aggiornamento", { description: error.message });
     } else {
+      setRenewalProfile((p) => (p ? { ...p, auto_renew_blocks: next } : p));
       toast.success(next ? "Rinnovo automatico attivato" : "Rinnovo automatico disattivato");
     }
     setAutoRenewSaving(false);
@@ -826,11 +842,9 @@ function ClientPathPage() {
     const currentNum =
       current?.sequence_order ?? (finished ? totalBlocks : totalBlocks > 0 ? 1 : 0);
     const expiry = lastEnd ? addDays(lastEnd, -1) : null;
+    // «In scadenza»: la regola unica di renewal.ts, la stessa di Panoramica e Clienti.
     const expiringSoon =
-      !!current &&
-      current.sequence_order === totalBlocks &&
-      !!lastEnd &&
-      lastEnd.getTime() - nowMs < 14 * 86400000;
+      !!renewalProfile && getRenewalInfo(renewalProfile, blocks, allocations, today) !== null;
     // Barre crediti aggregate per tipologia su tutto il percorso
     const grouped = new Map<string, { name: string; assigned: number; completed: number }>();
     blockAggregates.forEach((b) =>
@@ -851,7 +865,7 @@ function ClientPathPage() {
           ? { label: "Completato", className: "bg-surface-container text-on-surface-variant" }
           : null;
     return { currentNum, expiry, expiringSoon, bars: Array.from(grouped.values()), status };
-  }, [blockAggregates, totalBlocks, hasExtraCredits, today]);
+  }, [blockAggregates, totalBlocks, hasExtraCredits, today, renewalProfile, blocks, allocations]);
 
   const engage = useMemo(() => {
     const past = clientBookings.filter((b) => b.status !== "scheduled");
