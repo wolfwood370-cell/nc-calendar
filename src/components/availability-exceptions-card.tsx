@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { addException, removeExceptions } from "@/lib/availability-actions";
+import { supabaseAvailabilityStore } from "@/lib/availability-store";
 import { useCoachAvailabilityExceptions, type AvailabilityExceptionRow } from "@/lib/queries";
 import { HOURS, fmt } from "@/lib/availability-helpers";
 import { Calendar } from "@/components/ui/calendar";
@@ -56,14 +57,17 @@ export function AvailabilityExceptionsCard({ coachId }: AvailabilityExceptionsCa
       if (!date) throw new Error("Seleziona una data");
       if (mode === "range" && end <= start)
         throw new Error("L'ora di fine deve essere successiva a quella di inizio");
-      const { error } = await supabase.from("availability_exceptions").insert({
-        coach_id: coachId!,
-        date: toDateKey(date),
-        reason: reason.trim(),
-        start_time: mode === "range" ? `${start}:00` : null,
-        end_time: mode === "range" ? `${end}:00` : null,
+      if (!coachId) throw new Error("Non autenticato");
+      // Passata 08: lo stesso inserimento del desktop, con Dal = Al.
+      const day = toDateKey(date);
+      await addException(supabaseAvailabilityStore, coachId, {
+        from: day,
+        to: day,
+        allDay: mode !== "range",
+        start,
+        end,
+        reason,
       });
-      if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Eccezione aggiunta");
@@ -75,8 +79,11 @@ export function AvailabilityExceptionsCard({ coachId }: AvailabilityExceptionsCa
 
   const delMut = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("availability_exceptions").delete().eq("id", id);
-      if (error) throw error;
+      if (!coachId) throw new Error("Non autenticato");
+      // Passata 08: la rimozione del desktop, sulla riga sola.
+      const row = (exQ.data ?? []).find((r) => r.id === id);
+      if (!row) throw new Error("Eccezione non trovata: ricarica la pagina.");
+      await removeExceptions(supabaseAvailabilityStore, coachId, [row]);
     },
     onSuccess: () => {
       toast.success("Eccezione rimossa");

@@ -27,6 +27,9 @@ import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { HOURS, fmt } from "@/lib/availability-helpers";
 import { AvailabilityExceptionsCard } from "@/components/availability-exceptions-card";
+import { saveWeek } from "@/lib/availability-actions";
+import { supabaseAvailabilityStore } from "@/lib/availability-store";
+import type { WeekSlot } from "@/lib/availability-week";
 
 interface AvailabilityRow {
   id: string;
@@ -224,6 +227,11 @@ export function AvailabilityMobile() {
   const saveMut = useMutation({
     mutationFn: async () => {
       if (!meId) throw new Error("Non autenticato");
+      // Passata 08: se l'orario non si è letto la settimana mostrata è vuota,
+      // e salvarla cancellerebbe tutti gli orari.
+      if (!didHydrateWeek.current) {
+        throw new Error("Non riesco a leggere l'orario: ricarica la pagina prima di salvare.");
+      }
 
       // Validate — collect every offending day's first error before bailing.
       const newErrors: Record<number, string> = {};
@@ -280,13 +288,16 @@ export function AvailabilityMobile() {
       }
       setDayErrors({});
 
-      // Replace all availability rows for this coach
-      const del = await supabase.from("trainer_availability").delete().eq("coach_id", meId);
-      if (del.error) throw del.error;
-      if (rows.length > 0) {
-        const ins = await supabase.from("trainer_availability").insert(rows);
-        if (ins.error) throw ins.error;
-      }
+      // Passata 08: lo stesso salvataggio del desktop (availability-actions.ts):
+      // rilegge, scrive solo quello che cambia, prima inserisce e poi cancella.
+      // Prima si cancellava tutto e poi si inseriva: un inserimento fallito
+      // lasciava il coach senza disponibilità.
+      const slots: WeekSlot[] = rows.map((r) => ({
+        day_of_week: r.day_of_week as WeekSlot["day_of_week"],
+        start: fmt(r.start_time),
+        end: fmt(r.end_time),
+      }));
+      await saveWeek(supabaseAvailabilityStore, meId, slots);
 
       // Upsert settings
       const up = await supabase.from("trainer_settings").upsert(

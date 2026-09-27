@@ -212,7 +212,7 @@ export async function addException(
 }
 
 export const EXCEPTION_REMOVE_INCOMPLETE =
-  "Non ho tolto tutti i giorni dell'eccezione: ricarica la pagina e riprova.";
+  "L'eccezione non è stata tolta del tutto: ricarica la pagina e riprova.";
 
 /** Toglie tutte le righe del periodo; restituisce le righe tolte, per «Ripristina». */
 export async function removeExceptions(
