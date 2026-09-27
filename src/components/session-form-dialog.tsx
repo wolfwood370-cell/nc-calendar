@@ -61,6 +61,7 @@ import {
   undoEdit,
   type EditableSession,
 } from "@/lib/session-edit";
+import { formatDuration } from "@/lib/session-time";
 import { toastWithUndo } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
@@ -88,13 +89,6 @@ export interface SessionFormDialogProps {
   /** Dopo il salvataggio: la sessione da selezionare e il suo giorno. */
   onSaved: (sessionId: string, date: string) => void;
   onOpenPackage: (clientId: string) => void;
-}
-
-/** «30m», «1h», «1h 30m». */
-function fmtDur(m: number): string {
-  if (m < 60) return `${m}m`;
-  const rest = m % 60;
-  return `${Math.floor(m / 60)}h${rest ? ` ${rest}m` : ""}`;
 }
 
 export function SessionFormDialog(props: SessionFormDialogProps) {
@@ -551,7 +545,7 @@ function FormBody({
           >
             {durations.map((d) => (
               <option key={d} value={d}>
-                {fmtDur(d)}
+                {formatDuration(d)}
               </option>
             ))}
           </select>
@@ -559,7 +553,7 @@ function FormBody({
       </div>
       {showDurationNote && (
         <p className="-mt-2 text-xs text-outline">
-          Con 1h il server salva la durata della tipologia ({fmtDur(type!.duration)}).
+          Con 1h il server salva la durata della tipologia ({formatDuration(type!.duration)}).
         </p>
       )}
       {locked && (

@@ -49,7 +49,7 @@ import {
   type SessionOutcome,
 } from "@/lib/session-outcome";
 import { supabaseSessionStore } from "@/lib/session-store";
-import { formatShortDay, formatTimeRange } from "@/lib/session-time";
+import { formatDuration, formatShortDay, formatTimeRange } from "@/lib/session-time";
 import { iconForType } from "@/lib/session-type-icon";
 import { listToAssign } from "@/lib/to-assign";
 import { toastWithUndo } from "@/lib/toast";
@@ -100,13 +100,6 @@ function useNow(): Date {
 
 function formatTime(d: Date): string {
   return d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
-}
-
-/** «1h», «30m», «1h 30m». */
-function formatDuration(min: number): string {
-  if (min < 60) return `${min}m`;
-  const rest = min % 60;
-  return `${Math.floor(min / 60)}h${rest ? ` ${rest}m` : ""}`;
 }
 
 function CountPill({ n, tone }: { n: number; tone: "warning" | "assign" }) {
