@@ -262,8 +262,21 @@ function full(over: {
   reconcile?: ReconcileResult;
   repair?: Partial<FullSync["repair"]>;
 }): FullSync {
+  const repair = {
+    ok: true,
+    passes: 1,
+    created: 0,
+    notCreated: 0,
+    stop: "done" as const,
+    ...over.repair,
+  };
   return {
-    repair: { ok: true, passes: 1, created: 0, notCreated: 0, stop: "done", ...over.repair },
+    repair: {
+      ...repair,
+      complete:
+        over.repair?.complete ??
+        (repair.ok && (repair.stop === "done" || repair.stop === "no-progress")),
+    },
     reconcile: over.reconcile ?? { ok: true, cancelled: 0, moved: 0, conflicts: 0, checked: 37 },
   };
 }
@@ -285,6 +298,12 @@ describe("sincronizzazione completa: l'esito", () => {
     expect(fullSyncMeasure(full({ reconcile: { ok: false, error: "Permesso negato" } }))).toBe(
       "app",
     );
+    // Il testo del §4.5, anche se il ripristino aveva creato eventi prima.
+    expect(
+      fullSyncOutcome(
+        full({ reconcile: { ok: false, error: "Permesso negato" }, repair: { created: 3 } }),
+      ).lines,
+    ).toEqual(["Non riesco a leggere le sessioni dell'app.", "Riprova più tardi."]);
   });
 
   it("2 · riconciliazione fallita: mai «completata», anche col ripristino fallito", async () => {
@@ -356,6 +375,36 @@ describe("sincronizzazione completa: l'esito", () => {
     expect(fullSyncOutcome(full({ repair: { stop: "limit", created: 1000 } })).kind).toBe(
       "partial",
     );
+  });
+
+  it("4 · una passata piena che non crea niente lascia il ripristino a metà", async () => {
+    const r = await runFullSync(
+      fakeApi(
+        [{ ok: true, cancelled: 0, moved: 0, conflicts: 0, checked: 5 }],
+        [{ ok: true, created: 0, failed: 50, total: 50 }],
+      ),
+      { now: NOW, repairEstimate: 120 },
+    );
+    expect(r.repair).toMatchObject({ passes: 1, stop: "no-progress", complete: false });
+    expect(fullSyncOutcome(r)).toEqual({
+      kind: "partial",
+      tone: "warning",
+      title: "Sincronizzazione completata in parte",
+      lines: [
+        "Non è stato possibile ricreare su Google tutti gli eventi mancanti.",
+        "Controllate 5 sessioni in programma dal 1° gennaio.",
+        "Nessuna differenza con Google.",
+        "Nessun evento ricreato su Google.",
+        "50 eventi non ricreati: riprova più tardi.",
+      ],
+    });
+    // Una passata non piena le ha provate tutte: è completa, con problemi.
+    const small = await runFullSync(
+      fakeApi([PULL_NONE], [{ ok: true, created: 0, failed: 3, total: 3 }]),
+      { now: NOW, repairEstimate: 3 },
+    );
+    expect(small.repair.complete).toBe(true);
+    expect(fullSyncOutcome(small).kind).toBe("problems");
   });
 
   it("5 · riuscita con problemi", () => {

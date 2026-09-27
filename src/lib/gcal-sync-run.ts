@@ -48,6 +48,9 @@ const DAY_MS = 24 * 60 * 60_000;
 /** Passate massime del ripristino nella completa, come prima della passata 09. */
 export const REPAIR_MAX_PASSES = 20;
 
+/** Sessioni al massimo per passata del ripristino sul server (gcal.functions.ts:551). */
+export const REPAIR_PAGE = 50;
+
 const APP_ERRORS = ["Permesso negato", "Lettura prenotazioni fallita"];
 
 export function isAppError(error: string | undefined | null): boolean {
@@ -220,6 +223,12 @@ export interface FullSync {
     /** Le sessioni che nell'ultima passata non hanno avuto l'evento. */
     notCreated: number;
     stop: RepairStop;
+    /**
+     * Tutte le sessioni senza evento sono state tentate: false se una passata
+     * è fallita, dopo le 20 passate, o se l'ultima passata era piena e non ha
+     * creato niente (le più vecchie non le ha provate nessuno).
+     */
+    complete: boolean;
   };
   reconcile: ReconcileResult;
 }
@@ -242,6 +251,7 @@ export async function runFullSync(api: GcalSyncApi, opts: FullSyncOptions): Prom
   let passes = 0;
   let created = 0;
   let notCreated = 0;
+  let lastTotal = 0;
   let stop: RepairStop = "limit";
   let repairError: string | undefined;
   report({ phase: "repair", done: 0, total });
@@ -255,6 +265,7 @@ export async function runFullSync(api: GcalSyncApi, opts: FullSyncOptions): Prom
     }
     created += r.created ?? 0;
     notCreated = r.failed ?? 0;
+    lastTotal = r.total ?? 0;
     report({ phase: "repair", done: created + notCreated, total });
     if ((r.total ?? 0) === 0) {
       stop = "done";
@@ -278,6 +289,7 @@ export async function runFullSync(api: GcalSyncApi, opts: FullSyncOptions): Prom
       created,
       notCreated,
       stop,
+      complete: stop === "done" || (stop === "no-progress" && lastTotal < REPAIR_PAGE),
     },
     reconcile,
   };
@@ -323,9 +335,8 @@ function summaryLines(r: FullSync): string[] {
     );
   }
   lines.push(differencesText(pull.moved ?? 0, pull.cancelled ?? 0));
-  const repairComplete = r.repair.ok && r.repair.stop !== "limit";
   if (r.repair.created > 0) lines.push(`${createdText(r.repair.created)} su Google.`);
-  else if (repairComplete && r.repair.notCreated === 0)
+  else if (r.repair.complete && r.repair.notCreated === 0)
     lines.push("Nessun evento da ricreare su Google.");
   else lines.push("Nessun evento ricreato su Google.");
   if (r.repair.notCreated > 0)
@@ -353,11 +364,7 @@ export function fullSyncOutcome(r: FullSync): FullSyncOutcome {
       kind: "app",
       tone: "danger",
       title: failed,
-      lines: [
-        "Non riesco a leggere le sessioni dell'app.",
-        ...meanwhile(r.repair.created),
-        "Riprova più tardi.",
-      ],
+      lines: ["Non riesco a leggere le sessioni dell'app.", "Riprova più tardi."],
     };
   }
   if (pull === "google") {
@@ -384,9 +391,9 @@ export function fullSyncOutcome(r: FullSync): FullSyncOutcome {
       ],
     };
   }
-  // Anche le 20 passate finite con sessioni ancora da trattare lasciano il
-  // ripristino a metà: non si sa se ne restano.
-  if (!r.repair.ok || r.repair.stop === "limit") {
+  // Anche le 20 passate finite, o una passata piena che non crea niente,
+  // lasciano il ripristino a metà: non si sa quante ne restano.
+  if (!r.repair.complete) {
     return {
       kind: "partial",
       tone: "warning",
