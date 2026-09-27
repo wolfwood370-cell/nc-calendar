@@ -10,7 +10,7 @@
 
 import * as RadioGroupPrimitive from "@radix-ui/react-radio-group";
 import { Check, Loader2, MapPin, TriangleAlert, Video } from "lucide-react";
-import { useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
   CoachDialog,
@@ -88,15 +88,20 @@ export interface EventTypeDialogProps {
   types: readonly EventTypeRow[];
   /** Titoli dei pacchetti attivi; undefined finché non si sanno. */
   shopTitles: readonly string[] | undefined;
+  /** La lettura dei titoli è fallita: il nome resta modificabile, controlla il modulo. */
+  shopTitlesFailed: boolean;
   onSaved: (result: SaveResult, before: EventTypeRow | null) => void;
 }
 
 export function EventTypeDialog(props: EventTypeDialogProps) {
+  // Mentre salva, il dialog non si chiude (✕, Esc, «Annulla», fuori): il
+  // salvataggio in corso non deve chiudere un dialog aperto dopo.
+  const [busy, setBusy] = useState(false);
   return (
-    <CoachDialog open={props.open} onOpenChange={props.onOpenChange}>
+    <CoachDialog open={props.open} onOpenChange={(open) => !busy && props.onOpenChange(open)}>
       {props.open && (
         <CoachDialogContent aria-describedby={undefined} className="gap-[18px] sm:max-w-[600px]">
-          <EventTypeForm key={props.initial?.id ?? "new"} {...props} />
+          <EventTypeForm key={props.initial?.id ?? "new"} {...props} onBusyChange={setBusy} />
         </CoachDialogContent>
       )}
     </CoachDialog>
@@ -109,10 +114,13 @@ function EventTypeForm({
   store,
   types,
   shopTitles,
+  shopTitlesFailed,
   onOpenChange,
   onSaved,
-}: EventTypeDialogProps) {
+  onBusyChange,
+}: EventTypeDialogProps & { onBusyChange: (busy: boolean) => void }) {
   const ids = useId();
+  const nameRef = useRef<HTMLInputElement>(null);
   const [v, setV] = useState<EventTypeInput>(() => (initial ? inputOf(initial) : NEW_TYPE));
   const [tried, setTried] = useState(false);
   const [serverProblem, setServerProblem] = useState<NameProblem | null>(null);
@@ -120,7 +128,16 @@ function EventTypeForm({
   const set = (patch: Partial<EventTypeInput>) => setV((prev) => ({ ...prev, ...patch }));
 
   const locked = !!initial && !!shopTitles && isNameLocked(initial.name, shopTitles);
+  // Finché non si sa se il negozio la vende, il nome di una tipologia che
+  // esiste già non si tocca: non deve bloccarsi dopo che il coach l'ha cambiato.
+  const nameReadOnly = !!initial && (locked || (shopTitles === undefined && !shopTitlesFailed));
   const self = initial ? { id: initial.id, name: initial.name } : null;
+
+  useEffect(() => onBusyChange(saving), [saving, onBusyChange]);
+  // Se il negozio comincia a venderla mentre il dialog è aperto, il nome torna com'era.
+  useEffect(() => {
+    if (locked && initial) setV((prev) => ({ ...prev, name: initial.name }));
+  }, [locked, initial]);
   const problem = nameProblem(v.name, self, types, shopTitles ?? []) ?? serverProblem;
   const nameError = tried && problem ? NAME_ERRORS[problem] : null;
   const colors = colorOptions(initial?.color ?? v.color);
@@ -129,7 +146,10 @@ function EventTypeForm({
 
   const submit = async () => {
     setTried(true);
-    if (nameProblem(v.name, self, types, shopTitles ?? [])) return;
+    if (nameProblem(v.name, self, types, shopTitles ?? [])) {
+      nameRef.current?.focus();
+      return;
+    }
     setSaving(true);
     try {
       const result = await saveEventType(store, { coachId, before: initial, values: v });
@@ -138,6 +158,7 @@ function EventTypeForm({
     } catch (e) {
       if (e instanceof EventTypeRuleError && e.problem !== "invalid") {
         setServerProblem(e.problem);
+        nameRef.current?.focus();
       } else {
         toast.error("Tipologia non salvata.", { description: errorMessage(e) });
       }
@@ -162,13 +183,14 @@ function EventTypeForm({
           Nome
         </label>
         <input
+          ref={nameRef}
           id={`${ids}-name`}
           value={v.name}
           onChange={(e) => {
             setServerProblem(null);
             set({ name: e.target.value });
           }}
-          readOnly={locked}
+          readOnly={nameReadOnly}
           maxLength={NAME_MAX}
           placeholder="Es. Personal Training"
           aria-invalid={!!nameError}
@@ -177,11 +199,15 @@ function EventTypeForm({
             FIELD,
             "h-[42px] border-[1.5px]",
             nameError ? "border-danger-text" : "border-transparent",
-            locked && "cursor-default text-on-surface-variant focus:bg-surface-container-low",
+            nameReadOnly && "cursor-default text-on-surface-variant focus:bg-surface-container-low",
           )}
         />
         {nameError ? (
-          <span id={`${ids}-name-note`} className="text-xs font-semibold text-danger-text">
+          <span
+            id={`${ids}-name-note`}
+            role="alert"
+            className="text-xs font-semibold text-danger-text"
+          >
             {nameError}
           </span>
         ) : (
@@ -218,6 +244,7 @@ function EventTypeForm({
             }))}
             onChange={(x) => set({ duration: Number(x) })}
             className="self-start whitespace-nowrap"
+            itemClassName="px-[11px]"
           />
         </Field>
         <Field label="Margine dopo la sessione">
@@ -230,6 +257,7 @@ function EventTypeForm({
             }))}
             onChange={(x) => set({ buffer_minutes: Number(x) })}
             className="self-start whitespace-nowrap"
+            itemClassName="px-[11px]"
           />
         </Field>
       </div>
@@ -367,7 +395,12 @@ function EventTypeForm({
       )}
 
       <div className="flex justify-end gap-2">
-        <button type="button" className={dialogSecondaryButton} onClick={() => onOpenChange(false)}>
+        <button
+          type="button"
+          className={dialogSecondaryButton}
+          disabled={saving}
+          onClick={() => onOpenChange(false)}
+        >
           Annulla
         </button>
         <button type="submit" className={dialogPrimaryButton} disabled={saving}>

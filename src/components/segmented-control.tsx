@@ -21,12 +21,15 @@ export function SegmentedControl<T extends string>({
   onChange,
   ariaLabel,
   className,
+  itemClassName,
 }: {
   value: T;
   options: readonly SegmentOption<T>[];
   onChange: (value: T) => void;
   ariaLabel: string;
   className?: string;
+  /** Classi in più per ogni segmento (es. un padding diverso). */
+  itemClassName?: string;
 }) {
   return (
     <RadioGroupPrimitive.Root
@@ -46,6 +49,7 @@ export function SegmentedControl<T extends string>({
             "flex h-8 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold transition-colors",
             "data-[state=checked]:bg-white data-[state=checked]:text-aura-primary data-[state=checked]:shadow-[0_1px_3px_rgba(0,0,0,0.1)]",
             "data-[state=unchecked]:text-on-surface-variant data-[state=unchecked]:hover:text-on-surface",
+            itemClassName,
           )}
         >
           {o.label}

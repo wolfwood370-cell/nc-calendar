@@ -2,16 +2,18 @@
 // «Eliminare «<Nome>»?», desktop (passata 07, audit E4)
 // ----------------------------------------------------------------------------
 // Dice quello che il database fa davvero: eliminare una tipologia la toglie a
-// sessioni, allocazioni e crediti extra (ON DELETE SET NULL). Una tipologia
-// in uso non si elimina: il dialog lo spiega e offre di renderla non
-// prenotabile. «Elimina» rilegge l'uso dal database prima di cancellare
-// (deleteEventType); se nel frattempo è in uso, il dialog si aggiorna con
-// l'uso appena letto. Dopo l'eliminazione nessun «Ripristina».
+// sessioni, allocazioni e crediti extra (ON DELETE SET NULL). Il testo viene
+// dall'uso letto dal database all'apertura (store.loadUsage, righe della sola
+// tipologia), non dai dati della pagina, che delle sessioni hanno solo le
+// 1.000 più recenti. Una tipologia in uso non si elimina: il dialog lo spiega
+// e offre di renderla non prenotabile. «Elimina» rilegge l'uso un'altra volta
+// subito prima di cancellare (deleteEventType); se nel frattempo è in uso, il
+// dialog mostra l'uso appena letto. Dopo l'eliminazione nessun «Ripristina».
 // ----------------------------------------------------------------------------
 
 import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
 import { Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   CoachAlertDialog,
@@ -30,84 +32,66 @@ import {
   deleteEventType,
   type EventTypeStore,
 } from "@/lib/event-type-actions";
-import { USAGE_UNREADABLE, deleteModel, type TypeUsage } from "@/lib/event-type-usage";
+import { USAGE_UNREADABLE, deleteModel, typeUsage, type TypeUsage } from "@/lib/event-type-usage";
 import type { EventTypeRow } from "@/lib/queries";
 import { errorMessage } from "@/lib/utils";
-import type { CardUsage } from "@/components/event-type-card";
 
 const OUTLINE_BUTTON =
   "inline-flex h-10 items-center justify-center gap-2 rounded-full border border-surface-variant px-4 text-sm font-semibold text-aura-primary transition-colors hover:border-primary-container disabled:opacity-60";
 
-export function EventTypeDeleteDialog({
-  type,
-  usage,
-  coachId,
-  store,
-  onClose,
-  onRetryUsage,
-  onMakeNotBookable,
-  onDeleted,
-  onGone,
-}: {
+interface DeleteDialogProps {
   /** null = chiuso. */
   type: EventTypeRow | null;
-  /** L'uso che la pagina conosce. */
-  usage: CardUsage;
   coachId: string;
   store: EventTypeStore;
   onClose: () => void;
-  onRetryUsage: () => void;
   onMakeNotBookable: (type: EventTypeRow) => Promise<void>;
   onDeleted: (type: EventTypeRow) => void;
   onGone: (type: EventTypeRow) => void;
-}) {
+}
+
+export function EventTypeDeleteDialog(props: DeleteDialogProps) {
+  const { type, onClose } = props;
   return (
     <CoachAlertDialog open={!!type} onOpenChange={(open) => !open && onClose()}>
-      {type && (
-        <DeleteBody
-          key={type.id}
-          type={type}
-          usage={usage}
-          coachId={coachId}
-          store={store}
-          onClose={onClose}
-          onRetryUsage={onRetryUsage}
-          onMakeNotBookable={onMakeNotBookable}
-          onDeleted={onDeleted}
-          onGone={onGone}
-        />
-      )}
+      {type && <DeleteBody key={type.id} {...props} type={type} />}
     </CoachAlertDialog>
   );
 }
 
 function DeleteBody({
   type,
-  usage,
   coachId,
   store,
   onClose,
-  onRetryUsage,
   onMakeNotBookable,
   onDeleted,
   onGone,
-}: {
-  type: EventTypeRow;
-  usage: CardUsage;
-  coachId: string;
-  store: EventTypeStore;
-  onClose: () => void;
-  onRetryUsage: () => void;
-  onMakeNotBookable: (type: EventTypeRow) => Promise<void>;
-  onDeleted: (type: EventTypeRow) => void;
-  onGone: (type: EventTypeRow) => void;
-}) {
-  // L'uso riletto dal database vale più di quello della pagina.
-  const [fresh, setFresh] = useState<TypeUsage | null>(null);
+}: DeleteDialogProps & { type: EventTypeRow }) {
+  const [usage, setUsage] = useState<TypeUsage | null>(null);
+  const [gone, setGone] = useState(false);
   const [unreadable, setUnreadable] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [busy, setBusy] = useState(false);
-  const known = fresh ?? (typeof usage === "object" ? usage : null);
-  const model = known ? deleteModel(type, known) : null;
+
+  // L'uso dal database, all'apertura e a ogni «Riprova».
+  useEffect(() => {
+    let alive = true;
+    setUnreadable(false);
+    store
+      .loadUsage(type.id, coachId)
+      .then((read) => {
+        if (!alive) return;
+        if (read.name === null) setGone(true);
+        else setUsage(typeUsage({ id: type.id, name: read.name }, read.data, new Date()));
+      })
+      .catch(() => alive && setUnreadable(true));
+    return () => {
+      alive = false;
+    };
+  }, [type.id, coachId, store, attempt]);
+
+  const model = usage ? deleteModel(type, usage) : null;
 
   const remove = async () => {
     setBusy(true);
@@ -117,12 +101,10 @@ function DeleteBody({
       onDeleted(type);
       onClose();
     } catch (e) {
-      if (e instanceof TypeInUseError) setFresh(e.usage);
+      if (e instanceof TypeInUseError) setUsage(e.usage);
       else if (e instanceof UsageUnreadableError) setUnreadable(true);
-      else if (e instanceof TypeGoneError) {
-        onGone(type);
-        onClose();
-      } else toast.error("Tipologia non eliminata.", { description: errorMessage(e) });
+      else if (e instanceof TypeGoneError) setGone(true);
+      else toast.error("Tipologia non eliminata.", { description: errorMessage(e) });
     } finally {
       setBusy(false);
     }
@@ -141,32 +123,40 @@ function DeleteBody({
   };
 
   return (
-    <CoachAlertDialogContent>
+    <CoachAlertDialogContent onEscapeKeyDown={(e) => busy && e.preventDefault()}>
       <CoachAlertDialogTitle>Eliminare «{type.name}»?</CoachAlertDialogTitle>
       <CoachAlertDialogDescription asChild>
         <div className="flex flex-col gap-2 text-sm leading-normal text-on-surface-variant">
-          {model ? (
+          {gone ? (
+            <p>Questa tipologia non esiste più: l'ha eliminata qualcun altro.</p>
+          ) : model ? (
             model.lines.map((line) => <p key={line}>{line}</p>)
-          ) : usage === "loading" ? (
+          ) : unreadable ? null : (
             <>
-              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-full" aria-label="Uso in caricamento" />
               <Skeleton className="h-4 w-2/3" />
             </>
-          ) : (
-            <p>{USAGE_UNREADABLE}</p>
           )}
-          {unreadable && <p className="font-semibold text-danger-text">{USAGE_UNREADABLE}</p>}
+          {unreadable && (
+            <p role="alert" className="font-semibold text-danger-text">
+              {USAGE_UNREADABLE}
+            </p>
+          )}
         </div>
       </CoachAlertDialogDescription>
       <div className="flex flex-wrap justify-end gap-2">
-        {model?.kind === "in-use" && !model.canMakeNotBookable ? (
+        {gone ? (
+          <CoachAlertDialogCancel className={dialogSecondaryButton} onClick={() => onGone(type)}>
+            Chiudi
+          </CoachAlertDialogCancel>
+        ) : model?.kind === "in-use" && !model.canMakeNotBookable ? (
           <CoachAlertDialogCancel className={dialogSecondaryButton}>Chiudi</CoachAlertDialogCancel>
         ) : (
           <CoachAlertDialogCancel className={dialogSecondaryButton} disabled={busy}>
             Annulla
           </CoachAlertDialogCancel>
         )}
-        {model?.kind === "in-use" && model.canMakeNotBookable && (
+        {!gone && model?.kind === "in-use" && model.canMakeNotBookable && (
           <button
             type="button"
             className={OUTLINE_BUTTON}
@@ -177,7 +167,7 @@ function DeleteBody({
             Rendi non prenotabile
           </button>
         )}
-        {model?.kind === "free" && (
+        {!gone && model?.kind === "free" && (
           <AlertDialogPrimitive.Action asChild>
             <button
               type="button"
@@ -194,8 +184,8 @@ function DeleteBody({
             </button>
           </AlertDialogPrimitive.Action>
         )}
-        {!model && usage === "error" && (
-          <button type="button" className={OUTLINE_BUTTON} onClick={onRetryUsage}>
+        {!gone && !model && unreadable && (
+          <button type="button" className={OUTLINE_BUTTON} onClick={() => setAttempt((n) => n + 1)}>
             Riprova
           </button>
         )}

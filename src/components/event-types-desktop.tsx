@@ -11,7 +11,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, Plus, Tag } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { EventTypeCard, type CardUsage } from "@/components/event-type-card";
 import { EventTypeDeleteDialog } from "@/components/event-type-delete-dialog";
@@ -47,13 +47,19 @@ import { errorMessage } from "@/lib/utils";
 const CTA =
   "flex h-[42px] items-center gap-2 rounded-full bg-aura-primary px-5 text-sm font-semibold text-white transition-colors hover:bg-primary-container";
 
-export function EventTypesDesktop() {
+export function EventTypesDesktop({
+  onHoldChange,
+}: {
+  /** Vero mentre un dialog è aperto: la route tiene montato il desktop anche se la finestra si stringe. */
+  onHoldChange?: (hold: boolean) => void;
+}) {
   const { user } = useAuth();
   const coachId = user?.id;
   const qc = useQueryClient();
   const typesKey = queryKeys.eventTypes.coach(coachId);
 
-  const typesQ = useCoachEventTypes(coachId);
+  // Rilegge all'apertura: i dialog partono dalla riga in cache.
+  const typesQ = useCoachEventTypes(coachId, { fresh: true });
   const types = useMemo(() => sortTypesByName(typesQ.data ?? []), [typesQ.data]);
   const bookingsQ = useCoachBookings(coachId);
   const blocksQ = useCoachBlocks(coachId);
@@ -66,6 +72,8 @@ export function EventTypesDesktop() {
 
   const [editing, setEditing] = useState<EventTypeRow | "new" | null>(null);
   const [deleting, setDeleting] = useState<EventTypeRow | null>(null);
+  const holding = editing !== null || deleting !== null;
+  useEffect(() => onHoldChange?.(holding), [holding, onHoldChange]);
 
   // Mentre i dati arrivano lo scheletro; se non arrivano, «Utilizzo non disponibile».
   const usageOf = useMemo((): ((t: EventTypeRow) => CardUsage) => {
@@ -84,10 +92,6 @@ export function EventTypesDesktop() {
     const now = new Date();
     return (t) => typeUsage(t, data, now);
   }, [bookingsQ, blocksQ, clientsQ, extrasQ, shopQ]);
-
-  const retryUsage = () => {
-    for (const q of [bookingsQ, blocksQ, clientsQ, extrasQ, shopQ]) void q.refetch();
-  };
 
   const refreshTypes = () => void qc.invalidateQueries({ queryKey: typesKey });
 
@@ -233,17 +237,16 @@ export function EventTypesDesktop() {
           store={store}
           types={types}
           shopTitles={shopQ.data}
+          shopTitlesFailed={shopQ.data === undefined && shopQ.isError}
           onSaved={onSaved}
         />
       )}
       {coachId && (
         <EventTypeDeleteDialog
           type={deleting}
-          usage={deleting ? usageOf(deleting) : "loading"}
           coachId={coachId}
           store={store}
           onClose={() => setDeleting(null)}
-          onRetryUsage={retryUsage}
           onMakeNotBookable={(t) => writeBookable(t, false)}
           onDeleted={onDeleted}
           onGone={(t) => {

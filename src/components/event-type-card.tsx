@@ -3,8 +3,9 @@
 // ----------------------------------------------------------------------------
 // Aspetto di Coach Tipologie.dc.html. I −/+ e l'interruttore agiscono subito
 // (event-type-actions.ts); il resto si modifica dalla matita. Mentre una
-// scrittura della card è in corso i suoi controlli restano disabilitati: così
-// il valore scritto per ultimo è quello mostrato. Se la scrittura fallisce il
+// scrittura della card è in corso i suoi controlli restano disabilitati,
+// matita ed «Elimina» comprese: così il valore scritto per ultimo è quello
+// mostrato, e il dialog non si apre su valori che stanno per cambiare. Se la scrittura fallisce il
 // valore torna com'era e un toast dice l'errore. L'icona viene dal nome
 // (iconForType, come nella Panoramica): il database non ha una colonna.
 // ----------------------------------------------------------------------------
@@ -103,8 +104,9 @@ export function EventTypeCard({
         <button
           type="button"
           onClick={onEdit}
+          disabled={busy}
           aria-label={`Modifica ${type.name}`}
-          className="grid size-[34px] shrink-0 place-items-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container"
+          className="grid size-[34px] shrink-0 place-items-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent"
         >
           <Pencil className="size-[15px]" aria-hidden />
         </button>
@@ -181,7 +183,8 @@ export function EventTypeCard({
         <button
           type="button"
           onClick={onDelete}
-          className="shrink-0 text-xs font-semibold text-danger-text hover:underline"
+          disabled={busy}
+          className="shrink-0 text-xs font-semibold text-danger-text hover:underline disabled:cursor-default disabled:opacity-40 disabled:no-underline"
         >
           Elimina
         </button>

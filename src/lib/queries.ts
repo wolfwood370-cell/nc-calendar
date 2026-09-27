@@ -360,11 +360,17 @@ export interface EventTypeRow {
   unavailable_message: string | null;
 }
 
-export function useCoachEventTypes(coachId?: string | null) {
+/**
+ * Tipologie del coach, in ordine di creazione. `fresh`: rilegge all'apertura
+ * anche se la cache è recente (pagina Tipologie: i suoi dialog partono dalla
+ * riga in cache).
+ */
+export function useCoachEventTypes(coachId?: string | null, opts: { fresh?: boolean } = {}) {
   return useQuery({
     queryKey: ["event_types", coachId],
     enabled: !!coachId,
     staleTime: STALE_CONFIG,
+    refetchOnMount: opts.fresh ? "always" : true,
     queryFn: async (): Promise<EventTypeRow[]> => {
       const { data, error } = await supabase
         .from("event_types")
