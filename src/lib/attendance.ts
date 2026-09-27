@@ -104,3 +104,51 @@ export function profileEngagement(
     lastLabel: last ? format(new Date(last.scheduled_at), "EEE d MMM", { locale: it }) : "—",
   };
 }
+
+// ----------------------------------------------------------------------------
+// Riquadro «Presenza» del Profilo desktop (passata 06)
+// ----------------------------------------------------------------------------
+// «Assenze (8 sett.)» conta le stesse sessioni che getAttendance conta come
+// assenze (no_show nelle ultime 8 settimane). profileEngagement, qui sopra,
+// resta com'è perché la usa il Profilo del telefono, che non cambia.
+
+export const SESSIONS_PER_WEEK_WEEKS = 4;
+
+export interface PresenceSummary {
+  /** Presenza di getAttendance; null senza sessioni concluse nel periodo. */
+  percent: number | null;
+  /** Assenze di getAttendance (0 senza sessioni concluse). */
+  absences: number;
+  /** Sessioni svolte a settimana nelle ultime 4 settimane, «2,0». */
+  perWeek: string;
+  /** Ultima sessione svolta già iniziata (scheduled_at), null se nessuna. */
+  lastCompleted: string | null;
+}
+
+export function presenceSummary(
+  bookings: readonly AttendanceBooking[],
+  now: Date = new Date(),
+): PresenceSummary {
+  const att = getAttendance(bookings, now);
+  const to = now.getTime();
+  const from = subWeeks(now, SESSIONS_PER_WEEK_WEEKS).getTime();
+  let recent = 0;
+  let last: number | null = null;
+  let lastIso: string | null = null;
+  for (const b of bookings) {
+    if (b.status !== "completed") continue;
+    const t = new Date(b.scheduled_at).getTime();
+    if (!(t <= to)) continue;
+    if (t > from) recent++;
+    if (last === null || t > last) {
+      last = t;
+      lastIso = b.scheduled_at;
+    }
+  }
+  return {
+    percent: att?.percent ?? null,
+    absences: att?.noShow ?? 0,
+    perWeek: (recent / SESSIONS_PER_WEEK_WEEKS).toFixed(1).replace(".", ","),
+    lastCompleted: lastIso,
+  };
+}
