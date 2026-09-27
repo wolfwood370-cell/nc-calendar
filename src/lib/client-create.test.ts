@@ -227,6 +227,51 @@ describe("crediti per blocco → regole dal blocco 1 al blocco N", () => {
   });
 });
 
+describe("telefono alla creazione (passata 06)", () => {
+  it("scritto nell'aggiornamento del profilo quando c'è", async () => {
+    const { store, writes } = memoryStore();
+    await writeNewClient(
+      store,
+      "coach",
+      creationPayload(draft({ phone: " +39 340 118 22 09 " }), TYPES, "Pw1!aaaaaa"),
+      TODAY,
+    );
+    expect(writes.profiles).toHaveLength(1);
+    expect(writes.profiles[0]!.patch.phone).toBe("+39 340 118 22 09");
+    // La funzione edge riceve gli stessi campi di prima.
+    expect(Object.keys(writes.users[0]!).sort()).toEqual([
+      "email",
+      "first_name",
+      "last_name",
+      "password",
+    ]);
+  });
+
+  it("anche per il cliente libero", async () => {
+    const { store, writes } = memoryStore();
+    await writeNewClient(
+      store,
+      "coach",
+      creationPayload(draft({ pathType: "free", phone: "3401182209" }), TYPES, "Pw1!aaaaaa"),
+      TODAY,
+    );
+    expect(writes.profiles[0]!.patch).toMatchObject({ path_type: "free", phone: "3401182209" });
+  });
+
+  it("vuoto o assente non si scrive", async () => {
+    for (const phone of [undefined, "", "   "]) {
+      const { store, writes } = memoryStore();
+      await writeNewClient(
+        store,
+        "coach",
+        creationPayload(draft({ phone }), TYPES, "Pw1!aaaaaa"),
+        TODAY,
+      );
+      expect("phone" in writes.profiles[0]!.patch).toBe(false);
+    }
+  });
+});
+
 describe("errori", () => {
   it("se l'account non si crea non si scrive altro", async () => {
     const { store, writes } = memoryStore({ failUser: "Email già registrata." });

@@ -5,7 +5,8 @@
 //   1. Scelta (560px): «Crea l'account ora» o «Invia un invito».
 //   2. Invito (480px): nome e cognome, email, telefono → «Invia invito».
 //   3. Crea l'account (640px): Dati · Percorso e crediti · Riepilogo, poi
-//      l'esito nello stesso dialog con la password e «Copia».
+//      l'esito nello stesso dialog con la password e «Copia». Nei dati anche
+//      «Telefono (facoltativo)» (passata 06), per il WhatsApp del Profilo.
 // La password esiste solo nello stato di questo dialog: non va in toast, log,
 // URL o archivio del browser, e sparisce chiudendo.
 // Cosa si scrive lo decide src/lib/client-create.ts, come prima.
@@ -257,6 +258,7 @@ function Wizard({
     firstName: w.firstName,
     lastName: w.lastName,
     email: w.email,
+    phone: w.phone,
     pathType: w.pathType,
     months: w.months,
     customBlocks: w.customBlocks,
@@ -359,6 +361,14 @@ function Wizard({
                 type="email"
                 value={w.email}
                 onChange={(e) => upd({ email: e.target.value })}
+                className={INPUT}
+              />
+            </Field>
+            <Field label="Telefono" hint="(facoltativo)">
+              <input
+                type="tel"
+                value={w.phone}
+                onChange={(e) => upd({ phone: e.target.value })}
                 className={INPUT}
               />
             </Field>
@@ -525,6 +535,7 @@ function Wizard({
         <dl className="flex flex-col gap-3 rounded-[20px] bg-surface-container-low p-[18px] text-sm">
           <SummaryRow label="Cliente" value={name} />
           <SummaryRow label="Email" value={w.email.trim()} />
+          {w.phone.trim() && <SummaryRow label="Telefono" value={w.phone.trim()} />}
           <SummaryRow
             label="Percorso"
             value={
