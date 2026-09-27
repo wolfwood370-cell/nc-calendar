@@ -73,7 +73,8 @@ export function EventTypesMobile() {
   const coachId = user?.id;
   const qc = useQueryClient();
 
-  const listQ = useCoachEventTypes(coachId);
+  // «fresh»: si rilegge all'apertura, come la query di prima (staleTime 0).
+  const listQ = useCoachEventTypes(coachId, { fresh: true });
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<EventTypeRow | null>(null);
@@ -103,7 +104,11 @@ export function EventTypesMobile() {
       setOpen(false);
       setEditing(null);
     },
-    onError: (e: unknown) => toast.error("Errore", { description: errorMessage(e) }),
+    onError: (e: unknown) => {
+      toast.error("Errore", { description: errorMessage(e) });
+      // Se è cambiata altrove (per esempio eliminata), la lista si rilegge.
+      qc.invalidateQueries({ queryKey: queryKeys.eventTypes.coach(coachId) });
+    },
   });
 
   const remove = useMutation({
@@ -115,7 +120,11 @@ export function EventTypesMobile() {
       toast.success("Tipologia eliminata");
       qc.invalidateQueries({ queryKey: queryKeys.eventTypes.coach(coachId) });
     },
-    onError: (e: unknown) => toast.error("Errore", { description: errorMessage(e) }),
+    onError: (e: unknown) => {
+      toast.error("Errore", { description: errorMessage(e) });
+      // Se è cambiata altrove (per esempio eliminata), la lista si rilegge.
+      qc.invalidateQueries({ queryKey: queryKeys.eventTypes.coach(coachId) });
+    },
   });
 
   const types = sortTypesByName(listQ.data ?? []);
