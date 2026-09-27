@@ -12,7 +12,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { AlertCircle, CalendarOff, Loader2, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { dialogSecondaryButton } from "@/components/coach-dialog";
 import { SegmentedControl } from "@/components/segmented-control";
@@ -46,9 +46,9 @@ import { toastWithUndo } from "@/lib/toast";
 import { errorMessage } from "@/lib/utils";
 
 const FIELD =
-  "h-[38px] rounded-xl bg-surface-container-low px-2.5 text-sm text-on-surface outline-none";
+  "h-[38px] rounded-xl bg-surface-container-low px-2.5 text-sm text-on-surface outline-none disabled:opacity-60";
 const TIME =
-  "h-[38px] rounded-full bg-surface-container-low px-3 text-sm font-semibold tabular-nums text-on-surface outline-none";
+  "h-[38px] rounded-full bg-surface-container-low px-3 text-sm font-semibold tabular-nums text-on-surface outline-none disabled:opacity-60";
 
 const MODES = [
   { value: "all", label: "Tutto il giorno" },
@@ -73,6 +73,16 @@ export function AvailabilityExceptionsDesktop({
   const year = now.getFullYear();
   const [input, setInput] = useState<ExceptionInput>(() => newExceptionInput(today));
   const [adding, setAdding] = useState(false);
+  const addingRef = useRef(false);
+  // Subito dopo un'aggiunta il modulo torna ai valori iniziali, che sono
+  // validi: il secondo clic di un doppio clic aggiungerebbe un'eccezione mai
+  // chiesta. Per un attimo il pulsante resta fermo.
+  const [justAdded, setJustAdded] = useState(false);
+  useEffect(() => {
+    if (!justAdded) return;
+    const t = window.setTimeout(() => setJustAdded(false), 800);
+    return () => window.clearTimeout(t);
+  }, [justAdded]);
   const [removing, setRemoving] = useState<string | null>(null);
 
   const groups = useMemo(
@@ -81,6 +91,7 @@ export function AvailabilityExceptionsDesktop({
   );
   const bookings = bookingsQ.data;
   const bookingsFailed = bookingsQ.isError && !bookings;
+  const bookingsLoading = !bookings && !bookingsFailed;
 
   const formError = exceptionFormError(input, today);
   let formClash: string | null = null;
@@ -100,6 +111,18 @@ export function AvailabilityExceptionsDesktop({
     if (n > 0) formClash = formClashText(n);
   }
 
+  // Dopo ogni scrittura la cache cambia subito (l'elenco non mostra un periodo
+  // già tolto, né nasconde quello appena aggiunto), poi si rilegge.
+  function patchRows(fn: (rows: AvailabilityExceptionRow[]) => AvailabilityExceptionRow[]) {
+    qc.setQueryData<AvailabilityExceptionRow[]>(["availability_exceptions", coachId], (old) =>
+      old ? fn(old) : old,
+    );
+  }
+  const without = (gone: readonly AvailabilityExceptionRow[]) => {
+    const ids = new Set(gone.map((r) => r.id));
+    return (rows: AvailabilityExceptionRow[]) => rows.filter((r) => !ids.has(r.id));
+  };
+
   function refresh() {
     void qc.invalidateQueries({ queryKey: ["availability_exceptions", coachId] });
   }
@@ -108,6 +131,7 @@ export function AvailabilityExceptionsDesktop({
     if (!coachId) return;
     try {
       await removeExceptions(supabaseAvailabilityStore, coachId, rows);
+      patchRows(without(rows));
     } catch (e) {
       toast.error("Eccezione non tolta", { description: errorMessage(e) });
     } finally {
@@ -116,15 +140,19 @@ export function AvailabilityExceptionsDesktop({
   }
 
   async function add() {
-    if (!coachId || formError || adding) return;
+    if (!coachId || formError || adding || justAdded || addingRef.current) return;
+    addingRef.current = true;
     setAdding(true);
     try {
       const rows = await addException(supabaseAvailabilityStore, coachId, input);
+      patchRows((old) => [...old, ...rows]);
+      setJustAdded(true);
       setInput(newExceptionInput(today));
       toastWithUndo("Eccezione aggiunta.", () => void undoAdd(rows));
     } catch (e) {
       toast.error("Eccezione non aggiunta", { description: errorMessage(e) });
     } finally {
+      addingRef.current = false;
       setAdding(false);
       refresh();
     }
@@ -132,7 +160,8 @@ export function AvailabilityExceptionsDesktop({
 
   async function restore(rows: AvailabilityExceptionRow[]) {
     try {
-      await restoreExceptions(supabaseAvailabilityStore, rows);
+      const back = await restoreExceptions(supabaseAvailabilityStore, rows);
+      patchRows((old) => [...without(back)(old), ...back]);
     } catch (e) {
       toast.error("Eccezione non ripristinata", { description: errorMessage(e) });
     } finally {
@@ -145,6 +174,7 @@ export function AvailabilityExceptionsDesktop({
     setRemoving(groupKey(g));
     try {
       const rows = await removeExceptions(supabaseAvailabilityStore, coachId, g.rows);
+      patchRows(without(rows));
       toastWithUndo("Eccezione rimossa.", () => void restore(rows));
     } catch (e) {
       toast.error("Eccezione non rimossa", { description: errorMessage(e) });
@@ -158,6 +188,7 @@ export function AvailabilityExceptionsDesktop({
     if (bookingsFailed) {
       return <span className="text-xs font-semibold text-warning-text">{BOOKINGS_UNREADABLE}</span>;
     }
+    if (bookingsLoading) return <Skeleton className="mt-0.5 h-3 w-48 rounded" />;
     if (!bookings) return null;
     const hit = bookedInPeriod(bookings, g, now);
     const first = hit[0];
@@ -252,6 +283,7 @@ export function AvailabilityExceptionsDesktop({
               type="date"
               value={input.from}
               min={today}
+              disabled={adding}
               onChange={(e) => setInput((x) => withFrom(x, e.target.value))}
               className={FIELD}
             />
@@ -262,6 +294,7 @@ export function AvailabilityExceptionsDesktop({
               type="date"
               value={input.to}
               min={input.from || today}
+              disabled={adding}
               onChange={(e) => setInput((x) => ({ ...x, to: e.target.value }))}
               className={FIELD}
             />
@@ -279,6 +312,7 @@ export function AvailabilityExceptionsDesktop({
             <select
               value={input.start}
               aria-label="Dalle ore"
+              disabled={adding}
               onChange={(e) => setInput((x) => ({ ...x, start: e.target.value }))}
               className={TIME}
             >
@@ -294,6 +328,7 @@ export function AvailabilityExceptionsDesktop({
             <select
               value={input.end}
               aria-label="Alle ore"
+              disabled={adding}
               onChange={(e) => setInput((x) => ({ ...x, end: e.target.value }))}
               className={TIME}
             >
@@ -310,6 +345,7 @@ export function AvailabilityExceptionsDesktop({
           onChange={(e) => setInput((x) => ({ ...x, reason: e.target.value }))}
           placeholder="Motivo, es. Ferie"
           aria-label="Motivo"
+          disabled={adding}
           className={FIELD}
         />
         {formError && (
@@ -318,10 +354,11 @@ export function AvailabilityExceptionsDesktop({
           </p>
         )}
         {formClash && <p className="text-xs font-semibold text-warning-text">{formClash}</p>}
+        {!formError && bookingsLoading && <Skeleton className="h-3 w-56 rounded" />}
         <button
           type="button"
           onClick={() => void add()}
-          disabled={!!formError || adding || !coachId}
+          disabled={!!formError || adding || justAdded || !coachId}
           className="flex h-[38px] items-center justify-center gap-2 rounded-full bg-aura-primary text-sm font-semibold text-white disabled:bg-outline-variant"
         >
           {adding && <Loader2 className="size-4 animate-spin" aria-hidden />}

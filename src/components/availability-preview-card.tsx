@@ -66,6 +66,9 @@ export function AvailabilityPreviewCard({
             <span className="text-sm text-on-primary-container">ore prenotabili</span>
           </div>
           {estimate && <p className="text-[13px] leading-normal text-white/85">{estimate}</p>}
+          {!estimate && types === undefined && !typesFailed && (
+            <Skeleton className="h-4 w-4/5 rounded bg-white/15" />
+          )}
           <div className="mt-1.5 flex h-16 items-end gap-2" aria-hidden>
             {perDay.map((d) => (
               <div key={d.dow} className="flex h-full flex-1 flex-col justify-end">
