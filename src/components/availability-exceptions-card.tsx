@@ -85,11 +85,17 @@ export function AvailabilityExceptionsCard({ coachId }: AvailabilityExceptionsCa
       if (!row) throw new Error("Eccezione non trovata: ricarica la pagina.");
       await removeExceptions(supabaseAvailabilityStore, coachId, [row]);
     },
+    // Passata 08: il cestino resta fermo finché l'elenco non è riletto, e
+    // dopo un errore (per esempio la riga tolta da un altro dispositivo)
+    // l'elenco si rilegge.
     onSuccess: () => {
       toast.success("Eccezione rimossa");
-      qc.invalidateQueries({ queryKey: ["availability_exceptions", coachId] });
+      return qc.invalidateQueries({ queryKey: ["availability_exceptions", coachId] });
     },
-    onError: (e: Error) => toast.error("Errore", { description: e.message }),
+    onError: (e: Error) => {
+      toast.error("Errore", { description: e.message });
+      void qc.invalidateQueries({ queryKey: ["availability_exceptions", coachId] });
+    },
   });
 
   const exceptions = useMemo(() => (exQ.data ?? []) as AvailabilityExceptionRow[], [exQ.data]);

@@ -227,9 +227,10 @@ export function AvailabilityMobile() {
   const saveMut = useMutation({
     mutationFn: async () => {
       if (!meId) throw new Error("Non autenticato");
-      // Passata 08: se l'orario non si è letto la settimana mostrata è vuota,
-      // e salvarla cancellerebbe tutti gli orari.
-      if (!didHydrateWeek.current) {
+      // Passata 08: se l'orario non si è letto la settimana mostrata è vuota
+      // (o viene da una cache che l'ultima lettura non ha confermato), e
+      // salvarla cancellerebbe gli orari veri.
+      if (!didHydrateWeek.current || availQ.isError) {
         throw new Error("Non riesco a leggere l'orario: ricarica la pagina prima di salvare.");
       }
 
