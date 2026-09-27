@@ -19,6 +19,7 @@ import { AlertCircle, Clock, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
+import { AvailabilityExceptionsDesktop } from "@/components/availability-exceptions-desktop";
 import { AvailabilityPreviewCard, BookingRulesCard } from "@/components/availability-preview-card";
 import { AvailabilityWeekCard } from "@/components/availability-week-card";
 import {
@@ -70,6 +71,7 @@ export function AvailabilityDesktop({
   // --------------------------------------------------------------- orario
   const availQ = useCoachAvailability(meId, { fresh: true });
   const [openedAt] = useState(() => Date.now());
+  const [now] = useState(() => new Date(openedAt));
   // Solo una lettura fatta dopo l'apertura: la cache può essere vecchia di
   // minuti, e una rilettura fallita lascia in cache il dato di prima.
   const fresh =
@@ -201,6 +203,7 @@ export function AvailabilityDesktop({
               typesFailed={typesQ.isError && !typesQ.data}
             />
             <BookingRulesCard />
+            <AvailabilityExceptionsDesktop coachId={meId} now={now} />
           </div>
         </div>
       </div>
