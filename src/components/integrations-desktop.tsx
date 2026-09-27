@@ -13,12 +13,20 @@
 //   - Una scrittura verso Google alla volta: le azioni della pagina
 //     condividono lo stato «occupato». Due ripristini insieme possono creare
 //     due eventi per la stessa sessione.
+//   - La completa gira nel browser: mentre lavora la navigazione nell'app si
+//     ferma, la chiusura della scheda chiede conferma e il desktop resta
+//     montato anche se la finestra si stringe, fino a «Chiudi» dell'esito.
 // ----------------------------------------------------------------------------
 
 import { useQueryClient } from "@tanstack/react-query";
+import { useBlocker } from "@tanstack/react-router";
 import { CreditCard } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import {
+  IntegrationsFullSyncCard,
+  type FullSyncView,
+} from "@/components/integrations-full-sync-card";
 import { IntegrationsGcalCard } from "@/components/integrations-gcal-card";
 import {
   GoogleOnlyList,
@@ -29,12 +37,22 @@ import {
 import { IntegrationsImportDialog } from "@/components/integrations-import-dialog";
 import { PageTitle } from "@/components/page-title";
 import { gcalReviewKey, useGcalReviewEvents } from "@/hooks/use-gcal-review";
-import { notifySync, rememberSyncAttempt, useGcalSync } from "@/hooks/use-gcal-sync";
+import {
+  gcalSyncApi,
+  notifySync,
+  rememberSyncAttempt,
+  rememberSyncOk,
+  useGcalSync,
+} from "@/hooks/use-gcal-sync";
 import { useAuth } from "@/lib/auth";
 import { gridMinutes, notOnGoogle } from "@/lib/calendar-events";
 import { hasClientCredit } from "@/lib/cancel-session";
 import { gcalImportEvent } from "@/lib/gcal.functions";
 import {
+  estimateFullSync,
+  fullSyncBlockedText,
+  fullSyncConfirmText,
+  fullSyncDescription,
   gcalChip,
   googleOnlyEvents,
   importPayload,
@@ -44,7 +62,13 @@ import {
   type ImportChoice,
   type ReviewEvent,
 } from "@/lib/gcal-integration";
-import { quickSyncMessage, quickSyncOutcome } from "@/lib/gcal-sync-run";
+import {
+  fullSyncMeasure,
+  fullSyncOutcome,
+  quickSyncMessage,
+  quickSyncOutcome,
+  runFullSync,
+} from "@/lib/gcal-sync-run";
 import { sessionLabel } from "@/lib/mock-data";
 import {
   useCoachBookings,
@@ -64,7 +88,12 @@ const CARD =
 /** Quale scrittura verso Google è in corso. */
 type Busy = "sync" | "full" | "import" | `repair:${string}` | null;
 
-export function IntegrationsDesktop() {
+export function IntegrationsDesktop({
+  onHoldChange,
+}: {
+  /** true dall'avvio della completa a «Chiudi»: la route tiene montato il desktop. */
+  onHoldChange?: (hold: boolean) => void;
+}) {
   const { user } = useAuth();
   const coachId = user?.id;
   const qc = useQueryClient();
@@ -213,6 +242,50 @@ export function IntegrationsDesktop() {
     });
   }
 
+  // ------------------------------------------------------------ completa
+  const [full, setFull] = useState<FullSyncView>({ state: "idle" });
+  const estimate = bookings ? estimateFullSync(bookings, now) : null;
+
+  async function startFull() {
+    const refused = fullSyncBlockedText(chip);
+    if (refused) {
+      toast.warning(refused);
+      return;
+    }
+    await exclusive("full", async () => {
+      const startedAt = new Date();
+      // M: la parte del ripristino della stima, per «X di M».
+      const m = bookings ? estimateFullSync(bookings, startedAt).repair : 0;
+      setFull({ state: "running", step: { phase: "repair", done: 0, total: m } });
+      const r = await runFullSync(gcalSyncApi, {
+        now: startedAt,
+        repairEstimate: m,
+        onProgress: (step) => setFull({ state: "running", step }),
+      });
+      const measure = fullSyncMeasure(r);
+      if (measure === "ok") rememberSyncOk();
+      markSynced();
+      rememberSyncAttempt();
+      addMeasure({ kind: "full", at: Date.now(), outcome: measure });
+      refreshAfterSync();
+      setFull({ state: "done", outcome: fullSyncOutcome(r) });
+    });
+  }
+
+  const running = full.state === "running";
+  const runningRef = useRef(running);
+  runningRef.current = running;
+  useBlocker({
+    shouldBlockFn: ({ current, next }) => {
+      if (!runningRef.current || current.pathname === next.pathname) return false;
+      toast.warning("Attendi la fine della sincronizzazione completa.", { id: "full-sync-wait" });
+      return true;
+    },
+    enableBeforeUnload: () => runningRef.current,
+  });
+  const hold = full.state !== "idle";
+  useEffect(() => onHoldChange?.(hold), [hold, onHoldChange]);
+
   // ------------------------------------------------------------ Importa
   const [importTarget, setImportTarget] = useState<ReviewEvent | null>(null);
   async function confirmImport(choice: ImportChoice) {
@@ -279,6 +352,14 @@ export function IntegrationsDesktop() {
           </div>
 
           <div className="flex min-w-0 flex-col gap-5">
+            <IntegrationsFullSyncCard
+              view={full}
+              description={fullSyncDescription(now)}
+              confirmText={fullSyncConfirmText(estimate ? estimate.total : null)}
+              disabled={busy !== null}
+              onStart={() => void startFull()}
+              onDismiss={() => setFull({ state: "idle" })}
+            />
             <section className={cn(CARD, "gap-3")} aria-labelledby="stripe-title">
               <div className="flex items-center gap-3.5">
                 <span className="grid size-12 shrink-0 place-items-center rounded-[14px] bg-[#635bff] text-white">
