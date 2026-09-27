@@ -1,46 +1,21 @@
 // ----------------------------------------------------------------------------
 // Store Supabase delle tipologie di sessione (passata 07)
 // ----------------------------------------------------------------------------
-// Le scritture di event-type-actions.ts e le due letture nuove della pagina:
-// i crediti extra delle tipologie del coach e i titoli dei pacchetti attivi
-// del negozio (policy «Coach manage clients extra_credits» e «Read active
-// booster packs»). Zero righe non è un successo: aggiornare o eliminare
-// senza toccare una riga è un errore, e un'allocazione il cui blocco non si
-// legge rende l'uso illeggibile.
+// Le scritture di event-type-actions.ts e la rilettura dell'uso prima di
+// eliminare. Zero righe non è un successo: aggiornare o eliminare senza
+// toccare una riga è un errore, e un'allocazione il cui blocco non si legge
+// rende l'uso illeggibile.
 // ----------------------------------------------------------------------------
 
 import { supabase } from "@/integrations/supabase/client";
 import type { EventTypeStore } from "@/lib/event-type-actions";
 import type { UsageBlock, UsageBooking, UsageExtraCredit } from "@/lib/event-type-usage";
-import { BOOKINGS_FETCH_LIMIT, type EventTypeRow } from "@/lib/queries";
+import { BOOKINGS_FETCH_LIMIT, fetchActiveShopTitles, type EventTypeRow } from "@/lib/queries";
 
 export const EVENT_TYPE_COLS =
   "id, coach_id, name, description, color, duration, base_type, location_type, buffer_minutes, location_address, client_bookable, unavailable_message";
 
 const NOT_FOUND = "Tipologia non trovata: ricarica la pagina.";
-
-/** Crediti extra delle tipologie indicate (quelle del coach). */
-export async function fetchTypeExtraCredits(
-  typeIds: readonly string[],
-): Promise<UsageExtraCredit[]> {
-  if (typeIds.length === 0) return [];
-  const { data, error } = await supabase
-    .from("extra_credits")
-    .select("client_id, event_type_id, quantity, quantity_booked")
-    .in("event_type_id", [...typeIds]);
-  if (error) throw new Error(error.message);
-  return (data ?? []) as UsageExtraCredit[];
-}
-
-/** event_type_title dei pacchetti attivi del negozio. */
-export async function fetchActiveShopTitles(): Promise<string[]> {
-  const { data, error } = await supabase
-    .from("booster_packs")
-    .select("event_type_title")
-    .eq("active", true);
-  if (error) throw new Error(error.message);
-  return (data ?? []).map((p) => p.event_type_title);
-}
 
 export const supabaseEventTypeStore: EventTypeStore = {
   async listTypeNames(coachId) {

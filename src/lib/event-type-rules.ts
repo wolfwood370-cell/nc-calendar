@@ -11,6 +11,11 @@ import { TYPE_PALETTE, sameColor, type GCalColor } from "@/lib/event-colors";
 import { toGoogleColorId } from "@/lib/gcal-colors";
 import { formatDuration } from "@/lib/session-time";
 
+/** Ordine della pagina: per nome, come l'ordinava la query di prima. */
+export function sortTypesByName<T extends { name: string }>(types: readonly T[]): T[] {
+  return [...types].sort((a, b) => a.name.localeCompare(b.name, "it"));
+}
+
 // ---------------------------------------------------------------------------
 // −/+ della card
 // ---------------------------------------------------------------------------

@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ClientProfileDesktop } from "@/components/client-profile-desktop";
 import { ClientProfileMobile } from "@/components/client-profile-mobile";
+import { useDesktop } from "@/hooks/use-desktop";
 import { parseProfileSearch } from "@/lib/client-profile";
 
 // Tab del Profilo nell'URL (passata 06, audit K2): tab=percorso|sessioni;
@@ -26,21 +27,6 @@ export const Route = createFileRoute("/trainer/clients/$id")({
   }),
   component: ClientPathPage,
 });
-
-const DESKTOP_QUERY = "(min-width: 768px)";
-
-/** true da md in su; undefined finché non si è misurato (primo render e server). */
-function useDesktop(): boolean | undefined {
-  const [wide, setWide] = useState<boolean | undefined>(undefined);
-  useEffect(() => {
-    const mql = window.matchMedia(DESKTOP_QUERY);
-    const onChange = () => setWide(mql.matches);
-    onChange();
-    mql.addEventListener("change", onChange);
-    return () => mql.removeEventListener("change", onChange);
-  }, []);
-  return wide;
-}
 
 // Sul telefono il Profilo resta com'era (client-profile-mobile.tsx); da md in
 // su è quello della passata 06. Se ne monta uno solo: la pagina di prima
