@@ -19,6 +19,7 @@ import { AlertCircle, Clock, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
+import { AvailabilityPreviewCard, BookingRulesCard } from "@/components/availability-preview-card";
 import { AvailabilityWeekCard } from "@/components/availability-week-card";
 import {
   CoachAlertDialog,
@@ -42,7 +43,7 @@ import {
   type WeekDraft,
 } from "@/lib/availability-week";
 import { useAuth } from "@/lib/auth";
-import { useCoachAvailability, type AvailabilityRow } from "@/lib/queries";
+import { useCoachAvailability, useCoachEventTypes, type AvailabilityRow } from "@/lib/queries";
 import { toastWithUndo } from "@/lib/toast";
 import { cn, errorMessage } from "@/lib/utils";
 
@@ -78,6 +79,7 @@ export function AvailabilityDesktop({
     [fresh, availQ.data],
   );
   const readFailed = !fresh && availQ.isError;
+  const typesQ = useCoachEventTypes(meId);
 
   const [edits, setEdits] = useState<WeekDraft | null>(null);
   const week = edits ?? saved;
@@ -191,7 +193,15 @@ export function AvailabilityDesktop({
             )}
           </section>
 
-          <div className="flex min-w-0 flex-col gap-5" />
+          <div className="flex min-w-0 flex-col gap-5">
+            <AvailabilityPreviewCard
+              week={week}
+              weekFailed={readFailed}
+              types={typesQ.data}
+              typesFailed={typesQ.isError && !typesQ.data}
+            />
+            <BookingRulesCard />
+          </div>
         </div>
       </div>
 
