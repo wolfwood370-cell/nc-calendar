@@ -42,6 +42,8 @@ export interface NewClientPayload {
   lastName: string;
   email: string;
   password: string;
+  /** Telefono facoltativo; vuoto o assente non si scrive. */
+  phone?: string | null;
   pathType: PathType;
   totalBlocks: number;
   packLabel: string | null;
@@ -64,6 +66,8 @@ export interface CreationDraft {
   firstName: string;
   lastName: string;
   email: string;
+  /** «Telefono (facoltativo)». */
+  phone?: string;
   pathType: PathType;
   /** 3, 6, 12, oppure null per «Personalizzata». */
   months: number | null;
@@ -107,6 +111,7 @@ export function creationPayload(
     lastName: d.lastName.trim(),
     email: d.email,
     password,
+    phone: d.phone?.trim() || null,
     pathType: d.pathType,
     totalBlocks,
     packLabel: free ? FREE_PACK_LABEL : d.packLabel,
@@ -193,6 +198,7 @@ export interface ProfilePatch {
   pack_label: string | null;
   next_billing_date: string | null;
   path_start_date?: string;
+  phone?: string;
 }
 
 export interface ClientCreateStore {
@@ -241,6 +247,8 @@ export async function writeNewClient(
   });
   if ("error" in created) return { ok: false, error: created.error };
   const userId = created.userId;
+  const phone = data.phone?.trim();
+  const phonePatch = phone ? { phone } : {};
 
   try {
     if (data.pathType === "free") {
@@ -263,6 +271,7 @@ export async function writeNewClient(
         auto_renew_blocks: false,
         pack_label: data.packLabel,
         next_billing_date: null,
+        ...phonePatch,
       });
     } else {
       const blocks: NewBlockRow[] = Array.from({ length: data.totalBlocks }, (_, i) => {
@@ -309,6 +318,7 @@ export async function writeNewClient(
         pack_label: data.packLabel,
         path_start_date: isoDay(today),
         next_billing_date: data.pathType === "recurring" ? isoDay(nextBilling) : null,
+        ...phonePatch,
       });
     }
     return { ok: true, userId, email, assignError: null };
