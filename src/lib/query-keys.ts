@@ -25,7 +25,12 @@ export const queryKeys = {
   extraCredits: {
     root: ["extra_credits"] as const,
     client: (clientId: string | null | undefined) => ["extra_credits", "client", clientId] as const,
+    // Crediti extra delle tipologie del coach (pagina Tipologie, passata 07).
+    types: (coachId: string | null | undefined, typeIds: string) =>
+      ["extra_credits", "types", coachId, typeIds] as const,
   },
+  // Titoli dei pacchetti attivi del negozio (pagina Tipologie, passata 07).
+  shopTitles: ["booster_packs", "active_titles"] as const,
   clients: {
     root: ["clients"] as const,
     coach: (coachId: string | null | undefined) => ["clients", coachId] as const,

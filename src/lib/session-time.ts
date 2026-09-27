@@ -38,6 +38,13 @@ export function shortDateWithArticle(d: Date, preposition?: "da"): string {
   return elided ? `l'${label}` : `il ${label}`;
 }
 
+/** Durata in minuti come nel prototipo (fmtDur): «30m», «1h», «1h 30m». */
+export function formatDuration(minutes: number): string {
+  if (minutes < 60) return `${minutes}m`;
+  const rest = minutes % 60;
+  return `${Math.floor(minutes / 60)}h${rest ? ` ${rest}m` : ""}`;
+}
+
 /** «10:00–11:00»; durata mancante o non valida = 60 minuti. */
 export function formatTimeRange(start: Date, durationMin: number | null | undefined): string {
   const minutes = durationMin && durationMin > 0 ? durationMin : 60;

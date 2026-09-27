@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { SessionType, BookingStatus } from "@/lib/mock-data";
-import { invalidateBookingScope } from "@/lib/query-keys";
+import { invalidateBookingScope, queryKeys } from "@/lib/query-keys";
 import { gcalDeleteEvent, gcalUpdateEvent } from "@/lib/gcal.functions";
 
 export interface BookingRow {
@@ -360,11 +360,17 @@ export interface EventTypeRow {
   unavailable_message: string | null;
 }
 
-export function useCoachEventTypes(coachId?: string | null) {
+/**
+ * Tipologie del coach, in ordine di creazione. `fresh`: rilegge all'apertura
+ * anche se la cache è recente (pagina Tipologie: i suoi dialog partono dalla
+ * riga in cache).
+ */
+export function useCoachEventTypes(coachId?: string | null, opts: { fresh?: boolean } = {}) {
   return useQuery({
     queryKey: ["event_types", coachId],
     enabled: !!coachId,
     staleTime: STALE_CONFIG,
+    refetchOnMount: opts.fresh ? "always" : true,
     queryFn: async (): Promise<EventTypeRow[]> => {
       const { data, error } = await supabase
         .from("event_types")
@@ -376,6 +382,59 @@ export function useCoachEventTypes(coachId?: string | null) {
       if (error) throw error;
       return (data ?? []) as EventTypeRow[];
     },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Uso delle tipologie (passata 07): crediti extra delle tipologie del coach e
+// titoli dei pacchetti attivi del negozio. Policy «Coach manage clients
+// extra_credits» e «Read active booster packs».
+// ---------------------------------------------------------------------------
+
+export interface TypeExtraCreditRow {
+  client_id: string;
+  event_type_id: string | null;
+  quantity: number;
+  quantity_booked: number;
+}
+
+/** Crediti extra delle tipologie indicate. */
+export async function fetchTypeExtraCredits(
+  typeIds: readonly string[],
+): Promise<TypeExtraCreditRow[]> {
+  if (typeIds.length === 0) return [];
+  const { data, error } = await supabase
+    .from("extra_credits")
+    .select("client_id, event_type_id, quantity, quantity_booked")
+    .in("event_type_id", [...typeIds]);
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+/** event_type_title dei pacchetti attivi del negozio. */
+export async function fetchActiveShopTitles(): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("booster_packs")
+    .select("event_type_title")
+    .eq("active", true);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((p) => p.event_type_title);
+}
+
+export function useTypeExtraCredits(coachId: string | undefined, typeIds: readonly string[]) {
+  const ids = [...typeIds].sort();
+  return useQuery({
+    queryKey: queryKeys.extraCredits.types(coachId, ids.join(",")),
+    enabled: !!coachId,
+    queryFn: () => fetchTypeExtraCredits(ids),
+  });
+}
+
+export function useActiveShopTitles() {
+  return useQuery({
+    queryKey: queryKeys.shopTitles,
+    staleTime: STALE_CONFIG,
+    queryFn: fetchActiveShopTitles,
   });
 }
 

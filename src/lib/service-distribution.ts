@@ -15,9 +15,18 @@
 import { romeDate } from "@/lib/credit-order";
 import { sessionLabel, type SessionType } from "@/lib/mock-data";
 import { shortDateWithArticle } from "@/lib/session-time";
-import { isClientSession, type AgendaBooking } from "@/lib/today-agenda";
+import { AGENDA_STATUSES, isClientSession, type AgendaBooking } from "@/lib/today-agenda";
 
-const COUNTED_STATUSES = ["completed", "no_show", "scheduled"];
+/**
+ * Sessione che conta: sessione cliente, non eliminata, programmata, svolta o
+ * assente (fuori le annullate, anche tardi). Gli stati sono AGENDA_STATUSES
+ * della giornata: stessa regola per la Panoramica e per le Tipologie (07).
+ */
+export function isCountedSession(b: AgendaBooking): boolean {
+  return (
+    isClientSession(b) && !b.deleted_at && (AGENDA_STATUSES as readonly string[]).includes(b.status)
+  );
+}
 
 export interface DistributionBooking extends AgendaBooking {
   event_type_id: string | null;
@@ -72,7 +81,7 @@ export function getServiceDistribution(
   const byKey = new Map<string, { name: string; color: string; count: number }>();
   let total = 0;
   for (const b of bookings) {
-    if (!isClientSession(b) || b.deleted_at || !COUNTED_STATUSES.includes(b.status)) continue;
+    if (!isCountedSession(b)) continue;
     const t = new Date(b.scheduled_at).getTime();
     if (t > nowMs || t < sinceMs || romeDate(b.scheduled_at) < yearStart) continue;
     const type = b.event_type_id ? typeById.get(b.event_type_id) : undefined;

@@ -1,281 +1,318 @@
-# Ultimo ritorno · Redesign coach, passata 06 (Profilo cliente)
+# Ultimo ritorno · Redesign coach, passata 07 (Tipologie di sessione)
 
-27/09/2026. Brief: `design_handoff_coach_redesign/passes/06-profilo-cliente.md`, prototipo `designs/Coach Cliente.dc.html` (con `Coach Pacchetto` e `Coach Annulla Sessione`) e le quattro schermate `screenshots/06-cliente-0*.png`. Audit: K1–K3, K5–K7, P5. K4 resta fuori (§3.1).
+27/09/2026. Brief: `design_handoff_coach_redesign/passes/07-tipologie.md`, prototipo `designs/Coach Tipologie.dc.html`, schermate `screenshots/07-tipologie-01-pagina.png` e `07-tipologie-02-modifica.png`. Audit: E1–E5, con le correzioni del §3 del prompt. L'archiviazione resta fuori: vedi «Cosa non ho fatto».
 
 ## Ramo e hash
 
-- **Ramo pubblicato:** `redesign/coach-06-profilo-cliente`, con `git push -u origin redesign/coach-06-profilo-cliente`.
-- **Base:** `git rev-parse origin/main` = `b8c1cece7649a9e4400589d1c1ec48d2314a647f`, come atteso (merge della PR #71). Il ramo l'ho creato da lì, prima di ogni modifica.
+- **Ramo:** `redesign/coach-07-tipologie`, pubblicato con `git push -u origin redesign/coach-07-tipologie`.
+- **Base:** `git rev-parse origin/main` = `3d29634e77f429e6c9da8fd542c71dbcbf0d44c7`, come atteso (merge della PR #72). Il ramo è partito da lì, prima di ogni modifica.
 - **Commit, in ordine:**
-  1. `d6304d8` regole del Profilo desktop (`client-profile.ts`) e riquadro Presenza (`presenceSummary`), con i test;
-  2. `de4850b` scritture delle sessioni dal Profilo (`profile-session.ts`), store Supabase e archivio in memoria, con i test;
-  3. `6e3c0b3` telefono in «Crea l'account» e nella scrittura del profilo;
-  4. `d4c454c` Profilo desktop; la pagina di prima passa **senza modifiche** in `client-profile-mobile.tsx`;
-  5. `06e0a60` il Profilo del telefono scrive con gli stessi helper, senza cambiare quello che mostra (commit a parte, si può togliere da solo: vedi Divergenze);
-  6. `5cc20bb` CHECKLIST;
-  7. questo file, per ultimo.
-- **Come ho committato:** file aggiunti per nome, mai `git add -A` o `git add .`. `bun.lock` rimesso com'era subito dopo l'installazione e controllato prima di ogni commit.
-- **Typecheck commit per commit:** in un worktree separato, `tsc --noEmit` dà 0 errori su tutti e cinque i commit di codice.
+  1. `010bbc1` helper puri: uso delle tipologie (`event-type-usage.ts`), regole (`event-type-rules.ts`), palette e contrasto (`event-colors.ts`), `isCountedSession`, `formatDuration`, coi test;
+  2. `7bf4029` modulo unico delle scritture (`event-type-actions.ts`), store Supabase e archivio in memoria, coi test;
+  3. `8003334` pagina desktop; la pagina di prima passa **senza modifiche** in `event-types-mobile.tsx`; `useDesktop` in `src/hooks/`;
+  4. `0bb1230` il telefono scrive e legge con gli helper del desktop, senza cambiare quello che mostra;
+  5. `751a0f7` dalla revisione: salvataggio e «Ripristina» campo per campo, nome invariato sempre valido, conteggio esatto nella rilettura dell'uso;
+  6. `5f89c67` dalla revisione: niente dialog su valori che stanno cambiando, uso letto all'apertura del dialog d'eliminazione, dialog che non si chiude mentre salva;
+  7. `631d6c6` dalla revisione: il telefono rilegge la lista all'apertura e dopo un errore;
+  8. `de442af` CHECKLIST;
+  9. questo file, per ultimo.
+- **Come ho committato:** file aggiunti per nome, mai `git add -A` o `git add .`.
+- **Typecheck commit per commit:** in un worktree separato su ogni commit, `tsc --noEmit` dà 0 errori su tutti e sette i commit di codice.
 
 ## PR
 
-https://github.com/wolfwood370-cell/nc-calendar/pull/72: verso `main`, aperta, non in bozza, **non** unita. L'ho aperta con lo strumento GitHub della sessione.
+https://github.com/wolfwood370-cell/nc-calendar/pull/73: verso `main`, aperta, non in bozza, **non** unita. L'ho aperta con `gh pr create`: `gh auth status` rispondeva autenticato.
 
 ## Manifesto
 
-**NUOVI (16)**
+**NUOVI (14)**
 
 - Helper puri e test (`src/lib/`):
-  - `client-profile.ts` + test (27):
-    - tab e URL;
-    - settimane «da salvare» (con lo spostamento di prima), ricaricamento che non perde le modifiche, protezione all'uscita;
-    - interruttore del rinnovo;
-    - intestazione e «Pacchetto e percorso»;
-    - filtri, prossime e ultime sessioni;
-    - testo di «Collega»;
-    - regola delle sessioni fuori percorso;
-  - `profile-session.ts` + test (20): modifica sessione (stato, data, ora, tipologia, note) sugli helper della 03-04, «Rimetti in agenda» e il suo «Ripristina», «Collega», «Ignora», «Scollega dal profilo».
+  - `event-type-usage.ts` + test (10):
+    - uso di una tipologia: sessioni del mese, future, passate, clienti con crediti (archiviati a parte), negozio;
+    - verdetto «in uso»;
+    - testi del piè e del dialog d'eliminazione;
+  - `event-type-rules.ts` + test (17):
+    - passi dei −/+;
+    - segmenti e colori col valore attuale;
+    - nome (vuoto, doppione, bloccato dal negozio);
+    - testi della card;
+    - ordine per nome;
+  - `event-type-actions.ts` + test (25): −/+, interruttore, salvataggio, «Ripristina», eliminazione con rilettura.
 - Resto di `src/lib/`:
-  - `profile-load.ts`: le letture del Profilo, le stesse tabelle di prima, in una sola funzione per `useQuery`;
-  - `profile-store.ts`: lo store Supabase, che unisce quello del Calendario e quello di «Assegna evento»;
-  - `testing/memory-profile-store.ts`: archivio in memoria per i test, costruito su quello della 04.
+  - `event-type-store.ts`: lo store Supabase delle scritture e della rilettura dell'uso;
+  - `testing/memory-event-type-store.ts`: archivio in memoria dei test, che imita il `SET NULL`.
 - Componenti:
-  - `client-profile-desktop.tsx`: pagina, intestazione, tab, barra di salvataggio, dialog d'uscita;
-  - `profile-overview.tsx`, `profile-path.tsx`, `profile-sessions.tsx`: i tre tab;
-  - `profile-session-dialog.tsx`: «Modifica sessione»;
-  - `profile-notes-card.tsx`: «Note e obiettivi»;
-  - `profile-ui.tsx` e `profile-styles.ts`: chip di stato e classe dei riquadri;
-  - `client-profile-mobile.tsx`: la pagina di prima (vedi sotto).
+  - `event-types-desktop.tsx`: la pagina;
+  - `event-type-card.tsx`, `event-type-dialog.tsx`, `event-type-delete-dialog.tsx`;
+  - `event-types-mobile.tsx`: la pagina di prima (vedi sotto).
+- `src/hooks/use-desktop.ts`: `useDesktop`, prima locale alla route del Profilo, ora usato da due route.
 
-**MODIFICATI (7)**
+**MODIFICATI (13)**
 
-- `src/routes/trainer.clients.$id.tsx`:
-  - `validateSearch: parseProfileSearch`;
-  - sotto md monta `ClientProfileMobile`, da md in su `ClientProfileDesktop`, uno solo alla volta (:33-58);
-  - con modifiche al percorso non salvate il desktop resta montato anche se la finestra si stringe.
-- `src/lib/attendance.ts`: `presenceSummary` (:128). `profileEngagement` (:81) resta com'era: vedi Divergenze.
-- `src/lib/client-create.ts`: `phone` facoltativo nel payload, scritto nell'aggiornamento del profilo che la creazione fa già.
-- `src/components/new-client-dialog.tsx`: «Telefono (facoltativo)» nel passo Dati e nel riepilogo.
-- Test: `src/lib/attendance.test.ts` (+4), `src/lib/client-create.test.ts` (+3).
-- `design_handoff_coach_redesign/CHECKLIST.md`: la 06 passa a `[x]`, con la nota che K4 resta aperto.
+- `src/routes/trainer.event-types.tsx`: resta `head`; sotto md monta `EventTypesMobile`, da md in su `EventTypesDesktop`, uno solo alla volta. Con un dialog aperto il desktop resta montato anche se la finestra si stringe (:31-37).
+- `src/routes/trainer.clients.$id.tsx`: importa `useDesktop` da `src/hooks/` invece della copia locale. Il comportamento è identico.
+- `src/lib/queries.ts`:
+  - `useCoachEventTypes` accetta `{ fresh }` (:368): rilegge all'apertura, come la query di prima che aveva `staleTime` 0;
+  - due letture nuove, `useTypeExtraCredits` (:424) e `useActiveShopTitles` (:433).
+- `src/lib/query-keys.ts`: `extraCredits.types` e `shopTitles`.
+- `src/lib/event-colors.ts`:
+  - nomi italiani in `GCAL_COLORS`, con gli stessi hex (Salvia resta `#33B864`);
+  - `STUDIO_BLUE` e `TYPE_PALETTE` solo per il desktop;
+  - contrasto WCAG col bianco.
+- `src/lib/service-distribution.ts`: `isCountedSession` (:25) con `AGENDA_STATUSES` al posto di `COUNTED_STATUSES`.
+- `src/lib/session-time.ts`: `formatDuration` (:42). Sostituisce le due copie locali di `session-form-dialog.tsx` e `overview-desktop.tsx`.
+- `src/components/segmented-control.tsx`: `itemClassName` facoltativo (:32), per il padding di 11 px del prototipo nel dialog.
+- Test: `session-time.test.ts` (+1).
+- `design_handoff_coach_redesign/CHECKLIST.md`: la 07 passa a `[x]`, con la nota sull'archiviazione.
 - `docs/ULTIMO-RITORNO.md`: questo file.
 
 **NON TOCCATI**
 
-- **Niente database, lock, dipendenze, tipi generati o CI.** Questo comando dà 0 righe:
+- **Niente database, lock, dipendenze, tipi generati, CI o Google.** Questo comando dà 0 righe:
 
   ```
-  git diff origin/main..HEAD --stat -- supabase/ bun.lock package.json src/integrations/supabase/types.ts .github
+  git diff origin/main..HEAD --stat -- supabase/ bun.lock package.json src/integrations/supabase/types.ts .github src/lib/gcal-colors.ts src/lib/gcal.functions.ts src/lib/gcal.server.ts
   ```
 
-- **Altri file:** `src/routes/client.*`, `trainer-header.tsx`, `trainer-bottom-nav.tsx` e i componenti del Profilo di prima: `coach-notes-card.tsx`, `trainer-bia-panel.tsx`, `timeline-week-row.tsx`, `timeline-booking-card.tsx`, `path-start-date-card.tsx`, `auto-renew-toggle-card.tsx`, `orphan-bookings-card.tsx`, `edit-booking-dialog.tsx`, `block-credits-dialog.tsx`. Il telefono li usa ancora; il desktop riusa `trainer-bia-panel.tsx` e `block-credits-dialog.tsx`.
+- **Anche queste 0 righe:** `src/routes/client.*`, `trainer-header.tsx`, `trainer-bottom-nav.tsx`, `trainer-sidebar.tsx`, `src/routes/trainer.tsx`.
+- **`event-type-service-card.tsx` non cambia.** È la card del telefono; il desktop ha la sua.
 - **Il telefono resta com'era.**
-  - **Estrazione:** `client-profile-mobile.tsx` al commit `d4c454c` differisce dalla route su `origin/main` solo in quattro punti: import, commento in testa, definizione della route (spostata) e `export function ClientProfileMobile`.
-  - **Prova:** a 390 px, 5 stati, col finto backend e l'ora fissa:
-    1. Giulia;
-    2. dialog «Modifica sessione» di prima aperto;
-    3. abbonamento mensile (Luca);
-    4. cliente libero (Elena);
-    5. `?tab=pacchetto`, che sul telefono non apre niente, come prima.
-  - **Risultato:** su `origin/main` e sul ramo (dopo il commit 5), impronta del DOM visibile **e** hash del PNG a pagina intera identici in tutti e 5 gli stati.
+  - **Estrazione:** al commit `8003334`, `event-types-mobile.tsx` differisce dalla route di `origin/main` solo in quattro punti: commento in testa, import di `createFileRoute`, definizione della route (tolta) e `export function EventTypesMobile`. I commit `0bb1230` e `631d6c6` cambiano solo query, scritture e `onError`: nessuna riga di JSX.
+  - **Prova:** a 390 px, finto backend e ora fissa, tre stati: elenco, nessuna tipologia, errore di caricamento. DOM visibile di `<main>` (senza `data-tsd-source`, l'attributo che Vite aggiunge col percorso del file) e PNG a pagina intera.
+  - **Risultato:** impronte identiche su `origin/main` e sul ramo:
 
-  | stato | DOM `origin/main` | DOM ramo | PNG (uguale) |
-  |---|---|---|---|
-  | 1 · Giulia | `1b7350cc25c5850e` | `1b7350cc25c5850e` | `8fc6495c229978ab` |
-  | 2 · modifica | `63bbcdc3d07f9ffa` | `63bbcdc3d07f9ffa` | `c5495590337193f7` |
-  | 3 · mensile | `de36417109a29a14` | `de36417109a29a14` | `6c7a2693b7229040` |
-  | 4 · libero | `9afd9b682dbe6a16` | `9afd9b682dbe6a16` | `169d6e29220bbfd4` |
-  | 5 · `tab=pacchetto` | `1b7350cc25c5850e` | `1b7350cc25c5850e` | `8fc6495c229978ab` |
+  | stato      | DOM `origin/main`  | DOM ramo           | PNG (uguale)       |
+  | ---------- | ------------------ | ------------------ | ------------------ |
+  | 1 · elenco | `5124f232f46cb9ca` | `5124f232f46cb9ca` | `6a4ce56f3b2fbbe3` |
+  | 2 · vuota  | `e127b604f2024026` | `e127b604f2024026` | `1133c68e5a549478` |
+  | 3 · errore | `5572897596465493` | `5572897596465493` | `a0df8d4f534ba0b5` |
+  - **Cosa cambia sul telefono, per scelta (§3.8):**
+    - i rifiuti del modulo nel toast «Errore» di sempre;
+    - il nome del colore in italiano nel suo dialog («Selezionato: Pavone»), perché legge `GCAL_COLORS`;
+    - dalla revisione: salva solo i campi cambiati, quindi non cancella più `unavailable_message`, e rilegge la lista dopo un rifiuto.
 
 ## Ambiente
 
-- **Dipendenze:** ho riscritto in `bun.lock` gli indirizzi del registro di Lovable verso `https://registry.npmjs.org/`. Poi `bun install --frozen-lockfile` (Bun 1.3.11) ha dato «Checked 724 installs across 846 packages (no changes)». Infine ho rimesso `bun.lock` com'era (`git checkout -- bun.lock`).
-- **Browser:** la Chromium di Playwright in `/opt/pw-browsers`.
-- **Finto backend:** quello delle passate 02-05, esteso per la 06. Vive nella cartella di lavoro della sessione, non nel repo.
-  - **Giulia come nelle schermate:** telefono, 6 blocchi dal 13/07, blocco 3 in corso con 3 PT su 16, una sessione annullata;
-  - **due sessioni di Giulia importate da Google**, fuori percorso;
-  - **BIA e note del coach**;
-  - **un percorso fisso col rinnovo acceso** (Sara);
-  - **l'upsert di PostgREST** (`on_conflict`, `resolution=merge-duplicates`) per le note.
-- **Albero di base:** un worktree separato su `b8c1cec`, per le impronte del telefono.
-- **Rete:** nessuna richiesta è uscita verso Supabase, Google o l'invio email. Il banco le conta, zero in ogni giro.
+- **Sistema:** Windows 11, clone di Nicolò, senza worktree per il lavoro. Il worktree di `origin/main` per le impronte è stato temporaneo e l'ho già tolto.
+- **Versioni:** Bun 1.3.14, Node v24.12.0.
+- **Dipendenze:** nessuna installazione. `node_modules` è quello della passata 00. `git diff --stat b780645 origin/main -- package.json bun.lock` è vuoto; controllo positivo `4434a77`..`02a4d2a`: 2 file.
+- **Browser:** niente installazioni e niente download.
+  - **Playwright** 1.64.0-alpha, quello della cache npx del server MCP Playwright (fuori dal repo).
+  - **Chromium:** la headless shell 143.0.7499.4, già in `%LOCALAPPDATA%\ms-playwright\chromium_headless_shell-1200`. La `chrome.exe` completa della stessa cartella non parte (`Permission denied`).
+- **Finto backend:** scritto per questa passata, nella cartella di lavoro della sessione, non nel repo.
+  - **Avvio:** Vite con `VITE_SUPABASE_URL=http://finto-supabase.test` (un host che non si risolve) e `VITE_SENTRY_DSN` vuoto.
+  - **PostgREST minimo:** filtri, ordine, `limit`, `Prefer: return=representation` e `count=exact`, `SET NULL` sull'eliminazione.
+  - **Realtime** finto, **Google Fonts** serviti vuoti.
+  - **Tutto il resto bloccato e contato:** zero in ogni giro.
 
 ## Controlli
 
-Base (`b8c1cec`) e fine (`06e0a60`, ultimo commit di codice), stessi comandi e stesso ambiente.
+Base (`3d29634`) e fine (`631d6c6`, ultimo commit di codice), stessi comandi e stesso PC.
 
-| | Base | Fine |
-|---|---|---|
-| typecheck (`tsc --noEmit`) | 0 errori | 0 errori |
-| lint (`eslint .`) | `✖ 22 problems (0 errors, 22 warnings)` | `✖ 22 problems (0 errors, 22 warnings)` |
-| test (`vitest run`) | `Tests  334 passed (334)`, 24 file | `Tests  388 passed (388)`, 26 file |
-| build (`vite build`) | riuscita | riuscita |
+|                                 | Base                                    | Fine                                    |
+| ------------------------------- | --------------------------------------- | --------------------------------------- |
+| typecheck (`bun run typecheck`) | 0 errori                                | 0 errori                                |
+| lint (`bun run lint`)           | `✖ 22 problems (0 errors, 22 warnings)` | `✖ 22 problems (0 errors, 22 warnings)` |
+| test (`bun run test`)           | `Tests  388 passed (388)`, 26 file      | `Tests  441 passed (441)`, 29 file      |
+| build (`bun run build`)         | riuscita                                | riuscita                                |
 
 - **Base:** uguale a quella misurata da Cowork.
-- **Lint:** gli stessi avvisi file per file. L'unico che cambia posto è quello di `react-hooks/exhaustive-deps` della pagina di prima, che si sposta con lei da `trainer.clients.$id.tsx:165` a `client-profile-mobile.tsx:147`.
-- **Test nuovi (54):**
-  - `client-profile`: 27;
-  - `profile-session`: 20;
-  - `attendance`: 4;
-  - `client-create`: 3.
+- **Lint:** gli stessi avvisi, file per file.
+- **Test nuovi (53):** `event-type-actions` 25, `event-type-rules` 17, `event-type-usage` 10, `session-time` 1.
+- **Un lancio fallito, per contesa di risorse.** Un primo `bun run test` a fine lavoro ha dato 3-4 file falliti. Le cause: `UNKNOWN: unknown error, lstat` su `node_modules/date-fns` e un worker uscito con codice 134. Nello stesso momento girava il vitest di un altro progetto (`nc-movement`, un'altra sessione) con una decina di worker. Quando è finito, lo stesso comando ha dato 29 file verdi. Non ho toccato quei processi.
 
 ## Ricognizione del §4
 
-Righe di `origin/main` (`b8c1cec`); la pagina era `src/routes/trainer.clients.$id.tsx`.
+Righe di `origin/main` (`3d29634`).
 
-1. **Cosa scrive oggi la modifica di una sessione.**
-   - **`edit-booking-dialog.tsx`** è solo interfaccia:
-     - stato scegliibile solo fra Pianificata e Completata (:47, :119, :181-194);
-     - «Annulla sessione» ed «Elimina» aprono il dialog condiviso della 02;
-     - «Scollega dal profilo» si conferma con un AlertDialog.
-   - **Il salvataggio** è `saveBookingEdit` (:557-600): un UPDATE secco su `bookings` di `scheduled_at`, `event_type_id`, `session_type` ed eventualmente `status` (:558-566), poi `gcalUpdateEvent` senza attendere (:580-594).
-     - Niente `reschedule_booking`: il credito non segue né la nuova settimana né la nuova tipologia.
-     - Nessun controllo che la riga sia ancora com'era.
-   - **Annulla ed elimina** passano da `SessionCancelDialog` (:1352-1359, :1362-1382).
-   - **Scollega** (`unlinkBooking`, :519-553): `findCreditToReturn`, poi UPDATE di `client_id` e `block_id` a null con `ignored_by_clients`, poi `moveCredit(−1)`.
-   - **Il Calendario** invece usa `editSession` (`session-form-dialog.tsx:312`, `reschedule_booking` in `calendar-store.ts:94-100`) e `changeSessionOutcome` (`calendar-desktop.tsx:394`).
-   - **Quindi il Profilo era la terza strada.** Ora desktop e telefono passano da `profile-session.ts`, che usa gli helper del Calendario.
-2. **Sessioni fuori percorso e «Ignora».**
-   - **Caricamento** (`loadOrphans`, :398-436): eventi del coach senza cliente e non eliminati, esclusi quelli col cliente in `ignored_by_clients`, che contengono il nome (e il cognome, se c'è) nel titolo o nelle note.
-   - **La card** è `orphan-bookings-card.tsx:44-96` («Sessioni da revisionare», «Conferma» / «Scarta»).
-   - **«Scarta»** (`discardOrphan`, :498-516): legge `ignored_by_clients`, aggiunge il cliente e aggiorna la riga. Nessun credito si muove.
-   - **«Conferma»** (`confirmOrphan`, :438-496): prende il credito dal primo blocco, per `sequence_order`, che ha capienza per quella tipologia, non dal blocco della data. Scala con un UPDATE non condizionato; altrimenti dagli extra; altrimenti collega senza credito.
-3. **Spostamento delle settimane e `saveSchedule`.**
-   - **Le righe** si costruiscono al caricamento (:336-354): prima `weekly_schedule`, altrimenti `path_start_date` + 7 giorni per settimana.
-   - **`handleWeekDateChange`** (:627-647) porta la data al lunedì, segna la settimana `shifted` e sposta le successive di 7 in 7 (ognuna tiene il suo `shifted`).
-   - **La data d'inizio** (`handleStartChange`, :619-625) e «Ricalcola» (`resetSchedule`, :649-653) rigenerano tutto.
-   - **«Da salvare»** (`dirty`, :723-729) confronta le righe con `originalRows`. Il pulsante stava in testata (:952-959) e non c'era nessuna protezione all'uscita.
-   - **`saveSchedule`** (:682-721): UPDATE di `profiles.path_start_date`, DELETE di tutto `weekly_schedule` del cliente, INSERT di tutte le righe. Non è una transazione.
-4. **«Blocco 3 di 6», «Mese 2» e BIA.**
-   - **«Blocco N di M»** (:982): `currentNum` (:850-851) è il blocco il cui intervallo contiene oggi, ma l'intervallo viene dalle settimane di `weekly_schedule` (:753-759), non dalle date di `training_blocks`.
-   - **«Mese 2»** nel Profilo non c'era: è solo nel prototipo. Ora intestazione e riquadro usano `resolveCurrentBlock` sui blocchi validi, come la lista della 05 (`client-profile.ts`, `blockChip`, `packageSummary`).
-   - **BIA:** `TrainerBiaPanel` (:1293) su `useBiaMeasurements` (`use-bia.ts:44-93`), tabella `bia_measurements` (`measured_on`, `weight_kg`, `muscle_kg`, `fat_pct`), in tempo reale. Aggiunta, modifica ed eliminazione passano da `use-bia.ts`.
-5. **Come salva `CoachNotesCard`.**
-   - Idrata i campi una volta (:28-33), poi aspetta 800 ms di pausa (:36-56).
-   - Salva con `useSaveCoachClientNote`: upsert su `coach_client_notes` con `onConflict` su `coach_id,client_id`, di `note` e `goal` (`use-coach-notes.ts:45-65`).
-   - Mostra «Salvataggio…» e «Salvato» (:62-73). Limitazioni è un segnaposto «—» (:107-114).
-   - Il timer si cancella quando la card sparisce: una modifica degli ultimi 800 ms si perde. Il desktop (`profile-notes-card.tsx:69-73`) la salva invece subito.
-
-**Dal server, letto nelle migrazioni:**
-
-- **Trigger dei crediti:** solo `BEFORE INSERT` (`20260522204517_…sql:23-25`, :125-127). Un cambio di stato non muove crediti, perciò «Rimetti in agenda» li riprende da sé, come il «Ripristina» della 02.
-- **Rinnovo:** `ensure_client_block_state` (`20260827143325_…sql:1-100`) non guarda `path_type`, mentre il cron (:136-139) lavora solo sui mensili. E `auto_renew_blocks` nasce `true` (`20260523112416_…sql:6`). È il motivo del §3.2.
+1. **Chi legge `duration` e `buffer_minutes` dopo che la sessione è nata.**
+   - **Il trigger.**
+     - L'ultima definizione è `20260522204517_…sql:78-81`, `BEFORE INSERT OR UPDATE OF scheduled_at, duration_min, buffer_min, event_type_id`.
+     - La funzione è in `20260814102120_…sql:1-39`: il margine si rilegge sempre (:18-20); la durata solo se `google_event_id IS NULL` e vale 60 (:26-28).
+     - Nessun trigger su `event_types` aggiorna le sessioni: c'è solo `set_updated_at` (`20260510095008_…sql:30-32`).
+   - **I lettori usano i valori copiati nella sessione:**
+     - `get_coach_busy`, l'ultima in `20260522204517_…sql:258-271`. `get_coach_busy_snapshot` non esiste come funzione: è solo il nome del file `20260519110000_get_coach_busy_snapshot_duration.sql`;
+     - Prenota, per le sessioni esistenti (`client.book.tsx:210-234`, `booking-slots.ts:63-68,172-185`);
+     - Riprogramma (`client-reschedule-sheet.tsx:109-141`, `reschedule-slots.ts:106-111`);
+     - Calendario (`calendar-desktop.tsx:310-314`, `calendar-events.ts:74-78`);
+     - Oggi (`today-agenda.ts:56-62`).
+   - **I valori vivi della tipologia servono solo alla sessione da creare** (`client.book.tsx:178-181`).
+   - **La frase «Durata e margine valgono per le sessioni fissate da ora in poi.» è vera.** Due precisazioni al §3.2 del prompt:
+     - la condizione della durata è «non collegata a un evento Google», non «non viene da Google»: anche le sessioni create nell'app ricevono `google_event_id` quando vengono pubblicate (`gcal.functions.ts:195-202`);
+     - il Calendario passa la durata esplicitamente (`session-create.ts:213`), Prenota no (`use-book-confirm.ts:177-195`).
+2. **Una sessione con `event_type_id` nullo.**
+   - **Fallback:** `sessionLabel(session_type)` («Sessione PT», «Test funzionale», «BIA», `mock-data.ts:8-12`).
+   - **Calendario desktop e Panoramica:** blu `#003e62` (`FALLBACK_TYPE_COLOR`, `service-distribution.ts:52`); nel Calendario resta viola se è una consulenza (`calendar-desktop.tsx:302-306`).
+   - **Profilo desktop:** grigio `#c1c7d0` (`client-profile.ts:381-388`).
+   - **Profilo del telefono:** mostra il titolo Google o «Sessione» (`client-profile-mobile.tsx:994-995`).
+   - **Filtri per tipologia del Calendario:** la escludono (`calendar-events.ts:65-68`).
+   - **Icona:** la calcola il nome, quindi può cambiare (`session-type-icon.ts`).
+   - **Crediti:**
+     - un'allocazione nulla si prenota ancora per `session_type` (trigger `20260827143053_…sql:42-45`);
+     - un credito extra nullo compare in Prenota ma **non si può più prenotare** (`booking-allocation.ts:83`, trigger :81-83);
+     - `cancel_booking` non lo rimborsa (`20260606120000_…sql:193`).
+   - **Chiavi verso `event_types`:** le tre FK `ON DELETE SET NULL` sono confermate alle righe citate dal prompt, e non ce ne sono altre verso `event_types`.
+   - **Per questo il testo dell'eliminazione dice che sessioni e crediti «perderebbero la tipologia».**
+3. **«Link inviato alla prenotazione»: vero solo in parte.**
+   - **Il link nasce** con l'evento Google:
+     - `requestMeet: isOnline` in `use-book-confirm.ts:253` e `session-store.ts:103,111`;
+     - lato server, `gcal.server.ts:116-123` con `conferenceDataVersion=1` (:129);
+     - si salva in `bookings.meeting_link` (`gcal.functions.ts:194-202`).
+   - **Il cliente lo trova:**
+     - nell'app, «Apri videocall» (`client-booking-detail-view.tsx:215-227`);
+     - nell'invito di Google Calendar, se ha un'email valida (`gcal.server.ts:106-114`, `sendUpdates` «all» a :128).
+   - **L'app non lo manda:** nessuna email o notifica col link (`use-book-confirm.ts:261-262`, :272).
+   - **Se Google fallisce** il link non c'è.
+   - Il testo della card dice quello che succede: «Online · link Meet creato alla prenotazione» (`event-type-rules.ts:176`).
 
 ## Prove rosse
 
-Ognuna: difetto nel codice, test che cade, file ripristinato con `git checkout`, test di nuovo verde. Uscita sotto, sintetizzata dal log.
+Ognuna: difetto nel codice, test che cade, file ripristinato con `git checkout`, test di nuovo verde. Uscite sintetizzate.
 
-1. **Una settimana cambiata non si segna «da salvare»** (`client-profile.ts`, `sameWeek` diventa `return !!a && !!b;`).
-   - **Rosso:** `Tests 3 failed | 24 passed (27)`. Cade «spostare una settimana la segna da salvare…» con `AssertionError: expected [] to deeply equal [ 2, 3, 4, 5, 6, 7, 8 ]`, e con lui `isScheduleDirty`. La protezione all'uscita è `dirty && leavesSchedule(…)`: senza «dirty» non si attiva.
-   - **Verde:** `Tests 27 passed (27)`.
-2. **L'interruttore anche ai fissi spenti** (`renewalControl` restituisce `{ kind: "toggle", … }` anche per i fissi).
-   - **Rosso:** `Tests 2 failed | 25 passed (27)`. Cade «fisso spento: niente» con `expected { kind: 'toggle', on: false } to be null`.
-   - **Verde:** `Tests 27 passed (27)`.
-3. **Assenze = solo `late_cancelled`** (`presenceSummary`, `absences: att?.lateCancelled ?? 0`).
-   - **Rosso:** `Tests 2 failed | 8 passed (10)`. Cade «“Assenze (8 sett.)” sono le assenze di getAttendance» con `expected 3 to be 2`.
+1. **Soglia del contrasto a 3,1** (`MIN_WHITE_CONTRAST = 3.1`).
+   - **Rosso:** `Tests 1 failed | 16 passed (17)`. Cade «l'avviso esce esattamente per Fenicottero, Banana e Salvia»: il risultato ha anche `"Pavone"`.
+   - **Verde:** `Tests 17 passed (17)`.
+2. **Il nome si confronta con le maiuscole** (`sameName` senza `toLowerCase`).
+   - **Rosso:** `Tests 1 failed | 16 passed (17)`. Cade «doppione senza maiuscole e senza spazi ai lati…» con `expected null to be 'duplicate'`.
+   - **Verde:** `Tests 17 passed (17)`.
+3. **Il verdetto ignora i clienti con crediti** (`isTypeInUse` senza `clientsWithCredits`).
+   - **Rosso:** `Tests 1 failed | 24 passed (25)`. Cade «in uso per i crediti, senza sessioni future: rifiutata» con `Error: doveva rifiutare`: la BIA con i crediti di Marta viene eliminata.
+   - **Verde:** `Tests 25 passed (25)`.
+4. **Il verdetto ignora il negozio** (`isTypeInUse` senza `soldInShop`).
+   - **Rosso:** `Tests 1 failed | 24 passed (25)`. Cade «in uso per il negozio: rifiutata» con `Error: doveva rifiutare`.
+   - **Verde:** `Tests 25 passed (25)`.
+5. **Il mese conta anche `late_cancelled`.**
+   - **Rosso:** `Tests 1 failed | 9 passed (10)`. Cade «la regola della Distribuzione servizi sul mese intero di Roma…» con `expected 5 to be 4`.
    - **Verde:** `Tests 10 passed (10)`.
-4. **«Collega» dal blocco in corso invece che da quello della data** (`assign-event.ts`, `blockForDate(…, new Date().toISOString())`).
-   - **Rosso:** `Tests 1 failed | 19 passed (20)`. Cade «“Collega” prende il credito dal blocco della data, non da quello in corso» con `expected { kind: 'allocation', id: 'm1-pt-1' } to deeply equal { kind: 'allocation', id: 'm0-pt-4' }`.
-   - **Verde:** `Tests 20 passed (20)`.
-   - **Nota:** questo difetto usa l'orologio vero (27/09, nel blocco `m1`); il test invece ha date fisse.
-5. **`tab` non scritto nell'URL** (`profileSearchOf` restituisce sempre `{}`).
-   - **Rosso:** `Tests 1 failed | 26 passed (27)`. Cade «ogni tab scrive il suo parametro; la panoramica nessuno» con `expected {} to deeply equal { tab: 'percorso' }`.
-   - **Verde:** `Tests 27 passed (27)`.
+6. **L'interruttore scrive `unavailable_message: null`.**
+   - **Rosso:** `Tests 1 failed | 24 passed (25)`. Cade «scrive solo client_bookable: il messaggio per i clienti resta»: la patch ricevuta ha anche `"unavailable_message": null`.
+   - **Verde:** `Tests 25 passed (25)`.
 
 ## Verifica nel browser
 
-Finto backend, ora fissa venerdì 25/09/2026 10:40 a Roma, viewport 1440×900. **Desktop: 53 controlli, 53 OK. Telefono, scritture: 5 controlli, 5 OK.**
+- **Condizioni:** finto backend, ora fissa venerdì 25/09/2026 10:40 a Roma, desktop 1440×900 e telefono 390×844.
+- **Esito:** **76 controlli, 76 OK. Zero richieste bloccate verso host esterni, zero errori nella pagina, zero dialog nativi.**
 
 **Accettazione**
 
-- **Riga 1, nessuna modifica si perde senza conferma.** Spostata la settimana 2 del blocco 3 al 23/09: compaiono «Spostata · da salvare» e la barra «15 settimane modificate», fissa in fondo alla finestra.
-  - Cambio tab, sidebar «Clienti», freccia e «indietro» del browser (arrivando dalla lista) aprono «Salvare le modifiche al percorso?».
-  - «Resta qui» lascia tab, URL e modifiche.
-  - «Esci senza salvare» porta alla lista, senza scrivere.
-  - «Salva ed esci» scrive le 24 settimane con `saveSchedule`, la 10 al 21/09 e `shifted`, e porta al tab scelto.
-  - La chiusura della pagina dà `beforeunload`.
-  - «Annulla modifiche» toglie la barra senza scrivere.
-  - «Ripristina le date standard» chiede conferma, e poi si salva dalla barra.
-- **Riga 2, il tab resta nell'URL e «Vedi tutte» porta alle Sessioni.**
-  - `tab=percorso` resta dopo il ricaricamento, e la panoramica non scrive `tab`.
-  - «Vedi tutte (N)» porta a `tab=sessioni`.
-  - `tab=pacchetto` apre il dialog Pacchetto sulla panoramica e si toglie dall'URL.
+- **Riga 1, nessun controllo della card apre il dialog senza dirlo.**
+  - I controlli della card sono esattamente «Modifica <nome>», i quattro −/+, l'interruttore ed «Elimina».
+  - −/+, interruttore e quadrato colore non aprono niente.
+  - Solo la matita apre «Modifica tipologia».
+- **Riga 2, nessun «—» segnaposto.** Nessun «—» nella pagina; nessun «Prezzo» né «prenotazioni questo mese».
 
 **Il resto**
 
-- **Intestazione:** «Attivo · Percorso Fisso · Blocco 3 di 6», `mailto:giulia.b@email.it`, `tel:+393401182209`, `https://wa.me/393401182209`.
-- **Collegamenti:**
-  - «Nuova sessione» porta a `/trainer/calendar?new=sessione&client=<id>`;
-  - una sessione in arrivo porta a `?date=2026-09-28&event=<id>`;
-  - «Vedi il percorso» porta al tab Percorso.
-- **Presenza:** 77%, «3 Assenze (8 sett.)», uguali ai valori ricalcolati sul finto database. «Ultima sessione svolta: Lunedì 21 settembre (4 giorni fa)».
-- **Note:** si salvano da sole e dicono «Salvato». Un obiettivo scritto subito prima di cambiare tab si salva lo stesso. Nessun campo «Limitazioni».
-- **Rinnovo in pagina (P5):** Sara è in scadenza e ha il banner col motivo e «Rinnova», che apre il Pacchetto su «Rinnova lo stesso».
-- **Sessioni fuori percorso:**
-  - i pulsanti dicono «Collega al blocco in corso» (18/09) e «Collega al blocco 2» (01/09);
-  - «Collega» mette la sessione nel blocco 3 e il PT del blocco passa da 13 a 14 prenotati;
-  - «Ignora» scrive `ignored_by_clients`, senza crediti, e «Ripristina» lo toglie.
-- **Modifica sessione:**
-  - la nuova ora passa da `reschedule_booking` e nessun PATCH di `scheduled_at`;
-  - «Svolta» scrive `status` con il filtro `status=eq.scheduled`, e «Ripristina» la riporta a Programmata.
-- **«Rimetti in agenda»:**
-  - la sessione del 22/09 torna programmata, riprende un PT e ha un evento Google nuovo;
-  - per Chiara, senza capienza, il dialog dice «Non ci sono crediti…» e non cambia niente.
-- **Rinnovo automatico:**
-  - Luca (mensile): interruttore acceso con «Nuovo blocco il 5 ott 2026»; spento, scrive `auto_renew_blocks = false`;
-  - Sara (fissa, accesa): avviso con «Spegni», niente interruttore; «Spegni» scrive `false` e l'avviso sparisce;
-  - Paolo (fisso spento): niente.
-- **Telefono alla creazione:** il riepilogo lo mostra e il profilo scritto ha `+39 347 555 0101`. `admin-create-user` riceve gli stessi quattro campi di prima.
+- **Piè con l'uso vero:**
+  - «7 sessioni questo mese · 1 cliente con crediti» su Sessione PT;
+  - «1 sessione questo mese · 1 cliente con crediti» sulla BIA.
+- **Pagina:**
+  - card in ordine di nome;
+  - descrizione su due righe;
+  - niente opacità ridotta;
+  - la riga sotto la griglia;
+  - «In studio · indirizzo non impostato»;
+  - «Online · link Meet creato alla prenotazione».
+- **−/+:**
+  - **tre clic veloci** su «Aumenta la durata di Sessione PT», con la risposta ritardata di 500 ms: **una scrittura sola**, `{ duration: 75 }`, e la card mostra «1h 15m»;
+  - durante la scrittura −/+, matita ed «Elimina» sono disabilitati;
+  - fuori griglia: 50 + dà 1h, 50 − dà 45m, margine 20 − dà 15;
+  - la BIA a 15 minuti ha il «−» disabilitato;
+  - una scrittura fallita riporta il valore di prima col toast «Modifica non salvata.».
+- **Interruttore:**
+  - scrive solo `{ client_bookable: false }`;
+  - toast «Sessione PT non è più prenotabile dai clienti.» con «Ripristina», che riaccende;
+  - riaccendere la tipologia di test non cancella il messaggio, e rispenta lo mostra di nuovo.
+- **Dialog:**
+  - la nuova tipologia parte da 1h, 10 min, In studio, Blu studio e prenotabile, con 12 cerchi e 600 px;
+  - errori sotto il campo: «Inserisci un nome.» e «Esiste già una tipologia con questo nome.» (con « misurazione bia »);
+  - avviso di contrasto su Banana e Salvia, non su Pavone;
+  - nota di Google su Blu studio;
+  - anteprima «Nome cliente» / «Stretching · 10:30»;
+  - non prenotabile: il messaggio e il testo predefinito;
+  - la creazione scrive i valori del prototipo, e il suo «Ripristina» rilegge l'uso e poi elimina;
+  - la BIA ha il segmento «15m» in più, selezionato;
+  - «Vecchia prova» ha il tredicesimo cerchio «Colore attuale» e «20 min» e «50m» selezionati;
+  - «Sessione PT» ha il nome in sola lettura con la spiegazione del negozio;
+  - salvare scrive solo i campi cambiati, e «Ripristina» li riporta;
+  - durata e margine sulla stessa riga;
+  - con un dialog aperto la finestra scende a 390 px: il desktop resta con la bozza; chiuso il dialog, arriva il telefono.
+- **Eliminazione:**
+  - **Sessione PT:** «È in uso: 3 sessioni future, 1 cliente ha crediti di questo tipo e il negozio dei clienti la vende.» più i motivi. Pulsanti «Annulla» e «Rendi non prenotabile», niente «Elimina». «Rendi non prenotabile» scrive solo `client_bookable`.
+  - **Test Funzionali:** è già non prenotabile, e resta solo «Chiudi».
+  - **Free Session:** sessioni passate e «I crediti rimasti a 2 clienti archiviati…». «Elimina» rilegge l'uso (`event_types`, `bookings`, `block_allocations`, `extra_credits`, `booster_packs`, `training_blocks`, `profiles`), poi fa `DELETE`. Il toast non ha «Ripristina».
+  - **Consulenza, uso non leggibile:** non elimina e il dialog lo dice.
+  - **Consulenza, sessione futura aggiunta nel frattempo:** rifiuta e mostra «È in uso: 1 sessione futura.».
 - **Telefono, scritture (390 px):**
-  - «Conferma» prende il credito dal blocco della data;
-  - la nuova ora passa da `reschedule_booking`;
-  - «Completata» scrive con `changeSessionOutcome`.
+  - eliminare Sessione PT: rifiutato col toast «Errore · È in uso: 3 sessioni future…»;
+  - rinominarla: rifiutato col motivo del negozio;
+  - « misurazione BIA »: rifiutato come doppione;
+  - «Selezionato: Pavone», 11 cerchi;
+  - riaccendere la tipologia di test scrive solo `client_bookable`.
 - **Telefono, aspetto:** vedi Manifesto.
-- **Larghezza 820 px:** niente scorrimento orizzontale.
-- **Rete ed errori:** 0 dialog nativi, 0 richieste esterne, 0 errori nella pagina.
 
 ## Divergenze
 
-- **Il telefono scrive con gli helper nuovi** (`client-profile-mobile.tsx:432`, :502, commit `06e0a60`). Il §3.9 chiede la pagina di oggi «senza cambiarla», ma il punto 2 del §0 e il §3.3 vogliono una strada sola per ogni scrittura.
-  - Ho spostato la pagina tale e quale (commit `d4c454c`), poi ho cambiato solo le sue scritture. Quello che mostra è identico (impronte uguali a `origin/main`).
-  - Per Nicolò cambia questo: dal telefono una nuova data segue il credito, e una sessione svolta non si sposta più senza riportarla a Programmata.
-  - «Conferma» ora prende il credito dal blocco della data, non dal primo blocco con capienza.
-  - Se non va bene, il commit si toglie da solo.
-- **`profileEngagement` non è allineato** (`attendance.ts:81`): lo mostra il telefono, che non cambia. L'allineamento chiesto dal §3.5 vive in `presenceSummary` (`attendance.ts:128`), che usa il desktop. Il «No-show» del telefono conta ancora le annullate tardi.
-- **La route monta una sola versione, non le nasconde col CSS** come la 04 (`trainer.clients.$id.tsx:33-58`). Il motivo: la pagina di prima carica i dati da sé, e i suoi dialog, che escono in un portal, comparirebbero anche da nascosta.
-- **Lo spostamento di una settimana sposta anche le successive,** come faceva la pagina di prima (`client-profile.ts:113`). Il prototipo sposta solo quella settimana. Per questo spostarne una segna «da salvare» tutte quelle che cambiano (per esempio «15 settimane modificate»).
-- **«Ripristina le date standard» passa dalla barra,** non si salva subito col «Ripristina» del toast come nel prototipo: resta una modifica da salvare, coerente con il K1.
-- **La data d'inizio del percorso si può ancora cambiare** («Cambia», `profile-path.tsx:170`), come faceva la card di prima. Rigenera le settimane e passa dalla barra.
-- **«Sessione annullata.» per le annullate col credito restituito,** non «…credito restituito» come nel brief (`profile-session-dialog.tsx:54`). Le annullate dal Calendario prima della 02 hanno lo stesso stato, ma il credito non è mai tornato: è la stessa scelta del dialog della 02.
-- **«Rimetti in agenda» riprende un credito anche per le annullate di prima della 02.** Da quel vecchio stato non si capisce se il credito era tornato o no.
-- **Note del coach nel dialog:** il segnaposto dice «Il cliente le vede nel dettaglio della sessione.», non «Visibili solo a te» (`profile-session-dialog.tsx:322`). `trainer_notes` il cliente la legge, come dice già il dialog della 04.
-- **«Scollega dal profilo» resta nel dialog** (`profile-session-dialog.tsx:362`). Il brief non lo ha, ma oggi c'è, e toglierlo farebbe sparire una funzione dal desktop.
-- **Sessioni fuori percorso: la regola del nome è quella di prima,** nome **e** cognome (`client-profile.ts:432`). «PT Giulia (da Google)» del prototipo non comparirebbe: nel banco il titolo è «PT Giulia Bianchi (da Google)».
-  - In più escludo gli eventi che «Collega» non potrebbe collegare: annullati, impegni personali, già in un blocco.
-  - Senza credito, un toast offre «Collega senza credito» (`client-profile-desktop.tsx:401`), come faceva «Conferma».
-- **Andamento BIA:** riuso `TrainerBiaPanel` così com'è (`profile-overview.tsx:340`). Selettore, grafico e dialog ci sono. Rispetto al brief: il dialog chiede anche massa magra e grasso (oggi obbligatori) e dice «Massa (kg)»; in più tiene modifica ed eliminazione dal grafico.
-- **Nessun avviso di sovrapposizione nel dialog,** perché il Profilo non carica le sessioni degli altri clienti. Se l'orario è occupato, il server rifiuta e il dialog mostra «L'orario ora è occupato da un'altra sessione.».
-- **Stato in intestazione:** viene da `clientStatus` della lista (05), non dal calcolo locale di prima. Così Profilo e lista dicono lo stesso stato.
-- **La barra di salvataggio vive in un portal** (`client-profile-desktop.tsx:656`). Il contenitore `.page-enter` del layout ha un `transform`, e un `fixed` dentro di lui finiva in fondo alla pagina invece che in fondo alla finestra. Nel banco c'è un controllo apposta.
-- **«Indietro» del browser col dialog aperto:** la barra degli indirizzi mostra già la pagina di destinazione. «Resta qui» rimette URL e modifiche. È il comportamento di `useBlocker` sui passi indietro.
+- **Testo del luogo online:** «Online · link Meet creato alla prenotazione», non «link inviato alla prenotazione» (`event-type-rules.ts:176`). Vedi il §4.3.
+- **Motivi dell'eliminazione per parte:**
+  - «le sessioni perderebbero la tipologia» se ci sono solo sessioni future;
+  - «i crediti…» se ci sono solo crediti;
+  - «sessioni e crediti…» se ci sono entrambi (`event-type-usage.ts:187`).
+
+  È il «coi motivi delle parti vere» del §3.4.
+
+- **Già non prenotabile:** il testo è «È già non prenotabile: i clienti non possono prenotarla dall'app.» (`event-type-usage.ts:164`).
+- **Il dialog d'eliminazione legge l'uso dal database all'apertura** (`event-type-delete-dialog.tsx:82`), per la sola tipologia, non dalla cache della pagina.
+  - **Il motivo** (dalla revisione): la pagina ha solo le 1.000 sessioni più recenti del coach, e per una tipologia ferma da mesi il testo avrebbe taciuto che lo storico perde la tipologia.
+  - **Stesso verdetto puro.** «Elimina» rilegge un'altra volta subito prima di cancellare.
+- **Salvataggio e «Ripristina» campo per campo** (`event-type-actions.ts:208`, :227, :258). Il salvataggio scrive solo i campi cambiati rispetto alla riga da cui è partito il dialog, e «Ripristina» riporta solo quelli.
+  - **Il motivo** (dalla revisione): un dialog aperto su valori vecchi riscriveva i −/+ o l'interruttore appena usati, e «Ripristina» li annullava.
+  - **Effetto sul telefono:** non scrive più tutti i campi.
+- **Nome invariato sempre valido** (`event-type-rules.ts:139`), anche con un doppione esatto già nel database, che prima non aveva controlli. Altrimenti una tipologia venduta dal negozio con un doppione non si sarebbe più potuta salvare.
+- **Nome in sola lettura finché non si sa se il negozio la vende** (`event-type-dialog.tsx:133`). Se la lettura dei titoli fallisce resta modificabile, e controlla il modulo.
+- **Sessioni future:** contano tutte le righe programmate con quella tipologia dopo adesso, anche quelle senza cliente o col coach come cliente (`event-type-usage.ts:93`). L'eliminazione toglierebbe la tipologia anche a loro.
+- **Sessioni passate:** tutte le righe con quella tipologia fino ad adesso, qualunque stato (`event-type-usage.ts:94`).
+- **Clienti con crediti:** conta solo chi è fra i clienti non eliminati del coach, come `useCoachClients` (`event-type-usage.ts:117`). Lo stesso vale nella rilettura (`event-type-store.ts:132`).
+- **Una costante sola:** `AGENDA_STATUSES` di `today-agenda.ts`, dentro `isCountedSession` (`service-distribution.ts:25`), che ora usa anche la Distribuzione servizi. `COUNTED_STATUSES` non c'è più; i test della Panoramica restano verdi.
+- **Oltre i limiti, i −/+ rientrano** (`event-type-rules.ts:37`): per esempio una durata 250 con − dà 240, un margine 90 con − dà 60. Il brief non lo dice.
+- **Con un dialog aperto la route tiene il desktop** (`trainer.event-types.tsx:34-36`), come il Profilo con le modifiche non salvate.
+- **`useCoachEventTypes({ fresh: true })`** (`queries.ts:368`) su entrambe le pagine. La query di prima aveva `staleTime` 0: senza, un dialog poteva partire da una riga vecchia di 5 minuti.
+- **Chiave dei titoli del negozio:** `["booster_packs","active_titles"]`, diversa da `["booster_titles_active"]` di `client.index.tsx`, che restituisce un'altra forma. Un'altra chiave condivisa sarebbe stata lo stesso errore del §3.1.
+- **Segnaposto dell'indirizzo:** «Indirizzo dello studio», non l'indirizzo d'esempio del prototipo.
+- **`SegmentedControl` ha un `itemClassName` facoltativo** (`segmented-control.tsx:32`). Senza, durata e margine andavano a capo; gli altri usi non cambiano.
+- **A 820 px la pagina scorre di 63 px, ma non per colpa sua.**
+  - **Base e ramo:** succede sia su `origin/main` sia sul ramo: stessa misura, 883 contro 820.
+  - **La causa:** l'intestazione della 01 («Impostazioni › Tipologie di sessione», ricerca, «Nuovo», campanella) non si restringe, e la colonna del layout (`trainer.tsx`, senza `min-w-0`) la segue.
+  - **La prova:** con l'intestazione nascosta, lo scorrimento è 0.
+  - **Cosa ho fatto:** niente; `trainer-header.tsx` non si tocca. A 820 px su `/trainer/clients` non succede.
 
 ## Cosa non ho fatto e perché
 
-- **K4, Limitazioni, e la terza riga di Accettazione:** servono una colonna accanto a `goal`, cioè una migrazione (§3.1 e §5). Non le salvo in un campo che serve ad altro. Nel desktop non c'è il campo, nel telefono resta il segnaposto «—» di prima.
-- **Il filtro delle Sessioni non va nell'URL:** il brief chiede solo `tab`.
-- **`block-credits-dialog.tsx`** (crediti assegnati di un blocco) scrive `block_allocations` come prima. È la gestione del pacchetto, non il movimento di una sessione; lo riusano entrambe le versioni.
-- **Verifica con dati veri:** il divieto vale anche in lettura. Il finto backend riproduce trigger, `reschedule_booking`, upsert e funzioni Google letti nelle migrazioni. Non prova le policy RLS: per esempio l'UPDATE del telefono sul profilo del cliente, che però è la stessa riga che la creazione aggiorna già.
+- **Archiviare le tipologie:** vuole una colonna, cioè una migrazione (§5). Fino ad allora una tipologia in uso non si elimina.
+- **Chiudere la finestra fra rilettura e cancellazione:** servirebbe una funzione sul server che controlli e cancelli nella stessa transazione, cioè una migrazione. Oggi, se fra la rilettura e il `DELETE` qualcuno fissa una sessione o assegna un credito di quella tipologia, quella riga perde la tipologia.
+- **Testi sbagliati del telefono (debiti):**
+  - il sottotitolo col prezzo (`event-types-mobile.tsx:138`);
+  - la conferma «Le prenotazioni esistenti non saranno modificate» (`event-type-service-card.tsx:163`);
+  - i trattini di «Prezzo» e «prenotazioni questo mese», e «Blocca prenotazione lato cliente».
+
+  Il §3.8 li lascia com'erano.
+
+- **Il piè oltre le 1.000 righe.** «Clienti con crediti» può sottostimare oltre le 1.000 allocazioni o i 1.000 crediti extra per coach: `useCoachBlocks` e la lettura dei crediti extra non paginano, come il resto dell'app. Il dialog e l'eliminazione non ne dipendono: rileggono per la sola tipologia, col conteggio esatto (`event-type-store.ts:85`, :97).
+- **Verifica con dati veri:** il divieto vale anche in lettura. Il finto backend non prova le policy RLS: in particolare la lettura di `booster_packs` e di `extra_credits` col conteggio esatto sotto RLS, e il `DELETE … RETURNING` su `event_types`.
 
 ## Cosa resta a Nicolò
 
 - **Prova sull'anteprima Lovable, con dati veri:**
-  - spostare una settimana e uscire in tutti i modi (tab, sidebar, freccia, indietro, chiusura);
-  - «Salva calendario»;
-  - modificare ora e tipologia di una sessione e controllare il credito della settimana;
-  - «Rimetti in agenda» con e senza crediti;
-  - «Collega» su un evento di Google;
-  - WhatsApp dal Profilo;
-  - un cliente creato col telefono.
-- **Decidere il commit `06e0a60`**, cioè il telefono che scrive con gli helper: tenerlo (consigliato: una strada sola) o toglierlo.
-- **Spegnere il rinnovo sui percorsi fissi di prima:** dal Profilo c'è «Spegni», oppure si sistemano i dati.
-- **K4:** colonna e migrazione per le Limitazioni, alla revisione del 02/10/2026.
+  - −/+ e interruttore su una tipologia, poi il Calendario;
+  - il nome di «Sessione PT» in sola lettura;
+  - eliminare una tipologia in uso: rifiutata;
+  - eliminarne una non usata;
+  - il dialog di «Free Session»: sessioni passate e archiviati;
+  - dal telefono: le stesse scritture.
+- **Decidere i commit `0bb1230` e `631d6c6`,** cioè il telefono che scrive con gli helper: tenerli (consigliato: una strada sola) o toglierli, tutti e due insieme.
+- **Revisione del 02/10/2026:** migrazione per archiviare le tipologie e funzione sul server per eliminare senza finestra.
+- **Passata 01:** l'intestazione che a 820 px fa scorrere la pagina Tipologie.
+- **Da guardare, trovato di passaggio dalla ricognizione, non toccato:**
+  - modificando una sessione non collegata a Google e mettendo esattamente 60 minuti, il trigger riporta la durata a quella della tipologia (`session-edit.ts:370`);
+  - nella riprogrammazione lato cliente il margine nuovo non entra nello slot candidato (`reschedule-slots.ts:103`, `client-reschedule-sheet.tsx:132-150`).

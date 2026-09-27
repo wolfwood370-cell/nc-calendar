@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatDuration,
   formatLongDay,
   formatShortDate,
   formatShortDay,
@@ -40,5 +41,16 @@ describe("shortDateWithArticle", () => {
     expect(shortDateWithArticle(new Date(2026, 9, 5), "da")).toBe("dal 5 ott 2026");
     expect(shortDateWithArticle(new Date(2026, 9, 8), "da")).toBe("dall'8 ott 2026");
     expect(shortDateWithArticle(new Date(2027, 0, 11), "da")).toBe("dall'11 gen 2027");
+  });
+});
+
+describe("durata", () => {
+  it("«30m», «1h», «1h 30m», come il prototipo", () => {
+    expect(formatDuration(15)).toBe("15m");
+    expect(formatDuration(30)).toBe("30m");
+    expect(formatDuration(60)).toBe("1h");
+    expect(formatDuration(90)).toBe("1h 30m");
+    expect(formatDuration(120)).toBe("2h");
+    expect(formatDuration(135)).toBe("2h 15m");
   });
 });
