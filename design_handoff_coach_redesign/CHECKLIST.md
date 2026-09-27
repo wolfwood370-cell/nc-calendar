@@ -11,7 +11,7 @@ Ordine vincolante: 00 → 01 → 02, poi le pagine. Una passata per PR.
 | 04 | [Calendario](passes/04-calendario.md) | C1–C6, T4, T5 | 01, 02 | [x] |
 | 05 | [Clienti](passes/05-clienti.md) | L1–L8, T4, V5 | 01, 02 | [x] |
 | 06 | [Profilo cliente](passes/06-profilo-cliente.md) | K1–K7, P5 | 02, 05 | [x] ¹ |
-| 07 | [Tipologie di sessione](passes/07-tipologie.md) | E1–E5 | 00 | [ ] |
+| 07 | [Tipologie di sessione](passes/07-tipologie.md) | E1–E5 | 00 | [x] ² |
 | 08 | [Disponibilità](passes/08-disponibilita.md) | D1–D6 | 00 | [ ] |
 | 09 | [Integrazioni](passes/09-integrazioni.md) | I1–I4, C1 | 04 | [ ] |
 | 10 | [Verifica finale](passes/10-verifica-finale.md) | V1–V12, O3 | tutte | [ ] |
@@ -19,3 +19,5 @@ Ordine vincolante: 00 → 01 → 02, poi le pagine. Una passata per PR.
 Legenda: [ ] da fare · [~] in corso · [x] fatta e verificata.
 
 ¹ Passata 06: K4 (Limitazioni) resta aperto, e con lui la terza riga di Accettazione del brief. Servono una colonna accanto a `goal` in `coach_client_notes`, cioè una migrazione, e come applicarla su Lovable si decide nella revisione del 02/10/2026.
+
+² Passata 07: l'archiviazione delle tipologie resta aperta. Oggi una tipologia in uso non si elimina (le chiavi verso `event_types` sono `ON DELETE SET NULL`), e fra la rilettura dell'uso e la cancellazione resta una finestra. Archiviarle, o chiudere la finestra con una funzione sul server, vuole una migrazione: si decide nella revisione del 02/10/2026.
