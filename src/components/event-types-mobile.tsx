@@ -3,11 +3,15 @@
 // ----------------------------------------------------------------------------
 // La pagina di prima della passata 07, spostata qui da
 // src/routes/trainer.event-types.tsx senza cambiarne l'aspetto: il redesign
-// vale da md in su (event-types-desktop.tsx).
+// vale da md in su (event-types-desktop.tsx). Legge la stessa query del
+// desktop (useCoachEventTypes, ordinata per nome qui) e scrive con lo stesso
+// modulo (event-type-actions.ts): nome vuoto, doppione o bloccato dal
+// negozio e l'eliminazione di una tipologia in uso vengono rifiutati, col
+// motivo nel toast «Errore» di sempre.
 // ----------------------------------------------------------------------------
 
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { PageTitle } from "@/components/page-title";
 import { Input } from "@/components/ui/input";
@@ -25,8 +29,11 @@ import {
 } from "@/components/ui/dialog";
 import { Plus, Loader2, MapPin, Video, Dumbbell, Check, AlertCircle } from "lucide-react";
 import { z } from "zod";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { deleteEventType, saveEventType } from "@/lib/event-type-actions";
+import { sortTypesByName } from "@/lib/event-type-rules";
+import { supabaseEventTypeStore } from "@/lib/event-type-store";
+import { useCoachEventTypes } from "@/lib/queries";
 import { queryKeys } from "@/lib/query-keys";
 import { errorMessage } from "@/lib/utils";
 import type { SessionType } from "@/lib/mock-data";
@@ -66,21 +73,7 @@ export function EventTypesMobile() {
   const coachId = user?.id;
   const qc = useQueryClient();
 
-  const listQ = useQuery({
-    queryKey: ["event_types", coachId],
-    enabled: !!coachId,
-    queryFn: async (): Promise<EventTypeRow[]> => {
-      const { data, error } = await supabase
-        .from("event_types")
-        .select(
-          "id, coach_id, name, description, color, duration, base_type, location_type, buffer_minutes, location_address, client_bookable, unavailable_message",
-        )
-        .eq("coach_id", coachId!)
-        .order("name", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as EventTypeRow[];
-    },
-  });
+  const listQ = useCoachEventTypes(coachId);
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<EventTypeRow | null>(null);
@@ -88,39 +81,21 @@ export function EventTypesMobile() {
   const upsert = useMutation({
     mutationFn: async (input: z.infer<typeof schema> & { id?: string }) => {
       if (!coachId) throw new Error("Coach non autenticato");
-      if (input.id) {
-        const { error } = await supabase
-          .from("event_types")
-          .update({
-            name: input.name,
-            description: input.description || null,
-            color: input.color,
-            duration: input.duration,
-            location_type: input.location_type,
-            buffer_minutes: input.buffer_minutes,
-            location_address:
-              input.location_type === "physical" ? input.location_address || null : null,
-            client_bookable: input.client_bookable,
-            unavailable_message: input.client_bookable ? null : input.unavailable_message || null,
-          })
-          .eq("id", input.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("event_types").insert({
-          coach_id: coachId,
+      await saveEventType(supabaseEventTypeStore, {
+        coachId,
+        before: input.id ? editing : null,
+        values: {
           name: input.name,
-          description: input.description || null,
+          description: input.description ?? "",
           color: input.color,
           duration: input.duration,
-          location_type: input.location_type,
           buffer_minutes: input.buffer_minutes,
-          location_address:
-            input.location_type === "physical" ? input.location_address || null : null,
+          location_type: input.location_type,
+          location_address: input.location_address ?? "",
           client_bookable: input.client_bookable,
-          unavailable_message: input.client_bookable ? null : input.unavailable_message || null,
-        });
-        if (error) throw error;
-      }
+          unavailable_message: input.unavailable_message ?? "",
+        },
+      });
     },
     onSuccess: () => {
       toast.success(editing ? "Tipologia aggiornata" : "Tipologia creata");
@@ -133,8 +108,8 @@ export function EventTypesMobile() {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("event_types").delete().eq("id", id);
-      if (error) throw error;
+      if (!coachId) throw new Error("Coach non autenticato");
+      await deleteEventType(supabaseEventTypeStore, { id }, coachId, new Date());
     },
     onSuccess: () => {
       toast.success("Tipologia eliminata");
@@ -143,7 +118,7 @@ export function EventTypesMobile() {
     onError: (e: unknown) => toast.error("Errore", { description: errorMessage(e) }),
   });
 
-  const types = listQ.data ?? [];
+  const types = sortTypesByName(listQ.data ?? []);
 
   return (
     <div className="min-h-screen bg-surface -m-4 md:-m-6 p-6 md:p-10">
