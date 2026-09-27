@@ -184,10 +184,19 @@ function signature(r: ExRow): string {
   return `${hours}|${(r.reason ?? "").trim()}`;
 }
 
+/**
+ * Confronto per code unit: lo stesso della scansione (===). localeCompare
+ * mette alla pari testi diversi (forme Unicode equivalenti, caratteri
+ * ignorabili) e mescolerebbe due firme, spezzando un periodo.
+ */
+function byCodeUnit(x: string, y: string): number {
+  return x < y ? -1 : x > y ? 1 : 0;
+}
+
 /** Le righe raggruppate in periodi, in ordine di data e di ora. */
 export function groupExceptions(rows: readonly AvailabilityExceptionRow[]): ExceptionGroup[] {
   const sorted = [...rows].sort(
-    (a, b) => signature(a).localeCompare(signature(b)) || a.date.localeCompare(b.date),
+    (a, b) => byCodeUnit(signature(a), signature(b)) || byCodeUnit(a.date, b.date),
   );
   const groups: ExceptionGroup[] = [];
   let cur: ExceptionGroup | null = null;

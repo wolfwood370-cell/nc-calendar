@@ -168,6 +168,25 @@ describe("periodi nella pagina", () => {
     ]);
   });
 
+  it("stesso motivo in byte, qualunque sia l'ordine delle righe: un periodo", () => {
+    // «Attività» composta e scomposta: per localeCompare sono uguali, in byte no.
+    const nfc = "Attività".normalize("NFC");
+    const nfd = "Attività".normalize("NFD");
+    const a = row("2026-10-08", { reason: nfc });
+    const b = row("2026-10-08", { reason: nfd });
+    const c = row("2026-10-09", { reason: nfc });
+    for (const order of [
+      [a, b, c],
+      [b, a, c],
+      [c, b, a],
+    ]) {
+      const g = groupExceptions(order);
+      expect(g).toHaveLength(2);
+      const joined = g.find((x) => x.rows.length === 2)!;
+      expect(joined.rows.map((r) => r.id).sort()).toEqual([a.id, c.id].sort());
+    }
+  });
+
   it("motivo diverso: due periodi", () => {
     const g = groupExceptions([row("2026-10-08"), row("2026-10-09", { reason: "Corso" })]);
     expect(g).toHaveLength(2);
