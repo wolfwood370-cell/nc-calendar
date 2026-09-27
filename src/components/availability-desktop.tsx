@@ -31,6 +31,7 @@ import {
   dialogPrimaryButton,
   dialogSecondaryButton,
 } from "@/components/coach-dialog";
+import { GcalSyncPill } from "@/components/gcal-sync-pill";
 import { PageTitle } from "@/components/page-title";
 import { Skeleton } from "@/components/ui/skeleton";
 import { WeekSaveIncompleteError, saveWeek, slotsOfRows } from "@/lib/availability-actions";
@@ -164,6 +165,7 @@ export function AvailabilityDesktop({
             dopo che l'hai importato da Integrazioni.
           </p>
         </div>
+        <GcalSyncPill />
 
         <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,420px),1fr))] items-start gap-5">
           <section className={cn(CARD, "gap-1")} aria-labelledby="week-title">
