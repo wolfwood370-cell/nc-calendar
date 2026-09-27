@@ -25,6 +25,7 @@ import { format, startOfMonth, addDays, startOfDay, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import { EmptyStateCard } from "@/components/empty-state-card";
 import { generateSlots, type BlockedRange } from "@/lib/booking-slots";
+import { CLIENT_BOOKING_HORIZON_DAYS, CLIENT_MIN_NOTICE_HOURS } from "@/lib/booking-rules";
 import { BookCalendarGrid } from "@/components/book-calendar-grid";
 import { BookSlotsGrid } from "@/components/book-slots-grid";
 import { BookPoolPicker } from "@/components/book-pool-picker";
@@ -167,8 +168,8 @@ function BookFlow() {
   });
   // Limiti di prenotazione rimossi (richiesta 2026-08-27): nessun preavviso
   // minimo e orizzonte ampio. Restano solo disponibilità e sovrapposizioni.
-  const minNoticeHours = 0;
-  const horizonDays = 90;
+  const minNoticeHours = CLIENT_MIN_NOTICE_HOURS;
+  const horizonDays = CLIENT_BOOKING_HORIZON_DAYS;
 
   // Tipologie evento personalizzate del coach (fallback alle 3 default se vuoto).
   const customTypes: EventTypeRow[] = eventTypesQ.data ?? [];
