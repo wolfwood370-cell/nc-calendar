@@ -27,7 +27,7 @@ import { CalendarToolbar, type MissingOnGoogle } from "@/components/calendar-too
 import { PackageDialog } from "@/components/package-dialog";
 import { SessionCancelDialog } from "@/components/session-cancel-dialog";
 import { SessionFormDialog, type SessionFormInit } from "@/components/session-form-dialog";
-import type { GcalSync } from "@/hooks/use-gcal-sync";
+import { notifySync, type GcalSync } from "@/hooks/use-gcal-sync";
 import { useAuth } from "@/lib/auth";
 import {
   eventKind,
@@ -69,6 +69,7 @@ import {
 import { hasClientCredit, type SessionRemoval } from "@/lib/cancel-session";
 import { clientPlanLabel } from "@/lib/client-search";
 import { formatCreditsOf, getCurrentBlockCredits } from "@/lib/credits";
+import { quickSyncMessage } from "@/lib/gcal-sync-run";
 import { sessionLabel } from "@/lib/mock-data";
 import { formatAgo } from "@/lib/notifications";
 import {
@@ -123,7 +124,7 @@ function useIsDesktop(): boolean {
   return desktop;
 }
 
-/** «sincronizzato 4 min fa». */
+/** «sincronizzato 4 min fa»: dall'ultima sincronizzazione riuscita (gcal_reconcile_ok). */
 function syncLabel(lastSyncAt: number | null, now: Date): string {
   if (!lastSyncAt) return "non ancora sincronizzato";
   if (now.getTime() - lastSyncAt < 60_000) return "sincronizzato ora";
@@ -430,11 +431,13 @@ export function CalendarDesktop({ sync }: { sync: GcalSync }) {
     } catch {
       /* noop */
     }
-    const changed = await sync.runReconcile();
+    const r = await sync.runReconcile();
     sync.markSynced();
     void qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(coachId) });
     void qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(coachId) });
-    if (!changed) toast.success("Calendario allineato con Google Calendar.");
+    // Con modifiche il messaggio lo dà già runReconcile; senza, l'esito vero,
+    // anche quando Google non risponde o l'app non legge le sessioni.
+    if (!r.changed) notifySync(quickSyncMessage(r));
     setSyncing(false);
   }
 
