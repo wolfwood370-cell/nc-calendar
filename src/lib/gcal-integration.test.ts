@@ -11,6 +11,7 @@ import {
   googleOnlyEvents,
   importPayload,
   lastUpdateText,
+  readFailureOutcome,
   recognizeImport,
   type GcalMeasure,
 } from "@/lib/gcal-integration";
@@ -122,6 +123,15 @@ describe("chip di Google Calendar", () => {
     );
     expect(fullSyncBlockedText({ state: "checking" })).toBeNull();
     expect(fullSyncBlockedText({ state: "connected" })).toBeNull();
+  });
+});
+
+describe("lettura fallita", () => {
+  it("«Permesso negato» è dell'app; il resto vale come Google che non risponde", () => {
+    expect(readFailureOutcome(new Error("Permesso negato"))).toBe("app");
+    expect(readFailureOutcome(new Error("Lettura Google Calendar fallita"))).toBe("google");
+    expect(readFailureOutcome(new Error("fetch failed"))).toBe("google");
+    expect(readFailureOutcome(undefined)).toBe("google");
   });
 });
 

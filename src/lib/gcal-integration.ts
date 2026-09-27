@@ -20,7 +20,12 @@
 // ----------------------------------------------------------------------------
 
 import { isAllDayEvent } from "@/lib/all-day-event";
-import { fullSyncWindow, type SyncFailure, type SyncOutcome } from "@/lib/gcal-sync-run";
+import {
+  fullSyncWindow,
+  isAppError,
+  type SyncFailure,
+  type SyncOutcome,
+} from "@/lib/gcal-sync-run";
 import { formatAgo } from "@/lib/notifications";
 import type { BookingRow } from "@/lib/queries";
 
@@ -68,6 +73,12 @@ export function gcalChip(measures: readonly GcalMeasure[], openedAt: number): Gc
   }
   if (readCounts && firstRead.outcome === "app") return { state: "unavailable" };
   return { state: "checking" };
+}
+
+/** L'esito di una lettura fallita: gli errori dell'app hanno il loro, il resto è Google. */
+export function readFailureOutcome(error: unknown): SyncOutcome {
+  const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
+  return isAppError(message) ? "app" : "google";
 }
 
 export function gcalChipLabel(chip: GcalChip): string {

@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { IntegrationsDesktop } from "@/components/integrations-desktop";
 import { IntegrationsMobile } from "@/components/integrations-mobile";
+import { useDesktop } from "@/hooks/use-desktop";
 
 export const Route = createFileRoute("/trainer/integrations")({
   head: () => ({
@@ -7,12 +9,12 @@ export const Route = createFileRoute("/trainer/integrations")({
       { title: "Integrazioni · NC Calendar" },
       {
         name: "description",
-        content: "Collega Google Calendar e gestisci la sincronizzazione degli appuntamenti.",
+        content: "Stato di Google Calendar e sincronizzazione degli appuntamenti.",
       },
       { property: "og:title", content: "Integrazioni · NC Calendar" },
       {
         property: "og:description",
-        content: "Collega Google Calendar e gestisci la sincronizzazione degli appuntamenti.",
+        content: "Stato di Google Calendar e sincronizzazione degli appuntamenti.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -21,7 +23,12 @@ export const Route = createFileRoute("/trainer/integrations")({
   component: IntegrationsPage,
 });
 
-// Sul telefono la pagina resta com'era (integrations-mobile.tsx).
+// Sul telefono la pagina resta com'era (integrations-mobile.tsx); da md in su
+// è quella della passata 09. Se ne monta una sola, come nella Disponibilità:
+// la pagina di prima carica i dati da sé.
 function IntegrationsPage() {
+  const wide = useDesktop();
+  if (wide === undefined) return null;
+  if (wide) return <IntegrationsDesktop />;
   return <IntegrationsMobile />;
 }
