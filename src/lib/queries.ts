@@ -438,11 +438,17 @@ export function useActiveShopTitles() {
   });
 }
 
-export function useCoachAvailability(coachId?: string | null) {
+/**
+ * Orario settimanale del coach. `fresh`: rilegge all'apertura anche se la
+ * cache è recente (Disponibilità desktop: la bozza nasce solo da una lettura
+ * fatta dopo l'apertura della pagina).
+ */
+export function useCoachAvailability(coachId?: string | null, opts: { fresh?: boolean } = {}) {
   return useQuery({
     queryKey: ["trainer_availability", coachId],
     enabled: !!coachId,
     staleTime: STALE_CONFIG,
+    refetchOnMount: opts.fresh ? "always" : true,
     queryFn: async (): Promise<AvailabilityRow[]> => {
       const { data, error } = await supabase
         .from("trainer_availability")
