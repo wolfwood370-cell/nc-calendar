@@ -59,6 +59,14 @@ describe("chip di Google Calendar", () => {
     expect(gcalChip([read(900, "google"), sync(5_000, "ok")], OPENED)).toEqual({
       state: "connected",
     });
+    // Due sincronizzazioni nello stesso millisecondo: vince l'ultima arrivata.
+    expect(gcalChip([read(900, "ok"), sync(5_000, "google"), sync(5_000, "ok")], OPENED)).toEqual({
+      state: "connected",
+    });
+    expect(gcalChip([read(900, "ok"), sync(5_000, "ok"), sync(5_000, "empty")], OPENED)).toEqual({
+      state: "error",
+      reason: "empty",
+    });
     // La completa conta come «Sincronizza ora».
     expect(
       gcalChip([read(900, "ok"), { kind: "full", at: OPENED + 9_000, outcome: "google" }], OPENED),

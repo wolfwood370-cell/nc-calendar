@@ -121,9 +121,14 @@ export function IntegrationsDesktop({
 
   // ------------------------------------------------------------ misure
   const [measures, setMeasures] = useState<GcalMeasure[]>([]);
+  // Una lettura si riconosce dalla sua ora (l'effetto qui sotto la rivede a
+  // ogni render); ogni sincronizzazione è una misura sua, anche se finisce
+  // nello stesso millisecondo di un'altra: a parità d'ora vince l'ultima.
   const addMeasure = useCallback((m: GcalMeasure) => {
     setMeasures((prev) =>
-      prev.some((x) => x.kind === m.kind && x.at === m.at) ? prev : [...prev, m],
+      m.kind === "read" && prev.some((x) => x.kind === "read" && x.at === m.at)
+        ? prev
+        : [...prev, m],
     );
   }, []);
   // Ogni lettura finita è una risposta; quale conta lo decide gcalChip.
