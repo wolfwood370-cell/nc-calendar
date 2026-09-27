@@ -18,23 +18,45 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { CreditCard } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { IntegrationsGcalCard } from "@/components/integrations-gcal-card";
+import {
+  GoogleOnlyList,
+  MissingOnGoogleList,
+  type GoogleOnlyRow,
+  type MissingRow,
+} from "@/components/integrations-gcal-lists";
+import { IntegrationsImportDialog } from "@/components/integrations-import-dialog";
 import { PageTitle } from "@/components/page-title";
 import { gcalReviewKey, useGcalReviewEvents } from "@/hooks/use-gcal-review";
 import { notifySync, rememberSyncAttempt, useGcalSync } from "@/hooks/use-gcal-sync";
 import { useAuth } from "@/lib/auth";
-import { notOnGoogle } from "@/lib/calendar-events";
+import { gridMinutes, notOnGoogle } from "@/lib/calendar-events";
+import { hasClientCredit } from "@/lib/cancel-session";
+import { gcalImportEvent } from "@/lib/gcal.functions";
 import {
   gcalChip,
+  googleOnlyEvents,
+  importPayload,
   lastUpdateText,
   readFailureOutcome,
   type GcalMeasure,
+  type ImportChoice,
+  type ReviewEvent,
 } from "@/lib/gcal-integration";
 import { quickSyncMessage, quickSyncOutcome } from "@/lib/gcal-sync-run";
-import { useCoachBookings } from "@/lib/queries";
+import { sessionLabel } from "@/lib/mock-data";
+import {
+  useCoachBookings,
+  useCoachClients,
+  useCoachEventTypes,
+  type BookingRow,
+} from "@/lib/queries";
 import { queryKeys } from "@/lib/query-keys";
+import { supabaseSessionStore } from "@/lib/session-store";
+import { formatShortDay, formatTimeRange } from "@/lib/session-time";
 import { countToAssign } from "@/lib/to-assign";
-import { cn } from "@/lib/utils";
+import { cn, errorMessage } from "@/lib/utils";
 
 const CARD =
   "flex min-w-0 flex-col rounded-[28px] bg-white p-6 shadow-[0px_4px_20px_rgba(0,86,133,0.05)]";
@@ -47,6 +69,8 @@ export function IntegrationsDesktop() {
   const coachId = user?.id;
   const qc = useQueryClient();
   const bookingsQ = useCoachBookings(coachId);
+  const clientsQ = useCoachClients(coachId);
+  const typesQ = useCoachEventTypes(coachId);
   const reviewQ = useGcalReviewEvents(coachId, { fresh: true });
   const sync = useGcalSync(coachId, { auto: false });
   const { markSynced } = sync;
@@ -133,8 +157,90 @@ export function IntegrationsDesktop() {
 
   // ------------------------------------------------------------ caselle
   const bookings = bookingsQ.data;
+  const clients = useMemo(() => clientsQ.data ?? [], [clientsQ.data]);
+  const eventTypes = useMemo(() => typesQ.data ?? [], [typesQ.data]);
   const assignCount = bookings ? countToAssign(bookings) : null;
   const missing = useMemo(() => (bookings ? notOnGoogle(bookings, now) : null), [bookings, now]);
+
+  // Come il Calendario (calendar-desktop.tsx): «Cliente · Tipologia», «giorno · ora».
+  const missingRows: MissingRow[] = useMemo(() => {
+    const clientById = new Map(clients.map((c) => [c.id, c]));
+    const typeById = new Map(eventTypes.map((t) => [t.id, t]));
+    const typeName = (b: BookingRow) =>
+      (b.event_type_id ? typeById.get(b.event_type_id)?.name : undefined) ??
+      sessionLabel(b.session_type);
+    const clientName = (id: string | null) => {
+      const c = id ? clientById.get(id) : undefined;
+      return c?.full_name ?? c?.email ?? "Cliente";
+    };
+    return (missing ?? []).map((b) => {
+      const start = new Date(b.scheduled_at);
+      const type = b.event_type_id ? typeById.get(b.event_type_id) : undefined;
+      return {
+        id: b.id,
+        name: hasClientCredit(b)
+          ? `${clientName(b.client_id)} · ${typeName(b)}`
+          : b.title?.trim() || typeName(b),
+        when: `${formatShortDay(start)} · ${formatTimeRange(start, gridMinutes(b, type?.duration))}`,
+      };
+    });
+  }, [missing, clients, eventTypes]);
+
+  // Eventi della lettura che non sono di nessuna sessione, a sessioni lette.
+  const googleOnly = useMemo(
+    () => (bookings && reviewQ.data ? googleOnlyEvents(reviewQ.data, bookings) : []),
+    [bookings, reviewQ.data],
+  );
+  const googleOnlyRows: GoogleOnlyRow[] = googleOnly.map((e) => ({
+    id: e.id,
+    title: e.summary || "(senza titolo)",
+    when: eventWhen(e),
+  }));
+
+  // ------------------------------------------------------------ Ricrea su Google
+  // Come il Calendario, senza «Ripristina». createGoogleEvent manda l'invito al cliente.
+  async function repair(id: string) {
+    await exclusive(`repair:${id}`, async () => {
+      try {
+        const ok = await supabaseSessionStore.createGoogleEvent(id);
+        if (ok) toast.success("Evento ricreato su Google Calendar.");
+        else toast.error("Non è stato possibile ricrearlo su Google Calendar. Riprova.");
+      } catch {
+        toast.error("Non è stato possibile ricrearlo su Google Calendar. Riprova.");
+      } finally {
+        void qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(coachId) });
+      }
+    });
+  }
+
+  // ------------------------------------------------------------ Importa
+  const [importTarget, setImportTarget] = useState<ReviewEvent | null>(null);
+  async function confirmImport(choice: ImportChoice) {
+    const target = importTarget;
+    if (!target) return;
+    if (choice.mode === "client" && !choice.clientId) {
+      toast.error("Seleziona un cliente.");
+      return;
+    }
+    await exclusive("import", async () => {
+      try {
+        const r = await gcalImportEvent({ data: importPayload(target, choice, Date.now()) });
+        if (!r.ok) {
+          toast.error("Importazione non riuscita", { description: r.error });
+          return;
+        }
+        toast.success(
+          r.alreadyImported ? "L'evento era già nell'app." : "Evento importato nell'app.",
+        );
+        setImportTarget(null);
+        void qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(coachId) });
+        void qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(coachId) });
+        void qc.invalidateQueries({ queryKey: gcalReviewKey(coachId) });
+      } catch (e) {
+        toast.error("Importazione non riuscita", { description: errorMessage(e) });
+      }
+    });
+  }
 
   return (
     <div className="-m-6 min-h-[calc(100vh-3.5rem)] min-w-0 bg-surface px-10 pb-12 pt-7 text-on-surface">
@@ -157,7 +263,19 @@ export function IntegrationsDesktop() {
               lastUpdate={storageRead ? lastUpdateText(sync.lastSyncAt, now) : "—"}
               assignCount={assignCount}
               missingCount={missing ? missing.length : null}
-            />
+            >
+              <MissingOnGoogleList
+                rows={missingRows}
+                busyId={busy?.startsWith("repair:") ? busy.slice("repair:".length) : null}
+                disabled={busy !== null}
+                onRepair={(id) => void repair(id)}
+              />
+              <GoogleOnlyList
+                rows={googleOnlyRows}
+                disabled={busy !== null}
+                onImport={(id) => setImportTarget(googleOnly.find((e) => e.id === id) ?? null)}
+              />
+            </IntegrationsGcalCard>
           </div>
 
           <div className="flex min-w-0 flex-col gap-5">
@@ -188,6 +306,25 @@ export function IntegrationsDesktop() {
           </div>
         </div>
       </div>
+
+      <IntegrationsImportDialog
+        target={importTarget}
+        when={importTarget ? eventWhen(importTarget) : ""}
+        clients={clients}
+        eventTypes={eventTypes}
+        submitting={busy === "import"}
+        disabled={busy !== null && busy !== "import"}
+        onConfirm={(choice) => void confirmImport(choice)}
+        onClose={() => setImportTarget(null)}
+      />
     </div>
   );
+}
+
+/** «ven 25 set · 10:00–11:00» di un evento di Google. */
+function eventWhen(e: ReviewEvent): string {
+  if (e.startMs === null) return "—";
+  const start = new Date(e.startMs);
+  const minutes = e.endMs !== null ? Math.round((e.endMs - e.startMs) / 60_000) : null;
+  return `${formatShortDay(start)} · ${formatTimeRange(start, minutes)}`;
 }
