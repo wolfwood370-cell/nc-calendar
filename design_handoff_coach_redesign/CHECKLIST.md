@@ -13,7 +13,7 @@ Ordine vincolante: 00 → 01 → 02, poi le pagine. Una passata per PR.
 | 06 | [Profilo cliente](passes/06-profilo-cliente.md) | K1–K7, P5 | 02, 05 | [x] ¹ |
 | 07 | [Tipologie di sessione](passes/07-tipologie.md) | E1–E5 | 00 | [x] ² |
 | 08 | [Disponibilità](passes/08-disponibilita.md) | D1–D6 | 00 | [x] ³ |
-| 09 | [Integrazioni](passes/09-integrazioni.md) | I1–I4, C1 | 04 | [ ] |
+| 09 | [Integrazioni](passes/09-integrazioni.md) | I1–I4, C1 | 04 | [x] ⁴ |
 | 10 | [Verifica finale](passes/10-verifica-finale.md) | V1–V12, O3 | tutte | [ ] |
 
 Legenda: [ ] da fare · [~] in corso · [x] fatta e verificata.
@@ -23,3 +23,5 @@ Legenda: [ ] da fare · [~] in corso · [x] fatta e verificata.
 ² Passata 07: l'archiviazione delle tipologie resta aperta. Oggi una tipologia in uso non si elimina (le chiavi verso `event_types` sono `ON DELETE SET NULL`), e fra la rilettura dell'uso e la cancellazione resta una finestra. Archiviarle, o chiudere la finestra con una funzione sul server, vuole una migrazione: si decide nella revisione del 02/10/2026.
 
 ³ Passata 08: le eccezioni su un periodo sono una riga per giorno, raggruppate nella pagina, senza migrazione: Prenota, le riprogrammazioni e il Calendario leggono già una data per riga. Preavviso e anticipo sono mostrati come li applica Prenota (nessun preavviso, 90 giorni, da `src/lib/booking-rules.ts`) e non si modificano da qui; il margine è quello di ogni tipologia.
+
+⁴ Passata 09: lo stato di Google Calendar è quello che misura la pagina (la lettura degli eventi all'apertura, «Sincronizza ora», la sincronizzazione completa), non un'ora salvata. L'ora dell'ultimo aggiornamento è di questo browser (`gcal_reconcile_ok`) finché non si salva sul server: vuole una migrazione, e come applicarla su Lovable si decide nella revisione del 02/10/2026. L'importazione degli eventi creati solo su Google resta in questa pagina: dal desktop è l'unica strada, e la Disponibilità la promette.
