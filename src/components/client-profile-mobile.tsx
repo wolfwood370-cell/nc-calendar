@@ -41,12 +41,20 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useCoachEventTypes } from "@/lib/queries";
-import { gcalUpdateEvent } from "@/lib/gcal.functions";
-import { findCreditToReturn, type SessionRemoval } from "@/lib/cancel-session";
+import { toGoogleColorId } from "@/lib/gcal-colors";
+import { CreditUnavailableError, type SessionRemoval } from "@/lib/cancel-session";
+import {
+  ignoreOrphan,
+  linkOrphan,
+  orphanType,
+  saveProfileSession,
+  unlinkFromClient,
+} from "@/lib/profile-session";
+import { supabaseProfileStore } from "@/lib/profile-store";
+import { snapshotOf } from "@/lib/session-edit";
 import { profileEngagement } from "@/lib/attendance";
 import { backToListSearch } from "@/lib/client-list";
 import { getRenewalInfo, type RenewalClient } from "@/lib/renewal";
-import { supabaseSessionStore } from "@/lib/session-store";
 import type { PackageMode } from "@/lib/package-actions";
 import { queryKeys } from "@/lib/query-keys";
 import { sessionLabel, type SessionType } from "@/lib/mock-data";
@@ -417,80 +425,50 @@ export function ClientProfileMobile() {
     );
   }
 
+  // Passata 06: le scritture passano dagli helper del Profilo desktop
+  // (profile-session.ts), così dal telefono le sessioni e i crediti seguono
+  // la stessa strada del Calendario. Quello che la pagina mostra non cambia.
+
   async function confirmOrphan(o: OrphanBooking) {
-    // Try to attach to first active block with available allocation for that event_type
-    let blockId: string | null = null;
-    let attached = false;
-    let usedExtraCredit = false;
-    if (o.event_type_id) {
-      const sortedBlocks = [...blocks].sort((a, b) => a.sequence_order - b.sequence_order);
-      for (const b of sortedBlocks) {
-        const candidate = allocations.find(
-          (a) =>
-            a.block_id === b.id &&
-            a.event_type_id === o.event_type_id &&
-            a.quantity_booked < a.quantity_assigned,
-        );
-        if (candidate) {
-          blockId = b.id;
-          attached = true;
-          await supabase
-            .from("block_allocations")
-            .update({ quantity_booked: candidate.quantity_booked + 1 })
-            .eq("id", candidate.id);
-          break;
-        }
-      }
+    const type = orphanType(o, eventTypes);
+    if (!type) {
+      toast.error("Conferma non riuscita", { description: "Nessuna tipologia di sessione." });
+      return;
     }
-    // Fallback: scala da extra_credits del cliente per quell'event_type (Cliente Libero o blocco esaurito).
-    if (!attached && o.event_type_id) {
-      const { data: ecRows } = await supabase
-        .from("extra_credits")
-        .select("id, quantity, quantity_booked, expires_at")
-        .eq("client_id", clientId)
-        .eq("event_type_id", o.event_type_id)
-        .order("expires_at", { ascending: true });
-      const ec = (ecRows ?? []).find((r) => r.quantity - r.quantity_booked > 0);
-      if (ec) {
-        await supabase
-          .from("extra_credits")
-          .update({ quantity_booked: ec.quantity_booked + 1 })
-          .eq("id", ec.id);
-        usedExtraCredit = true;
-      }
-    }
-    const { error } = await supabase
-      .from("bookings")
-      .update({ client_id: clientId, block_id: blockId })
-      .eq("id", o.id);
-    if (error) {
-      toast.error("Conferma non riuscita", { description: error.message });
+    const link = (useCredit: boolean) =>
+      linkOrphan(supabaseProfileStore, {
+        eventId: o.id,
+        clientId,
+        type: { id: type.id, base_type: type.base_type },
+        useCredit,
+      });
+    let result;
+    try {
+      // Credito dal blocco della data, poi dagli extra; senza credito si
+      // collega comunque, come prima.
+      result = await link(true).catch((e: unknown) => {
+        if (e instanceof CreditUnavailableError) return link(false);
+        throw e;
+      });
+    } catch (e) {
+      toast.error("Conferma non riuscita", { description: errorMessage(e) });
       return;
     }
     toast.success(
-      usedExtraCredit
-        ? "Sessione salvata (scalata dai crediti omaggio/extra)"
-        : attached
-          ? "Sessione associata al cliente"
-          : "Sessione associata (nessun credito scalato)",
+      !result.credit
+        ? "Sessione associata (nessun credito scalato)"
+        : result.credit.kind === "extra"
+          ? "Sessione salvata (scalata dai crediti omaggio/extra)"
+          : "Sessione associata al cliente",
     );
     void load();
   }
 
   async function discardOrphan(o: OrphanBooking) {
-    const { data: row } = await supabase
-      .from("bookings")
-      .select("ignored_by_clients")
-      .eq("id", o.id)
-      .maybeSingle();
-    const current = (row?.ignored_by_clients as string[] | null) ?? [];
-    if (!current.includes(clientId)) current.push(clientId);
-    const { error } = await supabase
-      .from("bookings")
-      .update({ ignored_by_clients: current })
-      .eq("id", o.id);
-    if (error) {
-      toast.error("Errore", { description: error.message });
+    try {
+      await ignoreOrphan(supabaseProfileStore, o.id, clientId);
+    } catch (e) {
+      toast.error("Errore", { description: errorMessage(e) });
       return;
     }
     toast.info("Sessione ignorata per questo cliente");
@@ -499,30 +477,14 @@ export function ClientProfileMobile() {
 
   // La conferma è nell'AlertDialog di EditBookingDialog (audit T5).
   async function unlinkBooking(b: ClientBooking, opts: { silent?: boolean } = {}) {
-    // Il credito da restituire, se è ancora impegnato: la stessa allocazione che
-    // sceglierebbe il server (lib/cancel-session.ts); una sessione già annullata
-    // con rimborso non ne restituisce un secondo. Si cerca prima di scollegare
-    // (servono cliente e blocco) e si restituisce solo a scollegamento riuscito.
-    const stored = await supabaseSessionStore.getSession(b.id);
-    const credit = stored ? await findCreditToReturn(supabaseSessionStore, stored) : null;
-    // Anti-ghosting: aggiungi clientId a ignored_by_clients
-    const { data: row } = await supabase
-      .from("bookings")
-      .select("ignored_by_clients")
-      .eq("id", b.id)
-      .maybeSingle();
-    const ignored = (row?.ignored_by_clients as string[] | null) ?? [];
-    if (!ignored.includes(clientId)) ignored.push(clientId);
-
-    const { error } = await supabase
-      .from("bookings")
-      .update({ client_id: null, block_id: null, ignored_by_clients: ignored })
-      .eq("id", b.id);
-    if (error) {
-      toast.error("Scollegamento non riuscito", { description: error.message });
+    let creditReturned: boolean | null;
+    try {
+      ({ creditReturned } = await unlinkFromClient(supabaseProfileStore, b.id, clientId));
+    } catch (e) {
+      toast.error("Scollegamento non riuscito", { description: errorMessage(e) });
       return;
     }
-    if (credit && !(await supabaseSessionStore.moveCredit(credit, -1).catch(() => false))) {
+    if (creditReturned === false) {
       toast.error("Il credito non è stato restituito.", {
         description: "Controlla i crediti del blocco dal profilo.",
       });
@@ -535,46 +497,30 @@ export function ClientProfileMobile() {
   }
 
   // Annullare ed eliminare passano dal dialog condiviso (SessionCancelDialog):
-  // qui si salvano solo data, ora, tipologia e lo stato programmata/svolta.
+  // qui data, ora e tipologia con editSession (reschedule_booking e il credito
+  // della tipologia nuova) e lo stato con changeSessionOutcome.
   async function saveBookingEdit(input: EditBookingSaveInput) {
-    const { error } = await supabase
-      .from("bookings")
-      .update({
-        scheduled_at: input.scheduled_at,
-        event_type_id: input.event_type_id,
-        session_type: input.session_type,
-        ...(input.status ? { status: input.status } : {}),
-      })
-      .eq("id", input.id);
-    if (error) {
-      toast.error("Aggiornamento non riuscito", { description: error.message });
+    try {
+      const current = await supabaseProfileStore.getEditableSession(input.id);
+      if (!current) throw new Error("La sessione non esiste più.");
+      const et = eventTypes.find((e) => e.id === input.event_type_id);
+      await saveProfileSession(supabaseProfileStore, {
+        sessionId: current.id,
+        expected: snapshotOf(current),
+        status: input.status ?? current.status,
+        scheduledAt: input.scheduled_at,
+        durationMin: current.duration_min,
+        type: et ? { id: et.id, name: et.name, base_type: et.base_type } : null,
+        clientName,
+        google: {
+          summary: `${et?.name ?? sessionLabel(current.session_type)} — ${clientName}`,
+          colorId: toGoogleColorId(et?.color),
+        },
+      });
+    } catch (e) {
+      toast.error("Aggiornamento non riuscito", { description: errorMessage(e) });
       return;
     }
-
-    // A3 (audit 2026-06-06): sincronizza Google Calendar. Prima saveBookingEdit
-    // aggiornava SOLO il DB -> spostare l'orario lasciava un promemoria Google
-    // sbagliato. Fire-and-forget come gli altri call-site gcal: l'esito non
-    // blocca l'aggiornamento DB gia' riuscito. Le sessioni annullate non hanno
-    // più l'evento su Google.
-    const editedBk = clientBookings.find((x) => x.id === input.id);
-    const googleEventId = editedBk?.google_event_id ?? null;
-    const cancelled = editedBk?.status === "cancelled" || editedBk?.status === "late_cancelled";
-    if (googleEventId && !cancelled) {
-      const durationMin =
-        (input.event_type_id
-          ? eventTypes.find((et) => et.id === input.event_type_id)?.duration
-          : undefined) ??
-        editedBk?.duration_min ??
-        60;
-      const startISO = new Date(input.scheduled_at).toISOString();
-      const endISO = new Date(
-        new Date(input.scheduled_at).getTime() + durationMin * 60_000,
-      ).toISOString();
-      void gcalUpdateEvent({ data: { googleEventId, startISO, endISO } }).catch((e) =>
-        console.error("gcalUpdateEvent (saveBookingEdit) failed", e),
-      );
-    }
-
     toast.success("Sessione aggiornata");
     refreshClientCaches();
     setEditingBooking(null);
