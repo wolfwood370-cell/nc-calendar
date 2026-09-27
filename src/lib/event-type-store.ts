@@ -78,19 +78,24 @@ export const supabaseEventTypeStore: EventTypeStore = {
         .is("deleted_at", null)
         .order("scheduled_at", { ascending: false })
         .limit(BOOKINGS_FETCH_LIMIT),
+      // Col conteggio esatto: se PostgREST taglia le righe (max-rows), l'uso
+      // non è certo e l'eliminazione si ferma.
       supabase
         .from("block_allocations")
-        .select("block_id, event_type_id, quantity_assigned, quantity_booked")
+        .select("block_id, event_type_id, quantity_assigned, quantity_booked", { count: "exact" })
         .eq("event_type_id", typeId),
       supabase
         .from("extra_credits")
-        .select("client_id, event_type_id, quantity, quantity_booked")
+        .select("client_id, event_type_id, quantity, quantity_booked", { count: "exact" })
         .eq("event_type_id", typeId),
       fetchActiveShopTitles(),
     ]);
     if (bookings.error) throw new Error(bookings.error.message);
     if (allocations.error) throw new Error(allocations.error.message);
     if (extraCredits.error) throw new Error(extraCredits.error.message);
+    for (const res of [allocations, extraCredits]) {
+      if (res.count !== (res.data ?? []).length) throw new Error("Righe dei crediti tagliate.");
+    }
 
     const allocs = allocations.data ?? [];
     const blockIds = [...new Set(allocs.map((a) => a.block_id))];

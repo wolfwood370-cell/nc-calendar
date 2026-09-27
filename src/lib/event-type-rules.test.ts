@@ -123,6 +123,14 @@ describe("nome", () => {
     expect(nameProblem("Consulenza", null, types)).toBeNull();
   });
 
+  it("il nome lasciato com'è va sempre bene, anche con un doppione già esistente", () => {
+    const withDup = [...types, { id: "pt2", name: "Sessione PT" }];
+    expect(nameProblem("Sessione PT", { id: "pt", name: "Sessione PT" }, withDup)).toBeNull();
+    expect(nameProblem("Sessione PT", { id: "bia", name: "Misurazione BIA" }, withDup)).toBe(
+      "duplicate",
+    );
+  });
+
   it("bloccato se il negozio vende la tipologia col suo nome", () => {
     const self = { id: "pt", name: "Sessione PT" };
     expect(nameProblem("Personal Training", self, types, ["Sessione PT"])).toBe("locked");

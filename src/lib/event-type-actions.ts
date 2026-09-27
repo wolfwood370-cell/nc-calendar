@@ -195,12 +195,34 @@ export function fieldsOfRow(row: EventTypeRow): EventTypeFields {
 
 export type SaveResult =
   | { kind: "created"; row: EventTypeRow }
-  | { kind: "updated"; id: string; before: EventTypeFields; after: EventTypeFields };
+  | {
+      kind: "updated";
+      id: string;
+      /** Solo i campi che il salvataggio ha cambiato, coi valori di prima. */
+      before: EventTypePatch;
+      /** Gli stessi campi, coi valori scritti. */
+      after: EventTypePatch;
+    };
+
+/** I campi di `after` diversi da `before`. */
+function changedFields(before: EventTypeFields, after: EventTypeFields) {
+  const prev: EventTypePatch = {};
+  const next: EventTypePatch = {};
+  for (const key of Object.keys(after) as (keyof EventTypeFields)[]) {
+    if (after[key] === before[key]) continue;
+    Object.assign(prev, { [key]: before[key] });
+    Object.assign(next, { [key]: after[key] });
+  }
+  return { prev, next };
+}
 
 /**
  * Crea (before = null) o aggiorna una tipologia. Rifiuta con
  * EventTypeRuleError: nome vuoto, troppo lungo, doppione, bloccato dal
- * negozio, o valori fuori dai limiti.
+ * negozio, o valori fuori dai limiti. Un aggiornamento scrive solo i campi
+ * cambiati rispetto a `before`: così un dialog aperto su valori vecchi non
+ * riscrive quello che nel frattempo è cambiato altrove (−/+, interruttore,
+ * un altro dispositivo).
  */
 export async function saveEventType(
   store: EventTypeStore,
@@ -227,16 +249,17 @@ export async function saveEventType(
     const row = await store.insertType(coachId, after);
     return { kind: "created", row };
   }
-  await store.updateType(before.id, after);
-  return { kind: "updated", id: before.id, before: fieldsOfRow(before), after };
+  const { prev, next } = changedFields(fieldsOfRow(before), after);
+  if (Object.keys(next).length > 0) await store.updateType(before.id, next);
+  return { kind: "updated", id: before.id, before: prev, after: next };
 }
 
-/** «Ripristina» di un aggiornamento: riscrive i valori di prima. */
+/** «Ripristina» di un aggiornamento: riscrive i valori di prima dei soli campi cambiati. */
 export async function undoUpdate(
   store: EventTypeStore,
   result: Extract<SaveResult, { kind: "updated" }>,
 ): Promise<void> {
-  await store.updateType(result.id, result.before);
+  if (Object.keys(result.before).length > 0) await store.updateType(result.id, result.before);
 }
 
 // ---------------------------------------------------------------------------

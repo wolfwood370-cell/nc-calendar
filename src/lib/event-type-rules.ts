@@ -124,8 +124,9 @@ export function isNameLocked(currentName: string, shopTitles: readonly string[])
 
 /**
  * Cosa non va nel nome, o null. `self` è la tipologia che si modifica (null
- * se è nuova): non conta come doppione, e se il negozio ne usa il nome il
- * nome non cambia.
+ * se è nuova): il suo nome lasciato com'è va sempre bene (anche se un
+ * doppione c'era già prima dei controlli), non conta come doppione, e se il
+ * negozio ne usa il nome il nome non cambia.
  */
 export function nameProblem(
   name: string,
@@ -135,9 +136,10 @@ export function nameProblem(
 ): NameProblem | null {
   const trimmed = name.trim();
   if (!trimmed) return "empty";
+  if (self && trimmed === self.name.trim()) return null;
   if (trimmed.length > NAME_MAX) return "tooLong";
   if (types.some((t) => t.id !== self?.id && sameName(t.name, trimmed))) return "duplicate";
-  if (self && trimmed !== self.name.trim() && isNameLocked(self.name, shopTitles)) return "locked";
+  if (self && isNameLocked(self.name, shopTitles)) return "locked";
   return null;
 }
 

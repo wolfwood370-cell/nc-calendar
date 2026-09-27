@@ -307,6 +307,70 @@ describe("salvataggio del dialog", () => {
   });
 });
 
+describe("salvataggio: solo i campi cambiati", () => {
+  it("scrive solo quello che il dialog ha cambiato", async () => {
+    const mem = seed();
+    const before = { ...row(mem, "cons") };
+    await saveEventType(mem.store, {
+      coachId: COACH,
+      before,
+      values: input(before, { color: "#f6bf26" }),
+    });
+    expect(mem.writes).toEqual([{ op: "update", id: "cons", patch: { color: "#f6bf26" } }]);
+  });
+
+  it("un dialog aperto su valori vecchi non riscrive i −/+ né l'interruttore usati nel frattempo", async () => {
+    const mem = seed();
+    const stale = { ...row(mem, "pt") }; // il dialog si apre con durata 60, prenotabile
+    await stepEventType(mem.store, row(mem, "pt"), "duration", 1); // 75
+    await setBookable(mem.store, "pt", false);
+    await saveEventType(mem.store, {
+      coachId: COACH,
+      before: stale,
+      values: input(stale, { color: "#0b8043" }),
+    });
+    expect(row(mem, "pt")).toMatchObject({
+      duration: 75,
+      client_bookable: false,
+      color: "#0b8043",
+    });
+  });
+
+  it("«Ripristina» riporta solo i campi del salvataggio, non le scritture venute dopo", async () => {
+    const mem = seed();
+    const before = { ...row(mem, "pt") };
+    const res = await saveEventType(mem.store, {
+      coachId: COACH,
+      before,
+      values: input(before, { color: "#0b8043" }),
+    });
+    if (res.kind !== "updated") throw new Error("atteso un aggiornamento");
+    await stepEventType(mem.store, row(mem, "pt"), "duration", 1);
+    await undoUpdate(mem.store, res);
+    expect(row(mem, "pt")).toMatchObject({ color: "#003e62", duration: 75 });
+  });
+
+  it("niente cambiato: nessuna scrittura", async () => {
+    const mem = seed();
+    const before = { ...row(mem, "bia") };
+    const res = await saveEventType(mem.store, { coachId: COACH, before, values: input(before) });
+    expect(res).toEqual({ kind: "updated", id: "bia", before: {}, after: {} });
+    expect(mem.writes).toEqual([]);
+  });
+
+  it("un doppione esatto già nel database non blocca chi lascia il nome com'è", async () => {
+    const mem = seed();
+    mem.db.types.push(type({ id: "pt2", name: "Sessione PT" }));
+    const before = { ...row(mem, "pt") };
+    await saveEventType(mem.store, {
+      coachId: COACH,
+      before,
+      values: input(before, { buffer_minutes: 15 }),
+    });
+    expect(row(mem, "pt").buffer_minutes).toBe(15);
+  });
+});
+
 describe("eliminazione", () => {
   it("in uso per sessioni future: rifiutata, niente cancellato", async () => {
     const mem = seed();
