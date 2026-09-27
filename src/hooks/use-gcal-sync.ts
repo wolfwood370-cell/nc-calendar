@@ -21,6 +21,22 @@ import { queryKeys } from "@/lib/query-keys";
 
 const LAST_SYNC_KEY = "gcal_reconcile_last";
 
+/**
+ * gcal_reconcile_ok: l'ora dell'ultima sincronizzazione riuscita da questo
+ * browser (passata 08). gcal_reconcile_last conta i tentativi: si scrive
+ * prima di riconciliare, come freno. La pillola della Disponibilità legge
+ * questa, senza chiamare Google.
+ */
+export const LAST_SYNC_OK_KEY = "gcal_reconcile_ok";
+
+function rememberSyncOk() {
+  try {
+    localStorage.setItem(LAST_SYNC_OK_KEY, String(Date.now()));
+  } catch {
+    /* noop */
+  }
+}
+
 export interface GcalSync {
   /** Ultima sincronizzazione nota (localStorage), null se mai. */
   lastSyncAt: number | null;
@@ -43,6 +59,7 @@ export function useGcalSync(coachId: string | undefined): GcalSync {
   const runReconcile = useCallback(async (): Promise<boolean> => {
     try {
       const [pull, push] = await Promise.all([gcalReconcileEvents(), gcalRepairMissingEvents()]);
+      if (pull.ok && push.ok) rememberSyncOk();
       const changed =
         (pull.ok && ((pull.cancelled ?? 0) > 0 || (pull.moved ?? 0) > 0)) ||
         (push.ok && (push.created ?? 0) > 0);
@@ -106,6 +123,7 @@ export function useGcalForceSync(coachId: string | undefined, onSynced?: () => v
       const pull = await gcalReconcileEvents({
         data: { timeMinISO: yearStart, timeMaxISO: yearMax },
       });
+      if (pull.ok) rememberSyncOk();
       qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(coachId) });
       qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(coachId) });
       onSynced?.();
