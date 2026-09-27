@@ -1,35 +1,9 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { PageTitle } from "@/components/page-title";
 import { Input } from "@/components/ui/input";
-
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Dialog, DialogTrigger } from "@/components/ui/dialog";
-import {
-  Plus,
-  Search,
-  UserPlus,
-  Check,
-  Calendar,
-  // MessageCircle removed: phone shortcut moved to detail page
-  LayoutGrid,
-  List,
-} from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Dialog } from "@/components/ui/dialog";
+import { Plus, Search, UserPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
@@ -37,9 +11,7 @@ import { sendInvitationEmail } from "@/lib/email";
 import { useCoachEventTypes } from "@/lib/queries";
 import { queryKeys } from "@/lib/query-keys";
 import { parseEdgeError } from "@/lib/edge-function-error";
-import { errorMessage } from "@/lib/utils";
-import { sessionLabel, type SessionType } from "@/lib/mock-data";
-import { Skeleton } from "@/components/ui/skeleton";
+import type { SessionType } from "@/lib/mock-data";
 import {
   AuraCardSkeleton,
   AuraAvatarSkeleton,
@@ -48,24 +20,38 @@ import {
 } from "@/components/ui/aura-skeleton";
 import { useQueryClient } from "@tanstack/react-query";
 import { CreateClientDialog, type CreateClientPayload } from "@/components/create-client-dialog";
-import { InviteClientDialog } from "@/components/invite-client-dialog";
 import { CredentialsDialog } from "@/components/credentials-dialog";
-import { ClientCardMenu } from "@/components/client-card-menu";
 import { ClientStatusTabs } from "@/components/client-status-tabs";
-import { PendingInvitationsCard } from "@/components/pending-invitations-card";
+import { ClientsDesktop, type PendingInvitation } from "@/components/clients-desktop";
+import type { InviteInput } from "@/components/new-client-dialog";
 import { initials } from "@/lib/initials";
-import { getRenewalInfo } from "@/lib/renewal";
+import {
+  ActionConflictError,
+  cancelInvitation,
+  invitationWriteError,
+  restoreInvitation,
+  sentAgo,
+  setArchived,
+  undoArchive,
+} from "@/lib/client-actions";
+import {
+  writeNewClient,
+  type CreateClientResult,
+  type NewClientPayload,
+} from "@/lib/client-create";
+import {
+  buildClientRows,
+  parseClientsSearch,
+  type ClientRow,
+  type ClientStatus,
+} from "@/lib/client-list";
+import { supabaseClientActionsStore, supabaseClientCreateStore } from "@/lib/client-stores";
+import { toastWithUndo } from "@/lib/toast";
 
-// Il menu «Nuovo» dell'header coach porta qui con `new=cliente` (passata 01);
-// l'apertura del dialog di creazione arriva con la passata 05.
-interface ClientsSearch {
-  new?: "cliente";
-}
-
+// Stato della lista nell'URL (passata 05, audit T4): q, stato, vista, ordina;
+// new=cliente (menu «Nuovo» dell'header) apre «Nuovo cliente» e poi si toglie.
 export const Route = createFileRoute("/trainer/clients/")({
-  validateSearch: (search: Record<string, unknown>): ClientsSearch => ({
-    new: search.new === "cliente" ? "cliente" : undefined,
-  }),
+  validateSearch: parseClientsSearch,
   head: () => ({
     meta: [
       { title: "Clienti · NC Calendar" },
@@ -85,7 +71,7 @@ export const Route = createFileRoute("/trainer/clients/")({
   component: ClientsPage,
 });
 
-interface ClientRow {
+interface ClientRecord {
   id: string;
   full_name: string | null;
   email: string | null;
@@ -114,10 +100,6 @@ interface BlockLite {
   sequence_order: number;
   start_date: string;
   end_date: string;
-  // Added by migration 20260524110000_block_auto_renew.sql. Defaults
-  // applied server-side, so legacy rows are guaranteed non-null at
-  // read time.
-  grace_days: number;
   // training_blocks.status: serve a «In scadenza» (renewal.ts).
   status: string;
 }
@@ -138,135 +120,36 @@ interface BookingLite {
   scheduled_at: string;
   ignored_by_clients?: string[] | null;
 }
-
-type ClientStatus = "active" | "expiring" | "archived" | "completed";
-
-interface SessionSummaryRow {
-  type: string;
-  used: number;
-  total: number;
-}
-
-interface ClientCardData {
-  client: ClientRow;
-  status: ClientStatus;
-  totalBlocks: number;
-  summary: SessionSummaryRow[];
-  totalUsed: number;
-  totalQty: number;
-  daysToBilling: number | null;
-  // Residuals from the previous block during the 7-day grace overlap.
-  // 0 when no grace overlap is active. Shown as a secondary badge so
-  // the coach knows the cliente has soon-expiring credits.
-  previousBlockResiduals: number;
-  // Design handoff: semaforo presenza, prossima sessione e ultima attività.
-  attendancePct: number | null;
-  nextSessionMs: number | null;
-  lastActivityMs: number | null;
-}
-
-// Design handoff: semaforo presenza (≥80% verde, ≥60% arancio, <60% rosso).
-// Mock: testo colorato senza pill — variante "card" con check 12px, "table" 13px.
-function AttendanceBadge({
-  pct,
-  variant = "card",
-}: {
-  pct: number | null;
-  variant?: "card" | "table";
-}) {
-  if (pct === null)
-    return (
-      <span className={variant === "table" ? "text-[13px] text-outline" : "text-xs text-outline"}>
-        —
-      </span>
-    );
-  const color =
-    pct >= 80 ? "text-success-strong" : pct >= 60 ? "text-warning-strong" : "text-error-strong";
-  if (variant === "table")
-    return <span className={`text-[13px] font-semibold tabular-nums ${color}`}>{pct}%</span>;
-  return (
-    <span
-      title="Presenza"
-      className={`shrink-0 inline-flex items-center gap-1 text-xs font-semibold tabular-nums ${color}`}
-    >
-      <Check className="size-3 shrink-0" strokeWidth={2.5} aria-hidden />
-      {pct}%
-    </span>
-  );
-}
-
-function fmtNextSession(ms: number | null): string {
-  if (!ms) return "—";
-  const d = new Date(ms);
-  const day = d.toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short" });
-  const time = d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
-  return `${day} · ${time}`;
-}
-
-// Pick the "current" block for the given client: the most recent
-// non-deleted block whose [start_date, end_date + grace_days] window
-// contains today. Falls back to the latest block if none match (e.g.
-// brand-new cliente with future-dated blocks, or beyond-grace cliente
-// pending auto-renew via ensure_client_block_state).
-function findCurrentBlock(blocks: BlockLite[], today: Date): BlockLite | null {
-  if (blocks.length === 0) return null;
-  const todayMs = today.getTime();
-  // Sort by sequence_order descending so the most recent eligible wins
-  // first (covers the 7-day overlap: blocco 2 fresh + blocco 1 in grace
-  // → blocco 2 is "current").
-  const sorted = [...blocks].sort((a, b) => b.sequence_order - a.sequence_order);
-  for (const b of sorted) {
-    const start = new Date(b.start_date + "T00:00:00").getTime();
-    const end = new Date(b.end_date + "T23:59:59").getTime();
-    const graceEndMs = end + (b.grace_days ?? 7) * 86400000;
-    if (todayMs >= start && todayMs <= graceEndMs) return b;
-  }
-  // No block contains today → return the latest as best-effort fallback.
-  // The detail page will call ensure_client_block_state to recover the
-  // true state and create the next block if auto-renew is on.
-  return sorted[0] ?? null;
+interface ExtraLite {
+  client_id: string;
+  quantity: number;
+  quantity_booked: number;
 }
 
 function ClientsPage() {
   const { user, role } = useAuth();
   const qc = useQueryClient();
-  const [clients, setClients] = useState<ClientRow[]>([]);
+  const [clients, setClients] = useState<ClientRecord[]>([]);
   const [invitations, setInvitations] = useState<InvitationRow[]>([]);
   const [blocks, setBlocks] = useState<BlockLite[]>([]);
   const [allocs, setAllocs] = useState<AllocLite[]>([]);
   const [bookings, setBookings] = useState<BookingLite[]>([]);
-  // Predictive analytics: rows from the `client_exhaustion_forecast` view.
-  // Keyed by client_id for O(1) lookup when rendering the card grid.
-  const [, setForecasts] = useState<
-    Map<string, { daysLeft: number | null; date: string | null; weeklyAvg: number }>
-  >(new Map());
+  const [extras, setExtras] = useState<ExtraLite[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Telefono: ricerca e tab restano locali, come prima della passata 05.
   const [q, setQ] = useState("");
-  const [open, setOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"all" | ClientStatus>("all");
-  // Design handoff: toggle griglia/tabella + ordinamento del roster.
-  const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
-  const [sortBy, setSortBy] = useState<"name" | "expiry" | "activity" | "attendance">("name");
-  const navigate = useNavigate();
 
   const isAdmin = role === "admin";
   const eventTypesQ = useCoachEventTypes(user?.id);
-  const eventTypeById = useMemo(() => {
-    const m = new Map<string, string>();
-    (eventTypesQ.data ?? []).forEach((e) => m.set(e.id, e.name));
-    return m;
-  }, [eventTypesQ.data]);
 
   // HIGH-4 (audit 2026-05-26): `signal` è un piccolo flag mutevole passato
   // dal useEffect chiamante. Se il componente unmount mid-fetch, l'effect
   // cleanup setta signal.cancelled=true e tutti i setState successivi
-  // diventano no-op. Senza questo guard, una navigation rapida via questa
-  // route produrrebbe il warning React "setState on unmounted component"
-  // + potenziale memory leak (closure ancora viva).
-  // Default `{ cancelled: false }` per i caller manuali (refresh button,
-  // post-mutation reload) dove il rischio unmount è zero.
+  // diventano no-op. Default `{ cancelled: false }` per i caller manuali
+  // (post-mutation reload) dove il rischio unmount è zero.
   async function load(signal: { cancelled: boolean } = { cancelled: false }) {
     setLoading(true);
     let cq = supabase
@@ -278,7 +161,7 @@ function ClientsPage() {
     if (!isAdmin && user) cq = cq.eq("coach_id", user.id);
     const { data: cs } = await cq;
     if (signal.cancelled) return;
-    const clientList = ((cs as ClientRow[]) ?? [])
+    const clientList = ((cs as ClientRecord[]) ?? [])
       .slice()
       .sort((a, b) =>
         (a.full_name ?? "").localeCompare(b.full_name ?? "", "it", { sensitivity: "base" }),
@@ -294,14 +177,9 @@ function ClientsPage() {
     if (signal.cancelled) return;
     setInvitations((invs as InvitationRow[]) ?? []);
 
-    // Fetch blocks + allocations for status calculation
+    // Blocchi e allocazioni per stato e crediti.
     const ids = clientList.map((c) => c.id);
     if (ids.length > 0) {
-      // grace_days column (added by 20260524110000_block_auto_renew.sql)
-      // is not in generated types until Lovable regenerates them. The
-      // migration defaults grace_days=7 NOT NULL for every row, so the
-      // frontend can safely hardcode the default until types catch up.
-      // After Lovable regen, change parsedBlocks below to read b.grace_days.
       let bq = supabase
         .from("training_blocks")
         .select(
@@ -319,10 +197,6 @@ function ClientsPage() {
 
       const { data: bs } = await bq;
       if (signal.cancelled) return;
-      // Supabase typed `.select(...)` returns the joined block_allocations as
-      // a discriminated array on each row; the BlockLite/AllocLite shapes
-      // below are a structural subset, so we project explicitly instead of
-      // forcing `as any[]`.
       type BlockWithAllocs = BlockLite & { block_allocations: AllocLite[] | null };
       const blockList = (bs ?? []) as BlockWithAllocs[];
 
@@ -335,9 +209,6 @@ function ClientsPage() {
           sequence_order: b.sequence_order,
           start_date: b.start_date,
           end_date: b.end_date,
-          // Defaults to migration's GRACE_DAYS_DEFAULT (7). Replace with
-          // b.grace_days once `grace_days` is in generated Supabase types.
-          grace_days: 7,
           status: b.status,
         });
         if (b.block_allocations) {
@@ -357,51 +228,28 @@ function ClientsPage() {
         )
         .in("client_id", ids)
         .is("deleted_at", null)
-        // no_show incluso SOLO per il semaforo presenza (design handoff):
-        // il loop dei contatori "used" filtra di nuovo per status, quindi
-        // le righe no_show non alterano i conteggi dei pacchetti.
+        // no_show incluso SOLO per la presenza: il conteggio del percorso
+        // (pathProgress) filtra di nuovo per stato.
         .in("status", ["scheduled", "completed", "late_cancelled", "no_show"]);
       if (!isAdmin && user) bookQ = bookQ.eq("coach_id", user.id);
       const { data: bks } = await bookQ;
       if (signal.cancelled) return;
       setBookings((bks as unknown as BookingLite[]) ?? []);
+
+      // Crediti extra dei clienti liberi («Crediti extra» in scheda, L8).
+      const { data: ecs } = await supabase
+        .from("extra_credits")
+        .select("client_id, quantity, quantity_booked")
+        .in("client_id", ids);
+      if (signal.cancelled) return;
+      setExtras((ecs as ExtraLite[]) ?? []);
     } else {
       if (signal.cancelled) return;
       setBlocks([]);
       setAllocs([]);
       setBookings([]);
+      setExtras([]);
     }
-
-    // Predictive exhaustion forecast — view enforces RLS via the underlying
-    // tables, so the coach automatically gets only their own clients.
-    type ForecastRow = {
-      client_id: string;
-      days_until_exhaustion: number | null;
-      predicted_exhaustion_date: string | null;
-      weekly_avg: number | null;
-    };
-    const { data: fc } = await (
-      supabase as unknown as {
-        from: (t: string) => {
-          select: (cols: string) => Promise<{ data: ForecastRow[] | null }>;
-        };
-      }
-    )
-      .from("client_exhaustion_forecast")
-      .select("client_id, days_until_exhaustion, predicted_exhaustion_date, weekly_avg");
-    const fmap = new Map<
-      string,
-      { daysLeft: number | null; date: string | null; weeklyAvg: number }
-    >();
-    for (const r of fc ?? []) {
-      fmap.set(r.client_id, {
-        daysLeft: r.days_until_exhaustion,
-        date: r.predicted_exhaustion_date,
-        weeklyAvg: Number(r.weekly_avg ?? 0),
-      });
-    }
-    if (signal.cancelled) return;
-    setForecasts(fmap);
 
     setLoading(false);
   }
@@ -420,11 +268,9 @@ function ClientsPage() {
     // have a single coach scope; their dashboard shows everyone.
     //
     // HIGH-4 (audit 2026-05-26): cleanup pattern. Se l'utente naviga
-    // via questa route prima che `load()` finisca (es. unmount mid-fetch
-    // perché ha cliccato un Link), il flag `signal.cancelled` viene
-    // settato dal cleanup ritornato e i setState successivi diventano
-    // no-op. Previene il warning "setState on unmounted component" +
-    // memory leak della closure.
+    // via questa route prima che `load()` finisca, il flag
+    // `signal.cancelled` viene settato dal cleanup ritornato e i setState
+    // successivi diventano no-op.
     const signal = { cancelled: false };
     void (async () => {
       if (!isAdmin) {
@@ -450,179 +296,27 @@ function ClientsPage() {
     return () => {
       signal.cancelled = true;
     };
-    // HIGH-5: `load` è una funzione locale dichiarata dentro il componente
-    // ma stabile per scopo — chiude su `user`, `isAdmin` (entrambi nei
-    // deps) e su setState refs (per definizione stabili in React).
-    // Includerla nei deps obbligherebbe a `useCallback` cascade. Pattern
-    // accettato dato che il refresh manuale è esposto dal pulsante UI.
+    // HIGH-5: `load` è una funzione locale stabile per scopo — chiude su
+    // `user`, `isAdmin` (entrambi nei deps) e su setState refs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, isAdmin]);
 
-  const cardData = useMemo<ClientCardData[]>(() => {
-    const blockToClient = new Map<string, string>();
-    for (const b of blocks) blockToClient.set(b.id, b.client_id);
-    const allocsByClient = new Map<string, AllocLite[]>();
-    for (const a of allocs) {
-      const cid = blockToClient.get(a.block_id);
-      if (!cid) continue;
-      const arr = allocsByClient.get(cid) ?? [];
-      arr.push(a);
-      allocsByClient.set(cid, arr);
-    }
-    const blocksByClient = new Map<string, BlockLite[]>();
-    for (const b of blocks) {
-      const arr = blocksByClient.get(b.client_id) ?? [];
-      arr.push(b);
-      blocksByClient.set(b.client_id, arr);
-    }
-    const bookingsByClient = new Map<string, BookingLite[]>();
-    for (const bk of bookings) {
-      if (!bk.client_id) continue;
-      const arr = bookingsByClient.get(bk.client_id) ?? [];
-      arr.push(bk);
-      bookingsByClient.set(bk.client_id, arr);
-    }
-
-    const today = new Date();
-
-    return clients.map((c) => {
-      const cb = blocksByClient.get(c.id) ?? [];
-      const cAllocsAll = allocsByClient.get(c.id) ?? [];
-      const cBookings = bookingsByClient.get(c.id) ?? [];
-
-      // ----- Current block (only used for residuals banner + billing) -----
-      // The card counter aggregates the WHOLE path (every non-deleted
-      // block) so the coach sees lifetime progress vs total assigned —
-      // e.g. "4/24 sessions" for a 6-month plan or "8/12" after three
-      // monthly renewals. `currentBlock` is still computed for the
-      // grace-period residuals banner and the "Rinnovo tra X giorni"
-      // line, but no longer narrows the counter itself.
-      const currentBlock = findCurrentBlock(cb, today);
-
-      // Residuals from any "previous" block still in grace overlap with
-      // today. These are about-to-expire credits the coach should see
-      // surfaced — shown as a secondary line on the card.
-      let previousBlockResiduals = 0;
-      if (currentBlock) {
-        const todayMs = today.getTime();
-        for (const b of cb) {
-          if (b.id === currentBlock.id) continue;
-          const end = new Date(b.end_date + "T23:59:59").getTime();
-          const graceEnd = end + (b.grace_days ?? 7) * 86400000;
-          // Past end_date but still within grace tail → counts as residual.
-          if (todayMs > end && todayMs <= graceEnd) {
-            for (const a of cAllocsAll) {
-              if (a.block_id !== b.id) continue;
-              previousBlockResiduals += Math.max(0, a.quantity_assigned - a.quantity_booked);
-            }
-          }
-        }
-      }
-
-      // Aggregate by event type (fallback session_type) across ALL
-      // non-deleted blocks of this client.
-      type Agg = { type: string; used: number; total: number };
-      const aggMap = new Map<string, Agg>();
-      const keyOf = (etId: string | null, st: string) => etId ?? `st:${st}`;
-
-      for (const a of cAllocsAll) {
-        const k = keyOf(a.event_type_id, a.session_type);
-        const name =
-          (a.event_type_id && eventTypeById.get(a.event_type_id)) ||
-          sessionLabel(a.session_type as SessionType);
-        const cur = aggMap.get(k) ?? { type: name, used: 0, total: 0 };
-        cur.total += a.quantity_assigned;
-        aggMap.set(k, cur);
-      }
-
-      // Live used from bookings — every completed/scheduled/late_cancelled
-      // session across any block of this client contributes to the
-      // lifetime counter.
-      for (const bk of cBookings) {
-        if (
-          bk.status !== "completed" &&
-          bk.status !== "late_cancelled" &&
-          bk.status !== "scheduled"
-        )
-          continue;
-        const k = keyOf(bk.event_type_id ?? null, bk.session_type);
-        const cur = aggMap.get(k);
-        if (!cur) continue;
-        cur.used += 1;
-      }
-
-      const summary: SessionSummaryRow[] = [...aggMap.values()]
-        .map((r) => ({ ...r, used: Math.min(r.used, r.total) }))
-        .filter((r) => r.total > 0)
-        .sort((a, b) => b.total - a.total);
-
-      const totalUsed = summary.reduce((s, r) => s + r.used, 0);
-      const totalQty = summary.reduce((s, r) => s + r.total, 0);
-
-      let daysToBilling: number | null = null;
-      if (c.path_type === "recurring" && c.next_billing_date) {
-        const nb = new Date(c.next_billing_date + "T00:00:00");
-        daysToBilling = Math.ceil((nb.getTime() - today.getTime()) / 86400000);
-      }
-
-      // Design handoff: % presenza = completate / (completate + mancate).
-      // null finché il cliente non ha almeno una sessione conclusa.
-      const doneCount = cBookings.filter((b) => b.status === "completed").length;
-      const missedCount = cBookings.filter(
-        (b) => b.status === "no_show" || b.status === "late_cancelled",
-      ).length;
-      const attendancePct =
-        doneCount + missedCount > 0
-          ? Math.round((doneCount / (doneCount + missedCount)) * 100)
-          : null;
-
-      // Design handoff: prossima sessione programmata + ultima attività
-      // (per la colonna "Prossima" e l'ordinamento per Attività).
-      const nowMs = today.getTime();
-      let nextSessionMs: number | null = null;
-      let lastActivityMs: number | null = null;
-      for (const bk of cBookings) {
-        const t = new Date(bk.scheduled_at).getTime();
-        if (bk.status === "scheduled" && t > nowMs && (nextSessionMs === null || t < nextSessionMs))
-          nextSessionMs = t;
-        if (bk.status === "completed" && (lastActivityMs === null || t > lastActivityMs))
-          lastActivityMs = t;
-      }
-
-      // «In scadenza» viene dalla regola unica di renewal.ts, la stessa di
-      // Panoramica e Profilo; viene prima di «completed», così un cliente da
-      // rinnovare in Panoramica è in scadenza anche qui.
-      let status: ClientStatus;
-      if (c.status === "archived") status = "archived";
-      else if (getRenewalInfo(c, cb, cAllocsAll, today)) status = "expiring";
-      else if (totalQty > 0 && totalUsed >= totalQty) status = "completed";
-      else status = "active";
-
-      return {
-        client: c,
-        status,
-        totalBlocks: cb.length,
-        summary,
-        totalUsed,
-        totalQty,
-        daysToBilling,
-        previousBlockResiduals,
-        attendancePct,
-        nextSessionMs,
-        lastActivityMs,
-      };
-    });
-  }, [clients, blocks, allocs, bookings, eventTypeById]);
+  // Stato, crediti, presenza e prossima sessione di ogni cliente (client-list.ts).
+  const rows = useMemo<ClientRow[]>(
+    () => buildClientRows({ clients, blocks, allocations: allocs, bookings, extras }, new Date()),
+    [clients, blocks, allocs, bookings, extras],
+  );
 
   const counts = useMemo(() => {
-    const c = { all: cardData.length, active: 0, expiring: 0, archived: 0, completed: 0 };
-    for (const d of cardData) c[d.status]++;
+    const c = { all: rows.length, active: 0, expiring: 0, archived: 0, completed: 0 };
+    for (const d of rows) c[d.status]++;
     return c;
-  }, [cardData]);
+  }, [rows]);
 
+  // Telefono: filtro e ordine di prima (nome o email, per nome).
   const visibleCards = useMemo(() => {
     const term = q.toLowerCase();
-    const filtered = cardData.filter((d) => {
+    const filtered = rows.filter((d) => {
       if (activeTab !== "all" && d.status !== activeTab) return false;
       if (activeTab === "all" && d.status === "archived") return false;
       if (!term) return true;
@@ -631,38 +325,28 @@ function ClientsPage() {
         (d.client.email ?? "").toLowerCase().includes(term)
       );
     });
-    // Design handoff: ordinamento Nome / Scadenza / Attività / Presenza.
-    const sorted = [...filtered];
-    switch (sortBy) {
-      case "name":
-        sorted.sort((a, b) =>
-          (a.client.full_name ?? "").localeCompare(b.client.full_name ?? "", "it"),
-        );
-        break;
-      case "expiry":
-        // Prima chi ha meno sessioni residue (o fattura più vicina).
-        sorted.sort((a, b) => {
-          const ra = a.daysToBilling ?? a.totalQty - a.totalUsed;
-          const rb = b.daysToBilling ?? b.totalQty - b.totalUsed;
-          return ra - rb;
-        });
-        break;
-      case "activity":
-        // Attività più recente in alto; chi non ha mai completato in fondo.
-        sorted.sort((a, b) => (b.lastActivityMs ?? 0) - (a.lastActivityMs ?? 0));
-        break;
-      case "attendance":
-        // Presenza più bassa in alto (chi ha bisogno di attenzione).
-        sorted.sort((a, b) => (a.attendancePct ?? 101) - (b.attendancePct ?? 101));
-        break;
-    }
-    return sorted;
-  }, [cardData, activeTab, q, sortBy]);
+    return [...filtered].sort((a, b) =>
+      (a.client.full_name ?? "").localeCompare(b.client.full_name ?? "", "it"),
+    );
+  }, [rows, activeTab, q]);
 
-  const pending = invitations.filter((i) => i.status === "pending");
+  const pending: PendingInvitation[] = useMemo(() => {
+    const now = new Date();
+    return invitations
+      .filter((i) => i.status === "pending")
+      .map((i) => ({
+        id: i.id,
+        email: i.email,
+        full_name: i.full_name,
+        created_at: i.created_at,
+        sent: sentAgo(i.created_at, now),
+      }));
+  }, [invitations]);
 
-  async function inviteClient(data: { name: string; email: string; phone: string }) {
-    if (!user) return;
+  const coachName = (user?.user_metadata?.full_name as string) || user?.email || "il tuo coach";
+
+  async function inviteClient(data: InviteInput): Promise<boolean> {
+    if (!user) return false;
     const { error } = await supabase.from("client_invitations").insert({
       email: data.email.toLowerCase().trim(),
       full_name: data.name,
@@ -673,46 +357,75 @@ function ClientsPage() {
       // N5: non esporre error.message raw (può rivelare struttura DB / RLS hints).
       console.error("invite create failed", error);
       toast.error("Invito non riuscito", { description: "Riprova tra qualche istante." });
-      return;
+      return false;
     }
-    const coachName = (user.user_metadata?.full_name as string) || user.email || "il tuo coach";
     const r = await sendInvitationEmail({ to: data.email, clientName: data.name, coachName });
     if (r.ok) {
-      toast.success("Invito creato", { description: `Email di invito inviata a ${data.email}.` });
+      toast.success(`Invito inviato a ${data.email.trim()}.`);
     } else {
       toast.warning("Invito creato", {
         description: `L'invito è registrato, ma l'email non è partita. Avvisa ${data.email} manualmente o riprova.`,
       });
     }
-    setOpen(false);
     load();
+    return true;
   }
 
-  async function cancelInvite(id: string) {
-    const { error } = await supabase
-      .from("client_invitations")
-      .update({ status: "cancelled" })
-      .eq("id", id);
-    if (error) {
-      console.error("invite cancel failed", error);
-      toast.error("Errore", { description: "Impossibile annullare l'invito." });
-      return;
-    }
-    toast.success("Invito annullato");
-    load();
+  async function resendInvite(inv: PendingInvitation) {
+    const r = await sendInvitationEmail({ to: inv.email, clientName: inv.full_name, coachName });
+    if (r.ok) toast.success(`Invito inviato di nuovo a ${inv.email}.`);
+    else toast.error("Invio non riuscito", { description: "Riprova tra qualche istante." });
   }
 
-  async function setClientStatus(id: string, status: "active" | "archived") {
-    const { error } = await supabase.from("profiles").update({ status }).eq("id", id);
-    if (error) {
-      console.error("client status update failed", error);
-      toast.error("Errore", { description: "Operazione non riuscita." });
+  async function cancelInvite(inv: PendingInvitation) {
+    const name = inv.full_name?.trim() || inv.email;
+    try {
+      await cancelInvitation(supabaseClientActionsStore, inv.id);
+    } catch (e) {
+      console.error("invite cancel failed", e);
+      toast.error(e instanceof ActionConflictError ? e.message : "Impossibile annullare l'invito.");
+      load();
       return;
     }
-    toast.success(status === "archived" ? "Cliente archiviato" : "Cliente ripristinato");
+    load();
+    toastWithUndo(`Invito a ${name} annullato.`, () => {
+      void restoreInvitation(supabaseClientActionsStore, inv.id)
+        .then(() => toast.success(`Invito a ${name} ripristinato.`))
+        .catch((e: { code?: string; message?: string }) =>
+          toast.error(e instanceof ActionConflictError ? e.message : invitationWriteError(e)),
+        )
+        .finally(() => load());
+    });
+  }
+
+  function refreshClients() {
     // La ricerca clienti dell'header legge questa cache ed esclude gli archiviati.
     qc.invalidateQueries({ queryKey: queryKeys.clients.coach(user?.id) });
     load();
+  }
+
+  async function toggleArchive(row: ClientRow) {
+    const c = row.client;
+    const name = c.full_name ?? c.email ?? "Cliente";
+    const archive = c.status !== "archived";
+    const to = archive ? "archived" : "active";
+    let before: string;
+    try {
+      before = await setArchived(supabaseClientActionsStore, c, archive);
+    } catch (e) {
+      console.error("client status update failed", e);
+      toast.error(e instanceof ActionConflictError ? e.message : "Operazione non riuscita.");
+      refreshClients();
+      return;
+    }
+    refreshClients();
+    toastWithUndo(archive ? `${name} archiviato.` : `${name} ripristinato.`, () => {
+      void undoArchive(supabaseClientActionsStore, c, to, before)
+        .catch((e: unknown) =>
+          toast.error(e instanceof ActionConflictError ? e.message : "Operazione non riuscita."),
+        )
+        .finally(refreshClients);
+    });
   }
 
   async function deleteClient(id: string, name: string) {
@@ -723,10 +436,7 @@ function ClientsPage() {
     if (error || errMsg) {
       // supabase.functions.invoke buries the real server message in
       // err.context (a Response). parseEdgeError extracts the actual
-      // text the Edge Function emitted via jsonResponse({error}), so
-      // the coach sees "Cliente non trovato" / "Permesso negato" /
-      // "function admin_delete_client(uuid) does not exist" instead of
-      // the generic "Edge Function returned a non-2xx status code".
+      // text the Edge Function emitted via jsonResponse({error}).
       const detailed = errMsg ?? (error ? await parseEdgeError(error) : "Errore sconosciuto");
       toast.error("Eliminazione non riuscita", { description: detailed });
       return;
@@ -738,6 +448,26 @@ function ClientsPage() {
     load();
   }
 
+  // Creazione: le scritture di sempre, ora in client-create.ts.
+  async function createClient(payload: NewClientPayload): Promise<CreateClientResult> {
+    if (!user) return { ok: false, error: "Sessione scaduta." };
+    const r = await writeNewClient(supabaseClientCreateStore, user.id, payload);
+    if (!r.ok) {
+      toast.error("Creazione cliente non riuscita", { description: r.error });
+      return r;
+    }
+    if (r.assignError) {
+      toast.warning("Cliente creato, ma assegnazione iniziale non riuscita", {
+        description: r.assignError,
+      });
+    }
+    qc.invalidateQueries({ queryKey: queryKeys.clients.coach(user?.id) });
+    qc.invalidateQueries({ queryKey: queryKeys.blocks.coach(user?.id) });
+    load();
+    return r;
+  }
+
+  // Telefono: il dialog di prima, con le credenziali nel dialog a parte.
   const [credentials, setCredentials] = useState<{
     firstName: string;
     email: string;
@@ -745,150 +475,24 @@ function ClientsPage() {
   } | null>(null);
 
   async function createClientAccount(data: CreateClientPayload) {
-    if (!user) return;
-    const { data: res, error } = await supabase.functions.invoke("admin-create-user", {
-      body: {
-        email: data.email.toLowerCase().trim(),
-        password: data.password,
-        first_name: data.firstName,
-        last_name: data.lastName,
-      },
-    });
-    const errMsg = (res as { error?: string } | null)?.error;
-    const newUserId = (res as { user_id?: string } | null)?.user_id;
-    if (error || errMsg || !newUserId) {
-      toast.error("Creazione cliente non riuscita", { description: errMsg ?? error?.message });
-      return;
-    }
-
-    try {
-      if (data.pathType === "free") {
-        // Cliente Libero: nessun blocco/allocazione, solo extra_credits di omaggio
-        const qty = Math.max(0, data.freeSessions ?? 0);
-        const eventTypeId = data.freeEventTypeId ?? "";
-        if (qty > 0 && eventTypeId) {
-          const expires = new Date("2100-01-01T00:00:00Z");
-          const { error: ecErr } = await supabase.from("extra_credits").insert({
-            client_id: newUserId,
-            event_type_id: eventTypeId,
-            quantity: qty,
-            quantity_booked: 0,
-            expires_at: expires.toISOString(),
-          });
-          if (ecErr) throw ecErr;
-        }
-        const { error: pErr } = await supabase
-          .from("profiles")
-          .update({
-            path_type: "free",
-            auto_renew: false,
-            auto_renew_blocks: false,
-            pack_label: data.packLabel,
-            next_billing_date: null,
-          })
-          .eq("id", newUserId);
-        if (pErr) throw pErr;
-      } else {
-        const today = new Date();
-        const blocksToInsert = Array.from({ length: data.totalBlocks }, (_, i) => {
-          const start = new Date(today);
-          start.setDate(today.getDate() + i * 30);
-          const end = new Date(today);
-          end.setDate(today.getDate() + (i + 1) * 30 - 1);
-          return {
-            client_id: newUserId,
-            coach_id: user.id,
-            start_date: start.toISOString().slice(0, 10),
-            end_date: end.toISOString().slice(0, 10),
-            status: "active" as const,
-            sequence_order: i + 1,
-          };
-        });
-        const { data: blocksRes, error: bErr } = await supabase
-          .from("training_blocks")
-          .insert(blocksToInsert)
-          .select("id, sequence_order, end_date");
-        if (bErr) throw bErr;
-        const blockBySeq = new Map<number, { id: string; end_date: string }>();
-        (blocksRes ?? []).forEach((b) =>
-          blockBySeq.set(b.sequence_order as number, {
-            id: b.id as string,
-            end_date: b.end_date as string,
-          }),
-        );
-
-        const allocsToInsert: Array<{
-          block_id: string;
-          week_number: number;
-          session_type: SessionType;
-          event_type_id: string;
-          quantity_assigned: number;
-          quantity_booked: number;
-          valid_until: string | null;
-        }> = [];
-        for (const rule of data.rules) {
-          for (let m = rule.startBlock; m <= rule.endBlock; m++) {
-            const b = blockBySeq.get(m);
-            if (!b) continue;
-            allocsToInsert.push({
-              block_id: b.id,
-              week_number: 1,
-              session_type: rule.sessionType,
-              event_type_id: rule.eventTypeId,
-              quantity_assigned: rule.quantityPerBlock,
-              quantity_booked: 0,
-              valid_until: null,
-            });
-          }
-        }
-        if (allocsToInsert.length > 0) {
-          const { error: aErr } = await supabase.from("block_allocations").insert(allocsToInsert);
-          if (aErr) throw aErr;
-        }
-
-        // Persist path metadata on profile
-        const nextBilling = new Date(today);
-        nextBilling.setDate(today.getDate() + 30);
-        // path_start_date e' l'ancora che `repair_blocks_alignment` e
-        // `ensure_client_block_state` usano per riallineare/seedare i blocchi.
-        // Senza, le RPC ritornano `no_anchor` e il cron auto-renew skippa il
-        // cliente. Lo settiamo a `today` (= start_date del blocco 1).
-        const pathStartIso = today.toISOString().slice(0, 10);
-        const { error: pErr } = await supabase
-          .from("profiles")
-          .update({
-            path_type: data.pathType,
-            auto_renew: data.autoRenew,
-            // auto_renew_blocks is the canonical flag read by
-            // ensure_client_block_state / useCurrentBlock; write it
-            // in parallel with the legacy `auto_renew` column so
-            // recurring clients created today behave correctly.
-            auto_renew_blocks: data.autoRenew,
-            pack_label: data.packLabel,
-            path_start_date: pathStartIso,
-            next_billing_date:
-              data.pathType === "recurring" ? nextBilling.toISOString().slice(0, 10) : null,
-          })
-          .eq("id", newUserId);
-        if (pErr) throw pErr;
-      }
-    } catch (e) {
-      toast.warning("Cliente creato, ma assegnazione iniziale non riuscita", {
-        description: errorMessage(e),
-      });
-    }
-
-    qc.invalidateQueries({ queryKey: queryKeys.clients.coach(user?.id) });
-    qc.invalidateQueries({ queryKey: queryKeys.blocks.coach(user?.id) });
-    // The new client's own client-scoped caches don't exist yet (they haven't
-    // logged in), so we don't need to invalidate them here.
-    setCreateOpen(false);
-    setCredentials({
+    const r = await createClient({
       firstName: data.firstName,
-      email: data.email.toLowerCase().trim(),
+      lastName: data.lastName,
+      email: data.email,
       password: data.password,
+      pathType: data.pathType,
+      totalBlocks: data.totalBlocks,
+      packLabel: data.packLabel,
+      autoRenew: data.autoRenew,
+      rules: data.rules,
+      freeCredits:
+        data.pathType === "free" && data.freeEventTypeId
+          ? [{ eventTypeId: data.freeEventTypeId, quantity: data.freeSessions ?? 0 }]
+          : [],
     });
-    load();
+    if (!r.ok) return;
+    setCreateOpen(false);
+    setCredentials({ firstName: data.firstName, email: r.email, password: data.password });
   }
 
   const tabs: Array<{ key: "all" | ClientStatus; label: string; count: number }> = [
@@ -1023,436 +627,31 @@ function ClientsPage() {
             opens the same multi-step CreateClientDialog. */}
       </div>
 
+      {/* Telefono: «+» apre il dialog di creazione di prima; le credenziali
+          arrivano nel dialog a parte. */}
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <CreateClientDialog open={createOpen} onSubmit={createClientAccount} />
+      </Dialog>
+      <CredentialsDialog creds={credentials} onClose={() => setCredentials(null)} />
+
       {/* ============================================================
-          DESKTOP LAYOUT (hidden md:block) — unchanged below.
+          DESKTOP LAYOUT (hidden md:block) — passata 05.
           ============================================================ */}
-      <div className="hidden md:block -m-6 p-6 md:p-10 bg-surface min-h-[calc(100vh-3.5rem)]">
-        {/* Header */}
-        <div className="flex flex-wrap items-end justify-between gap-3 mb-8">
-          <div>
-            <PageTitle>Clienti</PageTitle>
-            <p className="text-sm text-on-surface-variant mt-1">
-              Invita nuovi clienti e gestisci il roster.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-              <DialogTrigger asChild>
-                <Button className="rounded-full px-6 py-3 h-auto bg-aura-primary hover:bg-primary-container text-white font-semibold shadow-soft-blue">
-                  <UserPlus className="size-4" /> Aggiungi cliente
-                </Button>
-              </DialogTrigger>
-              {/* Forward `open` so the child can detect the open→closed
-                transition and reset its multi-step state. Without this
-                the child keeps step=3 + previous form values from one
-                open to the next (the React subtree persists between
-                opens; Radix only animates the DOM in/out). */}
-              <CreateClientDialog open={createOpen} onSubmit={createClientAccount} />
-            </Dialog>
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button
-                  variant="secondary"
-                  className="rounded-full px-5 py-3 h-auto bg-surface-container text-on-surface font-semibold shadow-none hover:bg-surface-container-high"
-                >
-                  <Plus className="size-4" /> Invita
-                </Button>
-              </DialogTrigger>
-              <InviteClientDialog onSubmit={inviteClient} />
-            </Dialog>
-          </div>
-        </div>
-
-        <CredentialsDialog creds={credentials} onClose={() => setCredentials(null)} />
-
-        {/* Design handoff: barra riepilogo roster — unica barra bianca con
-            chip numerici colorati per stato e divider verticali. */}
-        <div className="mb-5 bg-white rounded-[20px] px-6 py-4 shadow-soft-blue flex items-center gap-6 flex-wrap">
-          {(
-            [
-              { label: "clienti", value: counts.all - counts.archived, color: "text-on-surface" },
-              { label: "attivi", value: counts.active, color: "text-success-strong" },
-              { label: "in scadenza", value: counts.expiring, color: "text-warning-strong" },
-            ] as const
-          ).map((s, i) => (
-            <Fragment key={s.label}>
-              {i > 0 && <div className="w-px h-7 bg-surface-container-high" aria-hidden />}
-              <div className="flex items-baseline gap-2">
-                <span
-                  className={`font-display text-[26px] font-bold tabular-nums tracking-[-0.02em] ${s.color}`}
-                >
-                  {s.value}
-                </span>
-                <span className="text-[13px] text-outline">{s.label}</span>
-              </div>
-            </Fragment>
-          ))}
-        </div>
-
-        {/* Toolbar: ricerca a sinistra, toggle vista + ordinamento a destra
-            (design handoff: justify-between + label "Ordina"). */}
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <div className="relative w-full md:w-96">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-outline" />
-            <Input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Cerca per nome o email…"
-              className="pl-12 pr-4 py-3 h-auto bg-surface-container-low border-none rounded-full focus-visible:ring-2 focus-visible:ring-aura-primary focus-visible:bg-white"
-            />
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center bg-surface-container rounded-full p-[3px]">
-              <button
-                type="button"
-                aria-label="Vista griglia"
-                aria-pressed={viewMode === "grid"}
-                onClick={() => setViewMode("grid")}
-                className={`w-[38px] h-8 rounded-full grid place-items-center transition-colors ${
-                  viewMode === "grid"
-                    ? "bg-white text-aura-primary shadow-[0_1px_2px_rgba(0,0,0,0.08)]"
-                    : "text-outline"
-                }`}
-              >
-                <LayoutGrid className="size-4" aria-hidden />
-              </button>
-              <button
-                type="button"
-                aria-label="Vista tabella"
-                aria-pressed={viewMode === "table"}
-                onClick={() => setViewMode("table")}
-                className={`w-[38px] h-8 rounded-full grid place-items-center transition-colors ${
-                  viewMode === "table"
-                    ? "bg-white text-aura-primary shadow-[0_1px_2px_rgba(0,0,0,0.08)]"
-                    : "text-outline"
-                }`}
-              >
-                <List className="size-4" aria-hidden />
-              </button>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[13px] text-outline">Ordina</span>
-              <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
-                <SelectTrigger className="w-auto h-auto rounded-full bg-white border border-surface-variant px-3.5 py-2 text-[13px] text-on-surface">
-                  <SelectValue placeholder="Ordina per" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="name">Nome (A–Z)</SelectItem>
-                  <SelectItem value="expiry">Scadenza pacchetto</SelectItem>
-                  <SelectItem value="activity">Attività recente</SelectItem>
-                  <SelectItem value="attendance">Presenza</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <ClientStatusTabs tabs={tabs} activeKey={activeTab} onSelect={setActiveTab} />
-
-        {/* Pending invitations */}
-        <PendingInvitationsCard invitations={pending} onCancel={cancelInvite} />
-
-        {/* Cards */}
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div
-                key={i}
-                className="bg-white rounded-[32px] p-6 shadow-[0px_4px_20px_rgba(0,86,133,0.05)] flex flex-col"
-              >
-                <div className="flex justify-between items-start mb-6">
-                  <div className="flex items-center gap-4 min-w-0 flex-1">
-                    <Skeleton className="w-12 h-12 rounded-full shrink-0" />
-                    <div className="space-y-2 flex-1">
-                      <Skeleton className="h-4 w-3/4" />
-                      <Skeleton className="h-3 w-1/2" />
-                    </div>
-                  </div>
-                  <Skeleton className="h-6 w-16 rounded-full" />
-                </div>
-                <div className="mb-6 flex-1 space-y-2">
-                  <Skeleton className="h-3 w-2/3" />
-                  <Skeleton className="h-2 w-full rounded-full" />
-                </div>
-                <div className="pt-4 border-t border-surface-variant flex items-center gap-2">
-                  <Skeleton className="h-10 flex-1 rounded-full" />
-                  <Skeleton className="h-10 w-10 rounded-full" />
-                  <Skeleton className="h-10 w-10 rounded-full" />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : visibleCards.length === 0 ? (
-          <div className="bg-white rounded-[32px] p-12 text-center shadow-[0px_4px_20px_rgba(0,86,133,0.05)]">
-            {clients.length === 0 ? (
-              <div className="space-y-4">
-                <UserPlus className="size-10 mx-auto text-outline-variant" />
-                <p className="text-on-surface-variant font-semibold">
-                  Nessun cliente ancora. Aggiungi il primo per iniziare.
-                </p>
-                <Button
-                  onClick={() => setCreateOpen(true)}
-                  className="rounded-full bg-aura-primary hover:bg-primary-container text-white"
-                >
-                  <UserPlus className="size-4" /> Aggiungi cliente
-                </Button>
-              </div>
-            ) : (
-              <p className="text-outline">Nessun cliente in questa categoria.</p>
-            )}
-          </div>
-        ) : viewMode === "grid" ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {visibleCards.map((d) => {
-              const c = d.client;
-              const isExpiring = d.status === "expiring";
-              const isArchived = d.status === "archived";
-              const isCompleted = d.status === "completed";
-
-              const pathLabel = c.pack_label
-                ? c.pack_label
-                : c.path_type === "recurring"
-                  ? "Abbonamento Mensile"
-                  : c.path_type === "free"
-                    ? "Cliente Libero"
-                    : "Percorso Fisso";
-
-              const badgeClass = isArchived
-                ? "bg-surface-container text-on-surface-variant"
-                : isCompleted
-                  ? "bg-surface-container text-on-surface-variant"
-                  : isExpiring
-                    ? "bg-warning-soft text-warning-text"
-                    : "bg-success-soft text-success-text";
-              const badgeLabel = isArchived
-                ? "Archiviato"
-                : isCompleted
-                  ? "Completato"
-                  : isExpiring
-                    ? "In scadenza"
-                    : "Attivo";
-
-              // Design handoff: accento colore per stato sul bordo sinistro
-              // (5px; completato grigio-blu, token outline).
-              const accentClass = isArchived
-                ? "border-l-outline-variant"
-                : isCompleted
-                  ? "border-l-outline"
-                  : isExpiring
-                    ? "border-l-warning-strong"
-                    : "border-l-success-strong";
-
-              return (
-                <div
-                  key={c.id}
-                  className={`relative group bg-white rounded-[28px] p-5 border-l-[5px] ${accentClass} shadow-[0px_4px_20px_rgba(0,86,133,0.05)] hover:shadow-[0px_8px_30px_rgba(0,86,133,0.08)] transition-all`}
-                >
-                  <Link
-                    to="/trainer/clients/$id"
-                    params={{ id: c.id }}
-                    className="flex items-center gap-4 min-w-0"
-                  >
-                    <div className="w-14 h-14 shrink-0 rounded-full bg-avatar-placeholder text-on-avatar-placeholder flex items-center justify-center text-base font-bold">
-                      {initials(c.full_name, c.email)}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="text-base leading-5 font-bold text-on-surface truncate">
-                        {c.full_name ?? "Senza nome"}
-                      </h3>
-                      <p className="text-xs text-outline truncate mt-0.5">{c.email ?? "—"}</p>
-                      <div className="mt-2 flex items-center gap-2 flex-wrap">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-aura-primary/10 text-aura-primary">
-                          {pathLabel}
-                        </span>
-                        <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${badgeClass}`}
-                        >
-                          {badgeLabel}
-                        </span>
-                      </div>
-                    </div>
-                  </Link>
-
-                  {/* Design handoff: pacchetto con barra + riga unica
-                      prossima sessione / semaforo presenza (senza label). */}
-                  <div className="mt-4 pt-3.5 border-t border-surface-container-low flex flex-col gap-2.5">
-                    {d.totalQty > 0 && (
-                      <div>
-                        <div className="flex justify-between text-xs mb-[5px]">
-                          <span className="font-semibold text-outline">Pacchetto PT</span>
-                          <span className="tabular-nums font-semibold text-aura-primary">
-                            {d.totalUsed}/{d.totalQty}
-                          </span>
-                        </div>
-                        <div className="h-1.5 rounded-full bg-surface-container overflow-hidden">
-                          <div
-                            className="h-full bg-aura-primary rounded-full transition-[width] duration-500"
-                            style={{
-                              width: `${Math.min(100, Math.round((d.totalUsed / d.totalQty) * 100))}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between gap-2 text-xs">
-                      <span
-                        className={`flex items-center gap-[5px] min-w-0 truncate tabular-nums ${
-                          d.nextSessionMs ? "text-on-surface" : "text-outline"
-                        }`}
-                      >
-                        <Calendar className="size-[13px] shrink-0" aria-hidden />
-                        {d.nextSessionMs ? fmtNextSession(d.nextSessionMs) : "Nessuna in agenda"}
-                      </span>
-                      <AttendanceBadge pct={d.attendancePct} />
-                    </div>
-                  </div>
-
-                  <div className="absolute top-0 right-0">
-                    <ClientCardMenu
-                      client={c}
-                      isArchived={isArchived}
-                      onArchive={() => setClientStatus(c.id, "archived")}
-                      onRestore={() => setClientStatus(c.id, "active")}
-                      onDelete={() => deleteClient(c.id, c.full_name ?? c.email ?? "Cliente")}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          /* Design handoff: vista tabella — colonne del mock (Cliente /
-             Piano / Stato / Pacchetto PT / Prossima / Pres.), righe
-             attivabili anche da tastiera (Enter/Spazio). */
-          <div className="bg-white rounded-[20px] shadow-[0px_4px_20px_rgba(0,86,133,0.05)] overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-surface hover:bg-surface border-none">
-                  {["Cliente", "Piano", "Stato", "Pacchetto PT", "Prossima", "Pres."].map((h) => (
-                    <TableHead
-                      key={h}
-                      className="px-4 py-3 h-auto text-[11px] font-bold uppercase tracking-[0.04em] text-outline"
-                    >
-                      {h}
-                    </TableHead>
-                  ))}
-                  <TableHead className="w-12" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {visibleCards.map((d) => {
-                  const c = d.client;
-                  const isArchived = d.status === "archived";
-                  const statusLabel =
-                    d.status === "archived"
-                      ? "Archiviato"
-                      : d.status === "completed"
-                        ? "Completato"
-                        : d.status === "expiring"
-                          ? "In scadenza"
-                          : "Attivo";
-                  const statusPillClass =
-                    d.status === "expiring"
-                      ? "bg-warning-soft text-warning-text"
-                      : d.status === "active"
-                        ? "bg-success-soft text-success-text"
-                        : "bg-surface-container text-on-surface-variant";
-                  const pathLabel = c.pack_label
-                    ? c.pack_label
-                    : c.path_type === "recurring"
-                      ? "Abbonamento Mensile"
-                      : c.path_type === "free"
-                        ? "Cliente Libero"
-                        : "Percorso Fisso";
-                  const goToClient = () =>
-                    navigate({ to: "/trainer/clients/$id", params: { id: c.id } });
-                  return (
-                    <TableRow
-                      key={c.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={goToClient}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          goToClient();
-                        }
-                      }}
-                      className="cursor-pointer border-surface-container-low"
-                    >
-                      <TableCell className="px-4 py-3.5">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-9 h-9 shrink-0 rounded-full bg-avatar-placeholder text-on-avatar-placeholder flex items-center justify-center text-[13px] font-bold">
-                            {initials(c.full_name, c.email)}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-on-surface truncate">
-                              {c.full_name ?? "Senza nome"}
-                            </p>
-                            <p className="text-xs text-outline truncate">{c.email ?? "—"}</p>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-4 py-3.5 text-[13px] text-on-surface-variant">
-                        {pathLabel}
-                      </TableCell>
-                      <TableCell className="px-4 py-3.5">
-                        <span
-                          className={`inline-flex items-center px-2.5 py-[3px] rounded-full text-[11px] font-semibold ${statusPillClass}`}
-                        >
-                          {statusLabel}
-                        </span>
-                      </TableCell>
-                      <TableCell className="px-4 py-3.5">
-                        {d.totalQty > 0 ? (
-                          <div className="flex items-center gap-2 min-w-[120px]">
-                            <div className="flex-1 h-1.5 rounded-full bg-surface-container overflow-hidden">
-                              <div
-                                className="h-full bg-aura-primary rounded-full"
-                                style={{
-                                  width: `${Math.min(100, Math.round((d.totalUsed / d.totalQty) * 100))}%`,
-                                }}
-                              />
-                            </div>
-                            <span className="text-xs font-semibold tabular-nums text-aura-primary">
-                              {d.totalUsed}/{d.totalQty}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-outline">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell
-                        className={`px-4 py-3.5 text-[13px] tabular-nums ${
-                          d.nextSessionMs ? "text-on-surface" : "text-outline"
-                        }`}
-                      >
-                        {fmtNextSession(d.nextSessionMs)}
-                      </TableCell>
-                      <TableCell className="px-4 py-3.5">
-                        <AttendanceBadge pct={d.attendancePct} variant="table" />
-                      </TableCell>
-                      <TableCell
-                        className="px-4 py-3.5"
-                        onClick={(e) => e.stopPropagation()}
-                        onKeyDown={(e) => e.stopPropagation()}
-                      >
-                        <ClientCardMenu
-                          client={c}
-                          isArchived={isArchived}
-                          onArchive={() => setClientStatus(c.id, "archived")}
-                          onRestore={() => setClientStatus(c.id, "active")}
-                          onDelete={() => deleteClient(c.id, c.full_name ?? c.email ?? "Cliente")}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        )}
+      <div className="hidden md:block">
+        <ClientsDesktop
+          loading={loading}
+          rows={rows}
+          invitations={pending}
+          eventTypes={eventTypesQ.data ?? []}
+          onResendInvite={(i) => void resendInvite(i)}
+          onCancelInvite={(i) => void cancelInvite(i)}
+          onInvite={inviteClient}
+          onCreate={createClient}
+          onToggleArchive={(r) => void toggleArchive(r)}
+          onDelete={(r) =>
+            deleteClient(r.client.id, r.client.full_name ?? r.client.email ?? "Cliente")
+          }
+        />
       </div>
     </>
   );
