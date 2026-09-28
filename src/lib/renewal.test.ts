@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { CreditAllocation } from "@/lib/credits";
 import { toIsoDate } from "@/lib/current-block";
 import {
+  clientReferenceBlock,
   compareRenewals,
   formatRenewals,
   getRenewalInfo,
@@ -320,5 +321,59 @@ describe("formatRenewals · etichetta del conteggio in Panoramica (V12)", () => 
     expect(formatRenewals(1)).toBe("1 cliente in scadenza");
     expect(formatRenewals(0)).toBe("0 clienti in scadenza");
     expect(formatRenewals(4)).toBe("4 clienti in scadenza");
+  });
+});
+
+describe("clientReferenceBlock · il blocco in corso di Prenota e Home", () => {
+  // Ora locale: lo stesso giorno con TZ=Europe/Rome e con TZ=UTC.
+  const TODAY = new Date(2026, 8, 28, 10, 40);
+  const block = (
+    id: string,
+    seq: number,
+    start: string,
+    end: string,
+    status = "active",
+  ): RenewalBlock => ({ id, sequence_order: seq, start_date: start, end_date: end, status });
+  // Abbonamento coi due mesi dopo già creati.
+  const subscription = [
+    block("m1", 1, "2026-09-14", "2026-10-11"),
+    block("m2", 2, "2026-10-12", "2026-11-08"),
+    block("m3", 3, "2026-11-09", "2026-12-06"),
+  ];
+
+  it("abbonato coi mesi dopo già creati: il mese che contiene oggi, non l'ultimo creato", () => {
+    expect(clientReferenceBlock(subscription, TODAY)).toBe(subscription[0]);
+  });
+
+  it("percorso fisso: il blocco che contiene oggi", () => {
+    const fixed = [
+      block("b1", 1, "2026-08-17", "2026-09-13", "completed"),
+      block("b2", 2, "2026-09-14", "2026-10-11"),
+      block("b3", 3, "2026-10-12", "2026-11-08"),
+    ];
+    expect(clientReferenceBlock(fixed, TODAY)?.id).toBe("b2");
+  });
+
+  it("fra due blocchi non contigui: il primo che deve iniziare", () => {
+    const gap = [
+      block("b1", 1, "2026-08-03", "2026-08-30", "completed"),
+      block("b2", 2, "2026-10-12", "2026-11-08"),
+      block("b3", 3, "2026-11-09", "2026-12-06"),
+    ];
+    expect(clientReferenceBlock(gap, TODAY)?.id).toBe("b2");
+  });
+
+  it("percorso finito: l'ultimo", () => {
+    // Un altro anno: se la funzione leggesse l'orologio invece di `now`, qui cadrebbe.
+    expect(clientReferenceBlock(subscription, new Date(2027, 2, 15, 10, 40))?.id).toBe("m3");
+  });
+
+  it("un blocco annullato non si sceglie, anche se contiene oggi; nessun blocco → null", () => {
+    const withCancelled = [
+      block("x", 1, "2026-09-14", "2026-10-11", "cancelled"),
+      block("b2", 2, "2026-10-12", "2026-11-08"),
+    ];
+    expect(clientReferenceBlock(withCancelled, TODAY)?.id).toBe("b2");
+    expect(clientReferenceBlock([], TODAY)).toBeNull();
   });
 });
