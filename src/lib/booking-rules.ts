@@ -11,17 +11,22 @@
 // Cosa il server oggi non fa, fino alle migrazioni rinviate al 02/10/2026:
 //   - preavviso e orizzonte li applica solo l'app: enforce_client_booking_rules
 //     controlla solo che la tipologia sia prenotabile, e reschedule_booking non
-//     limita la nuova data (20260827143053_4c03121c-…sql). Su questi due numeri
-//     è sicuro: l'app stringe, il server lascia passare.
+//     controlla preavviso e orizzonte della nuova data (20260827143053_4c03121c-…sql).
+//     Su questi due numeri è sicuro: l'app stringe, il server lascia passare.
 //   - il blocco che paga il server può sbagliarlo: validate_booking_block_allocation
 //     (stessa migrazione, :35-53 e :59-61) sceglie il credito fra tutti i
 //     blocchi del cliente, anche quelli finiti, e riscrive block_id col blocco
 //     scelto. Una prenotazione sul blocco dopo può quindi scalare un credito
 //     del blocco in corso. Dove vale ogni credito lo dicono le finestre dei
 //     crediti (getCreditWindows, client-credits.ts), che il server non conosce.
+//   - spostando, reschedule_booking riprende il credito allo stesso modo
+//     (:214-231) e riscrive block_id (:253-255), che validate_client_booking_update
+//     vieta al cliente: con crediti della tipologia in un blocco precedente lo
+//     spostamento fallisce. E la scadenza degli extra non la guarda nessuno.
 // Le soglie delle 24 ore sono invece già del server: validate_client_booking_update
 // rifiuta lo spostamento di una sessione che inizia prima di now() + 24 ore, e
-// cancel_booking segna tardivo l'annullamento da now() >= inizio − 24 ore.
+// cancel_booking segna tardivo l'annullamento da now() >= inizio − 24 ore. Il
+// preavviso della prenotazione, invece, no: l'inserimento non ne ha.
 // ----------------------------------------------------------------------------
 
 import { addDays, parseISO } from "date-fns";
@@ -145,11 +150,12 @@ export function bookingBaseText(): string {
 
 /**
  * Il testo delle regole in Prenota, per la tipologia scelta: la frase base e
- * al massimo una frase sui crediti, secondo il primo caso che vale. I casi
- * leggono le finestre, cioè la regola di getCreditWindows, e non la rifanno:
- * una frase che le finestre smentirebbero (un extra che copre i giorni del
- * blocco dopo, crediti che finiscono prima della fine del blocco) non si
- * scrive, e parlano i giorni.
+ * al massimo una frase sui crediti, secondo il primo caso che vale. Quali
+ * giorni si prenotano, e da quando, lo leggono dalle finestre (la regola di
+ * getCreditWindows) e non lo rifanno; le date dei blocchi servono a nominarli
+ * e a dire se il blocco dopo cade nei 14 giorni. Una frase che le finestre
+ * smentirebbero (un extra che copre i giorni del blocco dopo, crediti che
+ * finiscono prima della fine del blocco) non si scrive, e parlano i giorni.
  */
 export function bookingRulesText(input: BookingTextInput): string {
   return bookingBaseText() + creditsSentence(input);
@@ -163,16 +169,18 @@ function creditsSentence({
   next,
   windows,
 }: BookingTextInput): string {
-  // b) cliente libero. a) nessun blocco, percorso concluso, o nessun credito
-  // della tipologia (nessuna finestra): la pagina mostra lo stato suo.
-  if (pathType === "free" || !ref || windows.length === 0) return "";
+  // b) cliente libero. a) nessun blocco, percorso concluso (il blocco di
+  // riferimento è finito), o nessun credito della tipologia né nel blocco di
+  // riferimento né nel blocco dopo (nessuna finestra): la pagina mostra lo stato suo.
+  if (pathType === "free" || !ref) return "";
+  const today = toIsoDate(now);
+  const refEnd = ref.end_date.slice(0, 10);
+  if (refEnd < today) return "";
   const onRef = windows.filter((w) => w.blockId === ref.id);
   const onNext = next ? windows.filter((w) => w.blockId === next.id) : [];
   if (onRef.length === 0 && onNext.length === 0) return "";
 
-  const today = toIsoDate(now);
   const horizon = toIsoDate(addDays(now, CLIENT_BOOKING_HORIZON_DAYS));
-  const refEnd = ref.end_date.slice(0, 10);
 
   // c) il blocco di riferimento non è ancora iniziato: si prenota dal primo
   // giorno del primo blocco che ha crediti della tipologia, di solito il suo.
@@ -183,10 +191,11 @@ function creditsSentence({
 
   // d) il blocco di riferimento non ha più crediti della tipologia, il blocco
   // dopo sì ed entro i 14 giorni (solo così getCreditWindows gli apre i giorni).
-  const nextOwn = onNext.some((w) => w.source === "block");
+  // La data è l'inizio della sua finestra, cioè il primo giorno che si prenota.
+  const nextOwn = onNext.find((w) => w.source === "block");
   if (onRef.length === 0) {
     return next && nextOwn
-      ? ` I crediti del blocco ${ref.number} per questa sessione sono finiti: da ${dayText(next.start_date)} valgono quelli del blocco ${next.number}.`
+      ? ` I crediti del blocco ${ref.number} per questa sessione sono finiti: da ${dayText(nextOwn.from)} valgono quelli del blocco ${next.number}.`
       : "";
   }
 
@@ -203,9 +212,10 @@ function creditsSentence({
     const nextStart = next.start_date.slice(0, 10);
     if (nextStart <= horizon) {
       // f) il blocco dopo inizia entro i 14 giorni e ha crediti della tipologia.
-      // La seconda data è il suo inizio: fra i due blocchi può esserci un buco.
+      // La seconda data è l'inizio della sua finestra: fra i due blocchi può
+      // esserci un buco, e non è il giorno dopo la fine del primo.
       if (nextOwn) {
-        return ` Fino a ${until} valgono i crediti del blocco ${n}, da ${dayText(nextStart)} quelli del blocco ${next.number}.`;
+        return ` Fino a ${until} valgono i crediti del blocco ${n}, da ${dayText(nextOwn.from)} quelli del blocco ${next.number}.`;
       }
       // Un extra copre i giorni del blocco dopo: la frase g) direbbe il falso.
       if (onNext.length > 0) return "";
@@ -227,29 +237,31 @@ function creditsSentence({
 
 export interface MoveTextInput {
   now: Date;
-  /** Il blocco della sessione che si sposta (il suo block_id); null se non ne ha. */
-  block: Pick<RulesBlock, "start_date" | "end_date"> | null;
+  /**
+   * La finestra della sessione che si sposta (getMoveWindow): dentro il suo
+   * blocco, o i 14 giorni se non ne ha. null se non si sposta.
+   */
+  window: CreditWindow | null;
   /** Il nome del coach; oggi il cliente non lo legge (profiles), e senza si dice «Il tuo coach». */
   coachName?: string | null;
 }
 
 /**
  * Il testo delle regole in Sposta. Un credito non passa di blocco nemmeno
- * spostando: la sessione resta fra inizio e fine del suo blocco
- * (getMoveWindow). Un blocco più corto di 14 giorni e non ancora iniziato
+ * spostando: i limiti sono quelli della finestra di getMoveWindow, e il testo
+ * li legge da lì. Un blocco più corto di 14 giorni e non ancora iniziato
  * avrebbe i due limiti insieme: la frase dice l'inizio.
  */
-export function moveRulesText({ now, block, coachName }: MoveTextInput): string {
+export function moveRulesText({ now, window, coachName }: MoveTextInput): string {
   const lead = `Si sposta fino a ${hoursText(CLIENT_RESCHEDULE_CUTOFF_HOURS)} prima, su un orario entro ${daysText(CLIENT_RESCHEDULE_WINDOW_DAYS)}`;
   const tail = `${coachName?.trim() || "Il tuo coach"} riceve un avviso.`;
-  if (block) {
-    const start = block.start_date.slice(0, 10);
-    const end = block.end_date.slice(0, 10);
-    if (start > toIsoDate(now)) {
-      return `${lead} e non prima di ${dayText(start)}, inizio del blocco. ${tail}`;
+  // Senza blocco la finestra sono i 14 giorni: nessun limite in più da dire.
+  if (window?.blockId) {
+    if (window.from > toIsoDate(now)) {
+      return `${lead} e non prima di ${dayText(window.from)}, inizio del blocco. ${tail}`;
     }
-    if (end <= toIsoDate(addDays(now, CLIENT_RESCHEDULE_WINDOW_DAYS))) {
-      return `${lead} e non oltre ${dayText(end)}, fine del blocco. ${tail}`;
+    if (window.until <= toIsoDate(addDays(now, CLIENT_RESCHEDULE_WINDOW_DAYS))) {
+      return `${lead} e non oltre ${dayText(window.until)}, fine del blocco. ${tail}`;
     }
   }
   return `${lead}. ${tail}`;

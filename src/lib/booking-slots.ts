@@ -13,8 +13,11 @@
 //     full-day or partial exceptions (availability_exceptions).
 //   - Slots avoid colliding with any blocked range, where each range is
 //     [scheduled_at, scheduled_at + duration + buffer].
-//   - 24h minimum lead time matches the client_booking_update_guards
-//     trigger so the FE doesn't surface slots the DB would reject.
+//   - Il preavviso minimo di default è quello del cliente
+//     (CLIENT_MIN_NOTICE_HOURS, booking-rules.ts). Oggi lo applica solo
+//     l'app: il server non lo controlla né all'inserimento né sulla nuova
+//     data di uno spostamento (validate_client_booking_update guarda l'ora
+//     vecchia della sessione).
 //   - Optimization layer (recommended slots) is opt-in via the
 //     `optimization.enabled` flag — leave undefined or false to skip.
 // ----------------------------------------------------------------------------

@@ -17,6 +17,7 @@ import {
   type CreditWindow,
   type RulesBlock,
 } from "@/lib/booking-rules";
+import { getMoveWindow } from "@/lib/client-credits";
 import { RESCHEDULE_WINDOW_DAYS } from "@/lib/reschedule-slots";
 
 describe("regole di prenotazione", () => {
@@ -195,34 +196,68 @@ describe("testi di Prenota", () => {
     const windows = [win(B3, "2026-09-14", "2026-10-05", "extra")];
     expect(bookingRulesText(input({ windows }))).toBe(BASE);
   });
+
+  it("a) il percorso concluso non ha frase anche se arrivassero finestre", () => {
+    const ended = block("b6", 6, "2026-08-10", "2026-09-06");
+    expect(bookingRulesText(input({ reference: ended, windows: [full(ended)] }))).toBe(BASE);
+  });
+
+  it("f) coi blocchi che si accavallano la seconda data è l'inizio della finestra del blocco 4", () => {
+    // Il blocco 4 inizia il 5 ottobre, ma getCreditWindows lo apre dal 12.
+    const b4 = block("b4", 4, "2026-10-05", "2026-11-01");
+    const windows = [full(B3), win(b4, "2026-10-12", "2026-11-01")];
+    expect(bookingRulesText(input({ next: b4, windows }))).toBe(
+      `${BASE} Fino a domenica 11 ottobre valgono i crediti del blocco 3, da lunedì 12 ottobre quelli del blocco 4.`,
+    );
+  });
+
+  it("il blocco di riferimento coperto solo da extra fino alla sua fine: le frasi restano quelle", () => {
+    expect(bookingRulesText(input({ next: B4, windows: [full(B3, "extra"), full(B4)] }))).toBe(
+      `${BASE} Fino a domenica 11 ottobre valgono i crediti del blocco 3, da lunedì 12 ottobre quelli del blocco 4.`,
+    );
+    expect(bookingRulesText(input({ windows: [full(B3, "extra")] }))).toBe(
+      `${BASE} I crediti del blocco 3 valgono fino a domenica 11 ottobre, fine del percorso.`,
+    );
+  });
 });
 
-describe("testi di Sposta", () => {
+describe("testi di Sposta · leggono la finestra di getMoveWindow", () => {
+  const moveBlock = (id: string, seq: number, start: string, end: string) => ({
+    id,
+    sequence_order: seq,
+    start_date: start,
+    end_date: end,
+  });
+  const B3_MOVE = moveBlock("b3", 3, "2026-09-14", "2026-10-11");
+  const B4_MOVE = moveBlock("b4", 4, "2026-10-12", "2026-11-08");
+  const LONG = moveBlock("b3", 3, "2026-09-21", "2026-10-18");
+  const windowOf = (b: ReturnType<typeof moveBlock> | null) =>
+    getMoveWindow({ block_id: b?.id ?? null }, b ? [b] : [], NOW);
+
   it("la fine del blocco cade entro i 14 giorni: non oltre la fine del blocco", () => {
-    expect(moveRulesText({ now: NOW, block: B3, coachName: "Marco" })).toBe(
+    expect(moveRulesText({ now: NOW, window: windowOf(B3_MOVE), coachName: "Marco" })).toBe(
       "Si sposta fino a 24 ore prima, su un orario entro 14 giorni e non oltre domenica 11 ottobre, fine del blocco. Marco riceve un avviso.",
     );
   });
 
   it("la fine del blocco è oltre i 14 giorni, o la sessione non ha blocco", () => {
-    const long = block("b3", 3, "2026-09-21", "2026-10-18");
     const text =
       "Si sposta fino a 24 ore prima, su un orario entro 14 giorni. Marco riceve un avviso.";
-    expect(moveRulesText({ now: NOW, block: long, coachName: "Marco" })).toBe(text);
-    expect(moveRulesText({ now: NOW, block: null, coachName: "Marco" })).toBe(text);
+    expect(moveRulesText({ now: NOW, window: windowOf(LONG), coachName: "Marco" })).toBe(text);
+    expect(moveRulesText({ now: NOW, window: windowOf(null), coachName: "Marco" })).toBe(text);
   });
 
   it("il blocco della sessione non è ancora iniziato: non prima del suo inizio", () => {
-    expect(moveRulesText({ now: NOW, block: B4, coachName: "Marco" })).toBe(
+    expect(moveRulesText({ now: NOW, window: windowOf(B4_MOVE), coachName: "Marco" })).toBe(
       "Si sposta fino a 24 ore prima, su un orario entro 14 giorni e non prima di lunedì 12 ottobre, inizio del blocco. Marco riceve un avviso.",
     );
   });
 
   it("senza il nome del coach: «Il tuo coach riceve un avviso.»", () => {
-    expect(moveRulesText({ now: NOW, block: B3 })).toBe(
+    expect(moveRulesText({ now: NOW, window: windowOf(B3_MOVE) })).toBe(
       "Si sposta fino a 24 ore prima, su un orario entro 14 giorni e non oltre domenica 11 ottobre, fine del blocco. Il tuo coach riceve un avviso.",
     );
-    expect(moveRulesText({ now: NOW, block: null, coachName: " " })).toBe(
+    expect(moveRulesText({ now: NOW, window: windowOf(null), coachName: " " })).toBe(
       "Si sposta fino a 24 ore prima, su un orario entro 14 giorni. Il tuo coach riceve un avviso.",
     );
   });
