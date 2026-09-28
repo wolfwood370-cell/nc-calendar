@@ -45,11 +45,14 @@ const TEST = type("test", "Test funzionale", "Functional Test", {
   unavailable_message: "Si prenota con il coach.",
 });
 const BIA = type("bia", "BIA", "BIA", { location_type: "online", location_address: null });
-const TYPES = [PT, TEST, BIA];
+// Una seconda tipologia con lo stesso session_type della PT.
+const PT_DUO = type("duo", "PT di coppia", "PT Session");
+const TYPES = [PT, TEST, BIA, PT_DUO];
 const SESSION_TYPE: Record<string, SessionType> = {
   pt: "PT Session",
   test: "Functional Test",
   bia: "BIA",
+  duo: "PT Session",
 };
 
 const alloc = (
@@ -211,7 +214,9 @@ describe("getClientPools · una definizione sola del disponibile", () => {
     expect(r.mismatches).toEqual([]);
   });
 
-  it("un'annullata tardi con deleted_at è persa lo stesso", () => {
+  it("un'annullata tardi con deleted_at è persa lo stesso: decide lo stato, non deleted_at", () => {
+    // cancel_booking scrive deleted_at su tutte e due. Guardia contro un filtro
+    // su deleted_at, che perderebbe gli annullamenti tardivi.
     const b3 = block("b3", 3, "2026-09-14", "2026-10-11", [alloc("b3", "pt", 4, 1)]);
     const late = session(
       "b3",
@@ -220,9 +225,32 @@ describe("getClientPools · una definizione sola del disponibile", () => {
       "2026-09-29T08:00:00Z",
       "2026-09-28T20:00:00Z",
     );
-    const r = pools({ block: b3, bookings: [late] });
-    expect(r.rows[0]).toMatchObject({ lost: 1, avail: 3 });
+    const free = session("b3", "pt", "cancelled", "2026-10-05T08:00:00Z", "2026-09-28T09:00:00Z");
+    const r = pools({ block: b3, bookings: [late, free] });
+    expect(r.rows[0]).toMatchObject({ lost: 1, booked: 0, avail: 3 });
     expect(r.mismatches).toEqual([]);
+  });
+
+  it("una sessione conta nella riga della sua tipologia: se il server ha scalato un'altra tipologia, lo dicono le incoerenze", () => {
+    // Due sessioni PT: il server ha scalato la PT (esaurita) e poi la PT di
+    // coppia, che ha lo stesso session_type.
+    const b3 = block("b3", 3, "2026-09-14", "2026-10-11", [
+      alloc("b3", "pt", 1, 1),
+      alloc("b3", "duo", 2, 1),
+    ]);
+    const bookings = [
+      session("b3", "pt", "completed", "2026-09-15T08:00:00Z"),
+      session("b3", "pt", "scheduled", "2026-10-02T08:00:00Z"),
+    ];
+    const r = pools({ block: b3, bookings });
+    expect(r.rows.map((p) => [p.key, p.done, p.booked, p.blockAvail])).toEqual([
+      ["duo", 0, 0, 1],
+      ["pt", 1, 1, 0],
+    ]);
+    expect(r.mismatches).toEqual([
+      { key: "pt", name: "Sessione PT", counted: 2, recorded: 1 },
+      { key: "duo", name: "PT di coppia", counted: 0, recorded: 1 },
+    ]);
   });
 
   it("una sessione collegata senza credito (block_id nullo) nelle date del blocco non entra", () => {
@@ -316,6 +344,15 @@ describe("getClientPools · una definizione sola del disponibile", () => {
     ]);
     expect(r.concluded).toBe(false);
   });
+
+  it("cliente libero con un blocco rimasto da un vecchio percorso: il blocco non conta", () => {
+    const old = block("b6", 6, "2026-08-10", "2026-09-06", [alloc("b6", "pt", 8, 5)], "completed");
+    const r = pools({ pathType: "free", block: old, extras: [extra("pt", 10, 4, COACH_EXTRA)] });
+    expect(r.concluded).toBe(false);
+    expect(r.rows).toEqual([
+      expect.objectContaining({ key: "pt", total: 10, blockAvail: 0, extraAvail: 6, avail: 6 }),
+    ]);
+  });
 });
 
 describe("getCreditWindows · dove vale ogni credito", () => {
@@ -367,6 +404,14 @@ describe("getCreditWindows · dove vale ogni credito", () => {
   it("il blocco dopo che inizia oltre oggi + 14 non apre niente", () => {
     const late = block("b4", 4, "2026-10-19", "2026-11-15");
     expect(windows({ next: late, blocks: [B3, late] }).map((w) => w.blockId)).toEqual(["b3"]);
+  });
+
+  it("blocchi che si accavallano: la finestra del blocco dopo parte il giorno dopo la fine del primo", () => {
+    const b4 = block("b4", 4, "2026-10-05", "2026-11-01");
+    expect(windows({ blocks: [B3, b4], reference: B3, next: b4 })).toEqual([
+      { from: "2026-09-14", until: "2026-10-11", source: "block", blockId: "b3", blockNumber: 1 },
+      { from: "2026-10-12", until: "2026-11-01", source: "block", blockId: "b4", blockNumber: 2 },
+    ]);
   });
 
   it("buco fra i blocchi: le finestre restano separate", () => {

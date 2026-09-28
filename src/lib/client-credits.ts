@@ -5,16 +5,18 @@
 // due i percorsi: l'id dell'RPC ensure_client_block_state non lo sceglie. Da
 // qui:
 //   - getNextBlock: il blocco dopo, secondo comesAfter;
-//   - getClientPools: una riga per tipologia di un blocco. Il disponibile è
-//     quello che il server scala: quantity_assigned − quantity_booked del
-//     blocco (getBlockCredits), più gli extra validi. Svolte, prenotate e
-//     perse si contano dalle sessioni attribuite al blocco (block_id), mai per
-//     data;
-//   - getCreditWindows e getMoveWindow: i giorni in cui una tipologia si
-//     prenota o una sessione si sposta. Ogni credito vale nel suo blocco, e le
-//     date del blocco dopo si prenotano coi suoi crediti (decisioni di Nicolò
-//     del 28/09/2026). La regola sta in getCreditWindows e in nessun'altra
-//     funzione; i crediti dei blocchi finiti non contano;
+//   - getClientPools: una riga per tipologia di un blocco. Il disponibile del
+//     blocco è quello che il server scala, quantity_assigned − quantity_booked
+//     (getBlockCredits); quello degli extra segue la validità del brief (con
+//     crediti e non scaduti), che il server non guarda ancora: vedi sotto.
+//     Svolte, prenotate e perse si contano dalle sessioni attribuite al blocco
+//     (block_id), mai per data;
+//   - getCreditWindows: i giorni in cui una tipologia si prenota. Ogni credito
+//     vale nel suo blocco, e le date del blocco dopo si prenotano coi suoi
+//     crediti (decisioni di Nicolò del 28/09/2026). La regola per prenotare sta
+//     qui e in nessun'altra funzione; i crediti dei blocchi finiti non contano;
+//   - getMoveWindow: i giorni in cui una sessione si sposta, dentro il suo
+//     blocco (la regola per spostare);
 //   - getClientBlockInfo: piano, blocco e sottotitolo (V6), numerati come il
 //     coach (blockChip, client-profile.ts).
 // Puri: l'ora entra come parametro, niente rete, niente Sentry. Un'incoerenza
@@ -217,16 +219,17 @@ export function getClientPools(input: ClientPoolsInput): ClientPools {
       row.blockAvail = c.left;
       recorded.set(c.key, c.booked);
     }
-    // Le sessioni attribuite al blocco, non quelle che cadono nelle sue date.
-    // Una sessione senza la sua tipologia fra le allocazioni va sull'allocazione
-    // senza tipologia dello stesso session_type, come fa il server.
+    // Le sessioni attribuite al blocco, non quelle che cadono nelle sue date,
+    // ognuna nella riga della sua tipologia (allocKey). Il server può scalare
+    // un'allocazione di un'altra tipologia con lo stesso session_type, quando
+    // quella della sessione è esaurita o manca (validate_booking_block_allocation,
+    // 20260827143053_…sql:41-51): allora contate e registrate non coincidono, e
+    // lo dicono le incoerenze.
     for (const b of bookings) {
       if (b.block_id !== block.id) continue;
       const bucket = bucketOf(b.status);
       if (!bucket) continue;
-      const exact = allocKey(b.event_type_id, b.session_type);
-      const legacy = allocKey(null, b.session_type);
-      const key = recorded.has(exact) ? exact : recorded.has(legacy) ? legacy : exact;
+      const key = allocKey(b.event_type_id, b.session_type);
       const seen = counted.get(key);
       counted.set(key, {
         n: (seen?.n ?? 0) + 1,
@@ -247,8 +250,12 @@ export function getClientPools(input: ClientPoolsInput): ClientPools {
     }
   }
 
-  // Gli extra valgono se hanno ancora crediti e non sono scaduti. Senza
-  // tipologia non si prenotano (validate_booking_extra_credits la vuole).
+  // Gli extra valgono se hanno ancora crediti e non sono scaduti, come dice il
+  // brief; senza tipologia non si prenotano (validate_booking_extra_credits la
+  // vuole). Il server la scadenza non la guarda ancora, e scala per primo
+  // l'extra che scade prima (20260827143053_…sql:84-88): uno scaduto con
+  // crediti rimasti verrebbe consumato per primo, e extraAvail non calerebbe.
+  // La scelta sulla validità dei Booster è della passata 06.
   for (const e of input.extras ?? []) {
     const left = e.quantity - e.quantity_booked;
     if (!e.event_type_id || left <= 0) continue;
@@ -382,6 +389,13 @@ function withoutOverlaps(windows: CreditWindow[]): CreditWindow[] {
  * non passa di blocco nemmeno spostando. Senza block_id (pagata con un extra,
  * o collegata senza credito) nessun limite di blocco: da oggi a oggi + 14.
  * null se il blocco non c'è fra i blocchi, o è già finito.
+ * È la regola voluta; il server oggi può rifiutare. reschedule_booking
+ * riprende il credito fra tutti i blocchi del cliente, valid_until più vicino
+ * per primo (20260827143053_…sql:214-231), e riscrive block_id (:253-255), che
+ * validate_client_booking_update vieta al cliente (20260607191854_…sql:20):
+ * con crediti della tipologia in un blocco precedente lo spostamento fallisce.
+ * E una sessione senza block_id e senza un extra impegnato non la sposta
+ * (:257-285). La correzione del server è del 02/10/2026.
  */
 export function getMoveWindow(
   session: Pick<BookingRow, "block_id">,
