@@ -101,9 +101,10 @@ function BookFlow() {
   const [selectedISO, setSelectedISO] = useState<string | null>(null);
   const [calendarMonth, setCalendarMonth] = useState<Date>(startOfMonth(new Date()));
 
-  // ensure_client_block_state RPC closes expired blocks past their 7-day
-  // grace, and auto-creates the next one when profiles.auto_renew_blocks
-  // is true. On the first load for a client whose previous block expired,
+  // ensure_client_block_state RPC closes the last block as soon as today
+  // passes its end_date (the 7-day grace only sets inGracePeriod), and
+  // auto-creates the next one when profiles.auto_renew_blocks is true.
+  // On the first load for a client whose previous block expired,
   // this hook is what physically materializes the new block in the DB.
   // Prenota ne aspetta il caricamento prima di scegliere il pool
   // (poolsSettled, sotto), ma il suo currentBlockId non sceglie il blocco.
@@ -336,7 +337,7 @@ function BookFlow() {
   // non matcha alcun pool disponibile (es. tipologia esaurita), fallback
   // al primo pool con residuo > 0 (comportamento legacy).
   const deepLinkEventType = Route.useSearch({ select: (s) => s.eventType });
-  // I pool si popolano in più fasi (blocco via RPC async + crediti extra). Il
+  // I pool si popolano in più fasi (blocchi, stato dell'RPC e crediti extra). Il
   // fallback a pools[0] deve scattare SOLO quando questi dati sono "settled",
   // altrimenti bloccherebbe la selezione sul primo pool prima che arrivi quello
   // della tipologia deep-linkata (bug "PT prenota consulenza").

@@ -95,8 +95,9 @@ function ClientHome() {
   const bookingsQ = useClientBookings(meId);
   const eventTypesQ = useCoachEventTypes(coachId);
   const extraCreditsQ = useClientExtraCredits(meId);
-  // This RPC closes expired blocks past their grace and auto-creates the
-  // next one when auto_renew_blocks=true. The hook is called
+  // This RPC closes the last block as soon as today passes its end_date
+  // (the grace only sets inGracePeriod) and auto-creates the next one when
+  // auto_renew_blocks=true. The hook is called
   // unconditionally for shape stability; here only its state is read, for
   // the grace banner of recurring clients (graceBanner). Il suo
   // currentBlockId non sceglie il blocco: resta l'ultimo per sequence_order

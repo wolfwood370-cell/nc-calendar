@@ -364,7 +364,9 @@ describe("clientReferenceBlock · il blocco in corso di Prenota e Home", () => {
   });
 
   it("percorso finito: l'ultimo", () => {
-    // Un altro anno: se la funzione leggesse l'orologio invece di `now`, qui cadrebbe.
+    // Un altro anno. Una funzione che leggesse l'orologio invece di `now` qui
+    // darebbe il mese dell'orologio: fino all'08/11/2026 cade questo test,
+    // dal 12/10/2026 cade il primo.
     expect(clientReferenceBlock(subscription, new Date(2027, 2, 15, 10, 40))?.id).toBe("m3");
   });
 
