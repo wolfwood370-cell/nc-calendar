@@ -36,17 +36,20 @@ import { useClientFeedback } from "@/hooks/use-session-feedback";
 import { ClientBiaProgress } from "@/components/client-bia-progress";
 import { ClientReminderBanner } from "@/components/client-reminder-banner";
 import { ClientFeedbackCard } from "@/components/client-feedback-card";
+import { ClientTabHeader } from "@/components/client-tab-header";
+import { useClientShell } from "@/hooks/use-client-shell";
+import { clientPageTitle, homeSubtitle } from "@/lib/client-shell";
 
 export const Route = createFileRoute("/client/")({
   head: () => ({
     meta: [
-      { title: "Area personale | NC Training Systems" },
+      { title: clientPageTitle("Home") },
       {
         name: "description",
         content:
           "Le tue sessioni, i crediti disponibili e i prossimi appuntamenti in un colpo d'occhio.",
       },
-      { property: "og:title", content: "Area personale | NC Training Systems" },
+      { property: "og:title", content: clientPageTitle("Home") },
       {
         property: "og:description",
         content:
@@ -63,6 +66,7 @@ function ClientHome() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const meId = user?.id;
+  const { now } = useClientShell();
 
   const profileQ = useQuery({
     queryKey: ["profile", meId],
@@ -407,18 +411,7 @@ function ClientHome() {
 
   return (
     <div className="max-w-md mx-auto bg-surface min-h-screen">
-      <header className="bg-surface/80 backdrop-blur-xl sticky top-0 shadow-[0_8px_30px_rgba(0,0,0,0.04)] z-40">
-        <div className="flex justify-between items-center w-full px-margin-mobile py-stack-md">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-full bg-primary-container text-on-primary-container grid place-items-center border-2 border-surface-container-lowest shadow-sm font-semibold">
-              {firstName.charAt(0).toUpperCase()}
-            </div>
-            <h1 className="font-display text-2xl font-bold text-aura-primary tracking-[-0.02em]">
-              Ciao {firstName}
-            </h1>
-          </div>
-        </div>
-      </header>
+      <ClientTabHeader title={`Ciao ${firstName}`} subtitle={homeSubtitle(now)} />
 
       <main className="px-margin-mobile pt-stack-md flex flex-col gap-stack-lg">
         {/* Design handoff: banner promemoria (sessione ≤48h non confermata) */}
