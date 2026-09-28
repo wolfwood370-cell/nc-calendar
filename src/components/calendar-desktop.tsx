@@ -24,6 +24,7 @@ import type { AllDayItem } from "@/components/calendar-all-day-strip";
 import { CalendarDetailsPanel, type PanelCredit } from "@/components/calendar-details-panel";
 import { CalendarGrid, type GridItem } from "@/components/calendar-grid";
 import { CalendarToolbar, type MissingOnGoogle } from "@/components/calendar-toolbar";
+import { CoachPage } from "@/components/coach-page";
 import { PackageDialog } from "@/components/package-dialog";
 import { SessionCancelDialog } from "@/components/session-cancel-dialog";
 import { SessionFormDialog, type SessionFormInit } from "@/components/session-form-dialog";
@@ -543,7 +544,7 @@ export function CalendarDesktop({ sync }: { sync: GcalSync }) {
   const emptyWithFilters = !bookingsQ.isLoading && filtersActive(fstate) && visibleCount === 0;
 
   return (
-    <div className="-m-6 min-h-[calc(100vh-3.5rem)] bg-surface px-10 pb-12 pt-7 text-on-surface">
+    <CoachPage>
       <div className="flex flex-col gap-5">
         <CalendarToolbar
           syncLabel={syncLabel(sync.lastSyncAt, now)}
@@ -683,6 +684,6 @@ export function CalendarDesktop({ sync }: { sync: GcalSync }) {
       />
 
       <PackageDialog clientId={packageClientId} onClose={() => setPackageClientId(null)} />
-    </div>
+    </CoachPage>
   );
 }

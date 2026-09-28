@@ -19,6 +19,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ArrowRight, CheckCircle2, CircleCheck, Undo2, UserX } from "lucide-react";
 import { toast } from "sonner";
 
+import { CoachPage } from "@/components/coach-page";
 import { PackageDialog } from "@/components/package-dialog";
 import { PageTitle } from "@/components/page-title";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -230,7 +231,7 @@ export function OverviewDesktop() {
   );
 
   return (
-    <div className="hidden md:block -m-6 min-h-[calc(100vh-3.5rem)] bg-surface px-10 pb-12 pt-7 text-on-surface">
+    <CoachPage className="hidden md:block">
       <div className="flex flex-col gap-6">
         <header className="flex flex-col gap-1.5">
           <PageTitle>
@@ -473,7 +474,7 @@ export function OverviewDesktop() {
         initialMode="renew"
         onClose={() => setRenewClientId(null)}
       />
-    </div>
+    </CoachPage>
   );
 }
 

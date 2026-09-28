@@ -17,6 +17,7 @@ import { useNavigate, useSearch } from "@tanstack/react-router";
 import { CalendarDays, LayoutGrid, List, Mail, Search, UserPlus, UserSearch } from "lucide-react";
 import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { ClientRowMenu } from "@/components/client-row-menu";
+import { CoachPage } from "@/components/coach-page";
 import { DeleteClientDialog } from "@/components/delete-client-dialog";
 import {
   NewClientDialog,
@@ -181,7 +182,7 @@ export function ClientsDesktop(p: ClientsDesktopProps) {
       }[st.tab];
 
   return (
-    <div className="-m-6 min-h-[calc(100vh-3.5rem)] min-w-0 bg-surface px-10 pb-12 pt-7 text-on-surface">
+    <CoachPage>
       <div className="flex min-w-0 flex-col gap-5">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <PageTitle className="m-0">Clienti</PageTitle>
@@ -436,7 +437,7 @@ export function ClientsDesktop(p: ClientsDesktopProps) {
           setDeleting(null);
         }}
       />
-    </div>
+    </CoachPage>
   );
 }
 

@@ -45,6 +45,7 @@ import {
   dialogPrimaryButton,
   dialogSecondaryButton,
 } from "@/components/coach-dialog";
+import { CoachPage } from "@/components/coach-page";
 import { PackageDialog } from "@/components/package-dialog";
 import { ProfileOverview } from "@/components/profile-overview";
 import { ProfilePath } from "@/components/profile-path";
@@ -445,16 +446,16 @@ export function ClientProfileDesktop({
   // ------------------------------------------------------------------ vista
   if (!data || !client) {
     return (
-      <div className="grid place-items-center py-24 text-muted-foreground">
+      <CoachPage saveBar className="grid place-items-center py-24 text-muted-foreground">
         <Loader2 className="size-5 animate-spin" aria-label="Caricamento" />
-      </div>
+      </CoachPage>
     );
   }
 
   const cta = packageCta(client.path_type, blocks.length > 0, !!renewal);
 
   return (
-    <div className={cn("flex flex-col gap-5", dirty && "pb-24")}>
+    <CoachPage saveBar className="flex flex-col gap-5">
       <section className="flex flex-wrap items-center justify-between gap-5 rounded-[28px] bg-surface-container-lowest p-6 shadow-soft-blue">
         <div className="flex min-w-0 items-center gap-[18px]">
           <Link
@@ -796,6 +797,6 @@ export function ClientProfileDesktop({
         onClose={() => setPackageMode(null)}
         onChanged={refresh}
       />
-    </div>
+    </CoachPage>
   );
 }

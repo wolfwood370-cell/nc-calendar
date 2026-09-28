@@ -31,6 +31,7 @@ import {
   dialogPrimaryButton,
   dialogSecondaryButton,
 } from "@/components/coach-dialog";
+import { CoachPage } from "@/components/coach-page";
 import { GcalSyncPill } from "@/components/gcal-sync-pill";
 import { PageTitle } from "@/components/page-title";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -202,7 +203,7 @@ export function AvailabilityDesktop({
   }, [blocker, dirty, saving]);
 
   return (
-    <div className="-m-6 min-h-[calc(100vh-3.5rem)] min-w-0 bg-surface px-10 pb-[120px] pt-7 text-on-surface">
+    <CoachPage saveBar>
       <div className="flex min-w-0 flex-col gap-5">
         <div className="flex max-w-[680px] flex-col gap-1.5">
           <PageTitle className="m-0">Disponibilità</PageTitle>
@@ -335,6 +336,6 @@ export function AvailabilityDesktop({
           </div>
         </CoachAlertDialogContent>
       </CoachAlertDialog>
-    </div>
+    </CoachPage>
   );
 }

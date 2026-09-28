@@ -23,6 +23,7 @@ import { useBlocker } from "@tanstack/react-router";
 import { CreditCard } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { CoachPage } from "@/components/coach-page";
 import {
   IntegrationsFullSyncCard,
   type FullSyncView,
@@ -321,7 +322,7 @@ export function IntegrationsDesktop({
   }
 
   return (
-    <div className="-m-6 min-h-[calc(100vh-3.5rem)] min-w-0 bg-surface px-10 pb-12 pt-7 text-on-surface">
+    <CoachPage>
       <div className="flex min-w-0 flex-col gap-5">
         <div className="flex max-w-[680px] flex-col gap-1.5">
           <PageTitle className="m-0">Integrazioni</PageTitle>
@@ -403,7 +404,7 @@ export function IntegrationsDesktop({
         onConfirm={(choice) => void confirmImport(choice)}
         onClose={() => setImportTarget(null)}
       />
-    </div>
+    </CoachPage>
   );
 }
 
