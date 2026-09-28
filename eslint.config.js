@@ -16,6 +16,7 @@ export default tseslint.config(
       "src/integrations/supabase/types.ts",
       // Handoff di design: prototipi HTML/JS di riferimento, non codice dell'app.
       "design_handoff_coach_redesign",
+      "design_handoff_cliente_mobile",
     ],
   },
   {

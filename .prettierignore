@@ -8,3 +8,4 @@ bun.lock
 routeTree.gen.ts
 src/integrations/supabase/types.ts
 design_handoff_coach_redesign
+design_handoff_cliente_mobile
