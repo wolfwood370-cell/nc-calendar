@@ -385,29 +385,28 @@ function Wizard({
             <p id="wiz-path" className="text-[13px] font-bold">
               Tipo di percorso
             </p>
-            <div role="radiogroup" aria-labelledby="wiz-path" className="grid grid-cols-3 gap-2">
-              {PATHS.map((p) => {
-                const on = w.pathType === p.value;
-                return (
-                  <button
-                    key={p.value}
-                    type="button"
-                    role="radio"
-                    aria-checked={on}
-                    onClick={() => upd({ pathType: p.value, packLabel: null })}
-                    className={cn(
-                      "flex flex-col items-start gap-1 rounded-[18px] border-[1.5px] px-3.5 py-3 text-left",
-                      on
-                        ? "border-aura-primary bg-aura-primary/5"
-                        : "border-surface-variant bg-white",
-                    )}
-                  >
+            <SegmentedControl
+              appearance="plain"
+              ariaLabelledby="wiz-path"
+              className="grid grid-cols-3 gap-2"
+              itemClassName={(on) =>
+                cn(
+                  "flex flex-col items-start gap-1 rounded-[18px] border-[1.5px] px-3.5 py-3 text-left",
+                  on ? "border-aura-primary bg-aura-primary/5" : "border-surface-variant bg-white",
+                )
+              }
+              value={w.pathType}
+              onChange={(v) => upd({ pathType: v, packLabel: null })}
+              options={PATHS.map((p) => ({
+                value: p.value,
+                label: (
+                  <>
                     <span className="text-sm font-bold text-on-surface">{p.label}</span>
                     <span className="text-xs leading-[1.4] text-on-surface-variant">{p.hint}</span>
-                  </button>
-                );
-              })}
-            </div>
+                  </>
+                ),
+              }))}
+            />
           </div>
           {w.pathType === "fixed" && (
             <div className="flex flex-col gap-2">

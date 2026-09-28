@@ -52,6 +52,7 @@ import { ProfileOverview } from "@/components/profile-overview";
 import { ProfilePath } from "@/components/profile-path";
 import { ProfileSessionDialog } from "@/components/profile-session-dialog";
 import { ProfileSessions } from "@/components/profile-sessions";
+import { SegmentedControl } from "@/components/segmented-control";
 import { SessionCancelDialog } from "@/components/session-cancel-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { undoAssign } from "@/lib/assign-event";
@@ -545,41 +546,34 @@ export function ClientProfileDesktop({
         </div>
       </section>
 
-      <div
-        role="tablist"
-        aria-label="Sezioni del profilo"
-        className="flex w-fit rounded-full bg-surface-container p-[3px]"
-      >
-        {TABS.map((t) => {
-          const on = tab === t.value;
+      <SegmentedControl
+        kind="tabs"
+        size="tab"
+        ariaLabel="Sezioni del profilo"
+        className="w-fit"
+        itemClassName="px-[18px]"
+        value={tab}
+        onChange={goTab}
+        options={TABS.map((t) => {
           const badge = t.value === "sessioni" ? data.orphans.length : 0;
-          return (
-            <button
-              key={t.value}
-              type="button"
-              role="tab"
-              aria-selected={on}
-              onClick={() => goTab(t.value)}
-              className={cn(
-                "flex h-9 items-center gap-2 rounded-full px-[18px] text-sm font-semibold transition-colors",
-                on
-                  ? "bg-white text-aura-primary shadow-[0_1px_3px_rgba(0,0,0,0.1)]"
-                  : "text-on-surface-variant",
-              )}
-            >
-              {t.label}
-              {badge > 0 && (
-                <span
-                  aria-label={`${badge} fuori percorso`}
-                  className="grid h-[18px] min-w-[18px] place-items-center rounded-full bg-[rgba(124,67,2,0.14)] px-[5px] text-[11px] font-bold text-[#7c4302]"
-                >
-                  {badge}
-                </span>
-              )}
-            </button>
-          );
+          return {
+            value: t.value,
+            label: (
+              <>
+                {t.label}
+                {badge > 0 && (
+                  <span
+                    aria-label={`${badge} fuori percorso`}
+                    className="grid h-[18px] min-w-[18px] place-items-center rounded-full bg-[rgba(124,67,2,0.14)] px-[5px] text-[11px] font-bold text-[#7c4302]"
+                  >
+                    {badge}
+                  </span>
+                )}
+              </>
+            ),
+          };
         })}
-      </div>
+      />
 
       {tab === "panoramica" && user && (
         <ProfileOverview

@@ -25,6 +25,7 @@ import {
   type NewClientMode,
 } from "@/components/new-client-dialog";
 import { PageTitle } from "@/components/page-title";
+import { SegmentedControl } from "@/components/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
 import { clientPlanLabel } from "@/lib/client-search";
 import type { CreateClientResult, NewClientPayload } from "@/lib/client-create";
@@ -196,27 +197,17 @@ export function ClientsDesktop(p: ClientsDesktopProps) {
           </button>
         </div>
 
-        <div
-          role="tablist"
-          aria-label="Stato"
-          className="flex w-fit flex-wrap rounded-full bg-surface-container p-[3px]"
-        >
-          {CLIENT_TABS.map((t) => {
-            const on = st.tab === t;
-            return (
-              <button
-                key={t}
-                type="button"
-                role="tab"
-                aria-selected={on}
-                onClick={() => setState({ tab: t })}
-                className={cn(
-                  "flex h-9 items-center gap-2 rounded-full px-4 text-sm font-semibold transition-colors",
-                  on
-                    ? "bg-white text-aura-primary shadow-[0_1px_3px_rgba(0,0,0,0.1)]"
-                    : "text-on-surface-variant",
-                )}
-              >
+        <SegmentedControl
+          kind="tabs"
+          size="tab"
+          ariaLabel="Stato"
+          className="w-fit flex-wrap"
+          value={st.tab}
+          onChange={(t) => setState({ tab: t })}
+          options={CLIENT_TABS.map((t) => ({
+            value: t,
+            label: (
+              <>
                 {TAB_LABEL[t]}
                 <span
                   className={cn(
@@ -226,10 +217,10 @@ export function ClientsDesktop(p: ClientsDesktopProps) {
                 >
                   {counts[t]}
                 </span>
-              </button>
-            );
-          })}
-        </div>
+              </>
+            ),
+          }))}
+        />
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="relative max-w-[420px] flex-[1_1_280px]">
@@ -263,38 +254,24 @@ export function ClientsDesktop(p: ClientsDesktopProps) {
                 ))}
               </select>
             </label>
-            <div
-              role="radiogroup"
-              aria-label="Vista"
-              className="flex rounded-full bg-surface-container p-[3px]"
-            >
-              {(
-                [
-                  ["grid", "Vista a schede", LayoutGrid],
-                  ["table", "Vista tabella", List],
-                ] as const
-              ).map(([v, label, Icon]) => {
-                const on = st.view === v;
-                return (
-                  <button
-                    key={v}
-                    type="button"
-                    role="radio"
-                    aria-checked={on}
-                    aria-label={label}
-                    onClick={() => setState({ view: v })}
-                    className={cn(
-                      "grid h-8 w-[38px] place-items-center rounded-full",
-                      on
-                        ? "bg-white text-aura-primary shadow-[0_1px_2px_rgba(0,0,0,0.08)]"
-                        : "text-outline",
-                    )}
-                  >
-                    <Icon className="size-4" aria-hidden />
-                  </button>
-                );
-              })}
-            </div>
+            <SegmentedControl
+              ariaLabel="Vista"
+              itemClassName="w-[38px] justify-center px-0"
+              value={st.view}
+              onChange={(v) => setState({ view: v })}
+              options={[
+                {
+                  value: "grid",
+                  ariaLabel: "Vista a schede",
+                  label: <LayoutGrid className="size-4" aria-hidden />,
+                },
+                {
+                  value: "table",
+                  ariaLabel: "Vista tabella",
+                  label: <List className="size-4" aria-hidden />,
+                },
+              ]}
+            />
           </div>
         </div>
 

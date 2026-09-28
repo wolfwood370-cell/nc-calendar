@@ -21,6 +21,7 @@ import {
   dialogPrimaryButton,
   dialogSecondaryButton,
 } from "@/components/coach-dialog";
+import { SegmentedControl } from "@/components/segmented-control";
 import { useAuth } from "@/lib/auth";
 import { clientPlanLabel } from "@/lib/client-search";
 import { getCurrentBlockCredits, sumCredits } from "@/lib/credits";
@@ -85,9 +86,6 @@ export function PackageDialog({ clientId, initialMode, onClose, onChanged }: Pac
     </CoachDialog>
   );
 }
-
-const segmentItem =
-  "h-8 rounded-full px-3.5 text-[13px] font-semibold transition-colors data-[state=checked]:bg-surface-container-lowest data-[state=checked]:text-aura-primary data-[state=checked]:shadow-[0_1px_3px_rgba(0,0,0,0.1)] data-[state=unchecked]:text-on-surface-variant";
 
 function Stepper({
   value,
@@ -400,20 +398,16 @@ function PackageBody({
   } else {
     body = (
       <div className="flex flex-col gap-3">
-        <RadioGroupPrimitive.Root
+        <SegmentedControl
+          ariaLabel="Tipo di percorso"
+          className="self-start"
           value={effectivePathType}
-          onValueChange={(v) => setPathType(v as "fixed" | "recurring")}
-          aria-label="Tipo di percorso"
-          orientation="horizontal"
-          className="flex self-start rounded-full bg-surface-container p-[3px]"
-        >
-          <RadioGroupPrimitive.Item value="fixed" className={segmentItem}>
-            Percorso fisso
-          </RadioGroupPrimitive.Item>
-          <RadioGroupPrimitive.Item value="recurring" className={segmentItem}>
-            Abbonamento mensile
-          </RadioGroupPrimitive.Item>
-        </RadioGroupPrimitive.Root>
+          onChange={setPathType}
+          options={[
+            { value: "fixed", label: "Percorso fisso" },
+            { value: "recurring", label: "Abbonamento mensile" },
+          ]}
+        />
         {effectivePathType === "fixed" && (
           <div className="flex items-center gap-3">
             <span className="text-sm font-semibold text-on-surface">Numero di blocchi</span>
