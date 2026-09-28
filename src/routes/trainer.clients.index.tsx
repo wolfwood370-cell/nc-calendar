@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
 import { Plus, Search, UserPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { attendanceCoachId } from "@/lib/attendance";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { sendInvitationEmail } from "@/lib/email";
@@ -231,7 +232,9 @@ function ClientsPage() {
         // no_show incluso SOLO per la presenza: il conteggio del percorso
         // (pathProgress) filtra di nuovo per stato.
         .in("status", ["scheduled", "completed", "late_cancelled", "no_show"]);
-      if (!isAdmin && user) bookQ = bookQ.eq("coach_id", user.id);
+      // Lo stesso sottoinsieme della presenza del Profilo (attendance.ts, V5).
+      const coach = user ? attendanceCoachId({ id: user.id, isAdmin }) : null;
+      if (coach) bookQ = bookQ.eq("coach_id", coach);
       const { data: bks } = await bookQ;
       if (signal.cancelled) return;
       setBookings((bks as unknown as BookingLite[]) ?? []);

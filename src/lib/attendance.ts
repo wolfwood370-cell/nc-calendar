@@ -152,3 +152,35 @@ export function presenceSummary(
     lastCompleted: lastIso,
   };
 }
+
+// ----------------------------------------------------------------------------
+// Su quali sessioni (audit V5, passata 10)
+// ----------------------------------------------------------------------------
+// La lista Clienti legge solo le sessioni del coach, l'admin tutte
+// (trainer.clients.index.tsx); il Profilo le carica tutte, per lo storico e
+// il percorso (profile-load.ts). La presenza si conta sullo stesso
+// sottoinsieme in tutte e due: attendanceCoachId decide il filtro della
+// query dei Clienti e quello di profilePresence.
+
+export interface AttendanceViewer {
+  id: string;
+  isAdmin: boolean;
+}
+
+/** Il coach di cui contare le sessioni; null per l'admin, che le vede tutte. */
+export function attendanceCoachId(viewer: AttendanceViewer): string | null {
+  return viewer.isAdmin ? null : viewer.id;
+}
+
+/** presenceSummary sulle sessioni che conta anche la lista Clienti. */
+export function profilePresence(
+  bookings: readonly (AttendanceBooking & { coach_id: string | null })[],
+  viewer: AttendanceViewer,
+  now: Date = new Date(),
+): PresenceSummary {
+  const coach = attendanceCoachId(viewer);
+  return presenceSummary(
+    coach === null ? bookings : bookings.filter((b) => b.coach_id === coach),
+    now,
+  );
+}

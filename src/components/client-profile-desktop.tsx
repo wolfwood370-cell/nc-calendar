@@ -56,7 +56,7 @@ import { SegmentedControl } from "@/components/segmented-control";
 import { SessionCancelDialog } from "@/components/session-cancel-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { undoAssign } from "@/lib/assign-event";
-import { presenceSummary } from "@/lib/attendance";
+import { profilePresence } from "@/lib/attendance";
 import { useAuth } from "@/lib/auth";
 import { CreditUnavailableError, type SessionRemoval } from "@/lib/cancel-session";
 import { whatsappUrl } from "@/lib/calendar-events";
@@ -129,7 +129,7 @@ export function ClientProfileDesktop({
   const { id: clientId } = useParams({ from: "/trainer/clients/$id" });
   const search = useSearch({ from: "/trainer/clients/$id" });
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const qc = useQueryClient();
   const eventTypes = useCoachEventTypes(user?.id).data ?? [];
   const tab = profileTab(search);
@@ -321,7 +321,12 @@ export function ClientProfileDesktop({
       )
     : null;
   const summary = packageSummary(client?.path_type ?? null, blocks, allocations, now);
-  const presence = presenceSummary(bookings, now);
+  // V5: le sessioni che conta anche la lista Clienti (solo le sue per il coach).
+  const presence = profilePresence(
+    bookings,
+    { id: user?.id ?? "", isAdmin: role === "admin" },
+    now,
+  );
   const chip = blockChip(client?.path_type ?? null, blocks, now);
   const wa = whatsappUrl(client?.phone);
   const control = renewalControl(client?.path_type ?? null, client?.auto_renew_blocks ?? null);
