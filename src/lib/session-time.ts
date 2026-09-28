@@ -1,12 +1,15 @@
 // ----------------------------------------------------------------------------
-// Date e orari delle sessioni nei dialog coach
+// Date e orari delle sessioni, nei dialog del coach e per il cliente
 // ----------------------------------------------------------------------------
 // Formati del prototipo (nc-store.js): «Giovedì 1 ottobre», «ven 26 set»,
-// «10:00–11:00», «5 ott 2026». Ora locale del browser, come il resto dell'app.
+// «10:00–11:00», «5 ott 2026»; per il cliente (nc-client.js) «Oggi»,
+// «Domani», «tra 25 min». Ora locale del browser, come il resto dell'app.
+// La locale arriva da date-fns/locale/it e non dal barile date-fns/locale,
+// che carica 95 locale in ogni file che lo importa.
 // ----------------------------------------------------------------------------
 
-import { addMinutes, format } from "date-fns";
-import { it } from "date-fns/locale";
+import { addMinutes, differenceInCalendarDays, format } from "date-fns";
+import { it } from "date-fns/locale/it";
 
 /** «Giovedì 1 ottobre». */
 export function formatLongDay(d: Date): string {
@@ -49,4 +52,32 @@ export function formatDuration(minutes: number): string {
 export function formatTimeRange(start: Date, durationMin: number | null | undefined): string {
   const minutes = durationMin && durationMin > 0 ? durationMin : 60;
   return `${format(start, "HH:mm")}–${format(addMinutes(start, minutes), "HH:mm")}`;
+}
+
+/** «Oggi», «Domani», «Ieri», altrimenti «Mercoledì 30 settembre». Giorni di calendario. */
+export function formatDayRel(d: Date, now: Date): string {
+  const diff = differenceInCalendarDays(d, now);
+  if (diff === 0) return "Oggi";
+  if (diff === 1) return "Domani";
+  if (diff === -1) return "Ieri";
+  return formatLongDay(d);
+}
+
+/**
+ * Quanto manca all'inizio, come `until` del prototipo: «tra 25 min» sotto
+ * l'ora (anche dopo la mezzanotte), «tra 1 ora» / «tra 3 ore» nello stesso
+ * giorno, «domani», poi «tra 2 giorni» in giorni di calendario; null se è già
+ * iniziata. Si aggiorna col passo di useNow, niente conti al secondo.
+ */
+export function formatUntil(start: Date, now: Date): string | null {
+  const minutes = Math.round((start.getTime() - now.getTime()) / 60_000);
+  if (minutes <= 0) return null;
+  if (minutes < 60) return `tra ${minutes} min`;
+  const days = differenceInCalendarDays(start, now);
+  if (days === 0) {
+    const hours = Math.floor(minutes / 60);
+    return hours === 1 ? "tra 1 ora" : `tra ${hours} ore`;
+  }
+  if (days === 1) return "domani";
+  return `tra ${days} giorni`;
 }
