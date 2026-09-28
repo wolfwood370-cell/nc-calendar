@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&amp;family=Manrope:wght@400;500;600;700&amp;display=swap">
+<script src="./nc-icons.js"></script>
+<script src="./nc-store.js"></script>
+<script src="./nc-client.js"></script>
+<title>Sessione · NC Calendar</title>
+<style>
+*,::before,::after{box-sizing:border-box;margin:0;padding:0;border:0 solid;}
+body{margin:0;background:#e7e8ec;font-family:Manrope,ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:#191c1f;}
+button,textarea{font:inherit;color:inherit;background:transparent;}
+button{cursor:pointer;}
+ul,ol{list-style:none;}
+a{color:#003e62;text-decoration:none;}
+a:hover{color:#005685;}
+textarea::placeholder{color:#717880;}
+:focus-visible{outline:2px solid #005685;outline-offset:2px;}
+</style>
+</helmet>
+<div style="min-height:100vh; background:linear-gradient(135deg,#eceef2,#dde1e8); display:flex; flex-wrap:wrap; justify-content:center; align-items:flex-start; gap:32px; padding:24px 20px 40px;">
+  <div style="width:{{ boxW }}; height:{{ boxH }}; flex-shrink:0;">
+    <div style="width:402px; height:874px; transform:{{ scaleT }}; transform-origin:top left;">
+      <x-import component-from-global-scope="IOSDevice" from="./nc-ios-frame.js" time="{{ clock }}" hint-size="402px,874px">
+        <div data-screen-label="Dettaglio sessione" style="position:absolute; inset:0; z-index:1; display:flex; flex-direction:column; background:#f8f9fe; color:#191c1f; font-family:Manrope, sans-serif; overflow:hidden;">
+          <div style="flex:1; min-height:0; overflow-y:auto; scrollbar-width:none;">
+            <header style="position:sticky; top:0; z-index:5; padding:54px 12px 8px; background:rgba(248,249,254,0.92); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); display:grid; grid-template-columns:44px 1fr 44px; align-items:center; gap:8px;">
+              <button onClick="{{ back }}" aria-label="Indietro" style="width:44px; height:44px; border-radius:9999px; display:grid; place-items:center; color:#003e62; background:#ffffff; border:1px solid rgba(193,199,208,0.6);"><nc-icon name="ChevronLeft" style="width:22px; height:22px;"></nc-icon></button>
+              <h1 style="text-align:center; font-size:17px; font-weight:700;">Sessione</h1>
+              <span></span>
+            </header>
+            <main style="padding:8px 16px 32px; display:flex; flex-direction:column; gap:16px;">
+              <sc-if value="{{ missing }}" hint-placeholder-val="{{ false }}">
+                <section style="background:#ffffff; border-radius:24px; border:1px solid rgba(193,199,208,0.35); padding:20px; display:flex; flex-direction:column; gap:12px;">
+                  <p style="font-size:17px; font-weight:700;">Sessione non trovata</p>
+                  <p style="font-size:15px; line-height:1.5; color:#41474f;">Potrebbe essere stata eliminata, oppure appartiene a un altro cliente di prova.</p>
+                  <button onClick="{{ goSessions }}" style="height:52px; border-radius:9999px; background:#005685; color:#ffffff; font-size:16px; font-weight:700;">Vai alle sessioni</button>
+                </section>
+              </sc-if>
+
+              <sc-if value="{{ found }}" hint-placeholder-val="{{ true }}">
+                <section style="background:#ffffff; border-radius:24px; border:1px solid rgba(193,199,208,0.35); box-shadow:0 8px 30px rgba(0,0,0,0.04); padding:20px; display:flex; flex-direction:column; gap:14px;">
+                  <span style="align-self:flex-start; display:flex; align-items:center; gap:6px; font-size:12px; font-weight:700; padding:4px 10px; border-radius:9999px; background:{{ chipBg }}; color:{{ chipFg }};"><nc-icon name="{{ chipIcon }}" style="width:14px; height:14px;"></nc-icon>{{ chip }}</span>
+                  <div style="display:flex; align-items:center; gap:12px;">
+                    <span style="width:48px; height:48px; border-radius:14px; background:{{ tint }}; color:{{ color }}; display:grid; place-items:center; flex-shrink:0;"><nc-icon name="{{ icon }}" style="width:24px; height:24px;"></nc-icon></span>
+                    <h2 style="font-family:Sora, sans-serif; font-size:24px; line-height:1.2; font-weight:700; letter-spacing:-0.01em;">{{ typeName }}</h2>
+                  </div>
+                  <ul style="display:flex; flex-direction:column; gap:10px;">
+                    <li style="display:flex; gap:10px; font-size:15px; line-height:1.4;"><nc-icon name="CalendarDays" style="width:18px; height:18px; margin-top:1px; color:#005685;"></nc-icon><span><strong style="font-weight:700;">{{ dayLong }}</strong><br>{{ timeLine }}</span></li>
+                    <li style="display:flex; gap:10px; font-size:15px; line-height:1.4;"><nc-icon name="User" style="width:18px; height:18px; margin-top:1px; color:#005685;"></nc-icon>{{ coachLine }}</li>
+                    <li style="display:flex; gap:10px; font-size:15px; line-height:1.4;"><nc-icon name="{{ placeIcon }}" style="width:18px; height:18px; margin-top:1px; color:#005685;"></nc-icon><span style="display:flex; flex-direction:column; gap:2px;">{{ place }}<sc-if value="{{ mapsOn }}" hint-placeholder-val="{{ true }}"><a href="{{ mapsHref }}" target="_blank" rel="noopener" style="font-size:14px; font-weight:700; color:#005685;">Apri in Mappe</a></sc-if></span></li>
+                  </ul>
+                </section>
+
+                <sc-if value="{{ confirmOn }}" hint-placeholder-val="{{ false }}">
+                  <section style="display:flex; flex-direction:column; gap:8px;">
+                    <button onClick="{{ confirm }}" style="height:52px; border-radius:9999px; background:#005685; color:#ffffff; font-size:16px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px;"><nc-icon name="CircleCheck" style="width:18px; height:18px;"></nc-icon>Conferma presenza</button>
+                    <p style="font-size:13px; line-height:1.45; color:#41474f; text-align:center;">{{ coachFirst }} vede la conferma nel suo calendario.</p>
+                  </section>
+                </sc-if>
+                <sc-if value="{{ joinOn }}" hint-placeholder-val="{{ false }}">
+                  <a href="https://meet.google.com/" target="_blank" rel="noopener" style="height:52px; border-radius:9999px; background:#005685; color:#ffffff; font-size:16px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px;"><nc-icon name="Video" style="width:18px; height:18px;"></nc-icon>Entra nella videochiamata</a>
+                </sc-if>
+                <sc-if value="{{ manageOn }}" hint-placeholder-val="{{ true }}">
+                  <section style="display:flex; flex-direction:column; gap:8px;">
+                    <button onClick="{{ openMove }}" style="height:48px; border-radius:9999px; border:1px solid #c1c7d0; background:#ffffff; color:#003e62; font-size:15px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px;"><nc-icon name="Repeat" style="width:16px; height:16px;"></nc-icon>Sposta</button>
+                    <button onClick="{{ openCancel }}" style="height:44px; border-radius:9999px; color:#b91c1c; font-size:15px; font-weight:700;">Annulla sessione</button>
+                    <p style="font-size:13px; line-height:1.45; color:#41474f; text-align:center;">{{ freeLine }}</p>
+                  </section>
+                </sc-if>
+                <sc-if value="{{ lockedOn }}" hint-placeholder-val="{{ false }}">
+                  <section style="background:#fff7ed; border-radius:24px; padding:16px; display:flex; flex-direction:column; gap:10px;">
+                    <p style="display:flex; align-items:center; gap:8px; font-size:15px; font-weight:700; color:#9a3412;"><nc-icon name="Clock" style="width:18px; height:18px;"></nc-icon>Mancano meno di 24 ore</p>
+                    <p style="font-size:14px; line-height:1.5; color:#41474f;">{{ lockedText }}</p>
+                    <a href="{{ waHref }}" target="_blank" rel="noopener" style="height:48px; border-radius:9999px; background:#ffffff; border:1px solid #c1c7d0; color:#003e62; font-size:15px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px;"><nc-icon name="MessageCircle" style="width:16px; height:16px;"></nc-icon><span>Scrivi a {{ coachFirst }} su WhatsApp</span></a>
+                    <button onClick="{{ openCancel }}" style="height:44px; border-radius:9999px; color:#b91c1c; font-size:15px; font-weight:700;">Annulla comunque</button>
+                  </section>
+                </sc-if>
+                <sc-if value="{{ pastOn }}" hint-placeholder-val="{{ false }}">
+                  <section style="background:#ffffff; border-radius:24px; border:1px solid rgba(193,199,208,0.35); padding:16px; display:flex; flex-direction:column; gap:10px;">
+                    <p style="display:flex; gap:8px; font-size:15px; font-weight:700; color:{{ chipFg }};"><nc-icon name="{{ chipIcon }}" style="width:18px; height:18px; margin-top:1px;"></nc-icon>{{ statusLine }}</p>
+                    <sc-if value="{{ noshowOn }}" hint-placeholder-val="{{ false }}"><a href="{{ waHref }}" target="_blank" rel="noopener" style="font-size:14px; font-weight:700; color:#005685;">Pensi sia un errore? Scrivi a {{ coachFirst }}</a></sc-if>
+                    <sc-if value="{{ rebookOn }}" hint-placeholder-val="{{ false }}"><button onClick="{{ rebook }}" style="height:48px; border-radius:9999px; border:1px solid #c1c7d0; color:#003e62; font-size:15px; font-weight:700;">Prenota di nuovo</button></sc-if>
+                  </section>
+                </sc-if>
+
+                <sc-if value="{{ rateOn }}" hint-placeholder-val="{{ false }}">
+                  <section aria-label="La tua valutazione" style="background:#ffffff; border-radius:24px; border:1px solid rgba(193,199,208,0.35); padding:16px; display:flex; flex-direction:column; gap:12px;">
+                    <p style="font-size:17px; font-weight:700;">{{ rateTitle }}</p>
+                    <div role="radiogroup" aria-label="Valutazione da 1 a 5" style="display:flex; gap:2px;">
+                      <sc-for list="{{ stars }}" as="s" hint-placeholder-count="5">
+                        <button role="radio" aria-checked="{{ s.checked }}" aria-label="{{ s.aria }}" onClick="{{ s.pick }}" disabled="{{ s.locked }}" style="width:48px; height:48px; display:grid; place-items:center;">
+                          <svg width="32" height="32" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17.3 6.2 21l1.6-6.6L2.4 9.6l6.8-.5L12 3l2.8 6.1 6.8.5-5.4 4.8 1.6 6.6z" fill="{{ s.fill }}" stroke="{{ s.stroke }}" stroke-width="1.5" stroke-linejoin="round"></path></svg>
+                        </button>
+                      </sc-for>
+                    </div>
+                    <sc-if value="{{ rateEditing }}" hint-placeholder-val="{{ false }}">
+                      <textarea value="{{ note }}" onChange="{{ onNote }}" rows="2" aria-label="Nota per il coach, facoltativa" placeholder="Vuoi aggiungere qualcosa? (facoltativo)" style="width:100%; border-radius:14px; border:1px solid #c1c7d0; padding:12px 14px; font-size:15px; line-height:1.4; resize:none; background:#ffffff;"></textarea>
+                      <button onClick="{{ sendRate }}" disabled="{{ rateDisabled }}" style="height:52px; border-radius:9999px; background:{{ rateBtnBg }}; color:{{ rateBtnFg }}; font-size:16px; font-weight:700;">{{ rateBtn }}</button>
+                    </sc-if>
+                    <sc-if value="{{ rateSaved }}" hint-placeholder-val="{{ false }}">
+                      <sc-if value="{{ savedNote }}" hint-placeholder-val="{{ false }}"><p style="font-size:14px; line-height:1.5; color:#41474f;">«{{ savedNote }}»</p></sc-if>
+                      <sc-if value="{{ canEditRate }}" hint-placeholder-val="{{ false }}"><button onClick="{{ editRate }}" style="align-self:flex-start; height:44px; font-size:14px; font-weight:700; color:#005685;">Modifica valutazione</button></sc-if>
+                    </sc-if>
+                  </section>
+                </sc-if>
+
+                <section style="background:#ffffff; border-radius:24px; border:1px solid rgba(193,199,208,0.35); padding:16px; display:flex; flex-direction:column; gap:14px;">
+                  <sc-if value="{{ noteOn }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex; flex-direction:column; gap:4px;"><p style="font-size:14px; font-weight:700;">Nota di {{ coachFirst }}</p><p style="font-size:15px; line-height:1.5; color:#41474f;">{{ noteText }}</p></div>
+                  </sc-if>
+                  <sc-if value="{{ descOn }}" hint-placeholder-val="{{ true }}">
+                    <div style="display:flex; flex-direction:column; gap:4px;"><p style="font-size:14px; font-weight:700;">Cosa aspettarti</p><p style="font-size:15px; line-height:1.5; color:#41474f;">{{ desc }}</p></div>
+                  </sc-if>
+                  <sc-if value="{{ inviteOn }}" hint-placeholder-val="{{ true }}">
+                    <p style="display:flex; gap:10px; font-size:14px; line-height:1.45; color:#41474f;"><nc-icon name="CalendarCheck" style="width:18px; height:18px; margin-top:1px; color:#005685;"></nc-icon><span>{{ inviteText }}</span></p>
+                  </sc-if>
+                </section>
+              </sc-if>
+            </main>
+          </div>
+
+          <sc-if value="{{ moveOn }}" hint-placeholder-val="{{ false }}">
+            <dc-import name="Cliente Sposta" booking-id="{{ bookingId }}" on-close="{{ closeMove }}" on-done="{{ moved }}" hint-size="100%,100%" style="position:absolute; inset:0; z-index:30;"></dc-import>
+          </sc-if>
+
+          <sc-if value="{{ cancelOn }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute; inset:0; z-index:30; display:flex; flex-direction:column; justify-content:flex-end;">
+              <div onClick="{{ closeCancel }}" style="position:absolute; inset:0; background:rgba(0,20,35,0.42);"></div>
+              <div role="alertdialog" aria-modal="true" aria-label="Annullare la sessione?" style="position:relative; background:#ffffff; border-radius:28px 28px 0 0; padding:10px 20px 40px; display:flex; flex-direction:column; gap:14px;">
+                <span style="align-self:center; width:40px; height:5px; border-radius:9999px; background:#c1c7d0;"></span>
+                <h2 style="font-family:Sora, sans-serif; font-size:22px; font-weight:700;">Annullare la sessione?</h2>
+                <p style="font-size:15px; font-weight:600;">{{ cancelWhen }}</p>
+                <p style="font-size:15px; line-height:1.5; color:{{ cancelFg }}; background:{{ cancelBg }}; border-radius:14px; padding:12px 14px;">{{ cancelText }}</p>
+                <button onClick="{{ doCancel }}" style="height:52px; border-radius:9999px; background:#b91c1c; color:#ffffff; font-size:16px; font-weight:700;">Annulla sessione</button>
+                <button onClick="{{ closeCancel }}" style="height:44px; border-radius:9999px; font-size:15px; font-weight:600; color:#003e62;">Tienila</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ toastOn }}" hint-placeholder-val="{{ false }}">
+            <div role="status" aria-live="polite" style="position:absolute; left:12px; right:12px; bottom:44px; z-index:40; display:flex; align-items:center; gap:12px; background:#191c1f; color:#ffffff; border-radius:16px; padding:8px 8px 8px 16px; box-shadow:0 12px 32px rgba(0,0,0,0.25);">
+              <nc-icon name="{{ toastIcon }}" style="width:18px; height:18px; color:{{ toastColor }};"></nc-icon>
+              <span style="flex:1; font-size:14px; line-height:1.35; padding:8px 0;">{{ toastMsg }}</span>
+              <sc-if value="{{ toastUndo }}" hint-placeholder-val="{{ false }}"><button onClick="{{ undoToast }}" style="height:44px; padding:0 12px; border-radius:12px; color:#91cbff; font-size:14px; font-weight:700;">Ripristina</button></sc-if>
+            </div>
+          </sc-if>
+        </div>
+      </x-import>
+    </div>
+  </div>
+  <sc-if value="{{ panel }}" hint-placeholder-val="{{ true }}">
+    <div style="width:340px; max-width:100%;"><dc-import name="Cliente Revisione" screen="sessione" hint-size="340px,760px" style="width:100%;"></dc-import></div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;reviewPanel&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Prototipo&quot;},&quot;clock&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;reale&quot;,&quot;08:15&quot;,&quot;10:40&quot;,&quot;13:10&quot;,&quot;19:10&quot;],&quot;default&quot;:&quot;10:40&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototipo&quot;}}">
+class Component extends DCLogic {
+  state = { fit: null, move: false, cancel: false, editing: false, rating: 0, note: "" };
+  componentDidMount() {
+    this.fitNow = () => this.setState({ fit: window.NCClient ? window.NCClient.fit() : null });
+    window.addEventListener("resize", this.fitNow);
+    const hook = () => { this.unsub = window.NCStore.subscribe(() => this.forceUpdate()); if (this.props.clock) window.NCStore.setClock(this.props.clock); this.fitNow(); };
+    const wait = () => (window.NCClient && window.NCClient.ready() ? hook() : (this.t = setTimeout(wait, 30)));
+    wait();
+    this.iv = setInterval(() => this.forceUpdate(), 30000);
+    this.onKey = (e) => { if (e.key === "Escape") this.setState({ move: false, cancel: false }); };
+    document.addEventListener("keydown", this.onKey);
+  }
+  componentDidUpdate(prev) { if (window.NCStore && this.props.clock && prev.clock !== this.props.clock) window.NCStore.setClock(this.props.clock); }
+  componentWillUnmount() { this.unsub && this.unsub(); clearTimeout(this.t); clearInterval(this.iv); window.removeEventListener("resize", this.fitNow); document.removeEventListener("keydown", this.onKey); }
+
+  renderVals() {
+    const C = window.NCClient, S = window.NCStore;
+    const f = this.state.fit || { w: "402px", h: "874px", t: "none" };
+    const out = { boxW: f.w, boxH: f.h, scaleT: f.t, panel: this.props.reviewPanel ?? true, stars: [], found: false, missing: false };
+    if (!C || !C.ready()) return out;
+    const co = C.coach(), c = C.me(), id = C.param("id");
+    const b = C.mine(id);
+    Object.assign(out, { clock: C.clockLabel(), back: () => C.back("sessioni"), goSessions: () => C.go("sessioni"), coachFirst: co.first, waHref: co.wa });
+    if (!b) { out.missing = true; return out; }
+    const t = S.type(b.typeId) || { name: "Sessione", color: "#003e62", icon: "Dumbbell", duration: b.dur }, st = C.status(b);
+    const upcoming = b.status === "scheduled" && C.endOf(b).getTime() > S.now();
+    const future = upcoming && st.key !== "now";
+    const online = t.location === "online";
+    Object.assign(out, {
+      found: true, bookingId: b.id,
+      chip: st.label, chipBg: st.bg, chipFg: st.fg, chipIcon: st.icon,
+      typeName: t.name, icon: t.icon, color: t.color, tint: C.tint(t.color),
+      dayLong: C.dayRel(b.start) === "Oggi" || C.dayRel(b.start) === "Domani" ? C.dayRel(b.start) + ", " + C.dayLong(b.start).toLowerCase() : C.dayLong(b.start),
+      timeLine: C.range(b) + " · " + b.dur + " min" + (future ? " · " + C.until(b) : ""),
+      coachLine: "con " + co.name, place: C.place(t), placeIcon: online ? "Video" : "MapPin",
+      mapsOn: !online, mapsHref: "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(t.address || "Via Roma 12, Bologna"),
+      confirmOn: st.key === "toconfirm",
+      confirm: () => { C.confirm(b.id); S.showToast({ msg: "Presenza confermata: " + co.first + " la vede nel suo calendario.", tone: "ok" }); },
+      joinOn: upcoming && online && (st.key === "now" || C.hoursTo(b) <= 1),
+      manageOn: future && C.canMove(b), lockedOn: future && !C.canMove(b),
+      freeLine: "Gratis fino a " + C.freeUntil(b) + ". Dopo, il credito viene scalato.",
+      lockedText: "La sessione non si può più spostare. Se la annulli, il credito " + t.name + " viene scalato comunque. Per un altro orario scrivi a " + co.first + ".",
+      pastOn: !upcoming, statusLine: st.line, noshowOn: st.key === "noshow",
+      rebookOn: (st.key === "cancelled" || st.key === "late" || st.key === "done") && C.pools(c).some((p) => p.typeId === b.typeId && p.bookable && p.avail > 0),
+      rebook: () => C.go("prenota", { type: b.typeId }),
+      noteOn: !!b.note, noteText: b.note || "",
+      descOn: !!t.description, desc: t.description || "",
+      inviteOn: upcoming, inviteText: "Invito del calendario inviato a " + c.email + ": si aggiorna da solo se la sessione viene spostata o annullata.",
+      openMove: () => this.setState({ move: true }), moveOn: this.state.move && future,
+      closeMove: () => this.setState({ move: false }),
+      moved: (r) => { this.setState({ move: false }); S.showToast({ msg: "Spostata a " + C.dayShort(r.start) + " alle " + C.hm(r.start) + ". " + co.first + " riceve un avviso.", undo: r.undo, tone: "ok" }); },
+      openCancel: () => this.setState({ cancel: true }), closeCancel: () => this.setState({ cancel: false }),
+      cancelOn: this.state.cancel && upcoming,
+      cancelWhen: t.name + " · " + C.dayShort(b.start) + ", " + C.range(b),
+      cancelText: C.freeCancel(b) ? "Il credito torna disponibile e " + co.first + " riceve un avviso." : "Mancano meno di 24 ore: il credito " + t.name + " viene scalato comunque. " + co.first + " riceve un avviso.",
+      cancelBg: C.freeCancel(b) ? "#f8f9fe" : "#fff7ed", cancelFg: C.freeCancel(b) ? "#41474f" : "#9a3412",
+      doCancel: () => { const r = C.cancel(b.id); this.setState({ cancel: false }); if (r.error) { S.showToast({ msg: r.error, tone: "warn" }); return; } S.showToast({ msg: r.late ? "Sessione annullata: il credito è stato scalato." : "Sessione annullata: il credito è tornato disponibile.", undo: r.undo, tone: r.late ? "warn" : "ok" }); },
+    });
+    const fb = C.feedbackOf(b.id), can = C.canRate(b);
+    if (b.status === "completed" && (fb || can)) {
+      const editing = can && (!fb || this.state.editing);
+      const rating = editing ? this.state.rating || (fb ? fb.rating : 0) : fb.rating;
+      const note = editing ? (this.state.editing || this.state.rating ? this.state.note : fb ? fb.note : "") : "";
+      Object.assign(out, {
+        rateOn: true, rateTitle: fb && !editing ? "La tua valutazione" : "Com'è andata?",
+        stars: [1, 2, 3, 4, 5].map((i) => ({ checked: i === rating ? "true" : "false", aria: i + (i === 1 ? " stella" : " stelle"), locked: !editing, fill: i <= rating ? "#d97706" : "none", stroke: i <= rating ? "#b45309" : "#717880", pick: () => this.setState({ rating: i, editing: true, note: this.state.editing || this.state.rating ? this.state.note : fb ? fb.note : "" }) })),
+        rateEditing: editing, rateSaved: !!fb && !editing, savedNote: fb && !editing ? fb.note : "", canEditRate: can,
+        editRate: () => this.setState({ editing: true, rating: fb.rating, note: fb.note }),
+        note, onNote: (e) => this.setState({ note: e.target.value, editing: true, rating: rating }),
+        rateDisabled: !rating, rateBtnBg: rating ? "#005685" : "#e1e2e7", rateBtnFg: rating ? "#ffffff" : "#41474f",
+        rateBtn: fb ? "Aggiorna valutazione" : "Invia valutazione",
+        sendRate: () => { if (!rating) return; C.setFeedback(b.id, rating, note); this.setState({ editing: false, rating: 0, note: "" }); S.showToast({ msg: "Grazie: " + co.first + " vedrà la tua valutazione.", tone: "ok" }); },
+      });
+    } else out.rateOn = false;
+    const tst = S.getToast(), TONE = { ok: ["CircleCheck", "#6ee7b7"], warn: ["TriangleAlert", "#fdba74"], info: ["Info", "#91cbff"] }, tone = tst ? TONE[tst.tone] || TONE.ok : TONE.ok;
+    Object.assign(out, { toastOn: !!tst, toastMsg: tst ? tst.msg : "", toastUndo: !!(tst && tst.undo), toastIcon: tone[0], toastColor: tone[1], undoToast: () => S.undoToast() });
+    return out;
+  }
+}
+</script>
+</body>
+</html>

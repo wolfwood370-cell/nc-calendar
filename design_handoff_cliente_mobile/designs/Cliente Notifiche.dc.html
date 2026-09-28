@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&amp;family=Manrope:wght@400;500;600;700&amp;display=swap">
+<script src="./nc-icons.js"></script>
+<script src="./nc-store.js"></script>
+<script src="./nc-client.js"></script>
+<title>Notifiche · NC Calendar</title>
+<style>
+*,::before,::after{box-sizing:border-box;margin:0;padding:0;border:0 solid;}
+body{margin:0;background:#e7e8ec;font-family:Manrope,ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:#191c1f;}
+button{font:inherit;color:inherit;background:transparent;cursor:pointer;}
+ul,ol{list-style:none;}
+a{color:#003e62;text-decoration:none;}
+a:hover{color:#005685;}
+:focus-visible{outline:2px solid #005685;outline-offset:2px;}
+</style>
+</helmet>
+<div style="min-height:100vh; background:linear-gradient(135deg,#eceef2,#dde1e8); display:flex; flex-wrap:wrap; justify-content:center; align-items:flex-start; gap:32px; padding:24px 20px 40px;">
+  <div style="width:{{ boxW }}; height:{{ boxH }}; flex-shrink:0;">
+    <div style="width:402px; height:874px; transform:{{ scaleT }}; transform-origin:top left;">
+      <x-import component-from-global-scope="IOSDevice" from="./nc-ios-frame.js" time="{{ clock }}" hint-size="402px,874px">
+        <div data-screen-label="Notifiche" style="position:absolute; inset:0; z-index:1; display:flex; flex-direction:column; background:#f8f9fe; color:#191c1f; font-family:Manrope, sans-serif; overflow:hidden;">
+          <div style="flex:1; min-height:0; overflow-y:auto; scrollbar-width:none;">
+            <header style="position:sticky; top:0; z-index:5; padding:54px 12px 8px; background:rgba(248,249,254,0.92); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); display:grid; grid-template-columns:44px 1fr 44px; align-items:center; gap:8px;">
+              <button onClick="{{ back }}" aria-label="Indietro" style="width:44px; height:44px; border-radius:9999px; display:grid; place-items:center; color:#003e62; background:#ffffff; border:1px solid rgba(193,199,208,0.6);"><nc-icon name="ChevronLeft" style="width:22px; height:22px;"></nc-icon></button>
+              <h1 style="text-align:center; font-size:17px; font-weight:700;">Notifiche</h1>
+              <span></span>
+            </header>
+            <main style="padding:8px 16px 32px; display:flex; flex-direction:column; gap:12px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:0 4px;">
+                <p style="font-size:14px; color:#41474f;">{{ summary }}</p>
+                <sc-if value="{{ anyUnread }}" hint-placeholder-val="{{ false }}"><button onClick="{{ markAll }}" style="height:44px; font-size:14px; font-weight:700; color:#005685;">Segna tutte come lette</button></sc-if>
+              </div>
+              <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
+                <section style="background:#ffffff; border-radius:24px; border:1px solid rgba(193,199,208,0.35); padding:24px 20px; display:flex; flex-direction:column; align-items:center; gap:8px; text-align:center;">
+                  <nc-icon name="BellOff" style="width:28px; height:28px; color:#717880;"></nc-icon>
+                  <p style="font-size:17px; font-weight:700;">Nessuna notifica</p>
+                  <p style="font-size:14px; line-height:1.5; color:#41474f;">Qui arrivano i promemoria e gli avvisi quando {{ coachFirst }} cambia una sessione.</p>
+                </section>
+              </sc-if>
+              <div style="display:flex; flex-direction:column; gap:8px;">
+                <sc-for list="{{ items }}" as="n" hint-placeholder-count="4">
+                  <button onClick="{{ n.open }}" aria-label="{{ n.aria }}" style="display:flex; align-items:flex-start; gap:12px; min-height:72px; padding:14px; border-radius:18px; text-align:left; background:{{ n.bg }}; border:1px solid {{ n.border }};">
+                    <span style="width:40px; height:40px; border-radius:12px; background:{{ n.tint }}; color:{{ n.color }}; display:grid; place-items:center; flex-shrink:0;"><nc-icon name="{{ n.icon }}" style="width:20px; height:20px;"></nc-icon></span>
+                    <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:3px;">
+                      <span style="font-size:15px; font-weight:700;">{{ n.title }}</span>
+                      <span style="font-size:14px; line-height:1.4; color:#41474f;">{{ n.body }}</span>
+                      <span style="font-size:12px; color:#41474f;">{{ n.ago }}</span>
+                    </span>
+                    <span aria-hidden="true" style="width:10px; height:10px; border-radius:9999px; margin-top:6px; flex-shrink:0; background:{{ n.dot }};"></span>
+                  </button>
+                </sc-for>
+              </div>
+            </main>
+          </div>
+        </div>
+      </x-import>
+    </div>
+  </div>
+  <sc-if value="{{ panel }}" hint-placeholder-val="{{ true }}">
+    <div style="width:340px; max-width:100%;"><dc-import name="Cliente Revisione" screen="notifiche" hint-size="340px,760px" style="width:100%;"></dc-import></div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;reviewPanel&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Prototipo&quot;},&quot;clock&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;reale&quot;,&quot;08:15&quot;,&quot;10:40&quot;,&quot;13:10&quot;,&quot;19:10&quot;],&quot;default&quot;:&quot;10:40&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototipo&quot;}}">
+class Component extends DCLogic {
+  state = { fit: null };
+  componentDidMount() {
+    this.fitNow = () => this.setState({ fit: window.NCClient ? window.NCClient.fit() : null });
+    window.addEventListener("resize", this.fitNow);
+    const hook = () => { this.unsub = window.NCStore.subscribe(() => this.forceUpdate()); if (this.props.clock) window.NCStore.setClock(this.props.clock); this.fitNow(); };
+    const wait = () => (window.NCClient && window.NCClient.ready() ? hook() : (this.t = setTimeout(wait, 30)));
+    wait();
+    this.iv = setInterval(() => this.forceUpdate(), 30000);
+  }
+  componentDidUpdate(prev) { if (window.NCStore && this.props.clock && prev.clock !== this.props.clock) window.NCStore.setClock(this.props.clock); }
+  componentWillUnmount() { this.unsub && this.unsub(); clearTimeout(this.t); clearInterval(this.iv); window.removeEventListener("resize", this.fitNow); }
+
+  renderVals() {
+    const C = window.NCClient, S = window.NCStore;
+    const f = this.state.fit || { w: "402px", h: "874px", t: "none" };
+    const out = { boxW: f.w, boxH: f.h, scaleT: f.t, panel: this.props.reviewPanel ?? true, items: [], empty: false, anyUnread: false };
+    if (!C || !C.ready()) return out;
+    const list = C.notifications(), un = list.filter((n) => n.unread).length, co = C.coach();
+    Object.assign(out, {
+      clock: C.clockLabel(), back: () => C.back("home"), coachFirst: co.first,
+      summary: un ? C.plural(un, "da leggere", "da leggere") : list.length ? "Tutte lette" : "",
+      anyUnread: un > 0, empty: !list.length, markAll: () => C.markAllRead(),
+      items: list.map((n) => ({
+        icon: n.icon, color: n.color, tint: C.tint(n.color), title: n.title, body: n.body, ago: S.ago(n.created),
+        bg: n.unread ? "#ffffff" : "rgba(255,255,255,0.55)", border: n.unread ? "rgba(0,86,133,0.25)" : "rgba(193,199,208,0.35)", dot: n.unread ? "#005685" : "transparent",
+        aria: (n.unread ? "Non letta. " : "") + n.title + ". " + n.body,
+        open: () => { C.markRead(n.id); const g = n.go || ["home", null]; if (g[0] === "home") C.go("home"); else C.push(g[0], g[1]); },
+      })),
+    });
+    return out;
+  }
+}
+</script>
+</body>
+</html>

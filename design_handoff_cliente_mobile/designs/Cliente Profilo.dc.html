@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&amp;family=Manrope:wght@400;500;600;700&amp;display=swap">
+<script src="./nc-icons.js"></script>
+<script src="./nc-store.js"></script>
+<script src="./nc-client.js"></script>
+<title>Profilo · NC Calendar</title>
+<style>
+*,::before,::after{box-sizing:border-box;margin:0;padding:0;border:0 solid;}
+body{margin:0;background:#e7e8ec;font-family:Manrope,ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:#191c1f;}
+button,input{font:inherit;color:inherit;background:transparent;}
+button{cursor:pointer;}
+ul,ol{list-style:none;}
+a{color:#003e62;text-decoration:none;}
+a:hover{color:#005685;}
+input::placeholder{color:#717880;}
+:focus-visible{outline:2px solid #005685;outline-offset:2px;}
+</style>
+</helmet>
+<div style="min-height:100vh; background:linear-gradient(135deg,#eceef2,#dde1e8); display:flex; flex-wrap:wrap; justify-content:center; align-items:flex-start; gap:32px; padding:24px 20px 40px;">
+  <div style="width:{{ boxW }}; height:{{ boxH }}; flex-shrink:0;">
+    <div style="width:402px; height:874px; transform:{{ scaleT }}; transform-origin:top left;">
+      <x-import component-from-global-scope="IOSDevice" from="./nc-ios-frame.js" time="{{ clock }}" hint-size="402px,874px">
+        <div data-screen-label="Profilo" style="position:absolute; inset:0; z-index:1; display:flex; flex-direction:column; background:#f8f9fe; color:#191c1f; font-family:Manrope, sans-serif; overflow:hidden;">
+          <div style="flex:1; min-height:0; overflow-y:auto; scrollbar-width:none;">
+            <header style="position:sticky; top:0; z-index:5; padding:60px 20px 12px; background:rgba(248,249,254,0.92); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); display:flex; align-items:flex-end; justify-content:space-between; gap:12px;">
+              <h1 style="font-family:Sora, sans-serif; font-size:28px; line-height:1.15; font-weight:700; letter-spacing:-0.02em;">Profilo</h1>
+              <button onClick="{{ openNotifs }}" aria-label="{{ bellLabel }}" style="position:relative; width:44px; height:44px; border-radius:9999px; background:#ffffff; border:1px solid rgba(193,199,208,0.6); display:grid; place-items:center; color:#41474f; flex-shrink:0;">
+                <nc-icon name="Bell" style="width:20px; height:20px;"></nc-icon>
+                <sc-if value="{{ unread }}" hint-placeholder-val="{{ false }}"><span style="position:absolute; top:-3px; right:-3px; min-width:20px; height:20px; padding:0 5px; border-radius:9999px; background:#e53935; color:#ffffff; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; border:2px solid #f8f9fe;">{{ unreadLabel }}</span></sc-if>
+              </button>
+            </header>
+            <main style="padding:4px 16px 32px; display:flex; flex-direction:column; gap:20px;">
+              <section style="display:flex; align-items:center; gap:14px;">
+                <span style="width:64px; height:64px; border-radius:9999px; background:#005685; color:#ffffff; display:grid; place-items:center; font-family:Sora, sans-serif; font-size:24px; font-weight:700; flex-shrink:0;">{{ ini }}</span>
+                <div style="min-width:0; display:flex; flex-direction:column; gap:3px;">
+                  <p style="font-size:20px; font-weight:700;">{{ name }}</p>
+                  <p style="font-size:14px; color:#41474f; overflow:hidden; text-overflow:ellipsis;">{{ email }}</p>
+                  <p style="font-size:14px; color:#41474f; font-variant-numeric:tabular-nums;">{{ phone }}</p>
+                </div>
+              </section>
+
+              <section aria-label="Il tuo coach" style="background:#ffffff; border-radius:24px; border:1px solid rgba(193,199,208,0.35); box-shadow:0 8px 30px rgba(0,0,0,0.04); padding:16px 18px; display:flex; flex-direction:column; gap:14px;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                  <span style="width:44px; height:44px; border-radius:9999px; background:#cde5ff; color:#003e62; display:grid; place-items:center; font-size:15px; font-weight:700; flex-shrink:0;">{{ coachIni }}</span>
+                  <div style="display:flex; flex-direction:column; gap:2px;"><p style="font-size:13px; font-weight:600; color:#41474f;">Il tuo coach</p><p style="font-size:17px; font-weight:700;">{{ coachName }}</p></div>
+                </div>
+                <div style="display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px;">
+                  <a href="{{ waHref }}" target="_blank" rel="noopener" style="height:48px; border-radius:14px; background:rgba(0,86,133,0.08); color:#003e62; font-size:14px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:6px;"><nc-icon name="MessageCircle" style="width:16px; height:16px;"></nc-icon>WhatsApp</a>
+                  <a href="{{ telHref }}" style="height:48px; border-radius:14px; background:rgba(0,86,133,0.08); color:#003e62; font-size:14px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:6px;"><nc-icon name="Phone" style="width:16px; height:16px;"></nc-icon>Chiama</a>
+                  <a href="{{ mailHref }}" style="height:48px; border-radius:14px; background:rgba(0,86,133,0.08); color:#003e62; font-size:14px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:6px;"><nc-icon name="Mail" style="width:16px; height:16px;"></nc-icon>Email</a>
+                </div>
+              </section>
+
+              <section style="display:flex; flex-direction:column; gap:8px;">
+                <h2 style="font-size:14px; font-weight:700; color:#41474f; padding:0 4px;">Il tuo percorso</h2>
+                <div style="background:#ffffff; border-radius:24px; border:1px solid rgba(193,199,208,0.35); overflow:hidden;">
+                  <sc-for list="{{ pathRows }}" as="r" hint-placeholder-count="3">
+                    <div style="min-height:52px; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 16px; border-top:1px solid {{ r.sep }};"><span style="font-size:15px; color:#41474f;">{{ r.label }}</span><span style="font-size:15px; font-weight:700; text-align:right;">{{ r.value }}</span></div>
+                  </sc-for>
+                  <sc-if value="{{ buyOn }}" hint-placeholder-val="{{ true }}">
+                    <button onClick="{{ goBooster }}" style="width:100%; min-height:52px; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 16px; border-top:1px solid #f2f3f8; text-align:left;"><span style="display:flex; align-items:center; gap:10px; font-size:15px; font-weight:700; color:#003e62;"><nc-icon name="Sparkles" style="width:18px; height:18px;"></nc-icon>Booster</span><nc-icon name="ChevronRight" style="width:18px; height:18px; color:#717880;"></nc-icon></button>
+                  </sc-if>
+                </div>
+              </section>
+
+              <section style="display:flex; flex-direction:column; gap:8px;">
+                <h2 style="font-size:14px; font-weight:700; color:#41474f; padding:0 4px;">Notifiche</h2>
+                <div style="background:#ffffff; border-radius:24px; border:1px solid rgba(193,199,208,0.35); overflow:hidden;">
+                  <div style="min-height:64px; display:flex; align-items:center; gap:12px; padding:12px 16px;">
+                    <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:3px;">
+                      <span style="font-size:15px; font-weight:700;">Notifiche sul telefono</span>
+                      <span style="font-size:13px; line-height:1.4; color:#41474f;">{{ pushSub }}</span>
+                    </span>
+                    <sc-if value="{{ installed }}" hint-placeholder-val="{{ false }}">
+                      <button role="switch" aria-checked="{{ pushChecked }}" aria-label="Notifiche sul telefono" onClick="{{ togglePush }}" style="width:52px; height:32px; border-radius:9999px; padding:3px; background:{{ swBg }}; display:flex; justify-content:{{ swJustify }}; flex-shrink:0;"><span style="width:26px; height:26px; border-radius:9999px; background:#ffffff; box-shadow:0 1px 3px rgba(0,0,0,0.2);"></span></button>
+                    </sc-if>
+                    <sc-if value="{{ notInstalled }}" hint-placeholder-val="{{ true }}">
+                      <button onClick="{{ openInstall }}" style="flex-shrink:0; height:44px; padding:0 14px; border-radius:9999px; background:rgba(0,86,133,0.1); color:#003e62; font-size:14px; font-weight:700;">Come fare</button>
+                    </sc-if>
+                  </div>
+                  <div style="min-height:64px; display:flex; align-items:flex-start; gap:12px; padding:12px 16px; border-top:1px solid #f2f3f8;">
+                    <nc-icon name="CalendarCheck" style="width:18px; height:18px; margin-top:2px; color:#005685;"></nc-icon>
+                    <span style="display:flex; flex-direction:column; gap:3px;"><span style="font-size:15px; font-weight:700;">Inviti del calendario</span><span style="font-size:13px; line-height:1.4; color:#41474f;">{{ inviteSub }}</span></span>
+                  </div>
+                </div>
+              </section>
+
+              <section style="display:flex; flex-direction:column; gap:8px;">
+                <h2 style="font-size:14px; font-weight:700; color:#41474f; padding:0 4px;">Account</h2>
+                <div style="background:#ffffff; border-radius:24px; border:1px solid rgba(193,199,208,0.35); overflow:hidden;">
+                  <div style="min-height:56px; display:flex; align-items:center; gap:12px; padding:8px 16px;">
+                    <span style="flex:1; display:flex; flex-direction:column; gap:2px;"><span style="font-size:15px; font-weight:700;">Accesso con Google</span><span style="font-size:13px; color:#41474f;">{{ googleSub }}</span></span>
+                    <sc-if value="{{ googleOff }}" hint-placeholder-val="{{ true }}"><button onClick="{{ linkGoogle }}" style="height:44px; padding:0 14px; border-radius:9999px; background:rgba(0,86,133,0.1); color:#003e62; font-size:14px; font-weight:700;">Collega</button></sc-if>
+                    <sc-if value="{{ googleOn }}" hint-placeholder-val="{{ false }}"><button onClick="{{ unlinkGoogle }}" style="height:44px; padding:0 12px; border-radius:9999px; color:#41474f; font-size:14px; font-weight:600;">Scollega</button></sc-if>
+                  </div>
+                  <button onClick="{{ openPassword }}" style="width:100%; min-height:52px; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 16px; border-top:1px solid #f2f3f8; text-align:left;"><span style="display:flex; align-items:center; gap:10px; font-size:15px; font-weight:700;"><nc-icon name="KeyRound" style="width:18px; height:18px; color:#005685;"></nc-icon>Cambia password</span><nc-icon name="ChevronRight" style="width:18px; height:18px; color:#717880;"></nc-icon></button>
+                  <button onClick="{{ openInstall }}" style="width:100%; min-height:52px; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 16px; border-top:1px solid #f2f3f8; text-align:left;"><span style="display:flex; align-items:center; gap:10px; font-size:15px; font-weight:700;"><nc-icon name="Download" style="width:18px; height:18px; color:#005685;"></nc-icon>{{ installLabel }}</span><nc-icon name="ChevronRight" style="width:18px; height:18px; color:#717880;"></nc-icon></button>
+                </div>
+              </section>
+
+              <button onClick="{{ logout }}" style="height:52px; border-radius:9999px; border:1px solid #c1c7d0; color:#b91c1c; font-size:16px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px;"><nc-icon name="LogOut" style="width:18px; height:18px;"></nc-icon>Esci</button>
+            </main>
+          </div>
+          <dc-import name="Cliente Tab Bar" active="profilo" hint-size="100%,94px" style="flex-shrink:0; width:100%;"></dc-import>
+
+          <sc-if value="{{ pwOn }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute; inset:0; z-index:30; display:flex; flex-direction:column; justify-content:flex-end;">
+              <div onClick="{{ closeSheet }}" style="position:absolute; inset:0; background:rgba(0,20,35,0.42);"></div>
+              <div role="dialog" aria-modal="true" aria-label="Cambia password" style="position:relative; background:#ffffff; border-radius:28px 28px 0 0; padding:10px 20px 40px; display:flex; flex-direction:column; gap:14px;">
+                <span style="align-self:center; width:40px; height:5px; border-radius:9999px; background:#c1c7d0;"></span>
+                <h2 style="font-family:Sora, sans-serif; font-size:22px; font-weight:700;">Cambia password</h2>
+                <label style="display:flex; flex-direction:column; gap:6px; font-size:14px; font-weight:600;">Nuova password
+                  <input type="password" value="{{ pw1 }}" onChange="{{ onPw1 }}" autocomplete="new-password" aria-invalid="{{ pw1Invalid }}" style="height:52px; border-radius:14px; border:1px solid {{ pw1Border }}; padding:0 14px; font-size:16px; font-weight:500; background:#ffffff;">
+                  <span style="font-size:13px; font-weight:500; color:{{ pw1HintFg }};">{{ pw1Hint }}</span>
+                </label>
+                <label style="display:flex; flex-direction:column; gap:6px; font-size:14px; font-weight:600;">Ripeti la password
+                  <input type="password" value="{{ pw2 }}" onChange="{{ onPw2 }}" autocomplete="new-password" aria-invalid="{{ pw2Invalid }}" style="height:52px; border-radius:14px; border:1px solid {{ pw2Border }}; padding:0 14px; font-size:16px; font-weight:500; background:#ffffff;">
+                  <sc-if value="{{ pw2Err }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px; font-weight:500; color:#b91c1c;">Le due password non coincidono.</span></sc-if>
+                </label>
+                <button onClick="{{ savePw }}" style="height:52px; border-radius:9999px; background:#005685; color:#ffffff; font-size:16px; font-weight:700;">Salva la nuova password</button>
+                <button onClick="{{ closeSheet }}" style="height:44px; border-radius:9999px; font-size:15px; font-weight:600; color:#003e62;">Indietro</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ installSheet }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute; inset:0; z-index:30; display:flex; flex-direction:column; justify-content:flex-end;">
+              <div onClick="{{ closeSheet }}" style="position:absolute; inset:0; background:rgba(0,20,35,0.42);"></div>
+              <div role="dialog" aria-modal="true" aria-label="Installa NC Calendar" style="position:relative; background:#ffffff; border-radius:28px 28px 0 0; padding:10px 20px 40px; display:flex; flex-direction:column; gap:16px;">
+                <span style="align-self:center; width:40px; height:5px; border-radius:9999px; background:#c1c7d0;"></span>
+                <h2 style="font-family:Sora, sans-serif; font-size:22px; font-weight:700;">Installa NC Calendar</h2>
+                <ol style="display:flex; flex-direction:column; gap:12px;">
+                  <li style="display:flex; align-items:center; gap:12px; font-size:15px; line-height:1.4;"><span style="width:32px; height:32px; border-radius:9999px; background:#005685; color:#ffffff; font-size:14px; font-weight:700; display:grid; place-items:center; flex-shrink:0;">1</span>In Safari tocca Condividi <nc-icon name="Upload" style="width:18px; height:18px; color:#005685;"></nc-icon></li>
+                  <li style="display:flex; align-items:center; gap:12px; font-size:15px; line-height:1.4;"><span style="width:32px; height:32px; border-radius:9999px; background:#005685; color:#ffffff; font-size:14px; font-weight:700; display:grid; place-items:center; flex-shrink:0;">2</span>Scegli «Aggiungi alla schermata Home»</li>
+                  <li style="display:flex; align-items:center; gap:12px; font-size:15px; line-height:1.4;"><span style="width:32px; height:32px; border-radius:9999px; background:#005685; color:#ffffff; font-size:14px; font-weight:700; display:grid; place-items:center; flex-shrink:0;">3</span>Apri NC Calendar dall'icona e attiva le notifiche da qui</li>
+                </ol>
+                <p style="font-size:13px; line-height:1.5; color:#41474f;">Su Android: menu del browser, poi «Installa app».</p>
+                <button onClick="{{ markInstalled }}" style="height:52px; border-radius:9999px; background:#005685; color:#ffffff; font-size:16px; font-weight:700;">Ho installato l'app</button>
+                <button onClick="{{ closeSheet }}" style="height:44px; border-radius:9999px; font-size:15px; font-weight:600; color:#003e62;">Chiudi</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ toastOn }}" hint-placeholder-val="{{ false }}">
+            <div role="status" aria-live="polite" style="position:absolute; left:12px; right:12px; bottom:106px; z-index:40; display:flex; align-items:center; gap:12px; background:#191c1f; color:#ffffff; border-radius:16px; padding:8px 8px 8px 16px; box-shadow:0 12px 32px rgba(0,0,0,0.25);">
+              <nc-icon name="{{ toastIcon }}" style="width:18px; height:18px; color:{{ toastColor }};"></nc-icon>
+              <span style="flex:1; font-size:14px; line-height:1.35; padding:8px 0;">{{ toastMsg }}</span>
+            </div>
+          </sc-if>
+        </div>
+      </x-import>
+    </div>
+  </div>
+  <sc-if value="{{ panel }}" hint-placeholder-val="{{ true }}">
+    <div style="width:340px; max-width:100%;"><dc-import name="Cliente Revisione" screen="profilo" hint-size="340px,760px" style="width:100%;"></dc-import></div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;reviewPanel&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Prototipo&quot;},&quot;clock&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;reale&quot;,&quot;08:15&quot;,&quot;10:40&quot;,&quot;13:10&quot;,&quot;19:10&quot;],&quot;default&quot;:&quot;10:40&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototipo&quot;}}">
+class Component extends DCLogic {
+  state = { fit: null, sheet: null, pw1: "", pw2: "", tried: false };
+  componentDidMount() {
+    this.fitNow = () => this.setState({ fit: window.NCClient ? window.NCClient.fit() : null });
+    window.addEventListener("resize", this.fitNow);
+    const hook = () => { this.unsub = window.NCStore.subscribe(() => this.forceUpdate()); if (this.props.clock) window.NCStore.setClock(this.props.clock); this.fitNow(); };
+    const wait = () => (window.NCClient && window.NCClient.ready() ? hook() : (this.t = setTimeout(wait, 30)));
+    wait();
+    this.onKey = (e) => { if (e.key === "Escape") this.setState({ sheet: null }); };
+    document.addEventListener("keydown", this.onKey);
+  }
+  componentDidUpdate(prev) { if (window.NCStore && this.props.clock && prev.clock !== this.props.clock) window.NCStore.setClock(this.props.clock); }
+  componentWillUnmount() { this.unsub && this.unsub(); clearTimeout(this.t); window.removeEventListener("resize", this.fitNow); document.removeEventListener("keydown", this.onKey); }
+
+  renderVals() {
+    const C = window.NCClient, S = window.NCStore;
+    const f = this.state.fit || { w: "402px", h: "874px", t: "none" };
+    const out = { boxW: f.w, boxH: f.h, scaleT: f.t, panel: this.props.reviewPanel ?? true, pathRows: [] };
+    if (!C || !C.ready()) return out;
+    const c = C.me(), co = C.coach(), blk = C.block(c), unread = C.unread();
+    const close = () => this.setState({ sheet: null, pw1: "", pw2: "", tried: false });
+    const installed = C.pref("installed", false), push = C.pref("push", false), google = C.pref("google", false);
+    const att = S.attendance(c.id);
+    const rows = [["Percorso", { fixed: "Percorso fisso", recurring: "Abbonamento mensile", free: "Cliente libero" }[c.pathType] || c.plan]];
+    if (!blk.free) rows.push([blk.ended ? "Concluso" : blk.recurring ? "Blocco in corso" : "Blocco", blk.ended ? C.dayLong(blk.end).toLowerCase() : blk.recurring ? String(blk.n) : blk.n + " di " + blk.of]);
+    if (!blk.free && !blk.ended) rows.push([blk.recurring && c.autoRenew ? "Rinnovo" : "Fine del blocco", blk.recurring && c.autoRenew ? blk.nextFrom : blk.endLabel]);
+    if (att != null) rows.push(["Presenza, ultime 8 settimane", att + "%"]);
+    const { pw1, pw2, tried } = this.state;
+    const short = pw1.length > 0 && pw1.length < 8, mismatch = tried && pw2 !== pw1;
+    Object.assign(out, {
+      clock: C.clockLabel(), unread: unread > 0, unreadLabel: String(unread), bellLabel: unread ? "Notifiche, " + unread + " non lette" : "Notifiche",
+      openNotifs: () => C.push("notifiche"),
+      ini: S.initials(c.name), name: c.name, email: c.email, phone: c.phone,
+      coachName: co.name, coachIni: S.initials(co.name), waHref: co.wa, telHref: co.tel, mailHref: co.mail,
+      pathRows: rows.map((r, i) => ({ label: r[0], value: r[1], sep: i ? "#f2f3f8" : "transparent" })),
+      buyOn: C.canBuy(c), goBooster: () => C.go("booster"),
+      installed, notInstalled: !installed,
+      pushSub: installed ? (push ? "Promemoria, conferme e avvisi quando " + co.first + " cambia una sessione." : "Disattivate: gli avvisi restano nella campanella dell'app.") : "Per riceverle installa l'app sulla schermata Home del telefono.",
+      pushChecked: push ? "true" : "false", swBg: push ? "#005685" : "#c1c7d0", swJustify: push ? "flex-end" : "flex-start",
+      togglePush: () => { C.setPref("push", !push); S.showToast({ msg: push ? "Notifiche sul telefono disattivate." : "Notifiche sul telefono attivate.", tone: "info" }); },
+      inviteSub: "Ogni sessione arriva come invito di Google Calendar a " + c.email + " e si aggiorna da sola se viene spostata o annullata.",
+      googleOn: google, googleOff: !google, googleSub: google ? "Collegato: puoi entrare anche con Google" : "Entra con il tuo account Google invece della password",
+      linkGoogle: () => { C.setPref("google", true); S.showToast({ msg: "Account Google collegato.", tone: "ok" }); },
+      unlinkGoogle: () => { C.setPref("google", false); S.showToast({ msg: "Account Google scollegato: entri con email e password.", tone: "info" }); },
+      openPassword: () => this.setState({ sheet: "password" }), pwOn: this.state.sheet === "password",
+      pw1, pw2, onPw1: (e) => this.setState({ pw1: e.target.value }), onPw2: (e) => this.setState({ pw2: e.target.value }),
+      pw1Invalid: short || (tried && pw1.length < 8) ? "true" : "false", pw2Invalid: mismatch ? "true" : "false",
+      pw1Border: short || (tried && pw1.length < 8) ? "#b91c1c" : "#c1c7d0", pw2Border: mismatch ? "#b91c1c" : "#c1c7d0",
+      pw1Hint: short || (tried && pw1.length < 8) ? "Servono almeno 8 caratteri (ora " + pw1.length + ")." : "Almeno 8 caratteri.",
+      pw1HintFg: short || (tried && pw1.length < 8) ? "#b91c1c" : "#41474f", pw2Err: mismatch,
+      savePw: () => { if (pw1.length < 8 || pw2 !== pw1) { this.setState({ tried: true }); return; } close(); S.showToast({ msg: "Password aggiornata.", tone: "ok" }); },
+      installLabel: installed ? "App installata" : "Installa l'app",
+      openInstall: () => this.setState({ sheet: "install" }), installSheet: this.state.sheet === "install",
+      markInstalled: () => { C.setPref("installed", true); close(); S.showToast({ msg: "App installata: ora puoi attivare le notifiche.", tone: "ok" }); },
+      closeSheet: close,
+      logout: () => S.showToast({ msg: "Nel prototipo l'uscita non è attiva.", tone: "info" }),
+    });
+    const tst = S.getToast(), TONE = { ok: ["CircleCheck", "#6ee7b7"], warn: ["TriangleAlert", "#fdba74"], info: ["Info", "#91cbff"] }, tone = tst ? TONE[tst.tone] || TONE.ok : TONE.ok;
+    Object.assign(out, { toastOn: !!tst, toastMsg: tst ? tst.msg : "", toastIcon: tone[0], toastColor: tone[1] });
+    return out;
+  }
+}
+</script>
+</body>
+</html>
