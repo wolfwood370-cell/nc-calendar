@@ -127,7 +127,7 @@ export function IntegrationsGcalCard({
           </span>
           <div className="flex min-w-0 flex-col gap-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 id="gcal-title" className="text-xl font-semibold text-on-surface">
+              <h2 id="gcal-title" className="card-title text-on-surface">
                 Google Calendar
               </h2>
               <ChipView chip={chip} />

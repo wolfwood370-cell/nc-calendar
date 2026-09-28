@@ -373,7 +373,7 @@ export function IntegrationsDesktop({
                 </span>
                 <div className="flex min-w-0 flex-col gap-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h2 id="stripe-title" className="text-xl font-semibold text-on-surface">
+                    <h2 id="stripe-title" className="card-title text-on-surface">
                       Pagamenti · Stripe
                     </h2>
                     <span className="rounded-full bg-surface-container px-2.5 py-[3px] text-[11px] font-bold text-on-surface-variant">

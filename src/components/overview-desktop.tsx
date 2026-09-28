@@ -247,7 +247,7 @@ export function OverviewDesktop() {
           <section className={cn(CARD, "gap-2")} aria-labelledby="overview-today">
             <div className="mb-2 flex items-center justify-between gap-3">
               <div className="flex flex-wrap items-baseline gap-3">
-                <h2 id="overview-today" className="text-xl font-semibold">
+                <h2 id="overview-today" className="card-title">
                   Oggi
                 </h2>
                 {counts.total > 0 && (
@@ -314,7 +314,7 @@ export function OverviewDesktop() {
             {/* Rinnovi in scadenza */}
             <section className={cn(CARD, "gap-3.5")} aria-labelledby="overview-renewals">
               <div className="flex items-center justify-between gap-3">
-                <h2 id="overview-renewals" className="text-xl font-semibold">
+                <h2 id="overview-renewals" className="card-title">
                   Rinnovi in scadenza
                 </h2>
                 <CountPill n={renewals.length} tone="warning" />
@@ -371,7 +371,7 @@ export function OverviewDesktop() {
             {/* Da assegnare */}
             <section className={cn(CARD, "gap-3.5")} aria-labelledby="overview-to-assign">
               <div className="flex items-center justify-between gap-3">
-                <h2 id="overview-to-assign" className="text-xl font-semibold">
+                <h2 id="overview-to-assign" className="card-title">
                   Da assegnare
                 </h2>
                 <CountPill n={toAssign.length} tone="assign" />
@@ -423,7 +423,7 @@ export function OverviewDesktop() {
         {/* Distribuzione servizi */}
         <section className={cn(CARD, "gap-4")} aria-labelledby="overview-distribution">
           <div className="flex flex-wrap items-baseline justify-between gap-3">
-            <h2 id="overview-distribution" className="text-xl font-semibold">
+            <h2 id="overview-distribution" className="card-title">
               Distribuzione servizi
             </h2>
             <span className="text-[13px] text-outline">

@@ -113,7 +113,7 @@ export function BookingRulesCard() {
       aria-labelledby="rules-title"
       className="flex flex-col gap-3 rounded-[28px] bg-white p-6 shadow-[0px_4px_20px_rgba(0,86,133,0.05)]"
     >
-      <h2 id="rules-title" className="text-xl font-semibold">
+      <h2 id="rules-title" className="card-title">
         Regole di prenotazione
       </h2>
       <div className="flex flex-col gap-2.5">

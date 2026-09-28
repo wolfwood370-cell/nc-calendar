@@ -217,7 +217,7 @@ export function AvailabilityDesktop({
 
         <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,420px),1fr))] items-start gap-5">
           <section className={cn(CARD, "gap-1")} aria-labelledby="week-title">
-            <h2 id="week-title" className="mb-2 text-xl font-semibold">
+            <h2 id="week-title" className="mb-2 card-title">
               Orario settimanale
             </h2>
             {week ? (

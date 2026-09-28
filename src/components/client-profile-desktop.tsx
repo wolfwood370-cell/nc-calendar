@@ -47,6 +47,7 @@ import {
 } from "@/components/coach-dialog";
 import { CoachPage } from "@/components/coach-page";
 import { PackageDialog } from "@/components/package-dialog";
+import { PageTitle } from "@/components/page-title";
 import { ProfileOverview } from "@/components/profile-overview";
 import { ProfilePath } from "@/components/profile-path";
 import { ProfileSessionDialog } from "@/components/profile-session-dialog";
@@ -470,9 +471,7 @@ export function ClientProfileDesktop({
             {initials(client.full_name, client.email)}
           </span>
           <div className="flex min-w-0 flex-col gap-2">
-            <h1 className="m-0 font-display text-[36px] font-bold leading-[1.1] tracking-[-0.02em] text-on-surface">
-              {clientName}
-            </h1>
+            <PageTitle className="m-0">{clientName}</PageTitle>
             <div className="flex flex-wrap gap-1.5">
               {status && (
                 <span
