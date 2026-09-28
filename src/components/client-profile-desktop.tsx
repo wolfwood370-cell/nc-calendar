@@ -45,15 +45,19 @@ import {
   dialogPrimaryButton,
   dialogSecondaryButton,
 } from "@/components/coach-dialog";
+import { CoachPage } from "@/components/coach-page";
 import { PackageDialog } from "@/components/package-dialog";
+import { PageTitle } from "@/components/page-title";
 import { ProfileOverview } from "@/components/profile-overview";
 import { ProfilePath } from "@/components/profile-path";
 import { ProfileSessionDialog } from "@/components/profile-session-dialog";
 import { ProfileSessions } from "@/components/profile-sessions";
+import { SegmentedControl } from "@/components/segmented-control";
 import { SessionCancelDialog } from "@/components/session-cancel-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { undoAssign } from "@/lib/assign-event";
-import { presenceSummary } from "@/lib/attendance";
+import { profilePresence } from "@/lib/attendance";
+import { useNow } from "@/hooks/use-now";
 import { useAuth } from "@/lib/auth";
 import { CreditUnavailableError, type SessionRemoval } from "@/lib/cancel-session";
 import { whatsappUrl } from "@/lib/calendar-events";
@@ -92,7 +96,7 @@ import { supabaseProfileStore } from "@/lib/profile-store";
 import { useCoachEventTypes } from "@/lib/queries";
 import { queryKeys } from "@/lib/query-keys";
 import { getRenewalInfo } from "@/lib/renewal";
-import { toastWithUndo } from "@/lib/toast";
+import { toastWithUndo, UNDO_TOAST_DURATION } from "@/lib/toast";
 import { initials } from "@/lib/initials";
 import { cn, errorMessage } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
@@ -126,11 +130,11 @@ export function ClientProfileDesktop({
   const { id: clientId } = useParams({ from: "/trainer/clients/$id" });
   const search = useSearch({ from: "/trainer/clients/$id" });
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const qc = useQueryClient();
   const eventTypes = useCoachEventTypes(user?.id).data ?? [];
   const tab = profileTab(search);
-  const now = new Date();
+  const now = useNow();
 
   const dataQ = useQuery({
     queryKey: ["client-profile", clientId, user?.id],
@@ -318,7 +322,12 @@ export function ClientProfileDesktop({
       )
     : null;
   const summary = packageSummary(client?.path_type ?? null, blocks, allocations, now);
-  const presence = presenceSummary(bookings, now);
+  // V5: le sessioni che conta anche la lista Clienti (solo le sue per il coach).
+  const presence = profilePresence(
+    bookings,
+    { id: user?.id ?? "", isAdmin: role === "admin" },
+    now,
+  );
   const chip = blockChip(client?.path_type ?? null, blocks, now);
   const wa = whatsappUrl(client?.phone);
   const control = renewalControl(client?.path_type ?? null, client?.auto_renew_blocks ?? null);
@@ -398,6 +407,7 @@ export function ClientProfileDesktop({
     } catch (e) {
       if (e instanceof CreditUnavailableError && useCredit) {
         toast.error(`${clientName} non ha crediti di ${type.name} per quella data.`, {
+          duration: UNDO_TOAST_DURATION,
           action: { label: "Collega senza credito", onClick: () => void linkOne(o, false) },
         });
       } else {
@@ -445,16 +455,16 @@ export function ClientProfileDesktop({
   // ------------------------------------------------------------------ vista
   if (!data || !client) {
     return (
-      <div className="grid place-items-center py-24 text-muted-foreground">
+      <CoachPage saveBar className="grid place-items-center py-24 text-muted-foreground">
         <Loader2 className="size-5 animate-spin" aria-label="Caricamento" />
-      </div>
+      </CoachPage>
     );
   }
 
   const cta = packageCta(client.path_type, blocks.length > 0, !!renewal);
 
   return (
-    <div className={cn("flex flex-col gap-5", dirty && "pb-24")}>
+    <CoachPage saveBar className="flex flex-col gap-5">
       <section className="flex flex-wrap items-center justify-between gap-5 rounded-[28px] bg-surface-container-lowest p-6 shadow-soft-blue">
         <div className="flex min-w-0 items-center gap-[18px]">
           <Link
@@ -469,9 +479,7 @@ export function ClientProfileDesktop({
             {initials(client.full_name, client.email)}
           </span>
           <div className="flex min-w-0 flex-col gap-2">
-            <h1 className="m-0 font-display text-[36px] font-bold leading-[1.1] tracking-[-0.02em] text-on-surface">
-              {clientName}
-            </h1>
+            <PageTitle className="m-0">{clientName}</PageTitle>
             <div className="flex flex-wrap gap-1.5">
               {status && (
                 <span
@@ -545,41 +553,34 @@ export function ClientProfileDesktop({
         </div>
       </section>
 
-      <div
-        role="tablist"
-        aria-label="Sezioni del profilo"
-        className="flex w-fit rounded-full bg-surface-container p-[3px]"
-      >
-        {TABS.map((t) => {
-          const on = tab === t.value;
+      <SegmentedControl
+        kind="tabs"
+        size="tab"
+        ariaLabel="Sezioni del profilo"
+        className="w-fit"
+        itemClassName="px-[18px]"
+        value={tab}
+        onChange={goTab}
+        options={TABS.map((t) => {
           const badge = t.value === "sessioni" ? data.orphans.length : 0;
-          return (
-            <button
-              key={t.value}
-              type="button"
-              role="tab"
-              aria-selected={on}
-              onClick={() => goTab(t.value)}
-              className={cn(
-                "flex h-9 items-center gap-2 rounded-full px-[18px] text-sm font-semibold transition-colors",
-                on
-                  ? "bg-white text-aura-primary shadow-[0_1px_3px_rgba(0,0,0,0.1)]"
-                  : "text-on-surface-variant",
-              )}
-            >
-              {t.label}
-              {badge > 0 && (
-                <span
-                  aria-label={`${badge} fuori percorso`}
-                  className="grid h-[18px] min-w-[18px] place-items-center rounded-full bg-[rgba(124,67,2,0.14)] px-[5px] text-[11px] font-bold text-[#7c4302]"
-                >
-                  {badge}
-                </span>
-              )}
-            </button>
-          );
+          return {
+            value: t.value,
+            label: (
+              <>
+                {t.label}
+                {badge > 0 && (
+                  <span
+                    aria-label={`${badge} fuori percorso`}
+                    className="grid h-[18px] min-w-[18px] place-items-center rounded-full bg-[rgba(124,67,2,0.14)] px-[5px] text-[11px] font-bold text-[#7c4302]"
+                  >
+                    {badge}
+                  </span>
+                )}
+              </>
+            ),
+          };
         })}
-      </div>
+      />
 
       {tab === "panoramica" && user && (
         <ProfileOverview
@@ -729,6 +730,7 @@ export function ClientProfileDesktop({
       <ProfileSessionDialog
         booking={editing}
         clientName={clientName}
+        coachId={user?.id ?? ""}
         eventTypes={eventTypes}
         onClose={() => setEditing(null)}
         onChanged={refresh}
@@ -796,6 +798,6 @@ export function ClientProfileDesktop({
         onClose={() => setPackageMode(null)}
         onChanged={refresh}
       />
-    </div>
+    </CoachPage>
   );
 }

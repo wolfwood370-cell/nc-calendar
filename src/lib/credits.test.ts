@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatCredits,
+  formatCreditsAgreed,
   formatCreditsLeft,
   formatCreditsOf,
+  formatCreditsOfTail,
   getBlockCredits,
-  getCurrentBlockCredits,
   sumCredits,
   type CreditAllocation,
 } from "@/lib/credits";
@@ -29,6 +31,35 @@ describe("formatCreditsOf", () => {
     [-2, 5, "0 di 5 rimasti"],
   ])("%i su %i → «%s»", (left, total, text) => {
     expect(formatCreditsOf(left, total)).toBe(text);
+  });
+});
+
+describe("formatCreditsOfTail · la coda di formatCreditsOf (Profilo, V2)", () => {
+  it.each([
+    [6, 13, "di 13 rimasti"],
+    [1, 5, "di 5 rimasto"],
+    [0, 5, "di 5 rimasti"],
+  ])("%i su %i → «%s»", (left, total, text) => {
+    expect(formatCreditsOfTail(left, total)).toBe(text);
+    expect(formatCreditsOf(left, total)).toBe(`${left} ${text}`);
+  });
+});
+
+describe("formatCredits e formatCreditsAgreed · l'accordo col numero (V2)", () => {
+  it("«1 credito» · «N crediti»", () => {
+    expect(formatCredits(1)).toBe("1 credito");
+    expect(formatCredits(0)).toBe("0 crediti");
+    expect(formatCredits(8)).toBe("8 crediti");
+  });
+  it.each([
+    [1, "Yoga", ["disponibile", "disponibili"], "1 credito Yoga disponibile"],
+    [3, "Yoga", ["disponibile", "disponibili"], "3 crediti Yoga disponibili"],
+    [1, "PT", ["aggiunto", "aggiunti"], "1 credito PT aggiunto"],
+    [5, "PT", ["aggiunto", "aggiunti"], "5 crediti PT aggiunti"],
+    [1, null, ["disponibile", "disponibili"], "1 credito disponibile"],
+    [0, null, ["disponibile", "disponibili"], "0 crediti disponibili"],
+  ] as const)("%i %s → «%s»", (n, type, agree, text) => {
+    expect(formatCreditsAgreed(n, type, agree)).toBe(text);
   });
 });
 
@@ -74,26 +105,6 @@ describe("getBlockCredits", () => {
   it("non scende sotto zero", () => {
     const [row] = getBlockCredits("b2", [alloc("b2", "pt", 2, 3)]);
     expect(row?.left).toBe(0);
-  });
-});
-
-describe("getCurrentBlockCredits", () => {
-  const blocks = [
-    { id: "b1", sequence_order: 1, start_date: "2026-08-24", end_date: "2026-09-20" },
-    { id: "b2", sequence_order: 2, start_date: "2026-09-21", end_date: "2026-10-18" },
-  ];
-  const allocations = [alloc("b1", "pt", 8, 8), alloc("b2", "pt", 8, 5), alloc("b2", "bia", 1, 0)];
-
-  it("conta solo il blocco in corso", () => {
-    const rows = getCurrentBlockCredits(blocks, allocations, new Date(2026, 8, 25, 10, 40));
-    expect(rows.map((r) => [r.key, r.assigned, r.booked, r.left])).toEqual([
-      ["pt", 8, 5, 3],
-      ["bia", 1, 0, 1],
-    ]);
-  });
-
-  it("è vuoto se oggi nessun blocco è in corso", () => {
-    expect(getCurrentBlockCredits(blocks, allocations, new Date(2026, 11, 1))).toEqual([]);
   });
 });
 

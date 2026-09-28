@@ -21,9 +21,10 @@ import {
   dialogPrimaryButton,
   dialogSecondaryButton,
 } from "@/components/coach-dialog";
+import { SegmentedControl } from "@/components/segmented-control";
 import { useAuth } from "@/lib/auth";
 import { clientPlanLabel } from "@/lib/client-search";
-import { getCurrentBlockCredits, sumCredits } from "@/lib/credits";
+import { formatCreditsAgreed } from "@/lib/credits";
 import { toIsoDate } from "@/lib/current-block";
 import {
   BLOCKS_MAX,
@@ -40,6 +41,7 @@ import {
   lastBlock,
   nextBlockDates,
   renewNote,
+  renewalResidual,
   renewPackage,
   undoPackageChange,
   type PackageBlock,
@@ -85,9 +87,6 @@ export function PackageDialog({ clientId, initialMode, onClose, onChanged }: Pac
     </CoachDialog>
   );
 }
-
-const segmentItem =
-  "h-8 rounded-full px-3.5 text-[13px] font-semibold transition-colors data-[state=checked]:bg-surface-container-lowest data-[state=checked]:text-aura-primary data-[state=checked]:shadow-[0_1px_3px_rgba(0,0,0,0.1)] data-[state=unchecked]:text-on-surface-variant";
 
 function Stepper({
   value,
@@ -230,12 +229,8 @@ function PackageBody({
   const newBlock = nextBlockDates(last, today, blockLength(last));
   const firstDate = parseISO(newBlock.start);
   const firstDay = formatShortDate(firstDate);
-  const residual = sumCredits(
-    getCurrentBlockCredits(
-      blocksQ.data ?? [],
-      (blocksQ.data ?? []).flatMap((b) => b.allocations),
-    ),
-  ).left;
+  // Il blocco di riferimento del percorso, come Panoramica, Clienti e Profilo (V6).
+  const residual = renewalResidual(blocksQ.data ?? [], new Date());
   const renewRows = creditsByType(last, types);
   const hasFutureBlocks = blocks.some((b) => b.start_date.slice(0, 10) > today);
 
@@ -301,10 +296,7 @@ function PackageBody({
           eventTypeId: extraType!.id,
           quantity: extraQty,
         });
-        message =
-          extraQty === 1
-            ? `1 credito ${extraType!.name} aggiunto a ${name}.`
-            : `${extraQty} crediti ${extraType!.name} aggiunti a ${name}.`;
+        message = `${formatCreditsAgreed(extraQty, extraType!.name, ["aggiunto", "aggiunti"])} a ${name}.`;
       } else {
         change = await assignNewPath(supabasePackageStore, {
           clientId,
@@ -358,7 +350,7 @@ function PackageBody({
           ))}
         </div>
         <p className="text-[13px] leading-normal text-on-surface-variant">
-          {renewNote(firstDate, residual)}
+          {renewNote(firstDate, residual.residual, residual.block)}
         </p>
       </>
     );
@@ -400,20 +392,16 @@ function PackageBody({
   } else {
     body = (
       <div className="flex flex-col gap-3">
-        <RadioGroupPrimitive.Root
+        <SegmentedControl
+          ariaLabel="Tipo di percorso"
+          className="self-start"
           value={effectivePathType}
-          onValueChange={(v) => setPathType(v as "fixed" | "recurring")}
-          aria-label="Tipo di percorso"
-          orientation="horizontal"
-          className="flex self-start rounded-full bg-surface-container p-[3px]"
-        >
-          <RadioGroupPrimitive.Item value="fixed" className={segmentItem}>
-            Percorso fisso
-          </RadioGroupPrimitive.Item>
-          <RadioGroupPrimitive.Item value="recurring" className={segmentItem}>
-            Abbonamento mensile
-          </RadioGroupPrimitive.Item>
-        </RadioGroupPrimitive.Root>
+          onChange={setPathType}
+          options={[
+            { value: "fixed", label: "Percorso fisso" },
+            { value: "recurring", label: "Abbonamento mensile" },
+          ]}
+        />
         {effectivePathType === "fixed" && (
           <div className="flex items-center gap-3">
             <span className="text-sm font-semibold text-on-surface">Numero di blocchi</span>

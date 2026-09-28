@@ -100,7 +100,7 @@ export function TrainerClientSearch() {
         onFocus={() => setOpen(true)}
         onBlur={() => setOpen(false)}
         onKeyDown={onKeyDown}
-        className="h-[38px] w-full rounded-full border border-outline-variant/60 bg-white pr-[52px] pl-[38px] text-sm text-on-surface outline-none placeholder:text-outline focus:border-primary-container focus:shadow-[0_0_0_3px_rgba(0,86,133,0.12)]"
+        className="h-[38px] w-full rounded-full border border-outline-variant/60 bg-white pr-[52px] pl-[38px] text-sm text-on-surface placeholder:text-outline focus:border-primary-container focus:shadow-[0_0_0_3px_rgba(0,86,133,0.12)]"
       />
       <kbd
         aria-hidden

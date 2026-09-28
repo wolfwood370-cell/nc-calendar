@@ -15,13 +15,15 @@
 
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { ArrowRight, CheckCircle2, CircleCheck, Undo2, UserX } from "lucide-react";
 import { toast } from "sonner";
 
+import { CoachPage } from "@/components/coach-page";
 import { PackageDialog } from "@/components/package-dialog";
 import { PageTitle } from "@/components/page-title";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useNow } from "@/hooks/use-now";
 import { useAuth } from "@/lib/auth";
 import { clientPlanLabel } from "@/lib/client-search";
 import { romeDate } from "@/lib/credit-order";
@@ -36,7 +38,7 @@ import {
   type BookingRow,
 } from "@/lib/queries";
 import { queryKeys } from "@/lib/query-keys";
-import { listRenewals } from "@/lib/renewal";
+import { formatRenewals, listRenewals } from "@/lib/renewal";
 import {
   FALLBACK_TYPE_COLOR,
   formatDistributionLabel,
@@ -51,7 +53,7 @@ import {
 import { supabaseSessionStore } from "@/lib/session-store";
 import { formatDuration, formatShortDay, formatTimeRange } from "@/lib/session-time";
 import { iconForType } from "@/lib/session-type-icon";
-import { listToAssign } from "@/lib/to-assign";
+import { formatToAssign, listToAssign } from "@/lib/to-assign";
 import { toastWithUndo } from "@/lib/toast";
 import {
   agendaChipLabel,
@@ -71,9 +73,6 @@ import { cn } from "@/lib/utils";
 const CARD =
   "flex min-w-0 flex-col rounded-[28px] border border-white/60 bg-white/70 p-6 shadow-soft-card";
 
-/** Ogni quanto la pagina ricalcola gli stati della giornata. */
-const CLOCK_TICK_MS = 30_000;
-
 const CHIP_CLASS: Record<AgendaPhase, string> = {
   done: "bg-success-soft text-success-text",
   noshow: "bg-danger-soft text-danger-text",
@@ -88,27 +87,20 @@ const ROW_CLASS: Partial<Record<AgendaPhase, string>> = {
   toconfirm: "bg-[rgba(255,237,213,0.35)]",
 };
 
-/** L'ora che scorre: gli stati della giornata cambiano senza ricaricare. */
-function useNow(): Date {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(new Date()), CLOCK_TICK_MS);
-    return () => window.clearInterval(id);
-  }, []);
-  return now;
-}
-
 function formatTime(d: Date): string {
   return d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
 }
 
-function CountPill({ n, tone }: { n: number; tone: "warning" | "assign" }) {
+/** Il numero accanto al titolo della card; `label` è quello che legge lo screen reader (V12). */
+function CountPill({ n, tone, label }: { n: number; tone: "warning" | "assign"; label: string }) {
   return (
     <span
+      aria-label={label}
+      title={label}
       className={cn(
         "rounded-full px-3 py-1 text-xs font-bold tabular-nums",
         n === 0
-          ? "bg-surface-container text-outline"
+          ? "bg-surface-container text-on-surface-variant"
           : tone === "warning"
             ? "bg-warning-soft text-warning-text"
             : "bg-[rgba(255,220,194,0.6)] text-tertiary-container",
@@ -230,7 +222,7 @@ export function OverviewDesktop() {
   );
 
   return (
-    <div className="hidden md:block -m-6 min-h-[calc(100vh-3.5rem)] bg-surface px-10 pb-12 pt-7 text-on-surface">
+    <CoachPage className="hidden md:block">
       <div className="flex flex-col gap-6">
         <header className="flex flex-col gap-1.5">
           <PageTitle>
@@ -246,7 +238,7 @@ export function OverviewDesktop() {
           <section className={cn(CARD, "gap-2")} aria-labelledby="overview-today">
             <div className="mb-2 flex items-center justify-between gap-3">
               <div className="flex flex-wrap items-baseline gap-3">
-                <h2 id="overview-today" className="text-xl font-semibold">
+                <h2 id="overview-today" className="card-title">
                   Oggi
                 </h2>
                 {counts.total > 0 && (
@@ -313,10 +305,14 @@ export function OverviewDesktop() {
             {/* Rinnovi in scadenza */}
             <section className={cn(CARD, "gap-3.5")} aria-labelledby="overview-renewals">
               <div className="flex items-center justify-between gap-3">
-                <h2 id="overview-renewals" className="text-xl font-semibold">
+                <h2 id="overview-renewals" className="card-title">
                   Rinnovi in scadenza
                 </h2>
-                <CountPill n={renewals.length} tone="warning" />
+                <CountPill
+                  n={renewals.length}
+                  tone="warning"
+                  label={formatRenewals(renewals.length)}
+                />
               </div>
               <p className="-mt-1.5 text-xs text-outline">
                 Ultimo blocco con 2 crediti o meno, o che scade entro 7 giorni. Esclusi i rinnovi
@@ -350,6 +346,7 @@ export function OverviewDesktop() {
                             <span className="text-xs text-on-surface-variant">
                               {clientPlanLabel(client)} ·{" "}
                               <span className="font-semibold text-warning-text">{info.reason}</span>
+                              {info.note && <> · {info.note}</>}
                             </span>
                           </span>
                         </Link>
@@ -370,10 +367,14 @@ export function OverviewDesktop() {
             {/* Da assegnare */}
             <section className={cn(CARD, "gap-3.5")} aria-labelledby="overview-to-assign">
               <div className="flex items-center justify-between gap-3">
-                <h2 id="overview-to-assign" className="text-xl font-semibold">
+                <h2 id="overview-to-assign" className="card-title">
                   Da assegnare
                 </h2>
-                <CountPill n={toAssign.length} tone="assign" />
+                <CountPill
+                  n={toAssign.length}
+                  tone="assign"
+                  label={formatToAssign(toAssign.length)}
+                />
               </div>
               <p className="-mt-1.5 text-xs text-outline">
                 Eventi importati da Google Calendar senza cliente.
@@ -422,7 +423,7 @@ export function OverviewDesktop() {
         {/* Distribuzione servizi */}
         <section className={cn(CARD, "gap-4")} aria-labelledby="overview-distribution">
           <div className="flex flex-wrap items-baseline justify-between gap-3">
-            <h2 id="overview-distribution" className="text-xl font-semibold">
+            <h2 id="overview-distribution" className="card-title">
               Distribuzione servizi
             </h2>
             <span className="text-[13px] text-outline">
@@ -473,7 +474,7 @@ export function OverviewDesktop() {
         initialMode="renew"
         onClose={() => setRenewClientId(null)}
       />
-    </div>
+    </CoachPage>
   );
 }
 

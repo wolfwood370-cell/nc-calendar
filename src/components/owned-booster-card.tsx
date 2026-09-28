@@ -1,5 +1,6 @@
 import { Sparkles } from "lucide-react";
 import { AuraProgressRing } from "@/components/ui/aura-progress-ring";
+import { formatCreditsOf } from "@/lib/credits";
 
 export interface OwnedBoosterCredit {
   id: string;
@@ -43,7 +44,7 @@ export function OwnedBoosterCard({
   return (
     <article
       className="bg-surface-container-lowest rounded-[32px] border border-outline-variant/20 shadow-[0_12px_32px_rgba(0,0,0,0.04)] p-5 flex items-center gap-4"
-      aria-label={`Booster ${c.eventName}: ${remaining} di ${total} crediti rimanenti`}
+      aria-label={`Booster ${c.eventName}: ${formatCreditsOf(remaining, total)}`}
     >
       <AuraProgressRing
         used={used}

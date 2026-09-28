@@ -13,6 +13,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, Plus, Tag } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { CoachPage } from "@/components/coach-page";
 import { EventTypeCard, type CardUsage } from "@/components/event-type-card";
 import { EventTypeDeleteDialog } from "@/components/event-type-delete-dialog";
 import { EventTypeDialog } from "@/components/event-type-dialog";
@@ -156,7 +157,7 @@ export function EventTypesDesktop({
   };
 
   return (
-    <div className="-m-6 min-h-[calc(100vh-3.5rem)] min-w-0 bg-surface px-10 pb-12 pt-7 text-on-surface">
+    <CoachPage>
       <div className="flex min-w-0 flex-col gap-5">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="flex max-w-[640px] flex-col gap-1.5">
@@ -255,6 +256,6 @@ export function EventTypesDesktop({
           }}
         />
       )}
-    </div>
+    </CoachPage>
   );
 }

@@ -24,10 +24,13 @@ import type { AllDayItem } from "@/components/calendar-all-day-strip";
 import { CalendarDetailsPanel, type PanelCredit } from "@/components/calendar-details-panel";
 import { CalendarGrid, type GridItem } from "@/components/calendar-grid";
 import { CalendarToolbar, type MissingOnGoogle } from "@/components/calendar-toolbar";
+import { CoachPage } from "@/components/coach-page";
 import { PackageDialog } from "@/components/package-dialog";
 import { SessionCancelDialog } from "@/components/session-cancel-dialog";
 import { SessionFormDialog, type SessionFormInit } from "@/components/session-form-dialog";
 import { notifySync, type GcalSync } from "@/hooks/use-gcal-sync";
+import { useNow } from "@/hooks/use-now";
+import { sessionBlockCredits } from "@/lib/assign-event";
 import { useAuth } from "@/lib/auth";
 import {
   eventKind,
@@ -68,7 +71,7 @@ import {
 } from "@/lib/calendar-time";
 import { hasClientCredit, type SessionRemoval } from "@/lib/cancel-session";
 import { clientPlanLabel } from "@/lib/client-search";
-import { formatCreditsOf, getCurrentBlockCredits } from "@/lib/credits";
+import { formatCreditsOf } from "@/lib/credits";
 import { quickSyncMessage } from "@/lib/gcal-sync-run";
 import { sessionLabel } from "@/lib/mock-data";
 import { formatAgo } from "@/lib/notifications";
@@ -98,18 +101,7 @@ import { toastWithUndo } from "@/lib/toast";
 const CONSULENZA_COLOR = "#8e24aa";
 /** Quadratino degli impegni personali nel pannello. */
 const PERSONAL_COLOR = "#9aa0a6";
-const CLOCK_TICK_MS = 30_000;
 const LAST_SYNC_KEY = "gcal_reconcile_last";
-
-/** L'ora che scorre: linea dell'ora corrente e stati senza ricaricare. */
-function useNow(): Date {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(new Date()), CLOCK_TICK_MS);
-    return () => window.clearInterval(id);
-  }, []);
-  return now;
-}
 
 /** Il desktop è montato anche sul telefono (nascosto): tastiera e `new` solo da md in su. */
 function useIsDesktop(): boolean {
@@ -469,13 +461,18 @@ export function CalendarDesktop({ sync }: { sync: GcalSync }) {
     const isClient = hasClientCredit(b);
     const client = isClient && b.client_id ? clientById.get(b.client_id) : undefined;
     let credits: PanelCredit[] = [];
+    let creditsTitle: string | null = null;
     if (client) {
+      // Il blocco della data di questa sessione, come in Assegna evento (V6).
       const own = blocks.filter((x) => x.client_id === client.id);
-      credits = getCurrentBlockCredits(
+      const ref = sessionBlockCredits(
         own,
         own.flatMap((x) => x.allocations),
+        b.scheduled_at,
         now,
-      ).map((c) => {
+      );
+      creditsTitle = ref.title;
+      credits = ref.credits.map((c) => {
         const t = c.eventTypeId ? typeById.get(c.eventTypeId) : undefined;
         return {
           key: c.key,
@@ -520,6 +517,7 @@ export function CalendarDesktop({ sync }: { sync: GcalSync }) {
             plan: clientPlanLabel(client),
             whatsapp: whatsappUrl(client.phone),
             credits,
+            creditsTitle,
             note: lastSessionNote(bookings, client.id, now),
           }
         : null,
@@ -543,7 +541,7 @@ export function CalendarDesktop({ sync }: { sync: GcalSync }) {
   const emptyWithFilters = !bookingsQ.isLoading && filtersActive(fstate) && visibleCount === 0;
 
   return (
-    <div className="-m-6 min-h-[calc(100vh-3.5rem)] bg-surface px-10 pb-12 pt-7 text-on-surface">
+    <CoachPage>
       <div className="flex flex-col gap-5">
         <CalendarToolbar
           syncLabel={syncLabel(sync.lastSyncAt, now)}
@@ -683,6 +681,6 @@ export function CalendarDesktop({ sync }: { sync: GcalSync }) {
       />
 
       <PackageDialog clientId={packageClientId} onClose={() => setPackageClientId(null)} />
-    </div>
+    </CoachPage>
   );
 }

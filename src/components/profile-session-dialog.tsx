@@ -21,6 +21,7 @@ import {
   dialogPrimaryButton,
   dialogSecondaryButton,
 } from "@/components/coach-dialog";
+import { ScheduleWarning } from "@/components/schedule-warning";
 import { SegmentedControl } from "@/components/segmented-control";
 import { canCancel } from "@/lib/cancel-session";
 import { localDate, localIso, localTime, timeOptions } from "@/lib/calendar-time";
@@ -30,13 +31,20 @@ import type { ProfileBooking } from "@/lib/profile-load";
 import {
   canEditTime,
   isOutcome,
+  profileScheduleCheck,
   putBackInAgenda,
   saveProfileSession,
   undoProfileSession,
   undoPutBack,
 } from "@/lib/profile-session";
 import { supabaseProfileStore } from "@/lib/profile-store";
-import type { EventTypeRow } from "@/lib/queries";
+import {
+  useCoachAvailability,
+  useCoachAvailabilityExceptions,
+  useCoachBookings,
+  useCoachClients,
+  type EventTypeRow,
+} from "@/lib/queries";
 import { checkEditCredit, snapshotOf } from "@/lib/session-edit";
 import type { SessionOutcome } from "@/lib/session-outcome";
 import { toastWithUndo } from "@/lib/toast";
@@ -59,6 +67,8 @@ const CANCELLED_LINE: Record<string, string> = {
 export interface ProfileSessionDialogProps {
   booking: ProfileBooking | null;
   clientName: string;
+  /** Il coach: le sue sessioni e la sua disponibilità per gli avvisi di data e ora (V7). */
+  coachId: string;
   eventTypes: readonly EventTypeRow[];
   onClose: () => void;
   /** Dopo un salvataggio, un ripristino o «Rimetti in agenda». */
@@ -84,6 +94,7 @@ export function ProfileSessionDialog(props: ProfileSessionDialogProps) {
 function Body({
   booking,
   clientName,
+  coachId,
   eventTypes,
   onClose,
   onChanged,
@@ -110,6 +121,25 @@ function Body({
   const timeEditable = !!current && canEditTime(current.status, status);
   const type = eventTypes.find((t) => t.id === typeId) ?? null;
   const startIso = date && time ? localIso(date, time) : null;
+
+  // Gli avvisi del Calendario (V7): sovrapposizione, che ferma il salvataggio,
+  // e fuori disponibilità. Le query sono quelle del Calendario, già in cache.
+  const coachBookings = useCoachBookings(coachId).data;
+  const slots = useCoachAvailability(coachId).data;
+  const exceptions = useCoachAvailabilityExceptions(coachId).data;
+  const clients = useCoachClients(coachId).data;
+  const schedule = profileScheduleCheck({
+    timeEditable,
+    startIso,
+    minutes: current?.duration_min ?? booking.duration_min ?? 60,
+    bufferMin: type?.buffer_minutes ?? 0,
+    sessionId: booking.id,
+    bookings: coachBookings ?? [],
+    slots: slots ?? [],
+    exceptions: exceptions ?? [],
+    clientName: (id) =>
+      id === booking.client_id ? clientName : clients?.find((c) => c.id === id)?.full_name,
+  });
 
   const retypeQ = useQuery({
     queryKey: ["profile-edit-credit", booking.id, typeId, startIso],
@@ -286,7 +316,7 @@ function Body({
             value={date}
             disabled={!timeEditable}
             onChange={(e) => setDate(e.target.value)}
-            className="h-[42px] rounded-[14px] bg-surface-container-low px-3 text-sm outline-none disabled:opacity-60"
+            className="h-[42px] rounded-[14px] bg-surface-container-low px-3 text-sm disabled:opacity-60"
           />
         </label>
         <label className="flex flex-col gap-1.5">
@@ -295,7 +325,7 @@ function Body({
             value={time}
             disabled={!timeEditable}
             onChange={(e) => setTime(e.target.value)}
-            className="h-[42px] rounded-[14px] bg-surface-container-low px-2.5 text-sm outline-none disabled:opacity-60"
+            className="h-[42px] rounded-[14px] bg-surface-container-low px-2.5 text-sm disabled:opacity-60"
           >
             {times.map((t) => (
               <option key={t} value={t}>
@@ -323,6 +353,8 @@ function Body({
           className="resize-y rounded-[14px] bg-surface-container-low px-3.5 py-2.5 text-sm leading-normal outline-none focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary-container"
         />
       </label>
+
+      {schedule.warning && <ScheduleWarning text={schedule.warning} />}
 
       {(problem || retypeProblem) && (
         <p
@@ -369,7 +401,7 @@ function Body({
           <button
             type="button"
             onClick={() => void save()}
-            disabled={saving || !current || !startIso || !!retypeProblem}
+            disabled={saving || !current || !startIso || !!retypeProblem || !!schedule.overlap}
             className={dialogPrimaryButton}
           >
             {saving && <Loader2 className="size-4 animate-spin" aria-hidden />}

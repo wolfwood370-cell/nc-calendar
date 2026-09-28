@@ -24,6 +24,7 @@ import {
   type PackageSummary,
   typeInfo,
 } from "@/lib/client-profile";
+import { formatCreditsOfTail } from "@/lib/credits";
 import type { ProfileBooking, ProfileExtra } from "@/lib/profile-load";
 import type { EventTypeRow } from "@/lib/queries";
 import type { RenewalInfo } from "@/lib/renewal";
@@ -55,8 +56,8 @@ function Bars({ rows }: { rows: CreditBar[] }) {
               {k.name}
             </span>
             <span className="tabular-nums text-on-surface-variant">
-              <strong className="text-on-surface">{k.left}</strong> di {k.total}{" "}
-              {k.left === 1 ? "rimasto" : "rimasti"}
+              <strong className="text-on-surface">{k.left}</strong>{" "}
+              {formatCreditsOfTail(k.left, k.total)}
             </span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-surface-container">
@@ -337,7 +338,7 @@ export function ProfileOverview({
           </p>
         </section>
 
-        <TrainerBiaPanel clientId={clientId} coachId={coachId} />
+        <TrainerBiaPanel clientId={clientId} coachId={coachId} desktop />
       </div>
     </div>
   );

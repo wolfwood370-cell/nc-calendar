@@ -25,6 +25,8 @@ import {
   type OrderedAllocation,
   type OrderedExtraCredit,
 } from "@/lib/credit-order";
+import { getBlockCredits, type CreditAllocation, type TypeCredits } from "@/lib/credits";
+import { blockTimingNote, type BlockDates } from "@/lib/current-block";
 import type { BookingStatus, SessionType } from "@/lib/mock-data";
 
 const IMPORT_PREFIX = /^Importato da Google Calendar:\s*/i;
@@ -166,16 +168,13 @@ function inPool(
   return a.event_type_id === type.id || a.session_type === type.base_type;
 }
 
-/**
- * Crediti che il cliente può usare per questa sessione: residuo del blocco
- * che contiene la data (stesso gruppo di allocazioni che il server
- * considererebbe) più gli extra della tipologia.
- */
-export function countAvailableCredits(args: {
+interface AvailableCreditsArgs {
   blocks: ReadonlyArray<{
     id: string;
     start_date: string;
     end_date: string;
+    /** Per dire quale blocco: la posizione nel percorso segue sequence_order. */
+    sequence_order?: number;
     allocations: ReadonlyArray<
       Pick<
         OrderedAllocation,
@@ -186,7 +185,24 @@ export function countAvailableCredits(args: {
   extras: ReadonlyArray<Pick<OrderedExtraCredit, "event_type_id" | "quantity" | "quantity_booked">>;
   scheduledAt: string;
   type: AssignType;
-}): number {
+}
+
+/** Da dove vengono i crediti di availableCredits. */
+export interface AvailableCredits {
+  /** Residuo della tipologia nel blocco che contiene la data della sessione. */
+  fromBlock: number;
+  /** Crediti extra della tipologia. */
+  fromExtras: number;
+  /** Posizione di quel blocco nel percorso (1 = il primo); null senza blocco per la data. */
+  blockNumber: number | null;
+}
+
+/**
+ * Crediti che il cliente può usare per questa sessione, divisi per origine:
+ * residuo del blocco che contiene la data (stesso gruppo di allocazioni che
+ * il server considererebbe) e extra della tipologia (V6, passata 10).
+ */
+export function availableCredits(args: AvailableCreditsArgs): AvailableCredits {
   const block = blockForDate(args.blocks, args.scheduledAt);
   const fromBlock = (block?.allocations ?? [])
     .filter((a) => inPool(a, args.type))
@@ -194,7 +210,52 @@ export function countAvailableCredits(args: {
   const fromExtras = args.extras
     .filter((e) => e.event_type_id === args.type.id)
     .reduce((n, e) => n + Math.max(0, e.quantity - e.quantity_booked), 0);
-  return fromBlock + fromExtras;
+  const ordered = [...args.blocks].sort(
+    (a, b) => (a.sequence_order ?? 0) - (b.sequence_order ?? 0),
+  );
+  return { fromBlock, fromExtras, blockNumber: block ? ordered.indexOf(block) + 1 : null };
+}
+
+/** Il totale di availableCredits. */
+export function countAvailableCredits(args: AvailableCreditsArgs): number {
+  const c = availableCredits(args);
+  return c.fromBlock + c.fromExtras;
+}
+
+/**
+ * Da dove vengono i crediti, nel testo del dialog: «2 del blocco 4 + 1
+ * extra». Così un totale che non coincide con il Profilo (che agli extra non
+ * somma il blocco) si legge invece di sembrare un errore.
+ */
+export function availableCreditsSource(c: AvailableCredits): string {
+  const parts: string[] = [];
+  if (c.fromBlock > 0) parts.push(`${c.fromBlock} del blocco ${c.blockNumber}`);
+  if (c.fromExtras > 0) parts.push(`${c.fromExtras} extra`);
+  return parts.join(" + ");
+}
+
+/**
+ * Crediti per tipologia del blocco che contiene la data della sessione, con
+ * la regola di Assegna evento: la usa il pannello del Calendario (V6). Il
+ * titolo dice quale blocco: «Crediti del blocco in corso», oppure «Crediti
+ * del blocco 4 · dal 15 ott 2026» quando non è quello di oggi. Senza un
+ * blocco per quella data, niente crediti.
+ */
+export function sessionBlockCredits<B extends BlockDates & { id: string }>(
+  blocks: readonly B[],
+  allocations: readonly CreditAllocation[],
+  scheduledAt: string,
+  now: Date,
+): { block: B | null; title: string | null; credits: TypeCredits[] } {
+  const block = blockForDate(blocks, scheduledAt);
+  if (!block) return { block: null, title: null, credits: [] };
+  const n = [...blocks].sort((a, b) => a.sequence_order - b.sequence_order).indexOf(block) + 1;
+  const note = blockTimingNote(block, now);
+  return {
+    block,
+    title: note ? `Crediti del blocco ${n} · ${note}` : "Crediti del blocco in corso",
+    credits: getBlockCredits(block.id, allocations),
+  };
 }
 
 /** Campi dell'evento che l'assegnazione cambia (e che «Ripristina» rimette). */

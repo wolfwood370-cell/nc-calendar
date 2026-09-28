@@ -59,7 +59,7 @@ export function IntegrationsFullSyncCard({
       aria-labelledby="full-sync-title"
       className="flex min-w-0 flex-col gap-3.5 rounded-[28px] bg-white p-6 shadow-[0px_4px_20px_rgba(0,86,133,0.05)]"
     >
-      <h2 id="full-sync-title" className="text-xl font-semibold text-on-surface">
+      <h2 id="full-sync-title" className="card-title text-on-surface">
         Sincronizzazione completa
       </h2>
       <p className="text-sm leading-normal text-on-surface-variant">{description}</p>

@@ -13,7 +13,12 @@ import { addDays, differenceInCalendarDays, format, parseISO, startOfDay } from 
 import { it } from "date-fns/locale";
 import { blockForDate } from "@/lib/assign-event";
 import { getBlockCredits, type CreditAllocation, type TypeCredits } from "@/lib/credits";
-import { findCurrentBlock, resolveCurrentBlock, type BlockDates } from "@/lib/current-block";
+import {
+  blockTiming,
+  blockTimingNote,
+  resolveCurrentBlock,
+  type BlockDates,
+} from "@/lib/current-block";
 import { sessionLabel, type SessionType } from "@/lib/mock-data";
 import { isValidBlock, type RenewalBlock } from "@/lib/renewal";
 
@@ -225,7 +230,10 @@ export function blockChip(
   const ref = resolveCurrentBlock(valid, now);
   if (!ref) return null;
   const n = valid.indexOf(ref) + 1;
-  return pathType === "recurring" ? `Mese ${n}` : `Blocco ${n} di ${valid.length}`;
+  const chip = pathType === "recurring" ? `Mese ${n}` : `Blocco ${n} di ${valid.length}`;
+  // Il blocco mostrato non è in corso: il chip dice quando comincia o è finito (V6).
+  const note = blockTimingNote(ref, now);
+  return note ? `${chip} · ${note}` : chip;
 }
 
 /** Pulsante principale dell'intestazione. */
@@ -274,30 +282,38 @@ export function packageSummary(
     };
   }
   const n = valid.indexOf(ref) + 1;
-  const current = findCurrentBlock(valid, now);
-  const today = toIso(now);
-  const started = ref.start_date.slice(0, 10) <= today;
+  // resolveCurrentBlock dà il blocco che contiene oggi, se c'è: il blocco è
+  // «in corso» solo allora. Fra due blocchi non contigui il riferimento è il
+  // prossimo, e i blocchi prima di lui sono già passati (V6, passata 10).
+  const timing = blockTiming(ref, now);
   const recurring = pathType === "recurring";
-  const expiryLabel = current
-    ? `Il blocco in corso termina il ${dayLabel(current.end_date)}`
-    : started
-      ? `Il percorso è terminato il ${dayLabel(ref.end_date)}`
-      : `Il percorso inizia il ${dayLabel(ref.start_date)}`;
+  const expiryLabel =
+    timing === "current"
+      ? `Il blocco in corso termina il ${dayLabel(ref.end_date)}`
+      : timing === "past"
+        ? `Il percorso è terminato il ${dayLabel(ref.end_date)}`
+        : n === 1
+          ? `Il percorso inizia il ${dayLabel(ref.start_date)}`
+          : `Il blocco ${n} inizia il ${dayLabel(ref.start_date)}`;
   const segments: SegmentState[] = recurring
     ? []
-    : valid.map((b, i) => {
-        if (!current) return started ? "past" : "future";
-        return i < n - 1 ? "past" : i === n - 1 ? "current" : "future";
+    : valid.map((_, i) => {
+        if (i < n - 1) return "past";
+        if (i > n - 1) return "future";
+        return timing;
       });
+  const note = blockTimingNote(ref, now);
   return {
     expiryLabel,
     blockLabel: recurring ? `Abbonamento · mese ${n}` : `Blocco ${n} di ${valid.length}`,
     segments,
     creditsTitle: recurring
-      ? "Crediti del mese"
-      : current
-        ? "Crediti del blocco in corso"
-        : `Crediti del blocco ${n}`,
+      ? note
+        ? `Crediti del mese · ${note}`
+        : "Crediti del mese"
+      : note
+        ? `Crediti del blocco ${n} · ${note}`
+        : "Crediti del blocco in corso",
     credits: getBlockCredits(ref.id, allocations),
   };
 }
@@ -417,8 +433,7 @@ export function orphanLinkLabel(
 ): string {
   const b = blockForDate(blocks, scheduledAt);
   if (!b) return "Collega ai crediti extra";
-  const current = findCurrentBlock(blocks, now);
-  if (current && current.id === b.id) return "Collega al blocco in corso";
+  if (blockTiming(b, now) === "current") return "Collega al blocco in corso";
   return `Collega al blocco ${b.sequence_order}`;
 }
 

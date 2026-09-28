@@ -23,7 +23,8 @@ import {
 } from "@/components/coach-dialog";
 import {
   assignEventToClient,
-  countAvailableCredits,
+  availableCredits,
+  availableCreditsSource,
   eventTitle,
   guessClientFromTitle,
   guessEventType,
@@ -35,6 +36,7 @@ import {
 } from "@/lib/assign-event";
 import { useAuth } from "@/lib/auth";
 import { clientPlanLabel, searchClients } from "@/lib/client-search";
+import { formatCreditsAgreed } from "@/lib/credits";
 import { initials } from "@/lib/initials";
 import {
   useClientBlocks,
@@ -156,24 +158,27 @@ function AssignEventBody({ eventId, onClose }: { eventId: string; onClose: () =>
 
   const blocksQ = useClientBlocks(client?.id);
   const extrasQ = useClientExtraCredits(client?.id);
-  const available =
+  const credits =
     client && eventType && event
-      ? countAvailableCredits({
+      ? availableCredits({
           blocks: blocksQ.data ?? [],
           extras: extrasQ.data ?? [],
           scheduledAt: event.scheduled_at,
           type: eventType,
         })
-      : 0;
+      : null;
+  const available = credits ? credits.fromBlock + credits.fromExtras : 0;
   const canCredit = !!client && available > 0;
   const creditOn = canCredit && useCredit;
   const clientName = client?.full_name ?? client?.email ?? "Il cliente";
+  // V6: da dove vengono i crediti («2 del blocco 4 + 1 extra»), perché solo
+  // qui gli extra si sommano al blocco di un cliente con percorso.
   const creditHint = !client
     ? "Scegli un cliente per vedere i crediti disponibili."
     : !eventType
       ? "Scegli una tipologia di sessione."
-      : available > 0
-        ? `${clientName} ha ${available === 1 ? "1 credito" : `${available} crediti`} ${eventType.name} ${available === 1 ? "disponibile" : "disponibili"}.`
+      : credits && available > 0
+        ? `${clientName} ha ${formatCreditsAgreed(available, eventType.name, ["disponibile", "disponibili"])}: ${availableCreditsSource(credits)}.`
         : `${clientName} non ha crediti ${eventType.name}: la sessione non scala dal pacchetto.`;
 
   const refresh = (clientIdTouched: string | null) => {

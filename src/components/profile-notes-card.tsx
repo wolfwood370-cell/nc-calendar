@@ -108,7 +108,7 @@ export function ProfileNotesCard({ coachId, clientId }: { coachId: string; clien
             disabled={isLoading}
             onChange={(e) => queue({ goal: e.target.value })}
             placeholder="Es. Ricomposizione corporea, −4% grasso"
-            className="bg-transparent text-sm font-semibold text-on-surface outline-none placeholder:font-normal placeholder:text-outline"
+            className="bg-transparent text-sm font-semibold text-on-surface placeholder:font-normal placeholder:text-outline"
           />
         </span>
       </label>

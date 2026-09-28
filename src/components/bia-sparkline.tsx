@@ -63,7 +63,7 @@ export function BiaMetricToggle({
             type="button"
             onClick={() => onChange(k)}
             aria-pressed={on}
-            className="text-[11px] font-semibold px-2.5 py-[5px] rounded-full border transition-colors"
+            className="inline-flex h-7 items-center rounded-full border px-2.5 text-[11px] font-semibold transition-colors"
             style={
               on
                 ? { borderColor: M.color, background: M.color, color: "#fff" }
@@ -123,7 +123,7 @@ export function BiaSparkline({
         </span>
         <span
           className={`tabular-nums text-[13px] font-semibold ${
-            good ? "text-success-strong" : "text-error-strong"
+            good ? "text-success-text" : "text-danger-text"
           }`}
         >
           {delta > 0 ? "+" : ""}

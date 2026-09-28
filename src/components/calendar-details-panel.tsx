@@ -53,6 +53,8 @@ export interface CalendarDetailsPanelProps {
     plan: string;
     whatsapp: string | null;
     credits: readonly PanelCredit[];
+    /** Quale blocco: quello della data della sessione (sessionBlockCredits, V6). */
+    creditsTitle: string | null;
     note: string | null;
   } | null;
   notOnGoogle: boolean;
@@ -206,6 +208,9 @@ export function CalendarDetailsPanel(p: CalendarDetailsPanelProps) {
             </div>
             {p.client.credits.length > 0 && (
               <div className="flex flex-col gap-2">
+                {p.client.creditsTitle && (
+                  <span className="text-xs font-bold text-on-surface">{p.client.creditsTitle}</span>
+                )}
                 {p.client.credits.map((k) => (
                   <div key={k.key} className="flex flex-col gap-1">
                     <div className="flex justify-between text-xs">

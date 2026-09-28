@@ -9,7 +9,8 @@
 // sequence_order più basso.
 // ----------------------------------------------------------------------------
 
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
+import { shortDateWithArticle } from "@/lib/session-time";
 
 /** Campi del training_block usati per stabilire quale blocco è in corso. */
 export interface BlockDates {
@@ -45,8 +46,14 @@ export function findCurrentBlock<T extends BlockDates>(
 
 /**
  * Blocco di riferimento del percorso: quello in corso; se non c'è, il primo
- * che deve ancora iniziare (percorso non ancora partito); altrimenti l'ultimo
- * (percorso terminato).
+ * che deve ancora iniziare (percorso non ancora partito, o fra due blocchi
+ * non contigui); altrimenti l'ultimo (percorso terminato).
+ * Audit V6, passata 10: è la regola di tutte le superfici che mostrano «il
+ * percorso del cliente oggi» (Panoramica, Clienti, Profilo, dialog
+ * Pacchetto). Il pannello del Calendario e Assegna evento mostrano invece il
+ * blocco della data della sessione (blockForDate, assign-event.ts).
+ * findCurrentBlock, qui sopra, ne è il primo passo e lo usa ancora il lato
+ * cliente (client.settings.tsx).
  */
 export function resolveCurrentBlock<T extends BlockDates>(
   blocks: readonly T[],
@@ -60,4 +67,33 @@ export function resolveCurrentBlock<T extends BlockDates>(
     sorted[sorted.length - 1] ??
     null
   );
+}
+
+export type BlockTiming = "current" | "future" | "past";
+
+/** Dove sta un blocco rispetto a oggi: in corso, da iniziare o finito. */
+export function blockTiming(
+  b: Pick<BlockDates, "start_date" | "end_date">,
+  now: Date = new Date(),
+): BlockTiming {
+  const today = toIsoDate(now);
+  if (b.start_date.slice(0, 10) > today) return "future";
+  if (b.end_date.slice(0, 10) < today) return "past";
+  return "current";
+}
+
+/**
+ * Come una superficie dice quale blocco mostra quando non è quello in corso
+ * (V6): «dal 15 ott 2026» per un blocco che deve iniziare, «finito il 12 ott
+ * 2026» per uno finito; null per il blocco in corso. Così due numeri diversi
+ * lo stesso giorno si leggono invece di contraddirsi.
+ */
+export function blockTimingNote(
+  b: Pick<BlockDates, "start_date" | "end_date">,
+  now: Date = new Date(),
+): string | null {
+  const t = blockTiming(b, now);
+  if (t === "current") return null;
+  if (t === "future") return shortDateWithArticle(parseISO(b.start_date.slice(0, 10)), "da");
+  return `finito ${shortDateWithArticle(parseISO(b.end_date.slice(0, 10)))}`;
 }

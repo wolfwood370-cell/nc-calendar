@@ -46,9 +46,9 @@ import { toastWithUndo } from "@/lib/toast";
 import { errorMessage } from "@/lib/utils";
 
 const FIELD =
-  "h-[38px] rounded-xl bg-surface-container-low px-2.5 text-sm text-on-surface outline-none disabled:opacity-60";
+  "h-[38px] rounded-xl bg-surface-container-low px-2.5 text-sm text-on-surface disabled:opacity-60";
 const TIME =
-  "h-[38px] rounded-full bg-surface-container-low px-3 text-sm font-semibold tabular-nums text-on-surface outline-none disabled:opacity-60";
+  "h-[38px] rounded-full bg-surface-container-low px-3 text-sm font-semibold tabular-nums text-on-surface disabled:opacity-60";
 
 const MODES = [
   { value: "all", label: "Tutto il giorno" },
@@ -210,7 +210,7 @@ export function AvailabilityExceptionsDesktop({
       className="flex flex-col gap-3.5 rounded-[28px] bg-white p-6 shadow-[0px_4px_20px_rgba(0,86,133,0.05)]"
     >
       <div className="flex flex-col gap-1">
-        <h2 id="exceptions-title" className="text-xl font-semibold">
+        <h2 id="exceptions-title" className="card-title">
           Eccezioni
         </h2>
         <p className="text-[13px] text-on-surface-variant">

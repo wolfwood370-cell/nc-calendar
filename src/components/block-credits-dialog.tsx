@@ -12,6 +12,13 @@ import { Edit3, Trash2, Plus, Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 
 import {
+  CoachDialog,
+  CoachDialogContent,
+  CoachDialogHeader,
+  dialogPrimaryButton,
+  dialogSecondaryButton,
+} from "@/components/coach-dialog";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -53,7 +60,12 @@ export interface BlockCreditsDialogProps {
   allocations: BlockAllocation[];
   eventTypes: Array<{ id: string; name: string; base_type: SessionType }>;
   onSaved: () => void;
+  /** Guscio del redesign coach (Profilo desktop); senza, quello del telefono. */
+  desktop?: boolean;
 }
+
+/** Nome accessibile del cestino di ogni riga (V12). */
+const REMOVE = "Rimuovi questi crediti";
 
 export function BlockCreditsDialog({
   blockId,
@@ -61,6 +73,7 @@ export function BlockCreditsDialog({
   allocations,
   eventTypes,
   onSaved,
+  desktop = false,
 }: BlockCreditsDialogProps) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<BlockAllocation[]>([]);
@@ -160,76 +173,129 @@ export function BlockCreditsDialog({
     }
   }
 
+  const trigger = (
+    <DialogTrigger asChild>
+      <button
+        className="flex items-center justify-center p-1.5 rounded-full hover:bg-muted text-muted-foreground transition-colors"
+        title="Imposta crediti"
+        aria-label="Imposta crediti"
+      >
+        <Edit3 className="size-5" />
+      </button>
+    </DialogTrigger>
+  );
+
+  const rows = (
+    <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
+      {draft.length === 0 && (
+        <p className="text-sm text-muted-foreground text-center py-4">Nessun credito impostato.</p>
+      )}
+      {draft.map((r) => (
+        <div key={r.id} className="grid grid-cols-12 gap-2 items-end rounded-2xl border p-2">
+          <div className="col-span-7 space-y-1">
+            <Label className="text-xs">Tipologia</Label>
+            <Select
+              value={r.event_type_id ?? ""}
+              onValueChange={(v) => {
+                const et = eventTypes.find((e) => e.id === v);
+                updateRow(r.id, {
+                  event_type_id: v,
+                  session_type: et?.base_type ?? r.session_type,
+                });
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Seleziona" />
+              </SelectTrigger>
+              <SelectContent>
+                {eventTypes.map((et) => (
+                  <SelectItem key={et.id} value={et.id}>
+                    {et.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="col-span-4 space-y-1">
+            <Label className="text-xs">Crediti</Label>
+            <Input
+              type="number"
+              min={1}
+              value={r.quantity_assigned}
+              onChange={(e) =>
+                updateRow(r.id, { quantity_assigned: Math.max(1, Number(e.target.value) || 1) })
+              }
+            />
+          </div>
+          <div className="col-span-1 flex justify-end">
+            <Button size="icon" variant="ghost" aria-label={REMOVE} onClick={() => removeRow(r.id)}>
+              <Trash2 className="size-4 text-destructive" aria-hidden />
+            </Button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  const add = (
+    <Button variant="secondary" size="sm" onClick={addRow}>
+      <Plus className="size-4" /> Aggiungi
+    </Button>
+  );
+
+  // Desktop (passata 10, V4): il guscio dei dialog del redesign e il titolo
+  // del pulsante che lo apre. Il Profilo del telefono tiene quello di prima.
+  if (desktop) {
+    return (
+      <CoachDialog open={open} onOpenChange={setOpen}>
+        {trigger}
+        <CoachDialogContent className="gap-4 sm:max-w-[512px]">
+          <CoachDialogHeader
+            title="Imposta crediti"
+            description={<p className="text-sm text-on-surface-variant">Blocco {sequenceOrder}</p>}
+          />
+          {rows}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            {add}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                disabled={saving}
+                className={dialogSecondaryButton}
+              >
+                Annulla
+              </button>
+              <button
+                type="button"
+                onClick={() => void save()}
+                disabled={saving}
+                className={dialogPrimaryButton}
+              >
+                {saving ? (
+                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                ) : (
+                  <Save className="size-4" aria-hidden />
+                )}
+                Salva
+              </button>
+            </div>
+          </div>
+        </CoachDialogContent>
+      </CoachDialog>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <button
-          className="flex items-center justify-center p-1.5 rounded-full hover:bg-muted text-muted-foreground transition-colors"
-          title="Imposta crediti"
-          aria-label="Imposta crediti"
-        >
-          <Edit3 className="size-5" />
-        </button>
-      </DialogTrigger>
+      {trigger}
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Crediti — Blocco {sequenceOrder}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
-          {draft.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              Nessun credito impostato.
-            </p>
-          )}
-          {draft.map((r) => (
-            <div key={r.id} className="grid grid-cols-12 gap-2 items-end rounded-2xl border p-2">
-              <div className="col-span-7 space-y-1">
-                <Label className="text-xs">Tipologia</Label>
-                <Select
-                  value={r.event_type_id ?? ""}
-                  onValueChange={(v) => {
-                    const et = eventTypes.find((e) => e.id === v);
-                    updateRow(r.id, {
-                      event_type_id: v,
-                      session_type: et?.base_type ?? r.session_type,
-                    });
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleziona" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {eventTypes.map((et) => (
-                      <SelectItem key={et.id} value={et.id}>
-                        {et.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="col-span-4 space-y-1">
-                <Label className="text-xs">Crediti</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  value={r.quantity_assigned}
-                  onChange={(e) =>
-                    updateRow(r.id, { quantity_assigned: Math.max(1, Number(e.target.value) || 1) })
-                  }
-                />
-              </div>
-              <div className="col-span-1 flex justify-end">
-                <Button size="icon" variant="ghost" onClick={() => removeRow(r.id)}>
-                  <Trash2 className="size-4 text-destructive" />
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
+        {rows}
         <div className="flex justify-between">
-          <Button variant="secondary" size="sm" onClick={addRow}>
-            <Plus className="size-4" /> Aggiungi
-          </Button>
+          {add}
           <DialogFooter className="gap-2 sm:gap-2">
             <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>
               Annulla

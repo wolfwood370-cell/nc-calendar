@@ -159,7 +159,7 @@ export function ProfilePath(props: ProfilePathProps) {
                     setEditStart(false);
                   }}
                   onBlur={() => setEditStart(false)}
-                  className="h-8 rounded-full bg-surface-container px-3 text-xs font-semibold text-aura-primary outline-none"
+                  className="h-8 rounded-full bg-surface-container px-3 text-xs font-semibold text-aura-primary"
                 />
               ) : (
                 <button
@@ -289,6 +289,7 @@ export function ProfilePath(props: ProfilePathProps) {
                         base_type: e.base_type,
                       }))}
                       onSaved={onCreditsSaved}
+                      desktop
                     />
                   </div>
                   <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3">
@@ -334,7 +335,7 @@ export function ProfilePath(props: ProfilePathProps) {
                               onChange={(e) => {
                                 if (e.target.value) onMoveWeek(idx, parseISO(e.target.value));
                               }}
-                              className="w-[118px] bg-transparent text-xs font-semibold text-aura-primary outline-none"
+                              className="w-[118px] bg-transparent text-xs font-semibold text-aura-primary"
                             />
                           </label>
                           {changed.has(row.week_number) && (

@@ -12,6 +12,7 @@ import { ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { card } from "@/components/profile-styles";
 import { StatusChip } from "@/components/profile-ui";
+import { SegmentedControl } from "@/components/segmented-control";
 import { localTime } from "@/lib/calendar-time";
 import {
   SESSION_FILTERS,
@@ -98,33 +99,21 @@ export function ProfileSessions({
         </section>
       )}
 
-      <div
-        role="radiogroup"
-        aria-label="Filtra sessioni"
-        className="flex w-fit flex-wrap rounded-full bg-surface-container p-[3px]"
-      >
-        {SESSION_FILTERS.map((f) => {
-          const on = filter === f.value;
-          return (
-            <button
-              key={f.value}
-              type="button"
-              role="radio"
-              aria-checked={on}
-              onClick={() => setFilter(f.value)}
-              className={cn(
-                "flex h-8 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold",
-                on
-                  ? "bg-white text-aura-primary shadow-[0_1px_3px_rgba(0,0,0,0.1)]"
-                  : "text-on-surface-variant",
-              )}
-            >
+      <SegmentedControl
+        ariaLabel="Filtra sessioni"
+        className="w-fit flex-wrap"
+        value={filter}
+        onChange={setFilter}
+        options={SESSION_FILTERS.map((f) => ({
+          value: f.value,
+          label: (
+            <>
               {f.label}
-              <span className="tabular-nums text-outline">{counts[f.value]}</span>
-            </button>
-          );
-        })}
-      </div>
+              <span className="tabular-nums text-on-surface-variant">{counts[f.value]}</span>
+            </>
+          ),
+        }))}
+      />
 
       <section className={cn(card, "px-5 py-2")}>
         {shown.map((b, i) => {

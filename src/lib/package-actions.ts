@@ -21,6 +21,13 @@
 // ----------------------------------------------------------------------------
 
 import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
+import { getBlockCredits, sumCredits, type CreditAllocation } from "@/lib/credits";
+import {
+  blockTiming,
+  resolveCurrentBlock,
+  type BlockDates,
+  type BlockTiming,
+} from "@/lib/current-block";
 import type { SessionType } from "@/lib/mock-data";
 import { shortDateWithArticle } from "@/lib/session-time";
 
@@ -122,18 +129,67 @@ export function creditsByType(
     .filter((r) => r.qty > 0);
 }
 
-/** «8 crediti» · «1 credito». */
-export function formatCredits(n: number): string {
-  return n === 1 ? "1 credito" : `${n} crediti`;
+/** «8 crediti» · «1 credito»: l'helper è in credits.ts, qui per chi lo importava da qui. */
+export { formatCredits } from "@/lib/credits";
+
+/** Il blocco dei crediti residui, quando non è quello in corso (renewalResidual). */
+export interface ResidualBlock {
+  /** Posizione nel percorso (1 = il primo). */
+  number: number;
+  timing: BlockTiming;
+  start_date: string;
+  end_date: string;
 }
 
-/** Nota del rinnovo con i crediti residui del blocco in corso. */
-export function renewNote(firstDay: Date, residual: number): string {
+/**
+ * Nota del rinnovo con i crediti residui del blocco di riferimento. Senza
+ * `block`, o col blocco in corso, il testo di prima; fra due blocchi dice
+ * quale blocco e quando inizia; a percorso finito, che il residuo non passa
+ * al blocco nuovo (V6, passata 10).
+ */
+export function renewNote(firstDay: Date, residual: number, block?: ResidualBlock | null): string {
   const opens = `Il cliente può prenotare le sessioni del nuovo blocco ${shortDateWithArticle(firstDay, "da")}.`;
   if (residual <= 0) return opens;
-  return residual === 1
+  const one = residual === 1;
+  if (block?.timing === "future") {
+    const starts = shortDateWithArticle(parseISO(block.start_date.slice(0, 10)));
+    return one
+      ? `${opens} Il credito del blocco ${block.number}, che inizia ${starts}, resta valido fino alla sua fine.`
+      : `${opens} I ${residual} crediti del blocco ${block.number}, che inizia ${starts}, restano validi fino alla sua fine.`;
+  }
+  if (block?.timing === "past") {
+    const ended = shortDateWithArticle(parseISO(block.end_date.slice(0, 10)));
+    return one
+      ? `${opens} Il blocco ${block.number} è finito ${ended}: il credito non usato non passa al nuovo blocco.`
+      : `${opens} Il blocco ${block.number} è finito ${ended}: i ${residual} crediti non usati non passano al nuovo blocco.`;
+  }
+  return one
     ? `${opens} Il credito residuo resta valido fino alla fine del blocco in corso.`
     : `${opens} I ${residual} crediti residui restano validi fino alla fine del blocco in corso.`;
+}
+
+/**
+ * Crediti residui per la nota del rinnovo: quelli del blocco di riferimento
+ * del percorso (resolveCurrentBlock, come Panoramica, Clienti e Profilo), e
+ * quale blocco è. Prima era il blocco che contiene oggi, e fra due blocchi
+ * il dialog diceva 0 mentre il Profilo mostrava i crediti del prossimo.
+ */
+export function renewalResidual(
+  blocks: ReadonlyArray<BlockDates & { id: string; allocations: readonly CreditAllocation[] }>,
+  now: Date,
+): { residual: number; block: ResidualBlock | null } {
+  const ref = resolveCurrentBlock(blocks, now);
+  if (!ref) return { residual: 0, block: null };
+  const ordered = [...blocks].sort((a, b) => a.sequence_order - b.sequence_order);
+  return {
+    residual: sumCredits(getBlockCredits(ref.id, ref.allocations)).left,
+    block: {
+      number: ordered.indexOf(ref) + 1,
+      timing: blockTiming(ref, now),
+      start_date: ref.start_date,
+      end_date: ref.end_date,
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------
