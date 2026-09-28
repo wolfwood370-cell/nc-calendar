@@ -32,13 +32,8 @@ import {
   ClientSessionsBreakdown,
   type SessionTypeBreakdownRow,
 } from "@/components/client-sessions-breakdown";
-import { useBiaMeasurements } from "@/hooks/use-bia";
 import { useClientFeedback } from "@/hooks/use-session-feedback";
 import { ClientBiaProgress } from "@/components/client-bia-progress";
-import {
-  ClientNotificationsBell,
-  type ClientNotificationItem,
-} from "@/components/client-notifications-bell";
 import { ClientReminderBanner } from "@/components/client-reminder-banner";
 import { ClientFeedbackCard } from "@/components/client-feedback-card";
 
@@ -349,8 +344,9 @@ function ClientHome() {
     ? (eventTypesQ.data ?? []).find((e) => e.id === nextBooking.event_type_id)
     : null;
 
-  // ---- Design handoff: dati derivati per campanella, banner e card nuove ----
-  const biaQ = useBiaMeasurements(meId);
+  // ---- Design handoff: dati derivati per banner e card nuove ----
+  // Le voci della campanella non stanno più qui: le calcola la cornice del
+  // cliente (client-notifications.ts), che la mostra in tutte le schede.
   const feedbackQ = useClientFeedback(meId);
 
   const nextBookingLabel = nextBooking
@@ -384,78 +380,6 @@ function ClientHome() {
     const ms = new Date(nextBooking.scheduled_at).getTime() - Date.now();
     return ms <= 48 * 60 * 60 * 1000 ? nextBooking : null;
   }, [nextBooking]);
-
-  // Voci campanella, derivate come NC.notifications() del prototipo.
-  const notificationItems = useMemo<ClientNotificationItem[]>(() => {
-    const items: ClientNotificationItem[] = [];
-    if (nextBooking && !nextBooking.client_confirmed_at) {
-      const when = new Date(nextBooking.scheduled_at);
-      items.push({
-        id: `confirm-${nextBooking.id}`,
-        kind: "confirm",
-        title: "Conferma la tua presenza",
-        sub: `${nextBookingLabel} · ${when.toLocaleDateString("it-IT", {
-          weekday: "long",
-          day: "numeric",
-        })} alle ${when.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}`,
-        onClick: () =>
-          navigate({ to: "/client/bookings/$bookingId", params: { bookingId: nextBooking.id } }),
-      });
-    }
-    if (currentBlockBreakdown.open > 0 && currentBlockEndLabel) {
-      items.push({
-        id: `block-open-${resolvedCurrentBlock?.id ?? "n"}-${currentBlockBreakdown.open}`,
-        kind: "block",
-        title: "Sessioni da prenotare",
-        sub: `Hai ${currentBlockBreakdown.open} ${
-          currentBlockBreakdown.open === 1 ? "sessione" : "sessioni"
-        } da prenotare entro il ${currentBlockEndLabel}`,
-        onClick: () => navigate({ to: "/client/book" }),
-      });
-    }
-    const bia = biaQ.data ?? [];
-    const lastBia = bia[bia.length - 1];
-    if (lastBia) {
-      items.push({
-        id: `bia-${lastBia.measured_on}`,
-        kind: "bia",
-        title: "Nuova misurazione BIA",
-        sub: `Peso ${lastBia.weight_kg} kg · massa ${lastBia.muscle_kg} kg`,
-      });
-    }
-    for (const row of currentBlockTypeBreakdown) {
-      if (row.total > 0 && row.remaining <= 0) {
-        items.push({
-          id: `credit-${row.key}`,
-          kind: "credit",
-          title: `Pool ${row.name} esaurito`,
-          sub: "Acquista un Booster per prenotare ancora",
-          onClick: () => navigate({ to: "/client/store" }),
-        });
-      }
-    }
-    if (pendingFeedback) {
-      items.push({
-        id: `fb-${pendingFeedback.id}`,
-        kind: "feedback",
-        title: "Com'è andata?",
-        sub: `Lascia un feedback sulla sessione del ${new Date(
-          pendingFeedback.scheduled_at,
-        ).toLocaleDateString("it-IT", { day: "numeric", month: "short" })}`,
-      });
-    }
-    return items;
-  }, [
-    nextBooking,
-    nextBookingLabel,
-    currentBlockBreakdown,
-    currentBlockEndLabel,
-    resolvedCurrentBlock,
-    biaQ.data,
-    currentBlockTypeBreakdown,
-    pendingFeedback,
-    navigate,
-  ]);
 
   // Card benvenuto (design handoff): percorso attivo ma nessuna sessione mai
   // prenotata → gradiente brand con CTA "Prenota la prima sessione".
@@ -493,9 +417,6 @@ function ClientHome() {
               Ciao {firstName}
             </h1>
           </div>
-          {/* Design handoff: campanella con pannello notifiche derivate
-              (sostituisce quella inerte rimossa dall'audit B12). */}
-          {meId && <ClientNotificationsBell userId={meId} items={notificationItems} />}
         </div>
       </header>
 
