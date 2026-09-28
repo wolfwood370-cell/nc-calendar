@@ -13,6 +13,13 @@ import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  CoachDialog,
+  CoachDialogContent,
+  CoachDialogHeader,
+  dialogPrimaryButton,
+  dialogSecondaryButton,
+} from "@/components/coach-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -52,7 +59,16 @@ interface FormState {
 
 const EMPTY_FORM: FormState = { measured_on: "", weight_kg: "", muscle_kg: "", fat_pct: "" };
 
-export function TrainerBiaPanel({ clientId, coachId }: { clientId: string; coachId: string }) {
+export function TrainerBiaPanel({
+  clientId,
+  coachId,
+  desktop = false,
+}: {
+  clientId: string;
+  coachId: string;
+  /** Dialog col guscio del redesign coach (Profilo desktop); senza, quello del telefono. */
+  desktop?: boolean;
+}) {
   const [metric, setMetric] = useState<BiaMetricKey>("weight");
   const { data: measurements = [], isLoading } = useBiaMeasurements(clientId);
   const addMut = useAddBiaMeasurement();
@@ -95,6 +111,9 @@ export function TrainerBiaPanel({ clientId, coachId }: { clientId: string; coach
     parsed.fat_pct <= 70;
 
   const saving = addMut.isPending || updateMut.isPending;
+  const deleteTitle =
+    measurements.length <= 1 ? "Deve restare almeno una misurazione" : "Elimina misurazione";
+  const fields = <BiaFields form={form} setForm={setForm} />;
 
   const handleSave = () => {
     if (!valid) return;
@@ -182,91 +201,140 @@ export function TrainerBiaPanel({ clientId, coachId }: { clientId: string; coach
         </button>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>
-              {editing
-                ? `Modifica misurazione del ${format(
-                    new Date(`${editing.measured_on}T00:00:00`),
-                    "d MMMM yyyy",
-                    { locale: it },
-                  )}`
-                : "Nuova misurazione BIA"}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2 flex flex-col gap-1.5">
-              <Label htmlFor="bia-date">Data misurazione</Label>
-              <Input
-                id="bia-date"
-                type="date"
-                value={form.measured_on}
-                max={format(new Date(), "yyyy-MM-dd")}
-                onChange={(e) => setForm((f) => ({ ...f, measured_on: e.target.value }))}
-              />
+      {desktop ? (
+        <CoachDialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <CoachDialogContent className="gap-5 sm:max-w-[440px]">
+            <CoachDialogHeader title={editing ? editTitle(editing) : "Aggiungi misurazione"} />
+            {fields}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              {editing ? (
+                <button
+                  type="button"
+                  disabled={deleteMut.isPending || measurements.length <= 1}
+                  title={deleteTitle}
+                  onClick={handleDelete}
+                  className="inline-flex h-10 items-center gap-1.5 px-2.5 text-[13px] font-semibold text-danger-text disabled:opacity-60"
+                >
+                  <Trash2 className="size-4" aria-hidden /> Elimina
+                </button>
+              ) : (
+                <span />
+              )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDialogOpen(false)}
+                  className={dialogSecondaryButton}
+                >
+                  Annulla
+                </button>
+                <button
+                  type="button"
+                  disabled={!valid || saving}
+                  onClick={handleSave}
+                  className={dialogPrimaryButton}
+                >
+                  {saving && <Loader2 className="size-4 animate-spin" aria-hidden />}
+                  {editing ? "Salva modifiche" : "Aggiungi"}
+                </button>
+              </div>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="bia-weight">Peso (kg)</Label>
-              <Input
-                id="bia-weight"
-                type="number"
-                inputMode="decimal"
-                step="0.1"
-                min="1"
-                value={form.weight_kg}
-                onChange={(e) => setForm((f) => ({ ...f, weight_kg: e.target.value }))}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="bia-muscle">Massa (kg)</Label>
-              <Input
-                id="bia-muscle"
-                type="number"
-                inputMode="decimal"
-                step="0.1"
-                min="1"
-                value={form.muscle_kg}
-                onChange={(e) => setForm((f) => ({ ...f, muscle_kg: e.target.value }))}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="bia-fat">Grasso (%)</Label>
-              <Input
-                id="bia-fat"
-                type="number"
-                inputMode="decimal"
-                step="0.1"
-                min="1"
-                max="70"
-                value={form.fat_pct}
-                onChange={(e) => setForm((f) => ({ ...f, fat_pct: e.target.value }))}
-              />
-            </div>
-          </div>
-          <DialogFooter className="gap-2 sm:justify-between">
-            {editing && (
-              <Button
-                variant="ghost"
-                disabled={deleteMut.isPending || measurements.length <= 1}
-                title={
-                  measurements.length <= 1
-                    ? "Deve restare almeno una misurazione"
-                    : "Elimina misurazione"
-                }
-                onClick={handleDelete}
-                className="text-error-strong hover:text-error-strong"
-              >
-                <Trash2 className="size-4" /> Elimina
+          </CoachDialogContent>
+        </CoachDialog>
+      ) : (
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>{editing ? editTitle(editing) : "Nuova misurazione BIA"}</DialogTitle>
+            </DialogHeader>
+            {fields}
+            <DialogFooter className="gap-2 sm:justify-between">
+              {editing && (
+                <Button
+                  variant="ghost"
+                  disabled={deleteMut.isPending || measurements.length <= 1}
+                  title={deleteTitle}
+                  onClick={handleDelete}
+                  className="text-error-strong hover:text-error-strong"
+                >
+                  <Trash2 className="size-4" /> Elimina
+                </Button>
+              )}
+              <Button disabled={!valid || saving} onClick={handleSave}>
+                {saving && <Loader2 className="size-4 animate-spin" />}
+                {editing ? "Salva modifiche" : "Aggiungi"}
               </Button>
-            )}
-            <Button disabled={!valid || saving} onClick={handleSave}>
-              {saving && <Loader2 className="size-4 animate-spin" />}
-              {editing ? "Salva modifiche" : "Aggiungi"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </section>
+  );
+}
+
+/** «Modifica misurazione del 3 settembre 2026». */
+function editTitle(m: BiaMeasurement): string {
+  return `Modifica misurazione del ${format(new Date(`${m.measured_on}T00:00:00`), "d MMMM yyyy", {
+    locale: it,
+  })}`;
+}
+
+function BiaFields({
+  form,
+  setForm,
+}: {
+  form: FormState;
+  setForm: (update: (f: FormState) => FormState) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <div className="col-span-2 flex flex-col gap-1.5">
+        <Label htmlFor="bia-date">Data misurazione</Label>
+        <Input
+          id="bia-date"
+          type="date"
+          value={form.measured_on}
+          max={format(new Date(), "yyyy-MM-dd")}
+          onChange={(e) => setForm((f) => ({ ...f, measured_on: e.target.value }))}
+        />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="bia-weight">Peso (kg)</Label>
+        <Input
+          id="bia-weight"
+          type="number"
+          inputMode="decimal"
+          step="0.1"
+          min="1"
+          value={form.weight_kg}
+          onChange={(e) => setForm((f) => ({ ...f, weight_kg: e.target.value }))}
+        />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="bia-muscle">Massa (kg)</Label>
+        <Input
+          id="bia-muscle"
+          type="number"
+          inputMode="decimal"
+          step="0.1"
+          min="1"
+          value={form.muscle_kg}
+          onChange={(e) => setForm((f) => ({ ...f, muscle_kg: e.target.value }))}
+        />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="bia-fat">Grasso (%)</Label>
+        <Input
+          id="bia-fat"
+          type="number"
+          inputMode="decimal"
+          step="0.1"
+          min="1"
+          max="70"
+          value={form.fat_pct}
+          onChange={(e) => setForm((f) => ({ ...f, fat_pct: e.target.value }))}
+        />
+      </div>
+    </div>
   );
 }

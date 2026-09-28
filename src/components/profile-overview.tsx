@@ -337,7 +337,7 @@ export function ProfileOverview({
           </p>
         </section>
 
-        <TrainerBiaPanel clientId={clientId} coachId={coachId} />
+        <TrainerBiaPanel clientId={clientId} coachId={coachId} desktop />
       </div>
     </div>
   );
