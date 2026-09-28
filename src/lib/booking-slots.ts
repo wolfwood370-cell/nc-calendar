@@ -19,6 +19,7 @@
 //     `optimization.enabled` flag — leave undefined or false to skip.
 // ----------------------------------------------------------------------------
 
+import { CLIENT_MIN_NOTICE_HOURS } from "@/lib/booking-rules";
 import type { AvailabilityRow, AvailabilityExceptionRow } from "@/lib/queries";
 
 export interface Slot {
@@ -76,9 +77,9 @@ export function generateSlots(
   rangeStart?: Date,
   rangeEnd?: Date,
   optimization?: { enabled: boolean },
-  // Preavviso minimo (ore) configurato dal coach in trainer_settings.
-  // Default 24h per coerenza con il trigger DB legacy.
-  minNoticeHours: number = 24,
+  // Preavviso minimo in ore. Di default quello del cliente (booking-rules.ts),
+  // che il foglio di riprogrammazione usa senza passarlo.
+  minNoticeHours: number = CLIENT_MIN_NOTICE_HOURS,
 ): Slot[] {
   const slots: Slot[] = [];
   const now = new Date();
