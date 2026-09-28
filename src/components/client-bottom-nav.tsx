@@ -1,36 +1,68 @@
-import { Link, useRouterState } from "@tanstack/react-router";
-import { Home, CalendarDays, Sparkles, User } from "lucide-react";
+// ----------------------------------------------------------------------------
+// ClientBottomNav — la barra in basso del cliente (lato cliente, passata 01,
+// audit N2, O2, T2 e V14)
+// ----------------------------------------------------------------------------
+// Cinque schede con l'etichetta visibile (prima solo le icone), nell'ordine di
+// CLIENT_TABS; la scheda accesa la dice activeClientTab, per segmenti di
+// percorso (sul dettaglio di una sessione si accende Sessioni, non più
+// «Calendario»). Solo sotto md e solo sulle cinque schede: le pagine aperte
+// (dettaglio, Notifiche) non hanno la barra. Su Sessioni il badge delle
+// sessioni «Da confermare», dalla cornice (useClientShell), che lo aggiorna
+// col passo di useNow. Sta nel layout, fuori dal div.page-enter: il suo
+// transform farebbe scorrere un elemento fixed col contenuto.
+// ----------------------------------------------------------------------------
 
-const tabs = [
-  { to: "/client", icon: Home, label: "Home", exact: true },
-  { to: "/client/book", icon: CalendarDays, label: "Calendario", exact: false },
-  { to: "/client/store", icon: Sparkles, label: "Booster", exact: false },
-  { to: "/client/settings", icon: User, label: "Profilo", exact: false },
-] as const;
+import { Link, useRouterState } from "@tanstack/react-router";
+import { useClientShell } from "@/hooks/use-client-shell";
+import { CLIENT_TABS, activeClientTab, showsTabBar } from "@/lib/client-shell";
+import { cn } from "@/lib/utils";
 
 export function ClientBottomNav() {
   const path = useRouterState({ select: (s) => s.location.pathname });
+  const { sessionsBadge } = useClientShell();
+  if (!showsTabBar(path)) return null;
+  const active = activeClientTab(path);
+
   return (
-    <nav className="fixed bottom-0 w-full max-w-md mx-auto z-40 rounded-t-[2rem] bg-white/70 backdrop-blur-xl border-t border-white/20 shadow-[0_-8px_30px_rgba(0,0,0,0.04)] left-1/2 -translate-x-1/2 md:hidden flex justify-around items-center px-6 py-4 pb-8">
-      {tabs.map((t) => {
-        const active = t.exact ? path === t.to : path.startsWith(t.to);
-        const Icon = t.icon;
+    <nav
+      aria-label="Navigazione principale"
+      className="fixed inset-x-0 bottom-0 z-40 flex items-start justify-around gap-0.5 border-t border-outline-variant/45 bg-white/94 px-1.5 pt-1.5 backdrop-blur-[20px] md:hidden"
+      style={{ paddingBottom: "max(6px, env(safe-area-inset-bottom))" }}
+    >
+      {CLIENT_TABS.map((tab) => {
+        const on = tab.key === active;
+        const Icon = tab.icon;
+        const sessions = tab.key === "sessioni";
         return (
           <Link
-            key={t.to}
-            to={t.to}
-            aria-label={t.label}
-            // M4 (FULL_APP_AUDIT.md): explicit 44px min size to meet
-            // iOS/Android tap-target guidelines. On a 360px iPhone SE
-            // viewport the auto-divided width could fall under 44px.
-            className={`flex flex-col items-center justify-center rounded-full p-3 min-h-11 min-w-11 transition-all active:scale-90 duration-200 ${
-              active
-                ? "bg-primary-container text-on-primary-container"
-                : "text-on-surface-variant hover:bg-surface-container-highest"
-            }`}
+            key={tab.key}
+            to={tab.to}
+            aria-current={on ? "page" : undefined}
+            aria-label={sessions ? sessionsBadge.label : undefined}
+            className={cn(
+              "flex h-[58px] min-w-11 flex-1 flex-col items-center justify-center gap-[3px]",
+              on ? "text-aura-primary" : "text-on-surface-variant",
+            )}
           >
-            <Icon className="size-6" />
-            <span className="sr-only">{t.label}</span>
+            <span
+              className={cn(
+                "relative grid h-8 w-14 place-items-center rounded-full",
+                on && "bg-primary-container/12",
+              )}
+            >
+              <Icon className="size-[22px]" aria-hidden />
+              {sessions && sessionsBadge.count > 0 && (
+                <span
+                  aria-hidden
+                  className="absolute -top-0.5 right-2 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-white bg-warning-text px-[5px] text-xs leading-none font-bold text-white"
+                >
+                  {sessionsBadge.count}
+                </span>
+              )}
+            </span>
+            <span className={cn("text-xs whitespace-nowrap", on ? "font-bold" : "font-semibold")}>
+              {tab.label}
+            </span>
           </Link>
         );
       })}

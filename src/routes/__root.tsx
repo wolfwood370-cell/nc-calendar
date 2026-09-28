@@ -12,7 +12,7 @@ import {
 
 import appCss from "../styles.css?url";
 import { AuthProvider } from "@/lib/auth";
-import { Toaster } from "@/components/ui/sonner";
+import { ClientToaster } from "@/components/client-toaster";
 import { PwaRegister } from "@/components/pwa-register";
 import { initSentry, setSentryRouteTag } from "@/lib/sentry";
 
@@ -147,7 +147,8 @@ function RootComponent() {
       <AuthProvider>
         <RouteTracker />
         <Outlet />
-        <Toaster richColors position="top-right" />
+        {/* Un Toaster solo per tutta l'app: sulle route del cliente con le sue props. */}
+        <ClientToaster />
         <PwaRegister />
       </AuthProvider>
     </QueryClientProvider>
