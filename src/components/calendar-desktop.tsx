@@ -29,6 +29,7 @@ import { PackageDialog } from "@/components/package-dialog";
 import { SessionCancelDialog } from "@/components/session-cancel-dialog";
 import { SessionFormDialog, type SessionFormInit } from "@/components/session-form-dialog";
 import { notifySync, type GcalSync } from "@/hooks/use-gcal-sync";
+import { useNow } from "@/hooks/use-now";
 import { sessionBlockCredits } from "@/lib/assign-event";
 import { useAuth } from "@/lib/auth";
 import {
@@ -100,18 +101,7 @@ import { toastWithUndo } from "@/lib/toast";
 const CONSULENZA_COLOR = "#8e24aa";
 /** Quadratino degli impegni personali nel pannello. */
 const PERSONAL_COLOR = "#9aa0a6";
-const CLOCK_TICK_MS = 30_000;
 const LAST_SYNC_KEY = "gcal_reconcile_last";
-
-/** L'ora che scorre: linea dell'ora corrente e stati senza ricaricare. */
-function useNow(): Date {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(new Date()), CLOCK_TICK_MS);
-    return () => window.clearInterval(id);
-  }, []);
-  return now;
-}
 
 /** Il desktop è montato anche sul telefono (nascosto): tastiera e `new` solo da md in su. */
 function useIsDesktop(): boolean {

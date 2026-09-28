@@ -57,6 +57,7 @@ import { SessionCancelDialog } from "@/components/session-cancel-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { undoAssign } from "@/lib/assign-event";
 import { profilePresence } from "@/lib/attendance";
+import { useNow } from "@/hooks/use-now";
 import { useAuth } from "@/lib/auth";
 import { CreditUnavailableError, type SessionRemoval } from "@/lib/cancel-session";
 import { whatsappUrl } from "@/lib/calendar-events";
@@ -133,7 +134,7 @@ export function ClientProfileDesktop({
   const qc = useQueryClient();
   const eventTypes = useCoachEventTypes(user?.id).data ?? [];
   const tab = profileTab(search);
-  const now = new Date();
+  const now = useNow();
 
   const dataQ = useQuery({
     queryKey: ["client-profile", clientId, user?.id],

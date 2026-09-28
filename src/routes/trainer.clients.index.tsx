@@ -6,6 +6,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Plus, Search, UserPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { attendanceCoachId } from "@/lib/attendance";
+import { useNow } from "@/hooks/use-now";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { sendInvitationEmail } from "@/lib/email";
@@ -305,9 +306,12 @@ function ClientsPage() {
   }, [user?.id, isAdmin]);
 
   // Stato, crediti, presenza e prossima sessione di ogni cliente (client-list.ts).
+  // L'ora è quella di Panoramica e Calendario, e scorre (V8): prima era
+  // new Date() dentro il memo, ferma finché i dati non cambiavano.
+  const now = useNow();
   const rows = useMemo<ClientRow[]>(
-    () => buildClientRows({ clients, blocks, allocations: allocs, bookings, extras }, new Date()),
-    [clients, blocks, allocs, bookings, extras],
+    () => buildClientRows({ clients, blocks, allocations: allocs, bookings, extras }, now),
+    [clients, blocks, allocs, bookings, extras, now],
   );
 
   const counts = useMemo(() => {
@@ -334,7 +338,6 @@ function ClientsPage() {
   }, [rows, activeTab, q]);
 
   const pending: PendingInvitation[] = useMemo(() => {
-    const now = new Date();
     return invitations
       .filter((i) => i.status === "pending")
       .map((i) => ({
@@ -344,7 +347,7 @@ function ClientsPage() {
         created_at: i.created_at,
         sent: sentAgo(i.created_at, now),
       }));
-  }, [invitations]);
+  }, [invitations, now]);
 
   const coachName = (user?.user_metadata?.full_name as string) || user?.email || "il tuo coach";
 

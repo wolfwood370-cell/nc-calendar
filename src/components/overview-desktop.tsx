@@ -15,7 +15,7 @@
 
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { ArrowRight, CheckCircle2, CircleCheck, Undo2, UserX } from "lucide-react";
 import { toast } from "sonner";
 
@@ -23,6 +23,7 @@ import { CoachPage } from "@/components/coach-page";
 import { PackageDialog } from "@/components/package-dialog";
 import { PageTitle } from "@/components/page-title";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useNow } from "@/hooks/use-now";
 import { useAuth } from "@/lib/auth";
 import { clientPlanLabel } from "@/lib/client-search";
 import { romeDate } from "@/lib/credit-order";
@@ -72,9 +73,6 @@ import { cn } from "@/lib/utils";
 const CARD =
   "flex min-w-0 flex-col rounded-[28px] border border-white/60 bg-white/70 p-6 shadow-soft-card";
 
-/** Ogni quanto la pagina ricalcola gli stati della giornata. */
-const CLOCK_TICK_MS = 30_000;
-
 const CHIP_CLASS: Record<AgendaPhase, string> = {
   done: "bg-success-soft text-success-text",
   noshow: "bg-danger-soft text-danger-text",
@@ -88,16 +86,6 @@ const ROW_CLASS: Partial<Record<AgendaPhase, string>> = {
   now: "bg-primary-container/5",
   toconfirm: "bg-[rgba(255,237,213,0.35)]",
 };
-
-/** L'ora che scorre: gli stati della giornata cambiano senza ricaricare. */
-function useNow(): Date {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(new Date()), CLOCK_TICK_MS);
-    return () => window.clearInterval(id);
-  }, []);
-  return now;
-}
 
 function formatTime(d: Date): string {
   return d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
