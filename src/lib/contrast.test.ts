@@ -51,6 +51,17 @@ describe("i token noti hanno il rapporto del censimento", () => {
   });
 });
 
+describe("i token nuovi del lato cliente (passata 00) stanno sopra 4.5", () => {
+  it("warning-ink su warning-soft: il testo dentro i riquadri di avviso", () => {
+    expect(ratio("warning-ink", "warning-soft")).toBeCloseTo(6.88, 2);
+    expect(ratio("warning-ink", "warning-soft")).toBeGreaterThanOrEqual(4.5);
+  });
+  it("rating-text su rating-soft: il chip «Da valutare»", () => {
+    expect(ratio("rating-text", "rating-soft")).toBeCloseTo(6.37, 2);
+    expect(ratio("rating-text", "rating-soft")).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
 describe("le coppie corrette nella passata 10 stanno sopra 4.5", () => {
   it("chip «muted» del Profilo (profile-ui.tsx)", () => {
     const [bg, fg] = pick("profile-ui.tsx", /muted: "bg-(\S+) text-(\S+)"/);
