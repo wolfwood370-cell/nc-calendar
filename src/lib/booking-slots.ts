@@ -80,9 +80,10 @@ export function generateSlots(
   // Preavviso minimo in ore. Di default quello del cliente (booking-rules.ts),
   // che il foglio di riprogrammazione usa senza passarlo.
   minNoticeHours: number = CLIENT_MIN_NOTICE_HOURS,
+  // L'ora da cui partono giorni e preavviso; i test la fissano.
+  now: Date = new Date(),
 ): Slot[] {
   const slots: Slot[] = [];
-  const now = new Date();
   const candidateMs = candidateMinutes * 60_000;
 
   // Pre-index exceptions by YYYY-MM-DD
