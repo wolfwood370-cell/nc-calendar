@@ -23,7 +23,7 @@ import {
   sumCredits,
   type CreditAllocation,
 } from "@/lib/credits";
-import { resolveCurrentBlock, type BlockDates } from "@/lib/current-block";
+import { blockTimingNote, resolveCurrentBlock, type BlockDates } from "@/lib/current-block";
 
 export const RENEWAL_MAX_CREDITS = 2;
 export const RENEWAL_MAX_DAYS = 7;
@@ -55,6 +55,11 @@ export interface RenewalInfo {
   remaining: number;
   /** Giorni di calendario alla fine del blocco: 0 = finisce oggi, negativo = già finito. */
   daysLeft: number;
+  /**
+   * Quale blocco, quando il riferimento non è quello in corso (V6): «Blocco 4,
+   * dal 15 ott 2026», «Blocco 6, finito il 12 ott 2026»; null se è in corso.
+   */
+  note: string | null;
 }
 
 /** Un blocco annullato non fa parte del percorso. */
@@ -108,10 +113,13 @@ export function getRenewalInfo(
   if (daysLeft < 0 && remaining === 0) return null;
   const byDate = endsSoon(daysLeft);
   if (!byDate && remaining > RENEWAL_MAX_CREDITS) return null;
+  const timing = blockTimingNote(current, now);
+  const n = [...valid].sort((a, b) => a.sequence_order - b.sequence_order).indexOf(current) + 1;
   return {
     reason: byDate ? blockEndReason(daysLeft) : formatCreditsLeft(remaining),
     remaining,
     daysLeft,
+    note: timing ? `Blocco ${n}, ${timing}` : null,
   };
 }
 

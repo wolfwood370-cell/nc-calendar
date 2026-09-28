@@ -2,14 +2,14 @@
 // Crediti dei pacchetti — unità e conteggi condivisi
 // ----------------------------------------------------------------------------
 // Audit V2: l'unità è sempre «crediti», con il singolare corretto.
-// Audit L8/V6: i crediti mostrati sono quelli del blocco in corso, calcolati
+// Audit L8/V6: i crediti mostrati sono quelli di un blocco (di riferimento o
+// della data della sessione: current-block.ts, assign-event.ts), calcolati
 // come quantity_assigned − quantity_booked. Il credito si impegna alla
 // prenotazione (quantity_booked sale quando la sessione viene prenotata),
 // quindi il check-in segna la sessione come svolta senza cambiare il residuo.
 // ----------------------------------------------------------------------------
 
 import { allocKey } from "@/lib/booking-allocation";
-import { findCurrentBlock, type BlockDates } from "@/lib/current-block";
 import type { SessionType } from "@/lib/mock-data";
 
 /** «1 credito rimasto» · «N crediti rimasti» · «Crediti esauriti». */
@@ -93,16 +93,6 @@ export function getBlockCredits(
     byKey.set(key, row);
   }
   return [...byKey.values()];
-}
-
-/** Crediti per tipologia del blocco in corso; vuoto se oggi nessun blocco è in corso. */
-export function getCurrentBlockCredits(
-  blocks: readonly (BlockDates & { id: string })[],
-  allocations: readonly CreditAllocation[],
-  now: Date = new Date(),
-): TypeCredits[] {
-  const current = findCurrentBlock(blocks, now);
-  return current ? getBlockCredits(current.id, allocations) : [];
 }
 
 /** Totali di più tipologie: assegnati, prenotati, residui. */

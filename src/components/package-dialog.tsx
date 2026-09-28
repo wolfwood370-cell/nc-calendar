@@ -24,7 +24,7 @@ import {
 import { SegmentedControl } from "@/components/segmented-control";
 import { useAuth } from "@/lib/auth";
 import { clientPlanLabel } from "@/lib/client-search";
-import { formatCreditsAgreed, getCurrentBlockCredits, sumCredits } from "@/lib/credits";
+import { formatCreditsAgreed } from "@/lib/credits";
 import { toIsoDate } from "@/lib/current-block";
 import {
   BLOCKS_MAX,
@@ -41,6 +41,7 @@ import {
   lastBlock,
   nextBlockDates,
   renewNote,
+  renewalResidual,
   renewPackage,
   undoPackageChange,
   type PackageBlock,
@@ -228,12 +229,8 @@ function PackageBody({
   const newBlock = nextBlockDates(last, today, blockLength(last));
   const firstDate = parseISO(newBlock.start);
   const firstDay = formatShortDate(firstDate);
-  const residual = sumCredits(
-    getCurrentBlockCredits(
-      blocksQ.data ?? [],
-      (blocksQ.data ?? []).flatMap((b) => b.allocations),
-    ),
-  ).left;
+  // Il blocco di riferimento del percorso, come Panoramica, Clienti e Profilo (V6).
+  const residual = renewalResidual(blocksQ.data ?? [], new Date());
   const renewRows = creditsByType(last, types);
   const hasFutureBlocks = blocks.some((b) => b.start_date.slice(0, 10) > today);
 
@@ -353,7 +350,7 @@ function PackageBody({
           ))}
         </div>
         <p className="text-[13px] leading-normal text-on-surface-variant">
-          {renewNote(firstDate, residual)}
+          {renewNote(firstDate, residual.residual, residual.block)}
         </p>
       </>
     );

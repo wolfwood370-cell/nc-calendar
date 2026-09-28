@@ -88,6 +88,7 @@ describe("getRenewalInfo · la tabella del 25/09", () => {
       reason: "Il blocco scade tra 4 giorni",
       remaining: 5,
       daysLeft: 4,
+      note: null,
     });
     expect(getRenewalInfo(MONTHLY_MANUAL, [blockEndingIn(20)], creditsLeft(1), NOW)?.reason).toBe(
       "1 credito rimasto",
@@ -174,6 +175,7 @@ describe("getRenewalInfo · blocco di riferimento", () => {
       reason: "1 credito rimasto",
       remaining: 1,
       daysLeft: -3,
+      note: "Blocco 1, finito il 22 set 2026",
     });
   });
 });
@@ -188,6 +190,7 @@ describe("getRenewalInfo · crediti residui", () => {
       reason,
       remaining: left,
       daysLeft: 20,
+      note: null,
     });
   });
 
@@ -220,6 +223,7 @@ describe("getRenewalInfo · fine del blocco", () => {
       reason,
       remaining: 5,
       daysLeft: days,
+      note: null,
     });
   });
 
@@ -281,10 +285,10 @@ describe("listRenewals", () => {
 describe("compareRenewals", () => {
   it("prima per giorni alla scadenza, poi per crediti residui", () => {
     const list: RenewalInfo[] = [
-      { reason: "2 crediti rimasti", remaining: 2, daysLeft: 20 },
-      { reason: "Il blocco scade tra 5 giorni", remaining: 6, daysLeft: 5 },
-      { reason: "Crediti esauriti", remaining: 0, daysLeft: 30 },
-      { reason: "Il blocco scade domani", remaining: 4, daysLeft: 1 },
+      { reason: "2 crediti rimasti", remaining: 2, daysLeft: 20, note: null },
+      { reason: "Il blocco scade tra 5 giorni", remaining: 6, daysLeft: 5, note: null },
+      { reason: "Crediti esauriti", remaining: 0, daysLeft: 30, note: null },
+      { reason: "Il blocco scade domani", remaining: 4, daysLeft: 1, note: null },
     ];
     expect([...list].sort(compareRenewals).map((r) => r.reason)).toEqual([
       "Il blocco scade domani",
@@ -295,8 +299,18 @@ describe("compareRenewals", () => {
   });
 
   it("a parità di giorni mette prima chi ha meno crediti", () => {
-    const a: RenewalInfo = { reason: "Il blocco scade oggi", remaining: 3, daysLeft: 0 };
-    const b: RenewalInfo = { reason: "Il blocco scade oggi", remaining: 1, daysLeft: 0 };
+    const a: RenewalInfo = {
+      reason: "Il blocco scade oggi",
+      remaining: 3,
+      daysLeft: 0,
+      note: null,
+    };
+    const b: RenewalInfo = {
+      reason: "Il blocco scade oggi",
+      remaining: 1,
+      daysLeft: 0,
+      note: null,
+    };
     expect([a, b].sort(compareRenewals)).toEqual([b, a]);
   });
 });

@@ -19,7 +19,7 @@
 import { getAttendance } from "@/lib/attendance";
 import { matchesClient } from "@/lib/client-search";
 import { formatCreditsOf, getBlockCredits, sumCredits, type CreditAllocation } from "@/lib/credits";
-import { resolveCurrentBlock } from "@/lib/current-block";
+import { blockTimingNote, resolveCurrentBlock } from "@/lib/current-block";
 import {
   getRenewalInfo,
   isValidBlock,
@@ -196,6 +196,9 @@ export function cardCredits(
       client.path_type === "recurring"
         ? "Crediti del mese"
         : `Crediti del blocco ${valid.indexOf(ref) + 1} di ${valid.length}`;
+    // Fra due blocchi, o a percorso finito, il blocco mostrato non è in corso (V6).
+    const note = blockTimingNote(ref, now);
+    if (note) title = `${title} · ${note}`;
   }
   if (total <= 0) return null;
   return { title, left, total, label: formatCreditsOf(left, total), short: `${left}/${total}` };

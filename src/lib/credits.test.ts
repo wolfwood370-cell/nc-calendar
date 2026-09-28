@@ -6,7 +6,6 @@ import {
   formatCreditsOf,
   formatCreditsOfTail,
   getBlockCredits,
-  getCurrentBlockCredits,
   sumCredits,
   type CreditAllocation,
 } from "@/lib/credits";
@@ -106,26 +105,6 @@ describe("getBlockCredits", () => {
   it("non scende sotto zero", () => {
     const [row] = getBlockCredits("b2", [alloc("b2", "pt", 2, 3)]);
     expect(row?.left).toBe(0);
-  });
-});
-
-describe("getCurrentBlockCredits", () => {
-  const blocks = [
-    { id: "b1", sequence_order: 1, start_date: "2026-08-24", end_date: "2026-09-20" },
-    { id: "b2", sequence_order: 2, start_date: "2026-09-21", end_date: "2026-10-18" },
-  ];
-  const allocations = [alloc("b1", "pt", 8, 8), alloc("b2", "pt", 8, 5), alloc("b2", "bia", 1, 0)];
-
-  it("conta solo il blocco in corso", () => {
-    const rows = getCurrentBlockCredits(blocks, allocations, new Date(2026, 8, 25, 10, 40));
-    expect(rows.map((r) => [r.key, r.assigned, r.booked, r.left])).toEqual([
-      ["pt", 8, 5, 3],
-      ["bia", 1, 0, 1],
-    ]);
-  });
-
-  it("è vuoto se oggi nessun blocco è in corso", () => {
-    expect(getCurrentBlockCredits(blocks, allocations, new Date(2026, 11, 1))).toEqual([]);
   });
 });
 

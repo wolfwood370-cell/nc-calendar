@@ -358,6 +358,7 @@ export function OverviewDesktop() {
                             <span className="text-xs text-on-surface-variant">
                               {clientPlanLabel(client)} ·{" "}
                               <span className="font-semibold text-warning-text">{info.reason}</span>
+                              {info.note && <> · {info.note}</>}
                             </span>
                           </span>
                         </Link>

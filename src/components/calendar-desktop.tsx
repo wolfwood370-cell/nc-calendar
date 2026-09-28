@@ -29,6 +29,7 @@ import { PackageDialog } from "@/components/package-dialog";
 import { SessionCancelDialog } from "@/components/session-cancel-dialog";
 import { SessionFormDialog, type SessionFormInit } from "@/components/session-form-dialog";
 import { notifySync, type GcalSync } from "@/hooks/use-gcal-sync";
+import { sessionBlockCredits } from "@/lib/assign-event";
 import { useAuth } from "@/lib/auth";
 import {
   eventKind,
@@ -69,7 +70,7 @@ import {
 } from "@/lib/calendar-time";
 import { hasClientCredit, type SessionRemoval } from "@/lib/cancel-session";
 import { clientPlanLabel } from "@/lib/client-search";
-import { formatCreditsOf, getCurrentBlockCredits } from "@/lib/credits";
+import { formatCreditsOf } from "@/lib/credits";
 import { quickSyncMessage } from "@/lib/gcal-sync-run";
 import { sessionLabel } from "@/lib/mock-data";
 import { formatAgo } from "@/lib/notifications";
@@ -470,13 +471,18 @@ export function CalendarDesktop({ sync }: { sync: GcalSync }) {
     const isClient = hasClientCredit(b);
     const client = isClient && b.client_id ? clientById.get(b.client_id) : undefined;
     let credits: PanelCredit[] = [];
+    let creditsTitle: string | null = null;
     if (client) {
+      // Il blocco della data di questa sessione, come in Assegna evento (V6).
       const own = blocks.filter((x) => x.client_id === client.id);
-      credits = getCurrentBlockCredits(
+      const ref = sessionBlockCredits(
         own,
         own.flatMap((x) => x.allocations),
+        b.scheduled_at,
         now,
-      ).map((c) => {
+      );
+      creditsTitle = ref.title;
+      credits = ref.credits.map((c) => {
         const t = c.eventTypeId ? typeById.get(c.eventTypeId) : undefined;
         return {
           key: c.key,
@@ -521,6 +527,7 @@ export function CalendarDesktop({ sync }: { sync: GcalSync }) {
             plan: clientPlanLabel(client),
             whatsapp: whatsappUrl(client.phone),
             credits,
+            creditsTitle,
             note: lastSessionNote(bookings, client.id, now),
           }
         : null,
