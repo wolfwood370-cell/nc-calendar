@@ -227,6 +227,43 @@ describe("getClientSlotDays · giorni vuoti", () => {
   it("un giorno con orari non ha motivo", () => {
     expect(dayOf(getClientSlotDays(input()), "2026-09-30").reason).toBeNull();
   });
+
+  it("chiuso anche senza nessun orario possibile: fascia più corta della sessione, o coperta da eccezioni", () => {
+    const short: AvailabilityRow = {
+      id: "short",
+      coach_id: "coach",
+      day_of_week: 3, // mercoledì
+      start_time: "09:00:00",
+      end_time: "10:00:00",
+    };
+    const r = getClientSlotDays(
+      input({
+        availability: [...everyDay("09:00:00", "20:00:00", [1, 2, 4, 5, 6, 7]), short],
+        exceptions: [exception("2026-10-02", "08:00:00", "21:00:00")],
+      }),
+    );
+    // 60 minuti più 10 di margine non stanno in un'ora.
+    expect(dayOf(r, "2026-09-30").reason).toBe("chiuso");
+    expect(dayOf(r, "2026-10-02").reason).toBe("chiuso");
+  });
+
+  it("chiuso viene prima di crediti, preavviso prima di pieno", () => {
+    const r = getClientSlotDays(
+      input({
+        now: at(9, 28, 18, 0),
+        availability: everyDay("09:00:00", "13:00:00", [1, 2, 3, 4, 5, 6]),
+        // Un buco fra le finestre: dal 1° al 5 ottobre nessun credito vale.
+        windows: [win("2026-09-28", "2026-09-30", "b3"), win("2026-10-06", "2026-10-31", "b4")],
+        busy: [session(at(9, 29, 10, 0))],
+      }),
+    );
+    // Domenica 4 ottobre: nessuna fascia, e nel buco.
+    expect(dayOf(r, "2026-10-04").reason).toBe("chiuso");
+    // Sabato 3: fasce sì, finestra no.
+    expect(dayOf(r, "2026-10-03").reason).toBe("crediti");
+    // Martedì 29: una sessione in agenda, ma è il preavviso a togliere tutto.
+    expect(dayOf(r, "2026-09-29").reason).toBe("preavviso");
+  });
 });
 
 describe("getClientSlotDays · orari", () => {

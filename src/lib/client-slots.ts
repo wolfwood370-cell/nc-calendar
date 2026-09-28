@@ -17,15 +17,16 @@ import {
   CLIENT_MIN_NOTICE_HOURS,
   type CreditWindow,
 } from "@/lib/booking-rules";
-import { generateSlots, jsDowToIso, ymd, type BlockedRange, type Slot } from "@/lib/booking-slots";
+import { generateSlots, ymd, type BlockedRange, type Slot } from "@/lib/booking-slots";
 import type { AvailabilityExceptionRow, AvailabilityRow } from "@/lib/queries";
 
 export type DayPart = "Mattina" | "Pomeriggio" | "Sera";
 
 /**
- * Perché un giorno non ha orari: studio chiuso (nessuna fascia, o eccezione di
- * tutto il giorno), nessun credito che valga quel giorno, 24 ore di preavviso,
- * oppure tutto occupato.
+ * Perché un giorno non ha orari: chiuso (nessun orario possibile per la
+ * tipologia: nessuna fascia, eccezione di tutto il giorno, fasce troppo corte
+ * o coperte da eccezioni), nessun credito che valga quel giorno, 24 ore di
+ * preavviso, oppure tutto occupato.
  */
 export type EmptyDayReason = "chiuso" | "crediti" | "preavviso" | "pieno";
 
@@ -194,8 +195,12 @@ export function getClientSlotDays(input: ClientSlotInput): ClientSlotDays {
 
 /**
  * Il motivo di un giorno senza orari, in quest'ordine: chiuso, crediti,
- * preavviso (tutti gli orari che le fasce darebbero iniziano prima di
- * now + 24 ore), pieno.
+ * preavviso (tutti gli orari possibili iniziano prima di now + 24 ore), pieno.
+ * Gli orari possibili sono quelli che fasce ed eccezioni di quel giorno
+ * darebbero, senza sessioni e senza preavviso: generateSlots stesso, con l'ora
+ * ferma a mezzanotte. Se non ce n'è nessuno il giorno è chiuso: nessuna
+ * fascia, un'eccezione di tutto il giorno, fasce più corte della sessione o
+ * eccezioni che le coprono.
  */
 function emptyReason(
   date: Date,
@@ -205,27 +210,20 @@ function emptyReason(
   candidateMinutes: number,
   minStart: number,
 ): EmptyDayReason {
-  const isoDate = ymd(date);
-  const open = availability.some((a) => a.day_of_week === jsDowToIso(date.getDay()));
-  const closedAllDay = exceptions.some(
-    (ex) => ex.date === isoDate && (!ex.start_time || !ex.end_time),
-  );
-  if (!open || closedAllDay) return "chiuso";
-  if (!window) return "crediti";
-  // La griglia delle fasce di quel giorno: generateSlots senza sessioni, senza
-  // eccezioni e senza preavviso, con l'ora ferma a mezzanotte.
-  const grid = generateSlots(
+  const possible = generateSlots(
     1,
     [],
     availability,
-    [],
+    exceptions,
     candidateMinutes,
     date,
-    endOfIsoDate(isoDate),
+    endOfIsoDate(ymd(date)),
     undefined,
     0,
     date,
   );
-  if (grid.length > 0 && grid.every((s) => s.date.getTime() < minStart)) return "preavviso";
+  if (possible.length === 0) return "chiuso";
+  if (!window) return "crediti";
+  if (possible.every((s) => s.date.getTime() < minStart)) return "preavviso";
   return "pieno";
 }
