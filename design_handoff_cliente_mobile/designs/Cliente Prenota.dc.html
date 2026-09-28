@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&amp;family=Manrope:wght@400;500;600;700&amp;display=swap">
+<script src="./nc-icons.js"></script>
+<script src="./nc-store.js"></script>
+<script src="./nc-client.js"></script>
+<title>Prenota · NC Calendar</title>
+<style>
+*,::before,::after{box-sizing:border-box;margin:0;padding:0;border:0 solid;}
+body{margin:0;background:#e7e8ec;font-family:Manrope,ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:#191c1f;}
+button,input,textarea{font:inherit;color:inherit;background:transparent;}
+button{cursor:pointer;}
+button:disabled{cursor:default;}
+ul,ol{list-style:none;}
+a{color:#003e62;text-decoration:none;}
+a:hover{color:#005685;}
+:focus-visible{outline:2px solid #005685;outline-offset:2px;}
+</style>
+</helmet>
+<div style="min-height:100vh; background:linear-gradient(135deg,#eceef2,#dde1e8); display:flex; flex-wrap:wrap; justify-content:center; align-items:flex-start; gap:32px; padding:24px 20px 40px;">
+  <div style="width:{{ boxW }}; height:{{ boxH }}; flex-shrink:0;">
+    <div style="width:402px; height:874px; transform:{{ scaleT }}; transform-origin:top left;">
+      <x-import component-from-global-scope="IOSDevice" from="./nc-ios-frame.js" time="{{ clock }}" hint-size="402px,874px">
+        <div data-screen-label="Prenota" style="position:absolute; inset:0; z-index:1; display:flex; flex-direction:column; background:#f8f9fe; color:#191c1f; font-family:Manrope, sans-serif; overflow:hidden;">
+          <div style="flex:1; min-height:0; overflow-y:auto; scrollbar-width:none;">
+            <header style="position:sticky; top:0; z-index:5; padding:60px 20px 12px; background:rgba(248,249,254,0.92); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); display:flex; align-items:flex-end; justify-content:space-between; gap:12px;">
+              <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:4px;">
+                <h1 style="font-family:Sora, sans-serif; font-size:28px; line-height:1.15; font-weight:700; letter-spacing:-0.02em;">Prenota</h1>
+                <p style="font-size:14px; color:#41474f;">{{ headSub }}</p>
+              </div>
+              <button onClick="{{ openNotifs }}" aria-label="{{ bellLabel }}" style="position:relative; width:44px; height:44px; border-radius:9999px; background:#ffffff; border:1px solid rgba(193,199,208,0.6); display:grid; place-items:center; color:#41474f; flex-shrink:0;">
+                <nc-icon name="Bell" style="width:20px; height:20px;"></nc-icon>
+                <sc-if value="{{ unread }}" hint-placeholder-val="{{ false }}"><span style="position:absolute; top:-3px; right:-3px; min-width:20px; height:20px; padding:0 5px; border-radius:9999px; background:#e53935; color:#ffffff; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; border:2px solid #f8f9fe;">{{ unreadLabel }}</span></sc-if>
+              </button>
+            </header>
+            <main style="padding:4px 16px 24px; display:flex; flex-direction:column; gap:20px;">
+
+              <sc-if value="{{ blockedOn }}" hint-placeholder-val="{{ false }}">
+                <section style="background:#ffffff; border-radius:24px; border:1px solid rgba(193,199,208,0.35); box-shadow:0 8px 30px rgba(0,0,0,0.04); padding:20px; display:flex; flex-direction:column; gap:12px;">
+                  <h2 style="font-size:17px; font-weight:700;">{{ blockedTitle }}</h2>
+                  <p style="font-size:15px; line-height:1.5; color:#41474f; text-wrap:pretty;">{{ blockedText }}</p>
+                  <sc-if value="{{ blockedBuy }}" hint-placeholder-val="{{ false }}">
+                    <button onClick="{{ goBooster }}" style="height:52px; border-radius:9999px; background:#005685; color:#ffffff; font-size:16px; font-weight:700;">Acquista un Booster</button>
+                  </sc-if>
+                  <a href="{{ waHref }}" target="_blank" rel="noopener" style="height:48px; border-radius:9999px; border:1px solid #c1c7d0; color:#003e62; font-size:15px; font-weight:600; display:flex; align-items:center; justify-content:center; gap:8px;"><nc-icon name="MessageCircle" style="width:16px; height:16px;"></nc-icon><span>Scrivi a {{ coachFirst }}</span></a>
+                </section>
+              </sc-if>
+
+              <sc-if value="{{ flowOn }}" hint-placeholder-val="{{ true }}">
+                <section style="display:flex; flex-direction:column; gap:10px;">
+                  <h2 style="font-size:17px; font-weight:700;">Cosa vuoi prenotare?</h2>
+                  <div role="radiogroup" aria-label="Tipologia di sessione" style="display:flex; flex-direction:column; gap:8px;">
+                    <sc-for list="{{ types }}" as="t" hint-placeholder-count="3">
+                      <button role="radio" aria-checked="{{ t.checked }}" onClick="{{ t.pick }}" style="min-height:64px; display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:18px; text-align:left; background:{{ t.bg }}; border:1.5px solid {{ t.border }};">
+                        <span style="width:40px; height:40px; border-radius:12px; background:{{ t.tint }}; color:{{ t.color }}; display:grid; place-items:center; flex-shrink:0;"><nc-icon name="{{ t.icon }}" style="width:20px; height:20px;"></nc-icon></span>
+                        <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px;">
+                          <span style="font-size:15px; font-weight:700;">{{ t.name }}</span>
+                          <span style="font-size:13px; font-weight:600; color:{{ t.subFg }};">{{ t.sub }}</span>
+                        </span>
+                        <sc-if value="{{ t.can }}" hint-placeholder-val="{{ true }}">
+                          <span style="width:22px; height:22px; border-radius:9999px; border:2px solid {{ t.ring }}; display:grid; place-items:center; flex-shrink:0;"><span style="width:10px; height:10px; border-radius:9999px; background:{{ t.dot }};"></span></span>
+                        </sc-if>
+                        <sc-if value="{{ t.cannot }}" hint-placeholder-val="{{ false }}"><nc-icon name="ChevronRight" style="width:18px; height:18px; color:#41474f;"></nc-icon></sc-if>
+                      </button>
+                    </sc-for>
+                  </div>
+                </section>
+
+                <sc-if value="{{ pickOn }}" hint-placeholder-val="{{ true }}">
+                  <section style="display:flex; flex-direction:column; gap:10px;">
+                    <h2 style="font-size:17px; font-weight:700;">Quando?</h2>
+                    <div style="display:flex; gap:8px; overflow-x:auto; margin:0 -16px; padding:2px 16px 6px; scrollbar-width:none;">
+                      <sc-for list="{{ days }}" as="d" hint-placeholder-count="7">
+                        <button onClick="{{ d.pick }}" disabled="{{ d.disabled }}" aria-pressed="{{ d.pressed }}" aria-label="{{ d.aria }}" style="flex-shrink:0; width:60px; height:80px; border-radius:18px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; background:{{ d.bg }}; color:{{ d.fg }}; border:1px solid {{ d.border }};">
+                          <span style="font-size:12px; font-weight:600;">{{ d.dow }}</span>
+                          <span style="font-family:Sora, sans-serif; font-size:20px; font-weight:700; font-variant-numeric:tabular-nums;">{{ d.num }}</span>
+                          <span style="font-size:12px; font-weight:600; color:{{ d.subFg }};">{{ d.sub }}</span>
+                        </button>
+                      </sc-for>
+                    </div>
+                    <p style="display:flex; gap:8px; font-size:13px; line-height:1.5; color:#41474f;"><nc-icon name="Info" style="width:16px; height:16px; margin-top:1px; color:#005685;"></nc-icon><span style="text-wrap:pretty;">{{ rule }}</span></p>
+                  </section>
+
+                  <section style="display:flex; flex-direction:column; gap:12px;">
+                    <h2 style="font-size:17px; font-weight:700;">{{ dayTitle }}</h2>
+                    <sc-if value="{{ noSlots }}" hint-placeholder-val="{{ false }}">
+                      <div style="background:#ffffff; border-radius:18px; border:1px solid #e1e2e7; padding:14px 16px; display:flex; flex-direction:column; gap:10px;">
+                        <p style="font-size:15px; line-height:1.5; color:#41474f;">{{ noSlotsText }}</p>
+                        <a href="{{ waHref }}" target="_blank" rel="noopener" style="align-self:flex-start; height:48px; padding:0 16px; border-radius:9999px; background:rgba(0,86,133,0.1); color:#003e62; font-size:15px; font-weight:600; display:flex; align-items:center; gap:8px;"><nc-icon name="MessageCircle" style="width:16px; height:16px;"></nc-icon><span>Scrivi a {{ coachFirst }}</span></a>
+                      </div>
+                    </sc-if>
+                    <sc-for list="{{ parts }}" as="p" hint-placeholder-count="2">
+                      <div style="display:flex; flex-direction:column; gap:8px;">
+                        <div style="display:flex; flex-direction:column; gap:2px;"><p style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:700; color:{{ p.labelFg }};"><sc-if value="{{ p.rec }}" hint-placeholder-val="{{ false }}"><nc-icon name="Sparkles" style="width:14px; height:14px;"></nc-icon></sc-if>{{ p.label }}</p><sc-if value="{{ p.rec }}" hint-placeholder-val="{{ false }}"><p style="font-size:13px; line-height:1.4; color:#41474f;">{{ p.note }}</p></sc-if></div>
+                        <div role="radiogroup" aria-label="{{ p.aria }}" style="display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px;">
+                          <sc-for list="{{ p.slots }}" as="s" hint-placeholder-count="3">
+                            <button role="radio" aria-checked="{{ s.checked }}" onClick="{{ s.pick }}" style="height:48px; border-radius:14px; font-size:16px; font-weight:700; font-variant-numeric:tabular-nums; background:{{ s.bg }}; color:{{ s.fg }}; border:1px solid {{ s.border }};">{{ s.time }}</button>
+                          </sc-for>
+                        </div>
+                      </div>
+                    </sc-for>
+                  </section>
+                </sc-if>
+              </sc-if>
+            </main>
+          </div>
+
+          <sc-if value="{{ barOn }}" hint-placeholder-val="{{ false }}">
+            <div style="flex-shrink:0; display:flex; align-items:center; gap:12px; padding:10px 16px; background:#ffffff; border-top:1px solid rgba(193,199,208,0.45);">
+              <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px;">
+                <span style="font-size:13px; color:#41474f;">{{ barType }}</span>
+                <span style="font-size:16px; font-weight:700; font-variant-numeric:tabular-nums;">{{ barWhen }}</span>
+              </div>
+              <button onClick="{{ openConfirm }}" style="height:52px; padding:0 24px; border-radius:9999px; background:#005685; color:#ffffff; font-size:16px; font-weight:700;">Continua</button>
+            </div>
+          </sc-if>
+          <dc-import name="Cliente Tab Bar" active="prenota" hint-size="100%,94px" style="flex-shrink:0; width:100%;"></dc-import>
+
+          <sc-if value="{{ sheetOn }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute; inset:0; z-index:30; display:flex; flex-direction:column; justify-content:flex-end;">
+              <div onClick="{{ closeSheet }}" style="position:absolute; inset:0; background:rgba(0,20,35,0.42);"></div>
+              <div role="dialog" aria-modal="true" aria-label="{{ sheetTitle }}" style="position:relative; max-height:90%; overflow-y:auto; scrollbar-width:none; background:#ffffff; border-radius:28px 28px 0 0; padding:10px 20px 40px; display:flex; flex-direction:column; gap:16px;">
+                <span style="align-self:center; width:40px; height:5px; border-radius:9999px; background:#c1c7d0;"></span>
+
+                <sc-if value="{{ confirmStep }}" hint-placeholder-val="{{ false }}">
+                  <h2 style="font-family:Sora, sans-serif; font-size:22px; font-weight:700;">Conferma la prenotazione</h2>
+                  <div style="display:flex; align-items:center; gap:12px;">
+                    <span style="width:44px; height:44px; border-radius:14px; background:{{ cTint }}; color:{{ cColor }}; display:grid; place-items:center; flex-shrink:0;"><nc-icon name="{{ cIcon }}" style="width:22px; height:22px;"></nc-icon></span>
+                    <div style="display:flex; flex-direction:column; gap:2px;"><span style="font-size:17px; font-weight:700;">{{ cType }}</span><span style="font-size:14px; color:#41474f;">{{ cDur }}</span></div>
+                  </div>
+                  <ul style="display:flex; flex-direction:column; gap:12px; padding:14px 16px; border-radius:18px; background:#f8f9fe;">
+                    <li style="display:flex; gap:10px; font-size:15px; line-height:1.4;"><nc-icon name="CalendarDays" style="width:18px; height:18px; margin-top:1px; color:#005685;"></nc-icon><span style="font-weight:600;">{{ cWhen }}</span></li>
+                    <li style="display:flex; gap:10px; font-size:15px; line-height:1.4;"><nc-icon name="User" style="width:18px; height:18px; margin-top:1px; color:#005685;"></nc-icon>{{ cCoach }}</li>
+                    <li style="display:flex; gap:10px; font-size:15px; line-height:1.4;"><nc-icon name="{{ cPlaceIcon }}" style="width:18px; height:18px; margin-top:1px; color:#005685;"></nc-icon>{{ cPlace }}</li>
+                    <li style="display:flex; gap:10px; font-size:15px; line-height:1.4;"><nc-icon name="Coins" style="width:18px; height:18px; margin-top:1px; color:#005685;"></nc-icon>{{ cCredit }}</li>
+                  </ul>
+                  <p style="font-size:14px; line-height:1.5; color:#41474f; text-wrap:pretty;">{{ cRule }}</p>
+                  <sc-if value="{{ cError }}" hint-placeholder-val="{{ false }}"><p role="alert" style="font-size:14px; font-weight:600; color:#b91c1c;">{{ cError }}</p></sc-if>
+                  <button onClick="{{ doBook }}" style="height:52px; border-radius:9999px; background:#005685; color:#ffffff; font-size:16px; font-weight:700;">Conferma prenotazione</button>
+                  <button onClick="{{ closeSheet }}" style="height:44px; border-radius:9999px; font-size:15px; font-weight:600; color:#003e62;">Indietro</button>
+                </sc-if>
+
+                <sc-if value="{{ doneStep }}" hint-placeholder-val="{{ false }}">
+                  <span style="width:56px; height:56px; border-radius:18px; background:#ecfdf5; color:#047857; display:grid; place-items:center;"><nc-icon name="CircleCheck" style="width:28px; height:28px;"></nc-icon></span>
+                  <h2 style="font-family:Sora, sans-serif; font-size:22px; font-weight:700;">Prenotata</h2>
+                  <p style="font-size:15px; line-height:1.5; color:#41474f; text-wrap:pretty;">{{ doneText }}</p>
+                  <button onClick="{{ openBooked }}" style="height:52px; border-radius:9999px; background:#005685; color:#ffffff; font-size:16px; font-weight:700;">Vedi la sessione</button>
+                  <button onClick="{{ bookAnother }}" style="height:48px; border-radius:9999px; border:1px solid #c1c7d0; font-size:15px; font-weight:600; color:#003e62;">Prenota un'altra sessione</button>
+                </sc-if>
+
+                <sc-if value="{{ infoStep }}" hint-placeholder-val="{{ false }}">
+                  <h2 style="font-family:Sora, sans-serif; font-size:22px; font-weight:700;">{{ infoTitle }}</h2>
+                  <p style="font-size:15px; line-height:1.5; color:#41474f; text-wrap:pretty;">{{ infoText }}</p>
+                  <sc-if value="{{ infoBuy }}" hint-placeholder-val="{{ false }}">
+                    <button onClick="{{ goBoosterType }}" style="height:52px; border-radius:9999px; background:#005685; color:#ffffff; font-size:16px; font-weight:700;">Acquista un Booster</button>
+                  </sc-if>
+                  <a href="{{ waHref }}" target="_blank" rel="noopener" style="height:52px; border-radius:9999px; background:{{ infoWaBg }}; color:{{ infoWaFg }}; border:1px solid {{ infoWaBorder }}; font-size:16px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px;"><nc-icon name="MessageCircle" style="width:18px; height:18px;"></nc-icon><span>Scrivi a {{ coachFirst }} su WhatsApp</span></a>
+                  <button onClick="{{ closeSheet }}" style="height:44px; border-radius:9999px; font-size:15px; font-weight:600; color:#003e62;">Chiudi</button>
+                </sc-if>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ toastOn }}" hint-placeholder-val="{{ false }}">
+            <div role="status" aria-live="polite" style="position:absolute; left:12px; right:12px; bottom:106px; z-index:40; display:flex; align-items:center; gap:12px; background:#191c1f; color:#ffffff; border-radius:16px; padding:8px 8px 8px 16px; box-shadow:0 12px 32px rgba(0,0,0,0.25);">
+              <nc-icon name="{{ toastIcon }}" style="width:18px; height:18px; color:{{ toastColor }};"></nc-icon>
+              <span style="flex:1; font-size:14px; line-height:1.35; padding:8px 0;">{{ toastMsg }}</span>
+              <sc-if value="{{ toastUndo }}" hint-placeholder-val="{{ false }}"><button onClick="{{ undoToast }}" style="height:44px; padding:0 12px; border-radius:12px; color:#91cbff; font-size:14px; font-weight:700;">Ripristina</button></sc-if>
+            </div>
+          </sc-if>
+        </div>
+      </x-import>
+    </div>
+  </div>
+  <sc-if value="{{ panel }}" hint-placeholder-val="{{ true }}">
+    <div style="width:340px; max-width:100%;"><dc-import name="Cliente Revisione" screen="prenota" hint-size="340px,760px" style="width:100%;"></dc-import></div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;reviewPanel&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Prototipo&quot;},&quot;clock&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;reale&quot;,&quot;08:15&quot;,&quot;10:40&quot;,&quot;13:10&quot;,&quot;19:10&quot;],&quot;default&quot;:&quot;10:40&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototipo&quot;}}">
+class Component extends DCLogic {
+  state = { fit: null, typeId: null, day: null, slot: null, sheet: null, info: null, booked: null, error: null };
+  componentDidMount() {
+    this.fitNow = () => this.setState({ fit: window.NCClient ? window.NCClient.fit() : null });
+    window.addEventListener("resize", this.fitNow);
+    const hook = () => { this.unsub = window.NCStore.subscribe(() => this.forceUpdate()); if (this.props.clock) window.NCStore.setClock(this.props.clock); this.fitNow(); };
+    const wait = () => (window.NCClient && window.NCClient.ready() ? hook() : (this.t = setTimeout(wait, 30)));
+    wait();
+    this.iv = setInterval(() => this.forceUpdate(), 30000);
+    this.onKey = (e) => { if (e.key === "Escape") this.setState({ sheet: null }); };
+    document.addEventListener("keydown", this.onKey);
+  }
+  componentDidUpdate(prev) { if (window.NCStore && this.props.clock && prev.clock !== this.props.clock) window.NCStore.setClock(this.props.clock); }
+  componentWillUnmount() { this.unsub && this.unsub(); clearTimeout(this.t); clearInterval(this.iv); window.removeEventListener("resize", this.fitNow); document.removeEventListener("keydown", this.onKey); }
+
+  renderVals() {
+    const C = window.NCClient, S = window.NCStore;
+    const f = this.state.fit || { w: "402px", h: "874px", t: "none" };
+    const out = { boxW: f.w, boxH: f.h, scaleT: f.t, panel: this.props.reviewPanel ?? true, types: [], days: [], parts: [], flowOn: false, blockedOn: false, pickOn: false, barOn: false, sheetOn: false };
+    if (!C || !C.ready()) return out;
+    const c = C.me(), co = C.coach(), blk = C.block(c), pools = C.pools(c), unread = C.unread();
+    const close = () => this.setState({ sheet: null, error: null });
+    Object.assign(out, {
+      clock: C.clockLabel(), unread: unread > 0, unreadLabel: String(unread), bellLabel: unread ? "Notifiche, " + unread + " non lette" : "Notifiche",
+      openNotifs: () => C.push("notifiche"), coachFirst: co.first, waHref: co.wa, closeSheet: close,
+      headSub: blk.free ? "Crediti senza scadenza" : blk.ended ? "Percorso concluso" : blk.label + " · fino a " + blk.endLabel,
+      goBooster: () => C.go("booster"),
+    });
+    const bookable = pools.filter((p) => p.bookable && p.avail > 0);
+    if (blk.ended || !pools.length) {
+      Object.assign(out, { blockedOn: true, blockedTitle: blk.ended ? "Il tuo percorso è concluso" : "Nessun credito da prenotare", blockedText: "Per prenotare nuove sessioni serve un nuovo percorso: scrivi a " + co.first + ", te lo propone lui.", blockedBuy: false });
+    } else if (!bookable.length && !pools.some((p) => p.avail > 0 && !p.bookable)) {
+      Object.assign(out, { blockedOn: true, blockedTitle: "Hai usato tutti i crediti", blockedText: C.canBuy(c) ? "Puoi aggiungere un Booster al blocco in corso, oppure chiedere a " + co.first + " di anticipare il prossimo." : "Per continuare scrivi a " + co.first + ".", blockedBuy: C.canBuy(c) });
+    }
+    const param = C.param("type");
+    const typeId = (this.state.typeId && bookable.some((p) => p.typeId === this.state.typeId) ? this.state.typeId : null)
+      || (bookable.find((p) => p.typeId === param) || bookable[0] || {}).typeId || null;
+    out.flowOn = !out.blockedOn;
+    out.types = pools.map((p) => {
+      const can = p.bookable && p.avail > 0, on = can && p.typeId === typeId;
+      const info = !p.bookable
+        ? { title: p.name, text: (p.message || "Questa sessione si prenota direttamente con " + co.first + ".") + (p.avail > 0 ? " Hai " + C.plural(p.avail, "credito disponibile", "crediti disponibili") + "." : ""), buy: false, typeId: p.typeId }
+        : { title: "Crediti " + p.name + " esauriti", text: "Hai usato tutti i crediti " + p.name + (blk.free ? "." : " del blocco " + blk.n + ".") + (C.canBuy(c) ? " Puoi aggiungerne con un Booster oppure chiedere a " + co.first + "." : " Per altre sessioni scrivi a " + co.first + "."), buy: C.canBuy(c) && C.products.some((x) => x.typeId === p.typeId), typeId: p.typeId };
+      return {
+        name: p.name, icon: p.icon, color: p.color, tint: C.tint(p.color), can, cannot: !can,
+        sub: can ? p.dur + " min · " + C.plural(p.avail, "disponibile", "disponibili") : !p.bookable ? "Si prenota con " + co.first : "Crediti esauriti",
+        subFg: can || !p.bookable ? "#41474f" : "#9a3412", checked: on ? "true" : "false",
+        bg: on ? "rgba(0,86,133,0.06)" : "#ffffff", border: on ? "#005685" : "#e1e2e7", ring: on ? "#005685" : "#c1c7d0", dot: on ? "#005685" : "transparent",
+        pick: () => (can ? this.setState({ typeId: p.typeId, day: null, slot: null }) : this.setState({ sheet: "info", info })),
+      };
+    });
+    const t = typeId ? S.type(typeId) : null;
+    out.pickOn = !!t;
+    if (t) {
+      const res = C.slotDays(typeId);
+      const withSlots = res.days.filter((d) => d.slots.length);
+      const day = res.days.find((d) => d.iso === this.state.day && d.slots.length) || withSlots[0] || null;
+      out.days = res.days.map((d) => {
+        const on = day && d.iso === day.iso, dis = !d.slots.length;
+        const sub = dis ? (d.reason === "chiuso" ? "chiuso" : d.reason === "pieno" ? "pieno" : "—") : d.slots.length + (d.slots.length === 1 ? " orario" : " orari");
+        return { dow: d.dow, num: d.num, sub, disabled: dis, pressed: on ? "true" : "false",
+          aria: C.dayLong(d.date) + (dis ? ", " + (d.reason === "preavviso" ? "serve 24 ore di preavviso" : d.reason) : ", " + sub),
+          bg: on ? "#005685" : dis ? "#f2f3f8" : "#ffffff", fg: on ? "#ffffff" : dis ? "#717880" : "#191c1f", border: on ? "#005685" : dis ? "transparent" : "#e1e2e7",
+          subFg: on ? "#cde5ff" : dis ? "#41474f" : "#047857",
+          pick: () => this.setState({ day: d.iso, slot: null }) };
+      });
+      const next = blk.recurring ? "il blocco successivo" : blk.n < blk.of ? "il blocco " + (blk.n + 1) : null;
+      out.rule = "Si prenota da 24 ore a 14 giorni prima." + (res.limitedByBlock ? " I crediti del blocco " + blk.n + " valgono fino a " + C.dayLong(res.until).toLowerCase() + (next ? ": le date successive si aprono con " + next + "." : ", fine del percorso.") : "");
+      out.dayTitle = day ? C.dayLong(day.date) : "Orari";
+      out.noSlots = !day;
+      out.noSlotsText = "Nessun orario libero per " + t.name + " fino a " + C.dayLong(res.until).toLowerCase() + ". " + co.first + " può proporti un orario.";
+      const slotSel = day && day.slots.find((s) => s.start === this.state.slot) ? this.state.slot : null;
+      const groups = {}, recs = (day ? day.slots : []).filter((s) => s.rec);
+      (day ? day.slots : []).forEach((s) => { if (!s.rec) (groups[s.part] = groups[s.part] || []).push(s); });
+      const mk = (s) => { const on = s.start === slotSel; return { time: s.time, checked: on ? "true" : "false", bg: on ? "#005685" : s.rec ? "#cde5ff" : "#ffffff", fg: on ? "#ffffff" : "#003e62", border: on ? "#005685" : s.rec ? "#94ccff" : "#c1c7d0", pick: () => this.setState({ slot: s.start }) }; };
+      out.parts = (recs.length ? [{ label: "Consigliati", rec: true, note: day.recWhy, labelFg: "#003e62", aria: "Orari consigliati", slots: recs.map(mk) }] : []).concat(["Mattina", "Pomeriggio", "Sera"].filter((k) => groups[k]).map((k) => ({ label: k, rec: false, note: "", labelFg: "#41474f", aria: "Orari " + k.toLowerCase(), slots: groups[k].map(mk) })));
+      const sel = slotSel ? day.slots.find((s) => s.start === slotSel) : null;
+      const pool = pools.find((p) => p.typeId === typeId);
+      if (sel) {
+        const within = new Date(sel.start).getTime() - S.now() <= C.rules.confirmH * 3600000;
+        const fake = { start: sel.start, dur: t.duration };
+        Object.assign(out, {
+          barOn: true, barType: t.name + " · " + t.duration + " min", barWhen: C.dayShort(sel.start) + " · " + sel.time + "–" + sel.end,
+          openConfirm: () => this.setState({ sheet: "confirm", error: null }),
+          cType: t.name, cDur: t.duration + " minuti", cIcon: t.icon, cColor: t.color, cTint: C.tint(t.color),
+          cWhen: C.dayLong(sel.start) + ", " + sel.time + "–" + sel.end, cCoach: "con " + co.name,
+          cPlace: C.place(t), cPlaceIcon: t.location === "online" ? "Video" : "MapPin",
+          cCredit: "Userai 1 credito " + t.name + ": " + (pool.avail - 1 === 0 ? "non ne resteranno altri." : "ne " + (pool.avail - 1 === 1 ? "resterà 1." : "resteranno " + (pool.avail - 1) + ".")),
+          cRule: "Puoi spostarla o annullarla gratis fino a " + C.freeUntil(fake) + ". " + (within ? "La presenza risulta già confermata." : "Ti chiederemo di confermare la presenza 48 ore prima."),
+          doBook: () => {
+            const r = C.book(typeId, sel.start);
+            if (r.error) { this.setState({ error: r.error }); return; }
+            this.setState({ sheet: "done", booked: { id: r.id, start: sel.start, type: t.name }, slot: null, error: null });
+          },
+        });
+      }
+    }
+    const bk = this.state.booked;
+    Object.assign(out, {
+      sheetOn: !!this.state.sheet && (this.state.sheet !== "confirm" || out.barOn) && (this.state.sheet !== "info" || !!this.state.info) && (this.state.sheet !== "done" || !!bk),
+      sheetTitle: this.state.sheet === "done" ? "Prenotata" : this.state.sheet === "info" ? (this.state.info || {}).title : "Conferma la prenotazione",
+      confirmStep: this.state.sheet === "confirm", doneStep: this.state.sheet === "done" && !!bk, infoStep: this.state.sheet === "info" && !!this.state.info,
+      cError: this.state.error,
+      doneText: bk ? bk.type + ", " + C.dayLong(bk.start).toLowerCase() + " alle " + C.hm(bk.start) + ". " + co.first + " la vede subito nel calendario; l'invito di Google Calendar arriva a " + c.email + "." : "",
+      openBooked: () => bk && C.push("sessione", { id: bk.id }),
+      bookAnother: () => this.setState({ sheet: null, booked: null, slot: null }),
+      infoTitle: this.state.info ? this.state.info.title : "", infoText: this.state.info ? this.state.info.text : "",
+      infoBuy: !!(this.state.info && this.state.info.buy),
+      infoWaBg: this.state.info && this.state.info.buy ? "#ffffff" : "#005685", infoWaFg: this.state.info && this.state.info.buy ? "#003e62" : "#ffffff", infoWaBorder: this.state.info && this.state.info.buy ? "#c1c7d0" : "#005685",
+      goBoosterType: () => C.go("booster", { type: this.state.info ? this.state.info.typeId : null }),
+    });
+    const tst = S.getToast(), TONE = { ok: ["CircleCheck", "#6ee7b7"], warn: ["TriangleAlert", "#fdba74"], info: ["Info", "#91cbff"] }, tone = tst ? TONE[tst.tone] || TONE.ok : TONE.ok;
+    Object.assign(out, { toastOn: !!tst, toastMsg: tst ? tst.msg : "", toastUndo: !!(tst && tst.undo), toastIcon: tone[0], toastColor: tone[1], undoToast: () => S.undoToast() });
+    return out;
+  }
+}
+</script>
+</body>
+</html>

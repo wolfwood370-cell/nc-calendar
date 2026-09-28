@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatDayRel,
   formatDuration,
   formatLongDay,
   formatShortDate,
   formatShortDay,
   formatTimeRange,
+  formatUntil,
   shortDateWithArticle,
 } from "@/lib/session-time";
 
@@ -52,5 +54,52 @@ describe("durata", () => {
     expect(formatDuration(90)).toBe("1h 30m");
     expect(formatDuration(120)).toBe("2h");
     expect(formatDuration(135)).toBe("2h 15m");
+  });
+});
+
+// Ora locale: gli stessi giorni con TZ=Europe/Rome e con TZ=UTC.
+const NOW = new Date(2026, 8, 28, 10, 40);
+const at = (day: number, h: number, m = 0) => new Date(2026, 8, day, h, m);
+
+describe("formatUntil · quanto manca, come il prototipo", () => {
+  it("sotto l'ora «tra N min», a 60 minuti «tra 1 ora»", () => {
+    expect(formatUntil(at(28, 11, 39), NOW)).toBe("tra 59 min");
+    expect(formatUntil(at(28, 11, 40), NOW)).toBe("tra 1 ora");
+  });
+
+  it("nello stesso giorno le ore arrotondate per difetto", () => {
+    expect(formatUntil(at(28, 12, 40), NOW)).toBe("tra 2 ore");
+    expect(formatUntil(at(28, 13, 39), NOW)).toBe("tra 2 ore");
+  });
+
+  it("il giorno dopo «domani», poi giorni di calendario", () => {
+    expect(formatUntil(at(29, 9, 0), NOW)).toBe("domani");
+    expect(formatUntil(new Date(2026, 9, 1, 10, 0), NOW)).toBe("tra 3 giorni");
+    // 26 ore, ma due giorni di calendario.
+    expect(formatUntil(at(30, 1, 0), at(28, 23, 0))).toBe("tra 2 giorni");
+  });
+
+  it("sotto l'ora vince «tra N min», anche dopo la mezzanotte", () => {
+    expect(formatUntil(at(29, 0, 10), at(28, 23, 30))).toBe("tra 40 min");
+  });
+
+  it("già iniziata: niente", () => {
+    expect(formatUntil(NOW, NOW)).toBeNull();
+    expect(formatUntil(at(28, 10, 0), NOW)).toBeNull();
+  });
+
+  it("in un altro anno conta `now`, non l'orologio", () => {
+    expect(formatUntil(new Date(2031, 2, 12, 9, 0), new Date(2031, 2, 10, 18, 0))).toBe(
+      "tra 2 giorni",
+    );
+  });
+});
+
+describe("formatDayRel · Oggi, Domani, Ieri", () => {
+  it("i quattro casi, a giorni di calendario", () => {
+    expect(formatDayRel(at(28, 23, 59), NOW)).toBe("Oggi");
+    expect(formatDayRel(at(29, 0, 0), NOW)).toBe("Domani");
+    expect(formatDayRel(at(27, 8, 0), NOW)).toBe("Ieri");
+    expect(formatDayRel(at(30, 10, 0), NOW)).toBe("Mercoledì 30 settembre");
   });
 });

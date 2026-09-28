@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&amp;family=Manrope:wght@400;500;600;700&amp;display=swap">
+<script src="./nc-icons.js"></script>
+<script src="./nc-store.js"></script>
+<script src="./nc-client.js"></script>
+<title>Booster · NC Calendar</title>
+<style>
+*,::before,::after{box-sizing:border-box;margin:0;padding:0;border:0 solid;}
+body{margin:0;background:#e7e8ec;font-family:Manrope,ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:#191c1f;}
+button{font:inherit;color:inherit;background:transparent;cursor:pointer;}
+ul,ol{list-style:none;}
+a{color:#003e62;text-decoration:none;}
+a:hover{color:#005685;}
+:focus-visible{outline:2px solid #005685;outline-offset:2px;}
+</style>
+</helmet>
+<div style="min-height:100vh; background:linear-gradient(135deg,#eceef2,#dde1e8); display:flex; flex-wrap:wrap; justify-content:center; align-items:flex-start; gap:32px; padding:24px 20px 40px;">
+  <div style="width:{{ boxW }}; height:{{ boxH }}; flex-shrink:0;">
+    <div style="width:402px; height:874px; transform:{{ scaleT }}; transform-origin:top left;">
+      <x-import component-from-global-scope="IOSDevice" from="./nc-ios-frame.js" time="{{ clock }}" hint-size="402px,874px">
+        <div data-screen-label="Booster" style="position:absolute; inset:0; z-index:1; display:flex; flex-direction:column; background:#f8f9fe; color:#191c1f; font-family:Manrope, sans-serif; overflow:hidden;">
+          <div style="flex:1; min-height:0; overflow-y:auto; scrollbar-width:none;">
+            <header style="position:sticky; top:0; z-index:5; padding:60px 20px 12px; background:rgba(248,249,254,0.92); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); display:flex; align-items:flex-end; justify-content:space-between; gap:12px;">
+              <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:4px;">
+                <h1 style="font-family:Sora, sans-serif; font-size:28px; line-height:1.15; font-weight:700; letter-spacing:-0.02em;">Booster</h1>
+                <p style="font-size:14px; color:#41474f;">Crediti in più per il blocco in corso</p>
+              </div>
+              <button onClick="{{ openNotifs }}" aria-label="{{ bellLabel }}" style="position:relative; width:44px; height:44px; border-radius:9999px; background:#ffffff; border:1px solid rgba(193,199,208,0.6); display:grid; place-items:center; color:#41474f; flex-shrink:0;">
+                <nc-icon name="Bell" style="width:20px; height:20px;"></nc-icon>
+                <sc-if value="{{ unread }}" hint-placeholder-val="{{ false }}"><span style="position:absolute; top:-3px; right:-3px; min-width:20px; height:20px; padding:0 5px; border-radius:9999px; background:#e53935; color:#ffffff; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; border:2px solid #f8f9fe;">{{ unreadLabel }}</span></sc-if>
+              </button>
+            </header>
+            <main style="padding:8px 16px 32px; display:flex; flex-direction:column; gap:16px;">
+              <sc-if value="{{ lockedOn }}" hint-placeholder-val="{{ false }}">
+                <section style="background:#ffffff; border-radius:24px; border:1px solid rgba(193,199,208,0.35); padding:20px; display:flex; flex-direction:column; gap:12px;">
+                  <span style="width:48px; height:48px; border-radius:14px; background:rgba(0,86,133,0.1); color:#005685; display:grid; place-items:center;"><nc-icon name="Sparkles" style="width:24px; height:24px;"></nc-icon></span>
+                  <h2 style="font-size:17px; font-weight:700;">I Booster si aggiungono a un percorso</h2>
+                  <p style="font-size:15px; line-height:1.5; color:#41474f; text-wrap:pretty;">{{ lockedText }}</p>
+                  <a href="{{ waHref }}" target="_blank" rel="noopener" style="height:52px; border-radius:9999px; background:#005685; color:#ffffff; font-size:16px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px;"><nc-icon name="MessageCircle" style="width:18px; height:18px;"></nc-icon><span>Scrivi a {{ coachFirst }} su WhatsApp</span></a>
+                </section>
+              </sc-if>
+
+              <sc-if value="{{ shopOn }}" hint-placeholder-val="{{ true }}">
+                <section style="display:flex; gap:12px; align-items:flex-start; padding:14px 16px; border-radius:18px; background:rgba(0,86,133,0.07);">
+                  <nc-icon name="Info" style="width:18px; height:18px; margin-top:2px; color:#005685;"></nc-icon>
+                  <p style="font-size:14px; line-height:1.5; color:#191c1f; text-wrap:pretty;">{{ validity }}</p>
+                </section>
+
+                <sc-if value="{{ boughtOn }}" hint-placeholder-val="{{ false }}">
+                  <section style="background:#ffffff; border-radius:24px; border:1px solid rgba(193,199,208,0.35); padding:14px 16px; display:flex; flex-direction:column; gap:10px;">
+                    <h2 style="font-size:15px; font-weight:700;">Acquistati in questo blocco</h2>
+                    <sc-for list="{{ bought }}" as="p" hint-placeholder-count="1">
+                      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; font-size:14px;"><span style="font-weight:600;">{{ p.label }}</span><span style="color:#41474f; font-variant-numeric:tabular-nums;">{{ p.meta }}</span></div>
+                    </sc-for>
+                  </section>
+                </sc-if>
+
+                <sc-for list="{{ products }}" as="p" hint-placeholder-count="3">
+                  <article style="position:relative; background:#ffffff; border-radius:24px; border:1.5px solid {{ p.border }}; box-shadow:0 8px 30px rgba(0,0,0,0.04); padding:18px; display:flex; flex-direction:column; gap:12px;">
+                    <sc-if value="{{ p.best }}" hint-placeholder-val="{{ false }}"><span style="position:absolute; top:-11px; right:18px; font-size:12px; font-weight:700; padding:3px 10px; border-radius:9999px; background:#003e62; color:#ffffff;">Più conveniente</span></sc-if>
+                    <div style="display:flex; align-items:flex-start; gap:12px;">
+                      <span style="width:44px; height:44px; border-radius:14px; background:{{ p.tint }}; color:{{ p.color }}; display:grid; place-items:center; flex-shrink:0;"><nc-icon name="{{ p.icon }}" style="width:22px; height:22px;"></nc-icon></span>
+                      <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:4px;">
+                        <h2 style="font-size:17px; font-weight:700;">{{ p.title }}</h2>
+                        <p style="font-size:14px; line-height:1.45; color:#41474f;">{{ p.desc }}</p>
+                        <p style="font-size:13px; color:#41474f;">{{ p.meta }}</p>
+                      </div>
+                    </div>
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                      <div style="display:flex; flex-direction:column;"><span style="font-family:Sora, sans-serif; font-size:24px; font-weight:700; font-variant-numeric:tabular-nums;">{{ p.price }}</span><span style="font-size:13px; color:#41474f;">{{ p.per }}</span></div>
+                      <button onClick="{{ p.buy }}" style="height:48px; padding:0 22px; border-radius:9999px; background:#005685; color:#ffffff; font-size:15px; font-weight:700;">Acquista</button>
+                    </div>
+                  </article>
+                </sc-for>
+                <p style="font-size:13px; line-height:1.5; color:#41474f; text-align:center; text-wrap:pretty;">Il pagamento avviene sulla pagina sicura di Stripe. I crediti compaiono appena il pagamento è completato.</p>
+              </sc-if>
+            </main>
+          </div>
+
+          <dc-import name="Cliente Tab Bar" active="booster" hint-size="100%,94px" style="flex-shrink:0; width:100%;"></dc-import>
+
+          <sc-if value="{{ sheetOn }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute; inset:0; z-index:30; display:flex; flex-direction:column; justify-content:flex-end;">
+              <div onClick="{{ closeSheet }}" style="position:absolute; inset:0; background:rgba(0,20,35,0.42);"></div>
+              <div role="dialog" aria-modal="true" aria-label="{{ sheetTitle }}" style="position:relative; background:#ffffff; border-radius:28px 28px 0 0; padding:10px 20px 40px; display:flex; flex-direction:column; gap:14px;">
+                <span style="align-self:center; width:40px; height:5px; border-radius:9999px; background:#c1c7d0;"></span>
+                <sc-if value="{{ stepSummary }}" hint-placeholder-val="{{ false }}">
+                  <h2 style="font-family:Sora, sans-serif; font-size:22px; font-weight:700;">Riepilogo</h2>
+                  <ul style="display:flex; flex-direction:column; gap:10px; padding:14px 16px; border-radius:18px; background:#f8f9fe;">
+                    <li style="display:flex; justify-content:space-between; gap:12px; font-size:15px;"><span style="font-weight:700;">{{ sTitle }}</span><span style="font-weight:700; font-variant-numeric:tabular-nums;">{{ sPrice }}</span></li>
+                    <li style="display:flex; gap:10px; font-size:14px; line-height:1.45; color:#41474f;"><nc-icon name="CalendarRange" style="width:16px; height:16px; margin-top:2px; color:#005685;"></nc-icon>{{ sValid }}</li>
+                    <li style="display:flex; gap:10px; font-size:14px; line-height:1.45; color:#41474f;"><nc-icon name="Coins" style="width:16px; height:16px; margin-top:2px; color:#005685;"></nc-icon>{{ sAfter }}</li>
+                  </ul>
+                  <button onClick="{{ pay }}" style="height:52px; border-radius:9999px; background:#005685; color:#ffffff; font-size:16px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px;"><nc-icon name="Lock" style="width:16px; height:16px;"></nc-icon><span>Paga {{ sPrice }} con Stripe</span></button>
+                  <p style="font-size:12px; color:#41474f; text-align:center;">Nel prototipo il pagamento è simulato.</p>
+                  <button onClick="{{ closeSheet }}" style="height:44px; border-radius:9999px; font-size:15px; font-weight:600; color:#003e62;">Indietro</button>
+                </sc-if>
+                <sc-if value="{{ stepDone }}" hint-placeholder-val="{{ false }}">
+                  <span style="width:56px; height:56px; border-radius:18px; background:#ecfdf5; color:#047857; display:grid; place-items:center;"><nc-icon name="CircleCheck" style="width:28px; height:28px;"></nc-icon></span>
+                  <h2 style="font-family:Sora, sans-serif; font-size:22px; font-weight:700;">Pagamento completato</h2>
+                  <p style="font-size:15px; line-height:1.5; color:#41474f;">{{ doneText }}</p>
+                  <sc-if value="{{ doneBookable }}" hint-placeholder-val="{{ true }}"><button onClick="{{ bookNow }}" style="height:52px; border-radius:9999px; background:#005685; color:#ffffff; font-size:16px; font-weight:700;">Prenota ora</button></sc-if>
+                  <sc-if value="{{ doneAsk }}" hint-placeholder-val="{{ false }}"><a href="{{ waHref }}" target="_blank" rel="noopener" style="height:52px; border-radius:9999px; background:#005685; color:#ffffff; font-size:16px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px;"><nc-icon name="MessageCircle" style="width:18px; height:18px;"></nc-icon><span>Scrivi a {{ coachFirst }} per fissarlo</span></a></sc-if>
+                  <button onClick="{{ closeSheet }}" style="height:44px; border-radius:9999px; font-size:15px; font-weight:600; color:#003e62;">Chiudi</button>
+                </sc-if>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ toastOn }}" hint-placeholder-val="{{ false }}">
+            <div role="status" aria-live="polite" style="position:absolute; left:12px; right:12px; bottom:106px; z-index:40; display:flex; align-items:center; gap:12px; background:#191c1f; color:#ffffff; border-radius:16px; padding:8px 8px 8px 16px; box-shadow:0 12px 32px rgba(0,0,0,0.25);">
+              <nc-icon name="{{ toastIcon }}" style="width:18px; height:18px; color:{{ toastColor }};"></nc-icon>
+              <span style="flex:1; font-size:14px; line-height:1.35; padding:8px 0;">{{ toastMsg }}</span>
+            </div>
+          </sc-if>
+        </div>
+      </x-import>
+    </div>
+  </div>
+  <sc-if value="{{ panel }}" hint-placeholder-val="{{ true }}">
+    <div style="width:340px; max-width:100%;"><dc-import name="Cliente Revisione" screen="booster" hint-size="340px,760px" style="width:100%;"></dc-import></div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;reviewPanel&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Prototipo&quot;},&quot;clock&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;reale&quot;,&quot;08:15&quot;,&quot;10:40&quot;,&quot;13:10&quot;,&quot;19:10&quot;],&quot;default&quot;:&quot;10:40&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototipo&quot;}}">
+class Component extends DCLogic {
+  state = { fit: null, sheet: null, productId: null, done: null };
+  componentDidMount() {
+    this.fitNow = () => this.setState({ fit: window.NCClient ? window.NCClient.fit() : null });
+    window.addEventListener("resize", this.fitNow);
+    const hook = () => { this.unsub = window.NCStore.subscribe(() => this.forceUpdate()); if (this.props.clock) window.NCStore.setClock(this.props.clock); this.fitNow(); };
+    const wait = () => (window.NCClient && window.NCClient.ready() ? hook() : (this.t = setTimeout(wait, 30)));
+    wait();
+    this.onKey = (e) => { if (e.key === "Escape") this.setState({ sheet: null }); };
+    document.addEventListener("keydown", this.onKey);
+  }
+  componentDidUpdate(prev) { if (window.NCStore && this.props.clock && prev.clock !== this.props.clock) window.NCStore.setClock(this.props.clock); }
+  componentWillUnmount() { this.unsub && this.unsub(); clearTimeout(this.t); window.removeEventListener("resize", this.fitNow); document.removeEventListener("keydown", this.onKey); }
+
+  renderVals() {
+    const C = window.NCClient, S = window.NCStore;
+    const f = this.state.fit || { w: "402px", h: "874px", t: "none" };
+    const out = { boxW: f.w, boxH: f.h, scaleT: f.t, panel: this.props.reviewPanel ?? true, products: [], bought: [], lockedOn: false, shopOn: false, sheetOn: false };
+    if (!C || !C.ready()) return out;
+    const c = C.me(), co = C.coach(), blk = C.block(c), can = C.canBuy(c), pools = C.pools(c);
+    const unread = C.unread();
+    Object.assign(out, { clock: C.clockLabel(), unread: unread > 0, unreadLabel: String(unread), bellLabel: unread ? "Notifiche, " + unread + " non lette" : "Notifiche", openNotifs: () => C.push("notifiche"), coachFirst: co.first, waHref: co.wa, closeSheet: () => this.setState({ sheet: null }) });
+    if (!can) {
+      out.lockedOn = true;
+      out.lockedText = blk.ended ? "Il tuo percorso è concluso. Per ripartire, " + co.first + " ti propone il prossimo percorso: i Booster si aggiungono a quello." : blk.free ? "Hai crediti senza scadenza fuori da un percorso. Se ti servono altre sessioni, " + co.first + " può aggiungerle o proporti un percorso." : "Al momento non hai un blocco attivo. Scrivi a " + co.first + " per continuare.";
+    } else {
+      out.shopOn = true;
+      out.validity = "Si aggiungono ai crediti del blocco " + blk.n + " e valgono fino a " + blk.endLabel + ", come gli altri. Le sessioni si prenotano entro quella data.";
+      const pur = C.purchases(c);
+      out.boughtOn = pur.length > 0;
+      out.bought = pur.map((p) => ({ label: "+" + p.qty + " " + (S.type(p.typeId) || { name: "crediti" }).name, meta: C.dayShort(p.at) + " · " + p.price + " €" }));
+      const want = C.param("type");
+      const list = C.products.slice().sort((a, b) => (b.typeId === want) - (a.typeId === want));
+      out.products = list.map((p) => {
+        const t = S.type(p.typeId);
+        return {
+          title: p.title, desc: p.desc, best: !!p.best, price: p.price + " €", per: p.per || (p.qty === 1 ? "1 credito" : p.qty + " crediti"),
+          meta: t.duration + " min a sessione" + (t.bookable === false ? " · si prenota con " + co.first : ""),
+          icon: t.icon, color: t.color, tint: C.tint(t.color), border: want && p.typeId === want ? "#005685" : "rgba(193,199,208,0.35)",
+          buy: () => this.setState({ sheet: "summary", productId: p.id }),
+        };
+      });
+    }
+    const p = this.state.productId ? C.product(this.state.productId) : null;
+    if (p && this.state.sheet && can) {
+      const t = S.type(p.typeId), pool = pools.find((x) => x.typeId === p.typeId), have = pool ? pool.avail : 0;
+      Object.assign(out, {
+        sheetOn: true, sheetTitle: this.state.sheet === "done" ? "Pagamento completato" : "Riepilogo",
+        stepSummary: this.state.sheet === "summary", stepDone: this.state.sheet === "done",
+        sTitle: p.title, sPrice: p.price + " €",
+        sValid: "Valgono fino a " + (blk.endLabel || "fine blocco") + ", fine del blocco " + blk.n + ".",
+        sAfter: "Dopo l'acquisto avrai " + C.plural(have + p.qty, "credito", "crediti") + " " + t.name + " disponibili.",
+        pay: () => { const r = C.buy(p.id); if (r.error) { S.showToast({ msg: r.error, tone: "warn" }); return; } this.setState({ sheet: "done", done: { qty: p.qty, name: t.name, typeId: p.typeId } }); },
+        doneText: this.state.done ? "+" + C.plural(this.state.done.qty, "credito", "crediti") + " " + this.state.done.name + ". Ora ne hai " + have + " disponibili. " + co.first + " vede l'acquisto nelle notifiche." : "",
+        bookNow: () => C.go("prenota", { type: p.typeId }),
+        doneBookable: t.bookable !== false, doneAsk: t.bookable === false,
+      });
+    }
+    const tst = S.getToast(), TONE = { ok: ["CircleCheck", "#6ee7b7"], warn: ["TriangleAlert", "#fdba74"], info: ["Info", "#91cbff"] }, tone = tst ? TONE[tst.tone] || TONE.ok : TONE.ok;
+    Object.assign(out, { toastOn: !!tst, toastMsg: tst ? tst.msg : "", toastIcon: tone[0], toastColor: tone[1] });
+    return out;
+  }
+}
+</script>
+</body>
+</html>

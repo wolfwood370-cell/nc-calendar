@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&amp;family=Manrope:wght@400;500;600;700&amp;display=swap">
+<script src="./nc-icons.js"></script>
+<script src="./nc-store.js"></script>
+<script src="./nc-client.js"></script>
+<style>
+*,::before,::after{box-sizing:border-box;margin:0;padding:0;border:0 solid;}
+body{margin:0;font-family:Manrope,ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:#191c1f;}
+button{font:inherit;color:inherit;background:transparent;cursor:pointer;}
+button:disabled{cursor:default;}
+:focus-visible{outline:2px solid #005685;outline-offset:2px;}
+</style>
+</helmet>
+<div style="position:relative; width:100%; height:100%; display:flex; flex-direction:column; justify-content:flex-end; font-family:Manrope, sans-serif; color:#191c1f;">
+  <div onClick="{{ close }}" style="position:absolute; inset:0; background:rgba(0,20,35,0.42);"></div>
+  <div role="dialog" aria-modal="true" aria-label="Sposta la sessione" style="position:relative; max-height:90%; overflow-y:auto; scrollbar-width:none; background:#ffffff; border-radius:28px 28px 0 0; padding:10px 20px 40px; display:flex; flex-direction:column; gap:16px; box-shadow:0 -12px 40px rgba(0,0,0,0.12);">
+    <span style="align-self:center; width:40px; height:5px; border-radius:9999px; background:#c1c7d0;"></span>
+    <div style="display:flex; flex-direction:column; gap:4px;">
+      <h2 style="font-family:Sora, sans-serif; font-size:22px; font-weight:700; letter-spacing:-0.01em;">Sposta la sessione</h2>
+      <p style="font-size:14px; line-height:1.45; color:#41474f;">{{ current }}</p>
+    </div>
+    <sc-if value="{{ blocked }}" hint-placeholder-val="{{ false }}">
+      <p style="font-size:15px; line-height:1.5; color:#41474f;">{{ blockedText }}</p>
+    </sc-if>
+    <sc-if value="{{ canPick }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <p style="font-size:15px; font-weight:700;">Nuovo giorno</p>
+        <div style="display:flex; gap:8px; overflow-x:auto; margin:0 -20px; padding:2px 20px 6px; scrollbar-width:none;">
+          <sc-for list="{{ days }}" as="d" hint-placeholder-count="7">
+            <button onClick="{{ d.pick }}" disabled="{{ d.disabled }}" aria-pressed="{{ d.pressed }}" aria-label="{{ d.aria }}" style="flex-shrink:0; width:60px; height:80px; border-radius:18px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; background:{{ d.bg }}; color:{{ d.fg }}; border:1px solid {{ d.border }};">
+              <span style="font-size:12px; font-weight:600;">{{ d.dow }}</span>
+              <span style="font-family:Sora, sans-serif; font-size:20px; font-weight:700; font-variant-numeric:tabular-nums;">{{ d.num }}</span>
+              <span style="font-size:12px; font-weight:600; color:{{ d.subFg }};">{{ d.sub }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <p style="font-size:15px; font-weight:700;">{{ dayTitle }}</p>
+        <sc-if value="{{ noSlots }}" hint-placeholder-val="{{ false }}"><p style="font-size:14px; line-height:1.5; color:#41474f;">{{ noSlotsText }}</p></sc-if>
+        <sc-for list="{{ parts }}" as="p" hint-placeholder-count="2">
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <div style="display:flex; flex-direction:column; gap:2px;"><p style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:700; color:{{ p.labelFg }};"><sc-if value="{{ p.rec }}" hint-placeholder-val="{{ false }}"><nc-icon name="Sparkles" style="width:14px; height:14px;"></nc-icon></sc-if>{{ p.label }}</p><sc-if value="{{ p.rec }}" hint-placeholder-val="{{ false }}"><p style="font-size:13px; line-height:1.4; color:#41474f;">{{ p.note }}</p></sc-if></div>
+            <div style="display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px;">
+              <sc-for list="{{ p.slots }}" as="s" hint-placeholder-count="3">
+                <button onClick="{{ s.pick }}" aria-pressed="{{ s.pressed }}" style="height:48px; border-radius:14px; font-size:16px; font-weight:700; font-variant-numeric:tabular-nums; background:{{ s.bg }}; color:{{ s.fg }}; border:1px solid {{ s.border }};">{{ s.time }}</button>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+      <p style="display:flex; gap:8px; font-size:13px; line-height:1.5; color:#41474f;"><nc-icon name="Info" style="width:16px; height:16px; margin-top:1px; color:#005685;"></nc-icon><span>{{ rule }}</span></p>
+      <sc-if value="{{ error }}" hint-placeholder-val="{{ false }}"><p role="alert" style="font-size:14px; font-weight:600; color:#b91c1c;">{{ error }}</p></sc-if>
+      <button onClick="{{ confirm }}" disabled="{{ confirmDisabled }}" style="height:52px; border-radius:9999px; background:{{ confirmBg }}; color:{{ confirmFg }}; font-size:16px; font-weight:700;">{{ confirmLabel }}</button>
+    </sc-if>
+    <button onClick="{{ close }}" style="height:44px; border-radius:9999px; font-size:15px; font-weight:600; color:#003e62;">Indietro</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:402,&quot;height&quot;:874},&quot;bookingId&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;onClose&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;},&quot;onDone&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;(r: { undo: string, start: string }) =&gt; void&quot;}}">
+class Component extends DCLogic {
+  state = { day: null, slot: null, error: null };
+  componentDidMount() {
+    const hook = () => { this.unsub = window.NCStore.subscribe(() => this.forceUpdate()); this.forceUpdate(); };
+    const wait = () => (window.NCClient && window.NCClient.ready() ? hook() : (this.t = setTimeout(wait, 30)));
+    wait();
+  }
+  componentWillUnmount() { this.unsub && this.unsub(); clearTimeout(this.t); }
+  renderVals() {
+    const C = window.NCClient, S = window.NCStore;
+    const close = () => this.props.onClose && this.props.onClose();
+    const base = { close, current: "", blocked: false, blockedText: "", canPick: false, days: [], parts: [], dayTitle: "", noSlots: false, noSlotsText: "", rule: "", error: this.state.error, confirmDisabled: true, confirmBg: "#e1e2e7", confirmFg: "#41474f", confirmLabel: "Scegli un nuovo orario" };
+    if (!C || !C.ready()) return base;
+    const b = C.mine(this.props.bookingId);
+    if (!b) return Object.assign(base, { blocked: true, blockedText: "Sessione non trovata." });
+    const t = S.type(b.typeId);
+    base.current = "Ora: " + C.dayLong(b.start).toLowerCase() + ", " + C.range(b) + " · " + t.name;
+    if (!C.canMove(b)) {
+      const co = C.coach().first;
+      return Object.assign(base, { blocked: true, blockedText: "Mancano meno di 24 ore all'inizio: la sessione non si può più spostare. Per un altro orario scrivi a " + co + "." });
+    }
+    const res = C.slotDays(b.typeId, { exclude: b.id });
+    const avail = res.days.filter((d) => d.slots.length);
+    const day = res.days.find((d) => d.iso === this.state.day && d.slots.length) || avail[0] || null;
+    const days = res.days.map((d) => {
+      const on = day && d.iso === day.iso, dis = !d.slots.length;
+      const sub = dis ? (d.reason === "chiuso" ? "chiuso" : d.reason === "pieno" ? "pieno" : "—") : d.slots.length + (d.slots.length === 1 ? " orario" : " orari");
+      return { dow: d.dow, num: d.num, sub, disabled: dis, pressed: on ? "true" : "false",
+        aria: C.dayLong(d.date) + (dis ? ", non disponibile" : ", " + sub),
+        bg: on ? "#005685" : dis ? "#f2f3f8" : "#ffffff", fg: on ? "#ffffff" : dis ? "#717880" : "#191c1f", border: on ? "#005685" : dis ? "transparent" : "#e1e2e7",
+        subFg: on ? "#cde5ff" : dis ? "#41474f" : "#047857",
+        pick: () => this.setState({ day: d.iso, slot: null, error: null }) };
+    });
+    const slotSel = day && day.slots.find((s) => s.start === this.state.slot) ? this.state.slot : null;
+    const groups = {}, recs = (day ? day.slots : []).filter((s) => s.rec);
+    (day ? day.slots : []).forEach((s) => { if (!s.rec) (groups[s.part] = groups[s.part] || []).push(s); });
+    const mk = (s) => { const on = s.start === slotSel; return { time: s.time, pressed: on ? "true" : "false", bg: on ? "#005685" : s.rec ? "#cde5ff" : "#ffffff", fg: on ? "#ffffff" : "#003e62", border: on ? "#005685" : s.rec ? "#94ccff" : "#c1c7d0", pick: () => this.setState({ slot: s.start, error: null }) }; };
+    const parts = (recs.length ? [{ label: "Consigliati", rec: true, note: day.recWhy, labelFg: "#003e62", slots: recs.map(mk) }] : []).concat(["Mattina", "Pomeriggio", "Sera"].filter((k) => groups[k]).map((k) => ({ label: k, rec: false, note: "", labelFg: "#41474f", slots: groups[k].map(mk) })));
+    const sel = slotSel ? day.slots.find((s) => s.start === slotSel) : null;
+    const rule = "Si sposta fino a 24 ore prima, su un orario entro 14 giorni" + (res.limitedByBlock ? " e non oltre " + C.dayLong(res.until).toLowerCase() + ", fine del blocco" : "") + ". " + C.coach().first + " riceve un avviso.";
+    return Object.assign(base, {
+      canPick: true, days, parts, rule,
+      dayTitle: day ? C.dayLong(day.date) : "Orari",
+      noSlots: !day, noSlotsText: "Nessun orario libero nei prossimi giorni. Per trovarne uno scrivi a " + C.coach().first + ".",
+      confirmDisabled: !sel,
+      confirmBg: sel ? "#005685" : "#e1e2e7", confirmFg: sel ? "#ffffff" : "#41474f",
+      confirmLabel: sel ? "Sposta a " + C.dayShort(sel.start) + ", " + sel.time : "Scegli un nuovo orario",
+      confirm: () => {
+        if (!sel) return;
+        const r = C.move(b.id, sel.start);
+        if (r.error) { this.setState({ error: r.error }); return; }
+        this.props.onDone && this.props.onDone({ undo: r.undo, start: sel.start });
+      },
+    });
+  }
+}
+</script>
+</body>
+</html>

@@ -13,12 +13,16 @@
 //     full-day or partial exceptions (availability_exceptions).
 //   - Slots avoid colliding with any blocked range, where each range is
 //     [scheduled_at, scheduled_at + duration + buffer].
-//   - 24h minimum lead time matches the client_booking_update_guards
-//     trigger so the FE doesn't surface slots the DB would reject.
+//   - Il preavviso minimo di default è quello del cliente
+//     (CLIENT_MIN_NOTICE_HOURS, booking-rules.ts). Oggi lo applica solo
+//     l'app: il server non lo controlla né all'inserimento né sulla nuova
+//     data di uno spostamento (validate_client_booking_update guarda l'ora
+//     vecchia della sessione).
 //   - Optimization layer (recommended slots) is opt-in via the
 //     `optimization.enabled` flag — leave undefined or false to skip.
 // ----------------------------------------------------------------------------
 
+import { CLIENT_MIN_NOTICE_HOURS } from "@/lib/booking-rules";
 import type { AvailabilityRow, AvailabilityExceptionRow } from "@/lib/queries";
 
 export interface Slot {
@@ -76,12 +80,13 @@ export function generateSlots(
   rangeStart?: Date,
   rangeEnd?: Date,
   optimization?: { enabled: boolean },
-  // Preavviso minimo (ore) configurato dal coach in trainer_settings.
-  // Default 24h per coerenza con il trigger DB legacy.
-  minNoticeHours: number = 24,
+  // Preavviso minimo in ore. Di default quello del cliente (booking-rules.ts),
+  // che il foglio di riprogrammazione usa senza passarlo.
+  minNoticeHours: number = CLIENT_MIN_NOTICE_HOURS,
+  // L'ora da cui partono giorni e preavviso; i test la fissano.
+  now: Date = new Date(),
 ): Slot[] {
   const slots: Slot[] = [];
-  const now = new Date();
   const candidateMs = candidateMinutes * 60_000;
 
   // Pre-index exceptions by YYYY-MM-DD

@@ -88,7 +88,7 @@ export function renewsAutomatically(client: RenewalClient): boolean {
   return client.path_type === "recurring" && client.auto_renew_blocks === true;
 }
 
-function comesAfter(b: BlockDates, ref: BlockDates): boolean {
+export function comesAfter(b: BlockDates, ref: BlockDates): boolean {
   if (b.sequence_order !== ref.sequence_order) return b.sequence_order > ref.sequence_order;
   return b.start_date.slice(0, 10) > ref.start_date.slice(0, 10);
 }
