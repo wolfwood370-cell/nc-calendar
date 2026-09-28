@@ -46,6 +46,8 @@ export interface ClientShellState {
   userId: string | null;
   now: Date;
   bookings: readonly BookingRow[];
+  /** Le sessioni sono ancora da caricare (la prima volta). */
+  bookingsLoading: boolean;
   eventTypes: readonly EventTypeRow[];
   /** Il badge della scheda Sessioni: le sessioni «Da confermare» e il nome accessibile. */
   sessionsBadge: { count: number; label: string };
@@ -149,11 +151,14 @@ export function useClientShellState(): ClientShellState {
       );
   }, [userId, reminders]);
 
+  const bookingsLoading = bookingsQ.isLoading;
+
   return useMemo(
     () => ({
       userId,
       now,
       bookings,
+      bookingsLoading,
       eventTypes,
       sessionsBadge: badge,
       reminders,
@@ -161,7 +166,18 @@ export function useClientShellState(): ClientShellState {
       unread,
       markAllRead,
     }),
-    [userId, now, bookings, eventTypes, badge, reminders, readIds, unread, markAllRead],
+    [
+      userId,
+      now,
+      bookings,
+      bookingsLoading,
+      eventTypes,
+      badge,
+      reminders,
+      readIds,
+      unread,
+      markAllRead,
+    ],
   );
 }
 
