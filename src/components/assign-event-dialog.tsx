@@ -35,6 +35,7 @@ import {
 } from "@/lib/assign-event";
 import { useAuth } from "@/lib/auth";
 import { clientPlanLabel, searchClients } from "@/lib/client-search";
+import { formatCreditsAgreed } from "@/lib/credits";
 import { initials } from "@/lib/initials";
 import {
   useClientBlocks,
@@ -173,7 +174,7 @@ function AssignEventBody({ eventId, onClose }: { eventId: string; onClose: () =>
     : !eventType
       ? "Scegli una tipologia di sessione."
       : available > 0
-        ? `${clientName} ha ${available === 1 ? "1 credito" : `${available} crediti`} ${eventType.name} ${available === 1 ? "disponibile" : "disponibili"}.`
+        ? `${clientName} ha ${formatCreditsAgreed(available, eventType.name, ["disponibile", "disponibili"])}.`
         : `${clientName} non ha crediti ${eventType.name}: la sessione non scala dal pacchetto.`;
 
   const refresh = (clientIdTouched: string | null) => {

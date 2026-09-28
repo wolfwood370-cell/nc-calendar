@@ -7,7 +7,10 @@
 
 import { toast } from "sonner";
 
-/** Quanto resta visibile un toast con «Ripristina»: il tempo di ripensarci. */
+/**
+ * Quanto resta visibile un toast con un'azione, «Ripristina» o un'altra
+ * («Collega senza credito»): il tempo di ripensarci (README, V1: 8 s).
+ */
 export const UNDO_TOAST_DURATION = 8000;
 
 export function toastWithUndo(message: string, onUndo: () => void) {

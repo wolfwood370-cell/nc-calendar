@@ -21,7 +21,32 @@ export function formatCreditsLeft(n: number): string {
 /** «6 di 13 rimasti»; singolare con un solo credito residuo: «1 di 1 rimasto». */
 export function formatCreditsOf(left: number, total: number): string {
   const l = Math.max(0, left);
-  return `${l} di ${total} ${l === 1 ? "rimasto" : "rimasti"}`;
+  return `${l} ${formatCreditsOfTail(l, total)}`;
+}
+
+/**
+ * Quello che segue il numero dei residui in formatCreditsOf, per chi lo
+ * mette in evidenza: «<strong>6</strong> di 13 rimasti».
+ */
+export function formatCreditsOfTail(left: number, total: number): string {
+  return `di ${total} ${Math.max(0, left) === 1 ? "rimasto" : "rimasti"}`;
+}
+
+/** «1 credito» · «8 crediti». */
+export function formatCredits(n: number): string {
+  return n === 1 ? "1 credito" : `${n} crediti`;
+}
+
+/**
+ * «N crediti», con la tipologia e un aggettivo che si accorda al numero:
+ * formatCreditsAgreed(1, "Yoga", ["aggiunto", "aggiunti"]) → «1 credito Yoga aggiunto».
+ */
+export function formatCreditsAgreed(
+  n: number,
+  typeName: string | null,
+  [one, many]: readonly [string, string],
+): string {
+  return [formatCredits(n), typeName, n === 1 ? one : many].filter(Boolean).join(" ");
 }
 
 /** Subset di una riga block_allocations usato per i conteggi. */

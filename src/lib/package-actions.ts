@@ -122,10 +122,8 @@ export function creditsByType(
     .filter((r) => r.qty > 0);
 }
 
-/** «8 crediti» · «1 credito». */
-export function formatCredits(n: number): string {
-  return n === 1 ? "1 credito" : `${n} crediti`;
-}
+/** «8 crediti» · «1 credito»: l'helper è in credits.ts, qui per chi lo importava da qui. */
+export { formatCredits } from "@/lib/credits";
 
 /** Nota del rinnovo con i crediti residui del blocco in corso. */
 export function renewNote(firstDay: Date, residual: number): string {

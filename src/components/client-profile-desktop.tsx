@@ -95,7 +95,7 @@ import { supabaseProfileStore } from "@/lib/profile-store";
 import { useCoachEventTypes } from "@/lib/queries";
 import { queryKeys } from "@/lib/query-keys";
 import { getRenewalInfo } from "@/lib/renewal";
-import { toastWithUndo } from "@/lib/toast";
+import { toastWithUndo, UNDO_TOAST_DURATION } from "@/lib/toast";
 import { initials } from "@/lib/initials";
 import { cn, errorMessage } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
@@ -401,6 +401,7 @@ export function ClientProfileDesktop({
     } catch (e) {
       if (e instanceof CreditUnavailableError && useCredit) {
         toast.error(`${clientName} non ha crediti di ${type.name} per quella data.`, {
+          duration: UNDO_TOAST_DURATION,
           action: { label: "Collega senza credito", onClick: () => void linkOne(o, false) },
         });
       } else {

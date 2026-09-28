@@ -24,7 +24,7 @@ import {
 import { SegmentedControl } from "@/components/segmented-control";
 import { useAuth } from "@/lib/auth";
 import { clientPlanLabel } from "@/lib/client-search";
-import { getCurrentBlockCredits, sumCredits } from "@/lib/credits";
+import { formatCreditsAgreed, getCurrentBlockCredits, sumCredits } from "@/lib/credits";
 import { toIsoDate } from "@/lib/current-block";
 import {
   BLOCKS_MAX,
@@ -299,10 +299,7 @@ function PackageBody({
           eventTypeId: extraType!.id,
           quantity: extraQty,
         });
-        message =
-          extraQty === 1
-            ? `1 credito ${extraType!.name} aggiunto a ${name}.`
-            : `${extraQty} crediti ${extraType!.name} aggiunti a ${name}.`;
+        message = `${formatCreditsAgreed(extraQty, extraType!.name, ["aggiunto", "aggiunti"])} a ${name}.`;
       } else {
         change = await assignNewPath(supabasePackageStore, {
           clientId,

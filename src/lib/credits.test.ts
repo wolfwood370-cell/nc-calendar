@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatCredits,
+  formatCreditsAgreed,
   formatCreditsLeft,
   formatCreditsOf,
+  formatCreditsOfTail,
   getBlockCredits,
   getCurrentBlockCredits,
   sumCredits,
@@ -29,6 +32,35 @@ describe("formatCreditsOf", () => {
     [-2, 5, "0 di 5 rimasti"],
   ])("%i su %i → «%s»", (left, total, text) => {
     expect(formatCreditsOf(left, total)).toBe(text);
+  });
+});
+
+describe("formatCreditsOfTail · la coda di formatCreditsOf (Profilo, V2)", () => {
+  it.each([
+    [6, 13, "di 13 rimasti"],
+    [1, 5, "di 5 rimasto"],
+    [0, 5, "di 5 rimasti"],
+  ])("%i su %i → «%s»", (left, total, text) => {
+    expect(formatCreditsOfTail(left, total)).toBe(text);
+    expect(formatCreditsOf(left, total)).toBe(`${left} ${text}`);
+  });
+});
+
+describe("formatCredits e formatCreditsAgreed · l'accordo col numero (V2)", () => {
+  it("«1 credito» · «N crediti»", () => {
+    expect(formatCredits(1)).toBe("1 credito");
+    expect(formatCredits(0)).toBe("0 crediti");
+    expect(formatCredits(8)).toBe("8 crediti");
+  });
+  it.each([
+    [1, "Yoga", ["disponibile", "disponibili"], "1 credito Yoga disponibile"],
+    [3, "Yoga", ["disponibile", "disponibili"], "3 crediti Yoga disponibili"],
+    [1, "PT", ["aggiunto", "aggiunti"], "1 credito PT aggiunto"],
+    [5, "PT", ["aggiunto", "aggiunti"], "5 crediti PT aggiunti"],
+    [1, null, ["disponibile", "disponibili"], "1 credito disponibile"],
+    [0, null, ["disponibile", "disponibili"], "0 crediti disponibili"],
+  ] as const)("%i %s → «%s»", (n, type, agree, text) => {
+    expect(formatCreditsAgreed(n, type, agree)).toBe(text);
   });
 });
 
