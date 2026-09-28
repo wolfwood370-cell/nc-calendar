@@ -15,7 +15,7 @@
 
 import * as RadioGroupPrimitive from "@radix-ui/react-radio-group";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Loader2, Search, TriangleAlert } from "lucide-react";
+import { Check, Loader2, Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -25,17 +25,15 @@ import {
   dialogPrimaryButton,
   dialogSecondaryButton,
 } from "@/components/coach-dialog";
+import { ScheduleWarning } from "@/components/schedule-warning";
 import { SegmentedControl } from "@/components/segmented-control";
 import { removeSession } from "@/lib/cancel-session";
 import { supabaseCalendarStore } from "@/lib/calendar-store";
 import {
   DURATION_OPTIONS,
-  OUTSIDE_AVAILABILITY_WARNING,
-  findOverlap,
-  isWithinAvailability,
   localDate,
   localIso,
-  overlapWarning,
+  sessionScheduleCheck,
   timeOptions,
   type AvailabilityException,
   type AvailabilitySlot,
@@ -195,20 +193,22 @@ function FormBody({
   });
   const retypeProblem = retypeQ.data ?? null;
 
-  const overlap = useMemo(() => {
-    if (!start || Number.isNaN(start.getTime())) return null;
-    const buffer = isClient ? (type?.buffer_minutes ?? 0) : 0;
-    return findOverlap(bookings, start, duration, buffer, editing?.id);
-  }, [bookings, start, duration, isClient, type, editing]);
-  const overlapName = (b: BookingRow) =>
-    b.client_id && b.client_id !== b.coach_id
-      ? (clients.find((c) => c.id === b.client_id)?.full_name ?? "un cliente")
-      : b.title?.trim() || "un evento";
-  const outside =
-    isClient &&
-    !!start &&
-    !Number.isNaN(start.getTime()) &&
-    !isWithinAvailability(start, duration, availability, exceptions);
+  // Sovrapposizione e fuori disponibilità con la regola del Profilo (V7).
+  const { overlap, warning } = useMemo(
+    () =>
+      sessionScheduleCheck({
+        start,
+        minutes: duration,
+        bufferMin: isClient ? (type?.buffer_minutes ?? 0) : 0,
+        excludeId: editing?.id,
+        bookings,
+        checkAvailability: isClient,
+        slots: availability,
+        exceptions,
+        clientName: (id) => clients.find((c) => c.id === id)?.full_name,
+      }),
+    [start, duration, isClient, type, editing, bookings, availability, exceptions, clients],
+  );
 
   const visibleClients = useMemo(() => {
     const active = clients.filter((c) => c.status !== "archived");
@@ -345,14 +345,6 @@ function FormBody({
     }
   }
 
-  const warnings: string[] = [];
-  if (overlap) {
-    warnings.push(
-      `${overlapWarning(overlapName(overlap), overlap)} Due eventi programmati non possono sovrapporsi: scegli un altro orario.`,
-    );
-  } else if (outside) {
-    warnings.push(OUTSIDE_AVAILABILITY_WARNING);
-  }
   const showDurationNote =
     !editing && isClient && !!type && duration === 60 && type.duration !== 60;
 
@@ -562,16 +554,7 @@ function FormBody({
         </p>
       )}
 
-      {warnings.map((w) => (
-        <p
-          key={w}
-          role="status"
-          className="flex items-start gap-2 rounded-[14px] bg-warning-soft px-3 py-2.5 text-[13px] leading-[1.45] text-warning-text"
-        >
-          <TriangleAlert className="mt-0.5 size-[15px] shrink-0" aria-hidden />
-          {w}
-        </p>
-      ))}
+      {warning && <ScheduleWarning text={warning} />}
       {(creditProblem || retypeProblem) && (
         <div
           role="alert"

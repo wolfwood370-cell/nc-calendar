@@ -217,3 +217,74 @@ export function overlapWarning(
   const e = new Date(s.getTime() + (b.duration_min || 60) * 60_000);
   return `Si sovrappone a ${name} (${format(s, "HH:mm")}–${format(e, "HH:mm")}).`;
 }
+
+/**
+ * Chi c'è nell'evento sovrapposto: il cliente, oppure il titolo di un
+ * impegno o di un evento senza cliente.
+ */
+export function overlapName(
+  b: { client_id: string | null; coach_id: string | null; title?: string | null },
+  clientName: (id: string) => string | null | undefined,
+): string {
+  return b.client_id && b.client_id !== b.coach_id
+    ? (clientName(b.client_id) ?? "un cliente")
+    : b.title?.trim() || "un evento";
+}
+
+/**
+ * L'avviso di data e ora dei dialog delle sessioni, uguale nel Calendario e
+ * nel Profilo (V7): la sovrapposizione, che il vincolo
+ * bookings_no_overlap_per_coach vieta e che quindi ferma il salvataggio;
+ * altrimenti il fuori disponibilità, che resta un avviso.
+ */
+export function scheduleWarning(
+  overlap: {
+    name: string;
+    booking: Pick<OverlapCandidate, "scheduled_at" | "duration_min">;
+  } | null,
+  outside: boolean,
+): string | null {
+  if (overlap) {
+    return `${overlapWarning(overlap.name, overlap.booking)} Due eventi programmati non possono sovrapporsi: scegli un altro orario.`;
+  }
+  return outside ? OUTSIDE_AVAILABILITY_WARNING : null;
+}
+
+/**
+ * Il controllo di data e ora dei dialog delle sessioni (V7), per il
+ * Calendario e per il Profilo: l'evento che si sovrappone, che ferma il
+ * salvataggio, e il testo dell'avviso. Il fuori disponibilità si controlla
+ * con `checkAvailability`: il Calendario solo per le sessioni coi clienti,
+ * come il prototipo; il Profilo sempre, perché ha solo quelle.
+ */
+export function sessionScheduleCheck<
+  B extends OverlapCandidate & {
+    client_id: string | null;
+    coach_id: string | null;
+    title?: string | null;
+  },
+>(args: {
+  start: Date | null;
+  minutes: number;
+  bufferMin: number;
+  excludeId?: string | null;
+  bookings: readonly B[];
+  checkAvailability: boolean;
+  slots: readonly AvailabilitySlot[];
+  exceptions: readonly AvailabilityException[];
+  clientName: (id: string) => string | null | undefined;
+}): { overlap: B | null; warning: string | null } {
+  const { start } = args;
+  if (!start || Number.isNaN(start.getTime())) return { overlap: null, warning: null };
+  const overlap = findOverlap(args.bookings, start, args.minutes, args.bufferMin, args.excludeId);
+  const outside =
+    args.checkAvailability &&
+    !isWithinAvailability(start, args.minutes, args.slots, args.exceptions);
+  return {
+    overlap,
+    warning: scheduleWarning(
+      overlap ? { name: overlapName(overlap, args.clientName), booking: overlap } : null,
+      outside,
+    ),
+  };
+}

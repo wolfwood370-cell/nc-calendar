@@ -729,6 +729,7 @@ export function ClientProfileDesktop({
       <ProfileSessionDialog
         booking={editing}
         clientName={clientName}
+        coachId={user?.id ?? ""}
         eventTypes={eventTypes}
         onClose={() => setEditing(null)}
         onChanged={refresh}

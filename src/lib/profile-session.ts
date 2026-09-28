@@ -33,6 +33,12 @@ import {
   type SessionStore,
   type StoredSession,
 } from "@/lib/cancel-session";
+import {
+  sessionScheduleCheck,
+  type AvailabilityException,
+  type AvailabilitySlot,
+  type OverlapCandidate,
+} from "@/lib/calendar-time";
 import { pickConsumeAllocation, pickConsumeExtraCredit } from "@/lib/credit-order";
 import type { BookingStatus } from "@/lib/mock-data";
 import { changeSessionOutcome, type SessionOutcome } from "@/lib/session-outcome";
@@ -62,6 +68,44 @@ export function isOutcome(status: string): status is SessionOutcome {
  */
 export function canEditTime(current: string, target: string): boolean {
   return canMoveOrRetype({ status: current as BookingStatus }) || target === "scheduled";
+}
+
+/**
+ * Data e ora nel dialog del Profilo (V7): gli avvisi del Calendario, con le
+ * sue parole e la sua regola (sessionScheduleCheck). La sovrapposizione
+ * ferma il salvataggio, come nel Calendario; il fuori disponibilità è un
+ * avviso. Si controlla solo quando data e ora si possono cambiare
+ * (canEditTime): una sessione svolta, assente o annullata non occupa
+ * l'agenda.
+ */
+export function profileScheduleCheck<
+  B extends OverlapCandidate & {
+    client_id: string | null;
+    coach_id: string | null;
+    title?: string | null;
+  },
+>(args: {
+  timeEditable: boolean;
+  startIso: string | null;
+  minutes: number;
+  bufferMin: number;
+  sessionId: string;
+  bookings: readonly B[];
+  slots: readonly AvailabilitySlot[];
+  exceptions: readonly AvailabilityException[];
+  clientName: (id: string) => string | null | undefined;
+}): { overlap: B | null; warning: string | null } {
+  return sessionScheduleCheck({
+    start: args.timeEditable && args.startIso ? new Date(args.startIso) : null,
+    minutes: args.minutes,
+    bufferMin: args.bufferMin,
+    excludeId: args.sessionId,
+    bookings: args.bookings,
+    checkAvailability: true,
+    slots: args.slots,
+    exceptions: args.exceptions,
+    clientName: args.clientName,
+  });
 }
 
 export interface ProfileSessionInput extends Omit<EditInput, "expected"> {
