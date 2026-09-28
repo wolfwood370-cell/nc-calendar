@@ -15,6 +15,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { iconForType } from "@/lib/session-type-icon";
+import { UNDO_TOAST_DURATION } from "@/lib/toast";
 
 export interface SessionTypeBreakdownRow {
   /** Stable key per il map (event_type_id o session_type fallback). */
@@ -123,6 +124,7 @@ export function ClientSessionsBreakdown({ rows, boosterTitles }: Props) {
                     onClick={() => {
                       toast.info("Crediti esauriti per questa tipologia", {
                         description: "Acquista un Booster nello Store per prenotare ancora.",
+                        duration: UNDO_TOAST_DURATION,
                         action: {
                           label: "Vai allo Store",
                           onClick: () => navigate({ to: "/client/store" }),

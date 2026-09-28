@@ -32,6 +32,7 @@ import {
   type ExtraCreditRow,
 } from "@/lib/booking-allocation";
 import type { EventTypeRow, AllocationRow } from "@/lib/queries";
+import { UNDO_TOAST_DURATION } from "@/lib/toast";
 
 /** Subset structural del Pool richiesto da useBookConfirm. */
 export interface PoolForConfirm {
@@ -152,6 +153,7 @@ export function useBookConfirm(input: UseBookConfirmInput): UseBookConfirmReturn
       if (!allocId && !extraId) {
         toast.error(`Credito esaurito per ${displayLabel}.`, {
           description: "Acquista un Booster per continuare a prenotare.",
+          duration: UNDO_TOAST_DURATION,
           action: {
             label: "Vai allo Store",
             onClick: () => navigate({ to: "/client/store" }),
