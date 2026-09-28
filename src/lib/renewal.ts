@@ -67,6 +67,22 @@ export function isValidBlock(b: Pick<RenewalBlock, "status">): boolean {
   return b.status !== "cancelled";
 }
 
+/**
+ * Il blocco che il cliente vede come «in corso» in Prenota e in Home: la
+ * regola di resolveCurrentBlock sui soli blocchi validi (quello che contiene
+ * oggi, altrimenti il primo che deve iniziare, altrimenti l'ultimo), come il
+ * lato coach (blockChip in client-profile.ts). Vale anche per l'abbonamento:
+ * il currentBlockId di ensure_client_block_state resta l'ultimo blocco per
+ * sequence_order finché oggi non ne supera la fine, anche se non è ancora
+ * iniziato, e non sceglie il blocco.
+ */
+export function clientReferenceBlock<T extends RenewalBlock>(
+  blocks: readonly T[],
+  now: Date = new Date(),
+): T | null {
+  return resolveCurrentBlock(blocks.filter(isValidBlock), now);
+}
+
 /** Abbonamento mensile col rinnovo automatico acceso: il server crea il blocco successivo. */
 export function renewsAutomatically(client: RenewalClient): boolean {
   return client.path_type === "recurring" && client.auto_renew_blocks === true;

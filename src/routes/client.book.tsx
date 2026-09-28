@@ -19,7 +19,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useCurrentBlock } from "@/hooks/use-current-block";
-import { resolveCurrentBlock } from "@/lib/current-block";
+import { clientReferenceBlock } from "@/lib/renewal";
 import { useQuery } from "@tanstack/react-query";
 import { format, startOfMonth, addDays, startOfDay, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
@@ -94,12 +94,6 @@ function BookFlow() {
       } | null;
     },
   });
-  // path_type discrimina la logica del block resolver: "recurring" si
-  // affida all'RPC ensure_client_block_state (gestisce grace + auto-renew),
-  // "fixed" usa risoluzione time-based perché l'RPC su fixed può ritornare
-  // un currentBlockId arbitrario tra quelli active (Marco Golinelli pesca
-  // Blocco 6 di Agosto invece di Blocco 3 di Maggio).
-  const isRecurring = (profileQ.data?.path_type ?? "fixed") === "recurring";
 
   // Single-pick state for the new Aura booking flow
   const [selectedPoolKey, setSelectedPoolKey] = useState<string | null>(null);
@@ -107,26 +101,21 @@ function BookFlow() {
   const [selectedISO, setSelectedISO] = useState<string | null>(null);
   const [calendarMonth, setCalendarMonth] = useState<Date>(startOfMonth(new Date()));
 
-  // ensure_client_block_state RPC closes expired blocks past their 7-day
-  // grace, and auto-creates the next one when profiles.auto_renew_blocks
-  // is true. On the first load for a client whose previous block expired,
+  // ensure_client_block_state RPC closes the last block as soon as today
+  // passes its end_date (the 7-day grace only sets inGracePeriod), and
+  // auto-creates the next one when profiles.auto_renew_blocks is true.
+  // On the first load for a client whose previous block expired,
   // this hook is what physically materializes the new block in the DB.
+  // Prenota ne aspetta il caricamento prima di scegliere il pool
+  // (poolsSettled, sotto), ma il suo currentBlockId non sceglie il blocco.
   const currentBlockQ = useCurrentBlock(meId);
-  // Block resolver gemello di client.index.tsx:
-  //   - recurring → trust the RPC (gestisce grace + auto-renewal)
-  //   - fixed (o RPC non ancora pronta) → regola a date di resolveCurrentBlock,
-  //     perché l'RPC su path fixed può ritornare un currentBlockId arbitrario
-  //     tra quelli con status="active" (per Marco Golinelli pescava Blocco 6
-  //     di Agosto invece di Blocco 3 di Maggio, saturando rangeStart fuori
-  //     dall'orizzonte di 28 giorni e generando 0 slot).
-  const block = useMemo(() => {
-    const all = blocksQ.data ?? [];
-    if (isRecurring) {
-      const fromRpc = all.find((b) => b.id === currentBlockQ.data?.currentBlockId);
-      if (fromRpc) return fromRpc;
-    }
-    return resolveCurrentBlock(all);
-  }, [isRecurring, blocksQ.data, currentBlockQ.data]);
+  // Blocco in corso, gemello di client.index.tsx, per tutti i percorsi
+  // abbonamento compreso: la regola a date di clientReferenceBlock. L'RPC
+  // restituisce l'ultimo blocco per sequence_order finché oggi non ne supera
+  // la fine: con i mesi dopo già creati gli orari partirebbero dall'inizio
+  // dell'ultimo, e sul percorso fisso pescava un blocco lontano (per Marco
+  // Golinelli Blocco 6 di Agosto invece di Blocco 3 di Maggio, 0 slot).
+  const block = useMemo(() => clientReferenceBlock(blocksQ.data ?? []), [blocksQ.data]);
   const coachIdForAvail = profileQ.data?.coach_id ?? null;
   const availQ = useCoachAvailability(coachIdForAvail);
   const exceptionsQ = useCoachAvailabilityExceptions(coachIdForAvail);
@@ -348,7 +337,7 @@ function BookFlow() {
   // non matcha alcun pool disponibile (es. tipologia esaurita), fallback
   // al primo pool con residuo > 0 (comportamento legacy).
   const deepLinkEventType = Route.useSearch({ select: (s) => s.eventType });
-  // I pool si popolano in più fasi (blocco via RPC async + crediti extra). Il
+  // I pool si popolano in più fasi (blocchi, stato dell'RPC e crediti extra). Il
   // fallback a pools[0] deve scattare SOLO quando questi dati sono "settled",
   // altrimenti bloccherebbe la selezione sul primo pool prima che arrivi quello
   // della tipologia deep-linkata (bug "PT prenota consulenza").

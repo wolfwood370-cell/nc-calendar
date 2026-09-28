@@ -21,7 +21,7 @@ import {
 } from "@/lib/queries";
 import { useCurrentBlock } from "@/hooks/use-current-block";
 import { formatCreditsAgreed } from "@/lib/credits";
-import { resolveCurrentBlock } from "@/lib/current-block";
+import { clientReferenceBlock } from "@/lib/renewal";
 import { sessionLabel } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { AuraCardSkeleton, AuraLineSkeleton } from "@/components/ui/aura-skeleton";
@@ -95,24 +95,20 @@ function ClientHome() {
   const bookingsQ = useClientBookings(meId);
   const eventTypesQ = useCoachEventTypes(coachId);
   const extraCreditsQ = useClientExtraCredits(meId);
-  // For recurring clients only: this RPC closes expired blocks past their
-  // grace and auto-creates the next one when auto_renew_blocks=true. The
-  // hook is called unconditionally for shape stability; the result is
-  // simply ignored when isRecurring=false.
+  // This RPC closes the last block as soon as today passes its end_date
+  // (the grace only sets inGracePeriod) and auto-creates the next one when
+  // auto_renew_blocks=true. The hook is called
+  // unconditionally for shape stability; here only its state is read, for
+  // the grace banner of recurring clients (graceBanner). Il suo
+  // currentBlockId non sceglie il blocco: resta l'ultimo per sequence_order
+  // finché oggi non ne supera la fine, anche se non è ancora iniziato.
   const currentBlockQ = useCurrentBlock(meId);
 
-  const currentBlock = useMemo(() => {
-    if (!isRecurring) return null;
-    const id = currentBlockQ.data?.currentBlockId ?? null;
-    if (!id) return null;
-    return (blocksQ.data ?? []).find((b) => b.id === id) ?? null;
-  }, [isRecurring, currentBlockQ.data, blocksQ.data]);
-
-  // Block "corrente" resolution per il rendering hero:
-  // - Recurring → arriva dall'RPC `useCurrentBlock` (state-aware)
-  // - Fixed → cerca il blocco la cui finestra [start_date, end_date] contiene oggi;
-  //   fallback al primo non ancora terminato; ultimo fallback = blocco con
-  //   sequence_order minore (path appena iniziato)
+  // Block "corrente" per il rendering hero, per tutti i percorsi abbonamento
+  // compreso (gemello di client.book.tsx): clientReferenceBlock, cioè il
+  // blocco valido la cui finestra [start_date, end_date] contiene oggi;
+  // altrimenti il primo che deve iniziare; altrimenti l'ultimo (percorso
+  // finito).
   //
   // MED-C3 (audit 2026-05-26): il useMemo non lista `Date.now()` nei deps
   // per scelta — la data corrente è usata SOLO come discriminante per
@@ -122,11 +118,10 @@ function ClientHome() {
   // useMemo recompute a ogni refetch con il `Date.now()` aggiornato.
   // Pattern accettato per il caso "data-as-condition", da NON replicare
   // dove il timestamp finisce direttamente in props/render output.
-  const resolvedCurrentBlock = useMemo(() => {
-    if (isRecurring) return currentBlock;
-    // Path già terminato → ultimo blocco. Path non ancora iniziato → primo.
-    return resolveCurrentBlock(blocksQ.data ?? []);
-  }, [isRecurring, currentBlock, blocksQ.data]);
+  const resolvedCurrentBlock = useMemo(
+    () => clientReferenceBlock(blocksQ.data ?? []),
+    [blocksQ.data],
+  );
 
   // Stats intero percorso (cumulativo dall'inizio). Total include:
   //   - allocations di tutti i blocchi non-deleted
@@ -323,12 +318,12 @@ function ClientHome() {
   // "Settimana X/4" label for recurring clients showing how far we are
   // into the current block (1-indexed, clamped to [1, 4]).
   const currentWeekLabel = useMemo(() => {
-    if (!isRecurring || !currentBlock) return null;
-    const startMs = new Date(currentBlock.start_date).getTime();
+    if (!isRecurring || !resolvedCurrentBlock) return null;
+    const startMs = new Date(resolvedCurrentBlock.start_date).getTime();
     const diffDays = Math.floor((Date.now() - startMs) / (24 * 60 * 60 * 1000));
     const week = Math.min(4, Math.max(1, Math.floor(diffDays / 7) + 1));
     return `Settimana ${week}/4`;
-  }, [isRecurring, currentBlock]);
+  }, [isRecurring, resolvedCurrentBlock]);
 
   // Grace banner: residuals from previous block, valid for a few more
   // days. Only relevant when the client is recurring + actually in grace.
