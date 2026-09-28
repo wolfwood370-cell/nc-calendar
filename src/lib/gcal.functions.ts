@@ -355,6 +355,7 @@ type ReconcileResult = {
   cancelled?: number;
   moved?: number;
   conflicts?: number;
+  checked?: number; // sessioni confrontate con Google (passata 09)
   skipped?: string;
   error?: string;
 };
@@ -406,7 +407,7 @@ export const gcalReconcileEvents = createServerFn({ method: "POST" })
         return { ok: false, error: "Lettura prenotazioni fallita" };
       }
       const rows = bookings ?? [];
-      if (rows.length === 0) return { ok: true, cancelled: 0, moved: 0, conflicts: 0 };
+      if (rows.length === 0) return { ok: true, cancelled: 0, moved: 0, conflicts: 0, checked: 0 };
 
       const byEventId = new Map<string, { id: string; scheduledMs: number }>();
       for (const b of rows) {
@@ -463,7 +464,7 @@ export const gcalReconcileEvents = createServerFn({ method: "POST" })
           }
         }
       }
-      return { ok: true, cancelled, moved, conflicts };
+      return { ok: true, cancelled, moved, conflicts, checked: rows.length };
     } catch (e) {
       console.error("gcalReconcileEvents failed", e);
       return { ok: false, error: e instanceof Error ? e.message : String(e) };

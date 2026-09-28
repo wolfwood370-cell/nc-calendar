@@ -14,9 +14,12 @@
 //      (restano note interne dell'app, decisione utente 2026-06-06).
 //
 // Matching per `bookings.google_event_id` == `googleEvent.id`.
+// Lettura, riconoscimento dal titolo e payload dell'importazione stanno in
+// use-gcal-review.ts e gcal-integration.ts (passata 09): li usa anche
+// Integrazioni desktop.
 // ----------------------------------------------------------------------------
 import { useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, CalendarPlus, AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { sessionLabel } from "@/lib/mock-data";
@@ -38,7 +41,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { gcalListEventsForReview, gcalImportEvent } from "@/lib/gcal.functions";
+import { useGcalReviewEvents } from "@/hooks/use-gcal-review";
+import { gcalImportEvent } from "@/lib/gcal.functions";
+import { importPayload, recognizeImport } from "@/lib/gcal-integration";
 import { queryKeys } from "@/lib/query-keys";
 import type { BookingRow, ProfileRow, EventTypeRow } from "@/lib/queries";
 import { isAllDayEvent } from "@/lib/all-day-event";
@@ -83,16 +88,7 @@ export function CalendarGcalReview({ coachId, bookings, clientsMap, eventTypesMa
   const clients = useMemo(() => Array.from(clientsMap.values()), [clientsMap]);
   const eventTypes = useMemo(() => Array.from(eventTypesMap.values()), [eventTypesMap]);
 
-  const reviewQ = useQuery({
-    queryKey: ["gcal-review", coachId],
-    enabled: !!coachId,
-    staleTime: 5 * 60_000,
-    queryFn: async () => {
-      const r = await gcalListEventsForReview({ data: {} });
-      if (!r.ok) throw new Error(r.error);
-      return r.events;
-    },
-  });
+  const reviewQ = useGcalReviewEvents(coachId);
 
   const { googleOnly, platformOnly } = useMemo(() => {
     const events = reviewQ.data ?? [];
@@ -139,30 +135,12 @@ export function CalendarGcalReview({ coachId, bookings, clientsMap, eventTypesMa
     // Check Tecnico (Marco Golinelli)"): cerca il tipo sessione e il cliente
     // i cui nomi compaiono nel titolo. Preferiamo il match piu' LUNGO (es.
     // "PT-Pack" batte "PT"). Se trova un cliente -> modalita' "client".
-    const s = (e.summary ?? "").toLowerCase();
-    let etId = "";
-    let bestEt = 0;
-    for (const et of eventTypes) {
-      const n = (et.name ?? "").toLowerCase().trim();
-      if (n && s.includes(n) && n.length > bestEt) {
-        etId = et.id;
-        bestEt = n.length;
-      }
-    }
-    let cId = "";
-    let bestC = 0;
-    for (const c of clients) {
-      const n = (c.full_name ?? "").toLowerCase().trim();
-      if (n && s.includes(n) && n.length > bestC) {
-        cId = c.id;
-        bestC = n.length;
-      }
-    }
     // Se trovo un cliente -> "client". Altrimenti default "consulenza"
     // (gli eventi non assegnabili sono di norma consulenze/appuntamenti esterni).
-    setMode(cId ? "client" : "consulenza");
-    setClientId(cId);
-    setEventTypeId(etId);
+    const guess = recognizeImport(e.summary, eventTypes, clients);
+    setMode(guess.mode);
+    setClientId(guess.clientId);
+    setEventTypeId(guess.eventTypeId);
   }
 
   async function confirmImport() {
@@ -174,15 +152,7 @@ export function CalendarGcalReview({ coachId, bookings, clientsMap, eventTypesMa
     setSubmitting(true);
     try {
       const r = await gcalImportEvent({
-        data: {
-          googleEventId: importTarget.id,
-          summary: importTarget.summary || undefined,
-          startISO: new Date(importTarget.startMs ?? Date.now()).toISOString(),
-          endISO: importTarget.endMs ? new Date(importTarget.endMs).toISOString() : undefined,
-          mode,
-          clientId: mode === "client" ? clientId : undefined,
-          eventTypeId: mode === "client" && eventTypeId ? eventTypeId : undefined,
-        },
+        data: importPayload(importTarget, { mode, clientId, eventTypeId }, Date.now()),
       });
       if (!r.ok) {
         toast.error("Import non riuscito", { description: r.error });
