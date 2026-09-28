@@ -20,6 +20,7 @@ import {
   useClientExtraCredits,
 } from "@/lib/queries";
 import { useCurrentBlock } from "@/hooks/use-current-block";
+import { formatCreditsAgreed } from "@/lib/credits";
 import { resolveCurrentBlock } from "@/lib/current-block";
 import { sessionLabel } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
@@ -845,7 +846,7 @@ function ClientHome() {
             <div className="flex justify-center text-center">
               <span className="text-[13px] text-on-surface-variant">
                 {isRecurring
-                  ? `${pathStats.completed} completate • ${pathStats.remaining} crediti disponibili`
+                  ? `${pathStats.completed} completate • ${formatCreditsAgreed(pathStats.remaining, null, ["disponibile", "disponibili"])}`
                   : `${pathStats.completed} completate • ${pathStats.remaining} rimanenti • ${pathStats.percent}% del percorso`}
               </span>
             </div>
