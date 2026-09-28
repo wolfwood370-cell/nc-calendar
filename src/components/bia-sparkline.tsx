@@ -123,7 +123,7 @@ export function BiaSparkline({
         </span>
         <span
           className={`tabular-nums text-[13px] font-semibold ${
-            good ? "text-success-strong" : "text-error-strong"
+            good ? "text-success-text" : "text-danger-text"
           }`}
         >
           {delta > 0 ? "+" : ""}

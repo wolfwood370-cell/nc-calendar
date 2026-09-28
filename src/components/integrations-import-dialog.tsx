@@ -48,7 +48,7 @@ const MODES: Array<{ id: ImportMode; label: string; hint: string; icon: LucideIc
 ];
 
 const FIELD =
-  "h-[42px] rounded-[14px] bg-surface-container-low px-2.5 text-sm text-on-surface outline-none disabled:opacity-60";
+  "h-[42px] rounded-[14px] bg-surface-container-low px-2.5 text-sm text-on-surface disabled:opacity-60";
 
 export function IntegrationsImportDialog({
   target,

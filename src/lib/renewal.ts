@@ -125,6 +125,11 @@ export function compareRenewals(a: RenewalInfo, b: RenewalInfo): number {
   return rank(a) - rank(b) || a.remaining - b.remaining;
 }
 
+/** Etichetta del conteggio per gli screen reader: «1 cliente in scadenza», «3 clienti in scadenza». */
+export function formatRenewals(n: number): string {
+  return n === 1 ? "1 cliente in scadenza" : `${n} clienti in scadenza`;
+}
+
 /** Blocco con le sue allocazioni, come lo carica useCoachBlocks. */
 export interface RenewalBlockWithAllocations extends RenewalBlock {
   client_id: string;

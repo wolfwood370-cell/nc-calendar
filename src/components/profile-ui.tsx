@@ -10,7 +10,7 @@ const TONE: Record<StatusTone, string> = {
   success: "bg-success-soft text-success-text",
   danger: "bg-danger-soft text-danger-text",
   warning: "bg-warning-soft text-warning-text",
-  muted: "bg-surface-container-low text-outline",
+  muted: "bg-surface-container-low text-on-surface-variant",
 };
 
 export function StatusChip({ status, small }: { status: string; small?: boolean }) {

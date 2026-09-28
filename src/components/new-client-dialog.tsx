@@ -436,7 +436,7 @@ function Wizard({
                           ),
                         })
                       }
-                      className="h-9 w-[72px] rounded-xl bg-surface-container-low px-2.5 text-sm outline-none"
+                      className="h-9 w-[72px] rounded-xl bg-surface-container-low px-2.5 text-sm"
                     />
                     blocchi
                   </label>

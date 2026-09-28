@@ -286,7 +286,7 @@ function Body({
             value={date}
             disabled={!timeEditable}
             onChange={(e) => setDate(e.target.value)}
-            className="h-[42px] rounded-[14px] bg-surface-container-low px-3 text-sm outline-none disabled:opacity-60"
+            className="h-[42px] rounded-[14px] bg-surface-container-low px-3 text-sm disabled:opacity-60"
           />
         </label>
         <label className="flex flex-col gap-1.5">
@@ -295,7 +295,7 @@ function Body({
             value={time}
             disabled={!timeEditable}
             onChange={(e) => setTime(e.target.value)}
-            className="h-[42px] rounded-[14px] bg-surface-container-low px-2.5 text-sm outline-none disabled:opacity-60"
+            className="h-[42px] rounded-[14px] bg-surface-container-low px-2.5 text-sm disabled:opacity-60"
           >
             {times.map((t) => (
               <option key={t} value={t}>

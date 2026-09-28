@@ -212,7 +212,9 @@ export function ClientsDesktop(p: ClientsDesktopProps) {
                 <span
                   className={cn(
                     "tabular-nums",
-                    t === "expiring" && counts.expiring > 0 ? "text-warning-text" : "text-outline",
+                    t === "expiring" && counts.expiring > 0
+                      ? "text-warning-text"
+                      : "text-on-surface-variant",
                   )}
                 >
                   {counts[t]}

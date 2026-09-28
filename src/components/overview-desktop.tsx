@@ -37,7 +37,7 @@ import {
   type BookingRow,
 } from "@/lib/queries";
 import { queryKeys } from "@/lib/query-keys";
-import { listRenewals } from "@/lib/renewal";
+import { formatRenewals, listRenewals } from "@/lib/renewal";
 import {
   FALLBACK_TYPE_COLOR,
   formatDistributionLabel,
@@ -52,7 +52,7 @@ import {
 import { supabaseSessionStore } from "@/lib/session-store";
 import { formatDuration, formatShortDay, formatTimeRange } from "@/lib/session-time";
 import { iconForType } from "@/lib/session-type-icon";
-import { listToAssign } from "@/lib/to-assign";
+import { formatToAssign, listToAssign } from "@/lib/to-assign";
 import { toastWithUndo } from "@/lib/toast";
 import {
   agendaChipLabel,
@@ -103,13 +103,16 @@ function formatTime(d: Date): string {
   return d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
 }
 
-function CountPill({ n, tone }: { n: number; tone: "warning" | "assign" }) {
+/** Il numero accanto al titolo della card; `label` è quello che legge lo screen reader (V12). */
+function CountPill({ n, tone, label }: { n: number; tone: "warning" | "assign"; label: string }) {
   return (
     <span
+      aria-label={label}
+      title={label}
       className={cn(
         "rounded-full px-3 py-1 text-xs font-bold tabular-nums",
         n === 0
-          ? "bg-surface-container text-outline"
+          ? "bg-surface-container text-on-surface-variant"
           : tone === "warning"
             ? "bg-warning-soft text-warning-text"
             : "bg-[rgba(255,220,194,0.6)] text-tertiary-container",
@@ -317,7 +320,11 @@ export function OverviewDesktop() {
                 <h2 id="overview-renewals" className="card-title">
                   Rinnovi in scadenza
                 </h2>
-                <CountPill n={renewals.length} tone="warning" />
+                <CountPill
+                  n={renewals.length}
+                  tone="warning"
+                  label={formatRenewals(renewals.length)}
+                />
               </div>
               <p className="-mt-1.5 text-xs text-outline">
                 Ultimo blocco con 2 crediti o meno, o che scade entro 7 giorni. Esclusi i rinnovi
@@ -374,7 +381,11 @@ export function OverviewDesktop() {
                 <h2 id="overview-to-assign" className="card-title">
                   Da assegnare
                 </h2>
-                <CountPill n={toAssign.length} tone="assign" />
+                <CountPill
+                  n={toAssign.length}
+                  tone="assign"
+                  label={formatToAssign(toAssign.length)}
+                />
               </div>
               <p className="-mt-1.5 text-xs text-outline">
                 Eventi importati da Google Calendar senza cliente.

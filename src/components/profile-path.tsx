@@ -159,7 +159,7 @@ export function ProfilePath(props: ProfilePathProps) {
                     setEditStart(false);
                   }}
                   onBlur={() => setEditStart(false)}
-                  className="h-8 rounded-full bg-surface-container px-3 text-xs font-semibold text-aura-primary outline-none"
+                  className="h-8 rounded-full bg-surface-container px-3 text-xs font-semibold text-aura-primary"
                 />
               ) : (
                 <button
@@ -334,7 +334,7 @@ export function ProfilePath(props: ProfilePathProps) {
                               onChange={(e) => {
                                 if (e.target.value) onMoveWeek(idx, parseISO(e.target.value));
                               }}
-                              className="w-[118px] bg-transparent text-xs font-semibold text-aura-primary outline-none"
+                              className="w-[118px] bg-transparent text-xs font-semibold text-aura-primary"
                             />
                           </label>
                           {changed.has(row.week_number) && (

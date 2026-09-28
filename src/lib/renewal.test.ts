@@ -4,6 +4,7 @@ import type { CreditAllocation } from "@/lib/credits";
 import { toIsoDate } from "@/lib/current-block";
 import {
   compareRenewals,
+  formatRenewals,
   getRenewalInfo,
   listRenewals,
   type RenewalBlock,
@@ -297,5 +298,13 @@ describe("compareRenewals", () => {
     const a: RenewalInfo = { reason: "Il blocco scade oggi", remaining: 3, daysLeft: 0 };
     const b: RenewalInfo = { reason: "Il blocco scade oggi", remaining: 1, daysLeft: 0 };
     expect([a, b].sort(compareRenewals)).toEqual([b, a]);
+  });
+});
+
+describe("formatRenewals · etichetta del conteggio in Panoramica (V12)", () => {
+  it("singolare e plurale", () => {
+    expect(formatRenewals(1)).toBe("1 cliente in scadenza");
+    expect(formatRenewals(0)).toBe("0 clienti in scadenza");
+    expect(formatRenewals(4)).toBe("4 clienti in scadenza");
   });
 });

@@ -46,9 +46,9 @@ import { toastWithUndo } from "@/lib/toast";
 import { errorMessage } from "@/lib/utils";
 
 const FIELD =
-  "h-[38px] rounded-xl bg-surface-container-low px-2.5 text-sm text-on-surface outline-none disabled:opacity-60";
+  "h-[38px] rounded-xl bg-surface-container-low px-2.5 text-sm text-on-surface disabled:opacity-60";
 const TIME =
-  "h-[38px] rounded-full bg-surface-container-low px-3 text-sm font-semibold tabular-nums text-on-surface outline-none disabled:opacity-60";
+  "h-[38px] rounded-full bg-surface-container-low px-3 text-sm font-semibold tabular-nums text-on-surface disabled:opacity-60";
 
 const MODES = [
   { value: "all", label: "Tutto il giorno" },

@@ -27,7 +27,7 @@ import {
 import { cn } from "@/lib/utils";
 
 const SELECT =
-  "h-[38px] rounded-full border-[1.5px] bg-surface-container-low px-3 text-sm font-semibold tabular-nums text-on-surface outline-none disabled:opacity-60";
+  "h-[38px] rounded-full border-[1.5px] bg-surface-container-low px-3 text-sm font-semibold tabular-nums text-on-surface disabled:opacity-60";
 
 const ROW_ACTION =
   "flex h-[34px] items-center gap-1.5 rounded-full px-3 text-[13px] font-semibold transition-colors hover:bg-surface-container disabled:opacity-60";

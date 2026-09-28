@@ -219,8 +219,13 @@ export function BlockCreditsDialog({
                 />
               </div>
               <div className="col-span-1 flex justify-end">
-                <Button size="icon" variant="ghost" onClick={() => removeRow(r.id)}>
-                  <Trash2 className="size-4 text-destructive" />
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  aria-label="Rimuovi questi crediti"
+                  onClick={() => removeRow(r.id)}
+                >
+                  <Trash2 className="size-4 text-destructive" aria-hidden />
                 </Button>
               </div>
             </div>

@@ -109,7 +109,7 @@ export function ProfileSessions({
           label: (
             <>
               {f.label}
-              <span className="tabular-nums text-outline">{counts[f.value]}</span>
+              <span className="tabular-nums text-on-surface-variant">{counts[f.value]}</span>
             </>
           ),
         }))}
