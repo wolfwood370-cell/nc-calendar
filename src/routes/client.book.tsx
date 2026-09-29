@@ -120,12 +120,16 @@ const sendMismatch = (message: string) => {
 
 const NO_OPTIONS: BookOption[] = [];
 
-/** L'orario scelto, con la tipologia e la finestra dei crediti del suo giorno. */
+/**
+ * L'orario scelto, con la tipologia, il suo giorno e la finestra dei crediti
+ * di quel giorno quando è stato scelto (la finestra vera si rilegge dai giorni).
+ */
 interface ChosenSlot {
   key: string;
   iso: string;
   time: string;
   end: string;
+  day: string;
   window: CreditWindow;
 }
 
@@ -180,6 +184,8 @@ function BookFlow() {
   const busyQ = useQuery({
     queryKey: ["coach-busy", coachId, "prenota", today],
     enabled: !!coachId,
+    // A mezzanotte la chiave cambia: intanto restano gli occupati di prima.
+    placeholderData: (previous) => previous,
     queryFn: async (): Promise<BusyRow[]> => {
       if (!coachId) return [];
       const from = parseISO(today);
@@ -214,7 +220,10 @@ function BookFlow() {
   const waitingBlocks = blockMissing && (refetchedFor !== rpcBlockId || blocksQ.isFetching);
 
   // Arrivata: coi dati o con l'errore. L'RPC in errore conta come arrivata.
+  // Persa: in errore e senza dati. Una rilettura fallita in background tiene i
+  // dati di prima (TanStack Query) e non toglie la pagina né un foglio aperto.
   const arrived = (q: { data: unknown; isError: boolean }) => q.data !== undefined || q.isError;
+  const lost = (q: { data: unknown; isError: boolean }) => q.isError && q.data === undefined;
   const loading =
     !meId ||
     !arrived(profileQ) ||
@@ -225,11 +234,11 @@ function BookFlow() {
     !arrived(currentBlockQ) ||
     waitingBlocks;
   const failed =
-    profileQ.isError ||
-    blocksQ.isError ||
-    bookingsQ.isError ||
-    extrasQ.isError ||
-    eventTypesQ.isError ||
+    lost(profileQ) ||
+    lost(blocksQ) ||
+    lost(bookingsQ) ||
+    lost(extrasQ) ||
+    lost(eventTypesQ) ||
     (profileQ.data === null && !profileQ.isFetching);
 
   const profile = profileQ.data ?? null;
@@ -273,9 +282,12 @@ function BookFlow() {
   ]);
   const options = state?.options ?? NO_OPTIONS;
 
+  // Solo a letture ferme: dopo una prenotazione sessioni e blocchi si rileggono
+  // con risposte separate, e nel mezzo i due conteggi non coincidono.
+  const settled = !bookingsQ.isFetching && !blocksQ.isFetching;
   useEffect(() => {
-    if (state) reportPoolMismatches(state.mismatches, sendMismatch, SENT_MISMATCHES);
-  }, [state]);
+    if (state && settled) reportPoolMismatches(state.mismatches, sendMismatch, SENT_MISMATCHES);
+  }, [state, settled]);
 
   // ---- Le scelte --------------------------------------------------------
   const [typeKey, setTypeKey] = useState<string | null>(null);
@@ -285,7 +297,6 @@ function BookFlow() {
   const [howKey, setHowKey] = useState<string | null>(null);
   const [done, setDone] = useState<BookDone | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const doneOpen = sheet === "confirm" && done !== null;
 
   const writeEventType = useCallback(
     (o: BookOption | null) => {
@@ -310,17 +321,17 @@ function BookFlow() {
   }, [typeKey, initialKey]);
 
   // La tipologia scelta non è più prenotabile (ne ha usato l'ultimo credito, o
-  // una rilettura): la scelta passa alla prima prenotabile. Con l'esito
-  // aperto, alla sua chiusura.
+  // una rilettura): la scelta passa alla prima prenotabile. Col riepilogo o
+  // l'esito aperti, alla loro chiusura: un errore resta nel foglio col suo orario.
   useEffect(() => {
-    if (!state || doneOpen || typeKey === null) return;
+    if (!state || sheet === "confirm" || typeKey === null) return;
     if (option?.state === "prenotabile") return;
     const next = initialOption(options);
     setTypeKey(next?.key ?? null);
     setDayIso(null);
     setSlot(null);
     writeEventType(next);
-  }, [state, doneOpen, typeKey, option, options, writeEventType]);
+  }, [state, sheet, typeKey, option, options, writeEventType]);
 
   const chooseType = (o: BookOption) => {
     setTypeKey(o.key);
@@ -371,12 +382,17 @@ function BookFlow() {
     busy,
     optimizationQ.data,
   ]);
-  // Il giorno è il primo con orari, e resta finché ne ha.
+  // Il giorno è il primo con orari, e resta finché ne ha: quello mostrato si
+  // ricorda, così un giorno prima che si libera non gli passa davanti.
   const days = slotDays?.days ?? [];
   const day =
     days.find((d) => d.isoDate === dayIso && d.slots.length > 0) ??
     days.find((d) => d.slots.length > 0) ??
     null;
+  const shownDay = day?.isoDate ?? null;
+  useEffect(() => {
+    if (shownDay !== null && shownDay !== dayIso) setDayIso(shownDay);
+  }, [shownDay, dayIso]);
 
   // L'orario scelto si toglie quando non c'è più fra gli orari, a foglio chiuso.
   const slotListed =
@@ -395,8 +411,23 @@ function BookFlow() {
   const pickSlot = (iso: string) => {
     const s = day?.slots.find((x) => x.iso === iso);
     if (!bookable || !day?.window || !s) return;
-    setSlot({ key: bookable.key, iso: s.iso, time: s.time, end: s.end, window: day.window });
+    setSlot({
+      key: bookable.key,
+      iso: s.iso,
+      time: s.time,
+      end: s.end,
+      day: day.isoDate,
+      window: day.window,
+    });
   };
+  // Il credito si prende dalla finestra di adesso del giorno scelto: dopo una
+  // rilettura può essere cambiata (un Booster, crediti aggiunti al blocco).
+  const slotWindow =
+    slot === null
+      ? null
+      : ((slot.key === bookable?.key
+          ? days.find((d) => d.isoDate === slot.day)?.window
+          : undefined) ?? slot.window);
 
   const rule =
     bookable && state && client
@@ -413,7 +444,7 @@ function BookFlow() {
   // ---- Riepilogo e prenotazione ----------------------------------------
   const slotOption = slot ? (options.find((o) => o.key === slot.key) ?? null) : null;
   const summary =
-    slot && slotOption && state
+    slot && slotOption && slotWindow && state
       ? {
           name: slotOption.name,
           color: slotOption.color,
@@ -422,7 +453,7 @@ function BookFlow() {
           when: whenLine(slot),
           coach: withCoachLine(COACH),
           place: placeLine(slotOption),
-          credit: creditLine(slotOption, slot.window, state),
+          credit: creditLine(slotOption, slotWindow, state),
           rule: summaryRule(slot.iso, now),
         }
       : null;
@@ -445,8 +476,14 @@ function BookFlow() {
     mePhone: profile?.phone ?? null,
     type: confirmType,
     iso: slot?.iso ?? null,
-    window: slot?.window ?? null,
+    window: slotWindow,
   });
+  // Un riepilogo rimasto senza contenuto si chiude: aperto e vuoto si
+  // riaprirebbe da solo alla prossima scelta.
+  const hasSummary = summary !== null;
+  useEffect(() => {
+    if (sheet === "confirm" && done === null && !hasSummary) setSheet(null);
+  }, [sheet, done, hasSummary]);
 
   const openConfirm = () => {
     setDone(null);
@@ -512,7 +549,14 @@ function BookFlow() {
         title="Prenota non si è caricata"
         text="Non siamo riusciti a leggere i tuoi crediti. Riprova tra poco."
         onRetry={retryAll}
-        retrying={profileQ.isFetching || blocksQ.isFetching || bookingsQ.isFetching}
+        retrying={
+          profileQ.isFetching ||
+          blocksQ.isFetching ||
+          bookingsQ.isFetching ||
+          extrasQ.isFetching ||
+          eventTypesQ.isFetching ||
+          currentBlockQ.isFetching
+        }
         titleRef={cardTitleRef}
       />
     );
@@ -550,6 +594,9 @@ function BookFlow() {
               <section className="flex flex-col gap-2.5">
                 <h2 className="text-[17px] font-bold">Quando?</h2>
                 <ClientDayStrip
+                  // Una fila nuova per tipologia: riparte dal giorno scelto
+                  // anche se è lo stesso di prima, e la fila era scorsa altrove.
+                  key={bookable.key}
                   days={slotDays.days}
                   selectedIso={day?.isoDate ?? null}
                   onSelect={pickDay}

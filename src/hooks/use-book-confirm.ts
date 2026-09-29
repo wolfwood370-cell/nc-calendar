@@ -80,6 +80,67 @@ export interface UseBookConfirmReturn {
   confirming: boolean;
 }
 
+/**
+ * Gli effetti di contorno di una prenotazione riuscita, senza aspettarli e
+ * senza che un loro errore arrivi al foglio: l'evento sul calendario della
+ * piattaforma (lato server: se online chiede la stanza di Meet, sendUpdates=all
+ * manda l'invito al cliente; colore e descrizione della tipologia, GCAL-FIX
+ * dell'08/06/2026), l'avviso al coach, la push al cliente.
+ */
+function announce(b: {
+  bookingId: string;
+  meId: string;
+  coachId: string;
+  meName: string;
+  mePhone: string | null;
+  type: BookConfirmType;
+  iso: string;
+  endISO: string;
+}) {
+  const isOnline = b.type.location === "online";
+  void (async () => {
+    try {
+      const { toGoogleColorId } = await import("@/lib/gcal-colors");
+      await gcalCreateEvent({
+        data: {
+          bookingId: b.bookingId,
+          summary: `${b.type.name} — ${b.meName}`,
+          description: b.type.description ?? undefined,
+          startISO: b.iso,
+          endISO: b.endISO,
+          requestMeet: isOnline,
+          isOnline,
+          colorId: toGoogleColorId(b.type.color),
+        },
+      });
+    } catch (e) {
+      console.error("gcalCreateEvent failed", e);
+    }
+  })();
+  try {
+    void supabase.functions
+      .invoke("booking-notifications", {
+        body: {
+          coach_id: b.coachId,
+          client_name: b.meName,
+          client_phone: b.mePhone,
+          scheduled_at: b.iso,
+          session_label: b.type.name,
+          meeting_link: null,
+        },
+      })
+      .catch((e) => console.error("booking-notifications failed", e));
+    sendPush({
+      profileId: b.meId,
+      title: "Prenotazione confermata",
+      body: `${b.type.name} — ${new Date(b.iso).toLocaleString("it-IT", { dateStyle: "medium", timeStyle: "short" })}`,
+      url: "/client",
+    });
+  } catch (e) {
+    console.error("booking-notifications / send-push failed", e);
+  }
+}
+
 export function useBookConfirm(input: UseBookConfirmInput): UseBookConfirmReturn {
   const qc = useQueryClient();
   const confirmingRef = useRef<Promise<BookConfirmResult> | null>(null);
@@ -93,6 +154,8 @@ export function useBookConfirm(input: UseBookConfirmInput): UseBookConfirmReturn
     if (!noticeOk(iso, new Date())) return { ok: false, error: NOTICE_GONE, code: null };
 
     const endISO = new Date(new Date(iso).getTime() + type.durationMin * 60_000).toISOString();
+    const refresh = () => invalidateBookingScope(qc, { coachId, clientId: meId });
+    let bookingId: string | null;
     try {
       const { data, error } = await supabase
         .from("bookings")
@@ -112,71 +175,39 @@ export function useBookConfirm(input: UseBookConfirmInput): UseBookConfirmReturn
         })
         .select("id")
         .single();
-      const bookingId = (data as { id: string } | null)?.id ?? null;
+      bookingId = (data as { id: string } | null)?.id ?? null;
       if (error || !bookingId) {
+        refresh();
         return {
           ok: false,
           error: bookingErrorMessage(error, type.name),
           code: error?.code ?? null,
         };
       }
-
-      const isOnline = type.location === "online";
-      // L'evento sul calendario della piattaforma, lato server: se online chiede
-      // la stanza di Meet; sendUpdates=all manda l'invito al cliente. Colore e
-      // descrizione della tipologia (GCAL-FIX dell'08/06/2026).
-      const { toGoogleColorId } = await import("@/lib/gcal-colors");
-      void gcalCreateEvent({
-        data: {
-          bookingId,
-          summary: `${type.name} — ${meName}`,
-          description: type.description ?? undefined,
-          startISO: iso,
-          endISO,
-          requestMeet: isOnline,
-          isOnline,
-          colorId: toGoogleColorId(type.color),
-        },
-      }).catch((e) => console.error("gcalCreateEvent failed", e));
-      void supabase.functions
-        .invoke("booking-notifications", {
-          body: {
-            coach_id: coachId,
-            client_name: meName,
-            client_phone: mePhone,
-            scheduled_at: iso,
-            session_label: type.name,
-            meeting_link: null,
-          },
-        })
-        .catch((e) => console.error("booking-notifications failed", e));
-      sendPush({
-        profileId: meId,
-        title: "Prenotazione confermata",
-        body: `${type.name} — ${new Date(iso).toLocaleString("it-IT", { dateStyle: "medium", timeStyle: "short" })}`,
-        url: "/client",
-      });
-
-      if (confirmsOnBooking(iso, new Date())) {
-        try {
-          const res = await supabase.rpc("confirm_booking_attendance", { p_booking_id: bookingId });
-          if (res.error || res.data === false) {
-            console.error("confirm_booking_attendance failed", res.error ?? "non aggiornata");
-          }
-        } catch (e) {
-          console.error("confirm_booking_attendance failed", e);
-        }
-      }
-      return { ok: true, bookingId };
     } catch (e) {
+      refresh();
       return {
         ok: false,
         error: bookingErrorMessage(e instanceof Error ? e : null, type.name),
         code: null,
       };
-    } finally {
-      invalidateBookingScope(qc, { coachId, clientId: meId });
     }
+
+    // Da qui la sessione c'è: niente di quello che segue la trasforma in un
+    // errore (un errore rimanderebbe a riprovare, e la prenotazione raddoppierebbe).
+    announce({ bookingId, meId, coachId, meName, mePhone, type, iso, endISO });
+    if (confirmsOnBooking(iso, new Date())) {
+      try {
+        const res = await supabase.rpc("confirm_booking_attendance", { p_booking_id: bookingId });
+        if (res.error || res.data === false) {
+          console.error("confirm_booking_attendance failed", res.error ?? "non aggiornata");
+        }
+      } catch (e) {
+        console.error("confirm_booking_attendance failed", e);
+      }
+    }
+    refresh();
+    return { ok: true, bookingId };
   };
 
   const confirm = () => {
