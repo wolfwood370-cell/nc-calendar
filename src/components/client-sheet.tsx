@@ -14,6 +14,7 @@
 //   - il focus alla chiusura: Radix lo rende solo al suo Trigger, e con `open`
 //     controllato quel riferimento è vuoto. Qui torna a chi aveva il focus
 //     quando il foglio si è aperto.
+//     Se intanto è sparito, va dove dice returnFocus (passata 02).
 // Si chiude col tocco sullo scrim, con Esc e trascinando in basso. Per le
 // conferme distruttive role="alertdialog". I pulsanti vanno a tutta
 // larghezza, in colonna (ClientButton con fullWidth): principale,
@@ -44,6 +45,13 @@ export interface ClientSheetProps {
   list?: boolean;
   className?: string;
   children?: ReactNode;
+  /** Sopra il titolo, decorativa (aria-hidden): il riquadro dell'esito di Prenota. */
+  icon?: ReactNode;
+  /**
+   * Dove va il focus alla chiusura quando chi ha aperto il foglio non c'è più
+   * (in Prenota «Continua» sparisce con la prenotazione): senza, resterebbe sul body.
+   */
+  returnFocus?: () => HTMLElement | null | undefined;
 }
 
 export function ClientSheet({
@@ -55,6 +63,8 @@ export function ClientSheet({
   list = false,
   className,
   children,
+  icon,
+  returnFocus,
 }: ClientSheetProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
@@ -81,6 +91,7 @@ export function ClientSheet({
             const opener = openerRef.current;
             openerRef.current = null;
             if (opener?.isConnected) opener.focus({ preventScroll: true });
+            else returnFocus?.()?.focus({ preventScroll: true });
           }}
           className={cn(
             "fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-[90dvh] w-full max-w-[560px] flex-col overflow-hidden rounded-t-[28px] bg-white pt-2.5 text-on-surface outline-none",
@@ -98,6 +109,7 @@ export function ClientSheet({
             )}
             style={{ paddingBottom: "max(24px, calc(env(safe-area-inset-bottom) + 12px))" }}
           >
+            {icon}
             <Drawer.Title className="font-display text-[22px] leading-tight font-bold tracking-[-0.01em]">
               {title}
             </Drawer.Title>

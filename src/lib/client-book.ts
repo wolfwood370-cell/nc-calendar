@@ -204,6 +204,22 @@ export function withCoachLine(coach: BookCoach): string | null {
 }
 
 // ----------------------------------------------------------------------------
+// I colori della tipologia
+// ----------------------------------------------------------------------------
+
+const HEX = /^#[0-9a-f]{6}$/i;
+
+/** Il colore della tipologia (event_types.color), o il primario se non è #rrggbb. */
+export function typeColor(color: string | null): string {
+  return color && HEX.test(color) ? color : "#005685";
+}
+
+/** Lo stesso colore al 10% (#rrggbb1a), per i riquadri delle icone. */
+export function typeTint(color: string | null): string {
+  return `${typeColor(color)}1a`;
+}
+
+// ----------------------------------------------------------------------------
 // Lo stato di Prenota
 // ----------------------------------------------------------------------------
 
