@@ -163,7 +163,12 @@ export function BookConfirmSheet({
               {confirming && <Loader2 className="size-[18px] animate-spin" aria-hidden />}
               Conferma prenotazione
             </ClientButton>
-            <ClientButton variant="text" fullWidth onClick={() => onOpenChange(false)}>
+            <ClientButton
+              variant="text"
+              fullWidth
+              disabled={confirming}
+              onClick={() => onOpenChange(false)}
+            >
               Indietro
             </ClientButton>
           </div>

@@ -466,6 +466,8 @@ function BookFlow() {
     } else {
       setError(result.error);
     }
+    // Chiuso con Esc o trascinando mentre confermava: l'esito (o l'errore) si vede lo stesso.
+    setSheet("confirm");
   };
 
   // Chiuso l'esito il focus torna nel contenuto: «Continua» non c'è più.
