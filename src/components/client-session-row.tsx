@@ -5,9 +5,11 @@
 // della data (50×52, raggio 14) nel colore della tipologia, le annullate sul
 // fondo neutro; orario, tipologia con l'ellissi e, se valutata, la stella col
 // voto; il chip dello stato e la freccia. Alta almeno 72, raggio 18, bordo
-// delle card. Ogni testo e ogni colore viene da sessionRow (client-sessions.ts):
-// qui niente regole e nessun colore scritto. Niente Link: la pagina naviga
-// lei, e la riga si rende anche fuori da un router (client-session-row.test.ts).
+// delle card. I testi, lo stato, il chip e i colori della tipologia vengono da
+// sessionRow (client-sessions.ts); qui solo i token fissi (il fondo neutro
+// delle annullate, la stella, la freccia) e nessun colore esadecimale. Niente
+// Link: la pagina naviga lei, e la riga si rende anche fuori da un router
+// (client-session-row.test.ts).
 // ----------------------------------------------------------------------------
 
 import { ChevronRight } from "lucide-react";

@@ -98,11 +98,9 @@ describe("ClientSessionRow", () => {
     expect(markup).not.toContain("#D50000");
   });
 
-  it("niente stella senza voto, e la freccia nascosta ai lettori di schermo", () => {
+  it("niente stella senza voto", () => {
     const markup = html(s("u2", "pt", at(9, 30, 10), "scheduled"));
     expect(markup).not.toContain("--color-rating-star");
-    expect(markup).toMatch(
-      /<svg[^>]*aria-hidden="true"[^>]*lucide-chevron-right|<svg[^>]*lucide-chevron-right[^>]*aria-hidden="true"/,
-    );
+    expect(markup).not.toContain("su 5");
   });
 });

@@ -200,7 +200,10 @@ describe("upcomingGroups", () => {
     ]);
   });
 
-  it("al cambio dell'ora di marzo la settimana dura 167 ore, e resta una settimana", () => {
+  // A Roma quella settimana dura 167 ore (in UTC e a Los Angeles 168): la
+  // prova distingue le settimane di calendario dai millisecondi solo col fuso
+  // europeo, per questo i test girano anche a Roma (R5).
+  it("al cambio dell'ora di marzo resta una settimana", () => {
     const now = at(2027, 3, 22, 10, 40);
     const list = [
       s("dom", "pt", at(2027, 3, 28, 9), "scheduled"),
@@ -236,6 +239,7 @@ describe("pastGroups", () => {
     expect(ids(g[2]!.items)).toEqual(["p11"]);
   });
 
+  // In UTC i due mesi coincidono: la prova morde a Roma e a Los Angeles (R6).
   it("il mese è quello locale dell'inizio, non quello della stringa UTC", () => {
     const list = [
       s("ott", "pt", at(2026, 10, 1, 0, 30), "cancelled"),

@@ -18,7 +18,7 @@
 
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { TrendingUp } from "lucide-react";
-import { useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { BookRetryCard } from "@/components/book-blocked-card";
 import { ClientButton } from "@/components/client-button";
 import { ClientSessionRow } from "@/components/client-session-row";
@@ -86,15 +86,22 @@ function ClientSessionsPage() {
   const feedbackQ = useClientFeedback(meId);
 
   // Persa: in errore e senza dati. Una rilettura fallita coi dati di prima
-  // tiene l'elenco (TanStack Query tiene i dati).
-  const sessionsLost = bookingsQ.isError && bookingsQ.data === undefined;
+  // tiene l'elenco (TanStack Query tiene i dati). Rileggendo una lettura
+  // senza dati (con «Riprova», o tornando sulla finestra) TanStack Query la
+  // rimette in attesa e ne toglie l'errore: errorUpdateCount ricorda che era
+  // fallita, e finché risponde resta la card, col pulsante disattivato.
+  const reading = bookingsQ.fetchStatus !== "idle";
+  const sessionsLost =
+    bookingsQ.data === undefined &&
+    (bookingsQ.isError || (bookingsQ.errorUpdateCount > 0 && reading));
   // Pronto: le sessioni, il profilo (fino a lì coachId è nullo anche per chi
-  // ha un coach) e, con un coach, le tipologie arrivate, coi dati o in errore:
-  // in errore i nomi ripiegano sul tipo di sessione.
+  // ha un coach; arrivato con l'errore lo resta) e, con un coach, le
+  // tipologie arrivate, coi dati o in errore: in errore i nomi ripiegano sul
+  // tipo di sessione. Arrivate anche mentre una lettura fallita si rilegge.
+  const typesArrived =
+    eventTypesQ.data !== undefined || eventTypesQ.isError || eventTypesQ.errorUpdateCount > 0;
   const ready =
-    bookingsQ.data !== undefined &&
-    profileArrived &&
-    (coachId === null || eventTypesQ.data !== undefined || eventTypesQ.isError);
+    bookingsQ.data !== undefined && profileArrived && (coachId === null || typesArrived);
 
   const eventTypes = eventTypesQ.data ?? NO_EVENT_TYPES;
   const ratings = useMemo(() => ratingsById(feedbackQ.data), [feedbackQ.data]);
@@ -124,10 +131,21 @@ function ClientSessionsPage() {
   const open = (bookingId: string) => {
     void navigate({ to: "/client/bookings/$bookingId", params: { bookingId } });
   };
+  const lostTitleRef = useRef<HTMLHeadingElement>(null);
+  const retried = useRef(false);
   const retrySessions = () => {
+    retried.current = true;
     void bookingsQ.refetch();
     if (coachId) void eventTypesQ.refetch();
   };
+  // «Riprova» fallito di nuovo: il pulsante, disattivato mentre rileggeva, ha
+  // perso il focus (il browser lo toglie a un pulsante disattivato), e lo
+  // riprende il titolo della card, che lo annuncia.
+  useEffect(() => {
+    if (!retried.current || reading) return;
+    retried.current = false;
+    if (sessionsLost) lostTitleRef.current?.focus();
+  }, [reading, sessionsLost]);
 
   let content: ReactNode;
   if (sessionsLost) {
@@ -136,7 +154,8 @@ function ClientSessionsPage() {
         title="Sessioni non caricate"
         text="Non siamo riusciti a leggere le tue sessioni. Riprova tra poco."
         onRetry={retrySessions}
-        retrying={bookingsQ.isFetching || eventTypesQ.isFetching}
+        retrying={reading || eventTypesQ.isFetching}
+        titleRef={lostTitleRef}
       />
     );
   } else if (!ready) {

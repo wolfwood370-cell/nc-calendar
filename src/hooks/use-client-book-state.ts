@@ -10,9 +10,11 @@
 // dei crediti. Un conteggio solo, invece di una copia per pagina.
 // Il Set delle incoerenze già mandate è del modulo: aperta Sessioni e poi
 // Prenota, la stessa incoerenza parte una volta sola.
-// Restituisce, in più di quello che serviva a Prenota, profileArrived: il
-// profilo è arrivato (coi dati o con l'errore), e da lì coachId dice il vero;
-// prima è nullo anche per chi un coach ce l'ha.
+// Oltre a quello che usa Prenota restituisce bookingsQ (le sessioni, per
+// Sessioni e la Home) e profileArrived: il profilo è arrivato, coi dati o con
+// l'errore, e resta arrivato mentre un profilo in errore si rilegge (TanStack
+// Query, rileggendo una lettura senza dati, ne toglie l'errore). Prima coachId
+// è nullo anche per chi ha un coach; arrivato con l'errore, lo resta.
 // ----------------------------------------------------------------------------
 
 import { useQuery } from "@tanstack/react-query";
@@ -183,7 +185,7 @@ export function useClientBookState(now: Date, coach: BookCoach) {
     meId,
     coachId,
     profile,
-    profileArrived: arrived(profileQ),
+    profileArrived: arrived(profileQ) || profileQ.errorUpdateCount > 0,
     client,
     blocksQ,
     bookingsQ,
