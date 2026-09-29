@@ -83,6 +83,9 @@ function ClientLayout() {
                   <Link
                     key={t.key}
                     to={t.to}
+                    // Come nella barra: aria-current lo decide activeClientTab,
+                    // non il Link di TanStack (che senza exact accende /client ovunque).
+                    activeOptions={{ exact: true, includeSearch: false }}
                     aria-current={on ? "page" : undefined}
                     className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
                       on

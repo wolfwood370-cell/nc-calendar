@@ -37,6 +37,10 @@ export function ClientBottomNav() {
           <Link
             key={tab.key}
             to={tab.to}
+            // Il Link di TanStack scrive da sé aria-current="page" sui link
+            // «attivi», e senza exact /client lo è su tutte le sottopagine: la
+            // scheda accesa la decide activeClientTab.
+            activeOptions={{ exact: true, includeSearch: false }}
             aria-current={on ? "page" : undefined}
             aria-label={sessions ? sessionsBadge.label : undefined}
             className={cn(
