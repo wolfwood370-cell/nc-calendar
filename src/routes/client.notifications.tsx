@@ -84,7 +84,7 @@ function ClientNotificationsPage() {
         )}
 
         {reminders.length === 0 ? (
-          <section className="flex flex-col items-center gap-2 rounded-3xl border border-outline-variant/35 bg-white px-5 py-6 text-center">
+          <section className="flex flex-col items-center gap-2 rounded-[24px] border border-outline-variant/35 bg-white px-5 py-6 text-center">
             <BellOff className="size-7 text-outline" aria-hidden />
             <p className="text-[17px] font-bold text-on-surface">Nessuna notifica</p>
             <p className="text-sm leading-normal text-on-surface-variant">
@@ -110,7 +110,7 @@ function ClientNotificationsPage() {
                     )}
                   >
                     <span
-                      className="grid size-10 shrink-0 place-items-center rounded-xl"
+                      className="grid size-10 shrink-0 place-items-center rounded-[12px]"
                       style={{ background: `${color}1a`, color }}
                     >
                       <Icon className="size-5" aria-hidden />

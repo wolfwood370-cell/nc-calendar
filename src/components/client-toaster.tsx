@@ -48,16 +48,16 @@ const CLIENT_TOAST_OPTIONS: ToasterProps["toastOptions"] = {
   unstyled: true,
   classNames: {
     toast:
-      "flex w-full items-center gap-3 rounded-2xl bg-toast py-2 pr-2 pl-4 font-sans text-sm leading-[1.35] text-white shadow-[0_12px_32px_rgba(0,0,0,0.25)] [&[data-expanded=false][data-front=false]>*]:opacity-0",
+      "flex w-full items-center gap-3 rounded-[16px] bg-toast py-2 pr-2 pl-4 font-sans text-sm leading-[1.35] text-white shadow-[0_12px_32px_rgba(0,0,0,0.25)] [&[data-expanded=false][data-front=false]>*]:opacity-0",
     icon: "flex shrink-0 items-center",
     content: "flex min-w-0 flex-1 flex-col gap-0.5 py-2",
     title: "font-normal",
     // Bianco al 75% sul #191c1f: circa 9,9:1.
     description: "text-[13px] leading-snug text-white/75",
     actionButton:
-      "h-11 shrink-0 rounded-xl bg-transparent px-3 text-sm font-bold text-on-primary-container active:bg-white/10 focus-visible:outline-on-primary-container",
+      "h-11 shrink-0 rounded-[12px] bg-transparent px-3 text-sm font-bold text-on-primary-container active:bg-white/10 focus-visible:outline-on-primary-container",
     cancelButton:
-      "h-11 shrink-0 rounded-xl bg-transparent px-3 text-sm font-semibold text-white/80 active:bg-white/10 focus-visible:outline-on-primary-container",
+      "h-11 shrink-0 rounded-[12px] bg-transparent px-3 text-sm font-semibold text-white/80 active:bg-white/10 focus-visible:outline-on-primary-container",
   },
 };
 

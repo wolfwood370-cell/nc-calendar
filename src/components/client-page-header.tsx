@@ -7,7 +7,7 @@
 // voce prima nella cronologia se è una pagina dell'app (useCanGoBack: la voce
 // di oggi non è la prima caricata dall'app), altrimenti al ripiego di
 // backFallback (Sessione → Sessioni, Notifiche → Home). Attaccata in alto;
-// da md in su sotto l'header desktop del layout (alto 56).
+// da md in su sotto l'header desktop del layout (56 px più 1 di bordo).
 // ----------------------------------------------------------------------------
 
 import { useCanGoBack, useNavigate, useRouter, useRouterState } from "@tanstack/react-router";
@@ -27,7 +27,7 @@ export function ClientPageHeader({ title }: { title: string }) {
 
   return (
     <header
-      className="sticky top-0 z-30 grid grid-cols-[44px_1fr_44px] items-center gap-2 bg-surface/92 px-3 pb-2 backdrop-blur-[16px] md:top-14"
+      className="sticky top-0 z-30 grid grid-cols-[44px_1fr_44px] items-center gap-2 bg-surface/92 px-3 pb-2 backdrop-blur-[16px] md:top-[57px]"
       style={{ paddingTop: "calc(6px + env(safe-area-inset-top))" }}
     >
       <button

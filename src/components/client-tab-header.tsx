@@ -5,7 +5,8 @@
 // Home, Prenota, Sessioni, Booster e Profilo: titolo grande su una riga con
 // l'ellissi, sottotitolo facoltativo, campanella a destra. Attaccata in alto
 // mentre si scorre; da md in su si attacca sotto l'header desktop del layout
-// (alto 56), che porta già la sua campanella: qui si vede solo sotto md.
+// (56 px più 1 di bordo), che porta già la sua campanella: qui si vede solo
+// sotto md.
 // Sotto la riga, con gap 14, i children (il controllo segmentato di
 // Sessioni, passata 03). L'altra intestazione è ClientPageHeader, per le
 // pagine aperte: ogni pagina del cliente ne usa una delle due.
@@ -24,7 +25,7 @@ export interface ClientTabHeaderProps {
 export function ClientTabHeader({ title, subtitle, children }: ClientTabHeaderProps) {
   return (
     <header
-      className="sticky top-0 z-30 flex flex-col gap-3.5 bg-surface/92 px-5 pb-3 backdrop-blur-[16px] md:top-14"
+      className="sticky top-0 z-30 flex flex-col gap-3.5 bg-surface/92 px-5 pb-3 backdrop-blur-[16px] md:top-[57px]"
       style={{ paddingTop: "calc(12px + env(safe-area-inset-top))" }}
     >
       <div className="flex items-end justify-between gap-3">
