@@ -146,7 +146,8 @@ function BookFlow() {
   const navigate = useNavigate();
   const eventTypeParam = Route.useSearch({ select: (s) => s.eventType });
 
-  // Il profilo con una chiave sua: ["profile", id] la usano altri con altre colonne.
+  // Il profilo con una chiave sua: quella condivisa del profilo (query-keys.ts)
+  // la usa la Home con altre colonne, e la cache le mescolerebbe.
   const profileQ = useQuery({
     queryKey: ["client-book", "profile", meId],
     enabled: !!meId,
