@@ -13,7 +13,7 @@ Questo file è il piano da seguire con Claude Code: ordine delle passate, stato,
 |---|---|---|---|---|---|
 | 00 | [Fondamenta: regole, helper, token](passes/00-fondamenta.md) | O1, O3, B2, H1, H5, H6, T1, T3, T5, V6, V15 | — | sì | [x] |
 | 01 | [Shell: barra, intestazioni, fogli, toast](passes/01-shell.md) | N2, N3, N5, O2, T2, V4, V5, V7, V14, H8 (1ª parte) | 00 | — | [x] |
-| 02 | [Prenota](passes/02-prenota.md) | B1, B3–B7, N4, O1, D2, V15 | 00, 01 | — | [ ] |
+| 02 | [Prenota](passes/02-prenota.md) | B1, B3–B7, N4, O1, D2, V15 | 00, 01 | — | [x] |
 | 03 | [Sessioni](passes/03-sessioni.md) | N1, T1, T5, H9, V13 | 00, 01 | — | [ ] |
 | 04 | [Dettaglio sessione, Sposta, Annulla](passes/04-sessione-e-sposta.md) | D1–D5, O3, O4, B2, H9, V11 | 02, 03 | sì | [ ] |
 | 05 | [Home](passes/05-home.md) | H1–H7, H9, H10, N1, N5, V1, V2, V8, V9, V10 | 02, 04 | — | [ ] |
