@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { BoosterCard } from "@/components/booster-card";
 import { OwnedBoosterCard } from "@/components/owned-booster-card";
 import { useClientExtraCredits } from "@/lib/queries";
+import { canBuyBooster } from "@/lib/client-book";
 
 export const Route = createFileRoute("/client/store")({
   head: () => ({
@@ -105,11 +106,7 @@ function StorePage() {
 
   // Allowed: Percorso Fisso (Pacchetto) [path_type=fixed, no pack_label] OR Abbonamento Mensile [recurring]
   // Disabled: Cliente Libero (free / no block) OR PT Pack (fixed with pack_label)
-  const canPurchaseAddons =
-    !!profile &&
-    hasActiveBlock &&
-    profile.status === "active" &&
-    ((profile.path_type === "fixed" && !profile.pack_label) || profile.path_type === "recurring");
+  const canPurchaseAddons = !!profile && canBuyBooster(profile, hasActiveBlock);
 
   const restrictedToast = () =>
     toast.error("Accesso limitato", {
