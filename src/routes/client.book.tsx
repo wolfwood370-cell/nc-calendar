@@ -30,8 +30,8 @@ import { ClientSlotGroups } from "@/components/client-slot-groups";
 import { ClientTabHeader } from "@/components/client-tab-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useBookConfirm, type BookConfirmType } from "@/hooks/use-book-confirm";
+import { useClientBookState } from "@/hooks/use-client-book-state";
 import { useClientShell } from "@/hooks/use-client-shell";
-import { useCurrentBlock } from "@/hooks/use-current-block";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import {
@@ -46,36 +46,27 @@ import {
   barWhen,
   creditLine,
   doneText,
-  getBookState,
   howToBook,
   initialOption,
   noSlotsText,
   placeLine,
-  reportPoolMismatches,
   rulesBlock,
   summaryRule,
   whenLine,
   withCoachLine,
   writeOnWhatsApp,
   writeToCoach,
-  type BookClient,
   type BookOption,
 } from "@/lib/client-book";
 import { bookSubtitle, clientPageTitle } from "@/lib/client-shell";
 import { getClientSlotDays } from "@/lib/client-slots";
 import { toIsoDate } from "@/lib/current-block";
 import {
-  useActiveShopTitles,
-  useClientBlocks,
-  useClientBookingsForCredits,
-  useClientExtraCredits,
   useCoachAvailability,
   useCoachAvailabilityExceptions,
-  useCoachEventTypes,
   useCoachOptimizationEnabled,
 } from "@/lib/queries";
 import { renewsAutomatically } from "@/lib/renewal";
-import { captureMessage } from "@/lib/sentry";
 import { formatLongDay } from "@/lib/session-time";
 
 // `eventType` (event_types.id) sceglie la tipologia all'apertura, se è
@@ -111,13 +102,6 @@ export const Route = createFileRoute("/client/book")({
 // Fino ad allora i testi dicono «il tuo coach» e i pulsanti WhatsApp non ci sono.
 const COACH = NO_COACH;
 
-// Le incoerenze dei crediti già mandate a Sentry, per tutta la vita della
-// pagina: il ridisegno ogni 30 secondi (useNow) non le rimanda.
-const SENT_MISMATCHES = new Set<string>();
-const sendMismatch = (message: string) => {
-  captureMessage(message, "warning");
-};
-
 const NO_OPTIONS: BookOption[] = [];
 
 /**
@@ -141,42 +125,27 @@ interface BusyRow {
 
 function BookFlow() {
   const { user } = useAuth();
-  const meId = user?.id;
   const { now } = useClientShell();
   const navigate = useNavigate();
   const eventTypeParam = Route.useSearch({ select: (s) => s.eventType });
 
-  // Il profilo con una chiave sua: quella condivisa del profilo (query-keys.ts)
-  // la usa la Home con altre colonne, e la cache le mescolerebbe.
-  const profileQ = useQuery({
-    queryKey: ["client-book", "profile", meId],
-    enabled: !!meId,
-    queryFn: async () => {
-      if (!meId) return null;
-      const { data, error } = await supabase
-        .from("profiles")
-        .select(
-          "id, full_name, email, phone, coach_id, path_type, status, pack_label, auto_renew_blocks",
-        )
-        .eq("id", meId)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
-  });
-  const blocksQ = useClientBlocks(meId);
-  const bookingsQ = useClientBookingsForCredits(meId);
-  const extrasQ = useClientExtraCredits(meId);
-  // ensure_client_block_state: chiude i blocchi finiti e, a chi rinnova, crea
-  // il mese dopo. Il blocco di riferimento non lo sceglie lui
-  // (clientReferenceBlock, in getBookState).
-  const currentBlockQ = useCurrentBlock(meId);
-  const coachId = profileQ.data?.coach_id ?? null;
-  const eventTypesQ = useCoachEventTypes(coachId);
+  // Lo stato dei crediti e le sue letture: lo stesso hook di Sessioni.
+  const {
+    meId,
+    coachId,
+    profile,
+    client,
+    blocksQ,
+    eventTypesQ,
+    loading,
+    failed,
+    state,
+    retry,
+    retrying,
+  } = useClientBookState(now, COACH);
   const availabilityQ = useCoachAvailability(coachId);
   const exceptionsQ = useCoachAvailabilityExceptions(coachId);
   const optimizationQ = useCoachOptimizationEnabled(coachId);
-  const boostersQ = useActiveShopTitles();
 
   // Gli occupati del coach da mezzanotte di oggi alla fine di oggi + 14. La
   // chiave comincia con ["coach-busy", coachId]: invalidateBookingScope la
@@ -202,93 +171,7 @@ function BookFlow() {
     },
   });
 
-  // Il primo giorno del mese nuovo l'RPC crea il blocco nello stesso
-  // caricamento: se il suo blocco non c'è fra quelli letti, si rileggono i
-  // blocchi una volta prima di decidere, o Prenota direbbe «percorso concluso»
-  // a chi ha appena rinnovato.
-  const rpcBlockId = currentBlockQ.data?.currentBlockId ?? null;
-  const blockMissing =
-    rpcBlockId !== null &&
-    blocksQ.data !== undefined &&
-    !blocksQ.data.some((b) => b.id === rpcBlockId);
-  const [refetchedFor, setRefetchedFor] = useState<string | null>(null);
-  const refetchBlocks = blocksQ.refetch;
-  useEffect(() => {
-    if (!blockMissing || rpcBlockId === null || refetchedFor === rpcBlockId) return;
-    setRefetchedFor(rpcBlockId);
-    void refetchBlocks();
-  }, [blockMissing, rpcBlockId, refetchedFor, refetchBlocks]);
-  const waitingBlocks = blockMissing && (refetchedFor !== rpcBlockId || blocksQ.isFetching);
-
-  // Arrivata: coi dati o con l'errore. L'RPC in errore conta come arrivata.
-  // Persa: in errore e senza dati. Una rilettura fallita in background tiene i
-  // dati di prima (TanStack Query) e non toglie la pagina né un foglio aperto.
-  const arrived = (q: { data: unknown; isError: boolean }) => q.data !== undefined || q.isError;
-  const lost = (q: { data: unknown; isError: boolean }) => q.isError && q.data === undefined;
-  const loading =
-    !meId ||
-    !arrived(profileQ) ||
-    !arrived(blocksQ) ||
-    !arrived(bookingsQ) ||
-    !arrived(extrasQ) ||
-    (coachId !== null && !arrived(eventTypesQ)) ||
-    !arrived(currentBlockQ) ||
-    waitingBlocks;
-  const failed =
-    lost(profileQ) ||
-    lost(blocksQ) ||
-    lost(bookingsQ) ||
-    lost(extrasQ) ||
-    lost(eventTypesQ) ||
-    (profileQ.data === null && !profileQ.isFetching);
-
-  const profile = profileQ.data ?? null;
-  const client = useMemo<BookClient | null>(
-    () =>
-      profile
-        ? {
-            path_type: profile.path_type,
-            status: profile.status,
-            pack_label: profile.pack_label,
-            auto_renew_blocks: profile.auto_renew_blocks,
-          }
-        : null,
-    [profile],
-  );
-
-  const state = useMemo(() => {
-    if (loading || failed || !client || !blocksQ.data || !bookingsQ.data || !extrasQ.data) {
-      return null;
-    }
-    return getBookState({
-      now,
-      client,
-      blocks: blocksQ.data,
-      bookings: bookingsQ.data,
-      extras: extrasQ.data,
-      eventTypes: eventTypesQ.data ?? [],
-      boosterTitles: boostersQ.data ?? [],
-      coach: COACH,
-    });
-  }, [
-    loading,
-    failed,
-    client,
-    now,
-    blocksQ.data,
-    bookingsQ.data,
-    extrasQ.data,
-    eventTypesQ.data,
-    boostersQ.data,
-  ]);
   const options = state?.options ?? NO_OPTIONS;
-
-  // Solo a letture ferme: dopo una prenotazione sessioni e blocchi si rileggono
-  // con risposte separate, e nel mezzo i due conteggi non coincidono.
-  const settled = !bookingsQ.isFetching && !blocksQ.isFetching;
-  useEffect(() => {
-    if (state && settled) reportPoolMismatches(state.mismatches, sendMismatch, SENT_MISMATCHES);
-  }, [state, settled]);
 
   // ---- Le scelte --------------------------------------------------------
   const [typeKey, setTypeKey] = useState<string | null>(null);
@@ -526,14 +409,6 @@ function BookFlow() {
       ? bookSubtitle(client.path_type, blocksQ.data, now)
       : null;
 
-  const retryAll = () => {
-    void profileQ.refetch();
-    void blocksQ.refetch();
-    void bookingsQ.refetch();
-    void extrasQ.refetch();
-    void currentBlockQ.refetch();
-    if (coachId) void eventTypesQ.refetch();
-  };
   const retrySlots = () => {
     if (!coachId) return;
     void availabilityQ.refetch();
@@ -549,15 +424,8 @@ function BookFlow() {
       <BookRetryCard
         title="Prenota non si è caricata"
         text="Non siamo riusciti a leggere i tuoi crediti. Riprova tra poco."
-        onRetry={retryAll}
-        retrying={
-          profileQ.isFetching ||
-          blocksQ.isFetching ||
-          bookingsQ.isFetching ||
-          extrasQ.isFetching ||
-          eventTypesQ.isFetching ||
-          currentBlockQ.isFetching
-        }
+        onRetry={retry}
+        retrying={retrying}
         titleRef={cardTitleRef}
       />
     );
