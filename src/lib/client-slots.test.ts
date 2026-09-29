@@ -4,8 +4,12 @@ import type { BlockedRange } from "@/lib/booking-slots";
 import {
   RECOMMENDED_AFTER_SESSIONS,
   RECOMMENDED_COMPACT,
+  dayAriaLabel,
+  dayCaption,
+  dayHead,
   dayPart,
   getClientSlotDays,
+  slotGroups,
   type ClientSlotInput,
 } from "@/lib/client-slots";
 import type { AvailabilityExceptionRow, AvailabilityRow } from "@/lib/queries";
@@ -326,5 +330,105 @@ describe("getClientSlotDays · orari", () => {
     expect(slots.find((s) => s.time === "17:00")?.part).toBe("Sera");
     expect(dayPart(at(9, 30, 12, 59))).toBe("Mattina");
     expect(dayPart(at(9, 30, 16, 59))).toBe("Pomeriggio");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// La fila dei giorni e i gruppi di orari (passata 02), sulla PT di Giulia:
+// orari da lunedì a sabato 9-13 e 15-20, domenica chiuso; occupati il 29/09
+// alle 10:00 e alle 18:30 e il 30/09 tutto il giorno; consigliati accesi. La
+// PT si prenota coi crediti del blocco 3 fino all'11/10 e con quelli del
+// blocco 4 dal 12/10; il test solo col blocco 4.
+// ---------------------------------------------------------------------------
+
+describe("dayCaption, dayAriaLabel, dayHead, slotGroups · la PT di Giulia", () => {
+  const weekdays = [1, 2, 3, 4, 5, 6];
+  const B4: CreditWindow = {
+    from: "2026-10-12",
+    until: "2026-11-08",
+    source: "block",
+    blockId: "b4",
+    blockNumber: 4,
+  };
+  const giulia = (windows: CreditWindow[]) =>
+    getClientSlotDays(
+      input({
+        availability: [
+          ...everyDay("09:00:00", "13:00:00", weekdays),
+          ...everyDay("15:00:00", "20:00:00", weekdays),
+        ],
+        busy: [
+          session(at(9, 29, 10)),
+          session(at(9, 29, 18, 30)),
+          session(at(9, 30, 9), 240),
+          session(at(9, 30, 15), 300),
+        ],
+        windows,
+        optimization: true,
+      }),
+    );
+  const pt = giulia([win("2026-09-14", "2026-10-11"), B4]);
+
+  it("15 giorni, dal 28/09 al 12/10, coi loro motivi", () => {
+    expect(pt.days).toHaveLength(15);
+    expect([pt.days[0]!.isoDate, pt.until]).toEqual(["2026-09-28", "2026-10-12"]);
+    const caption = (iso: string) => dayCaption(dayOf(pt, iso));
+    expect(dayOf(pt, "2026-09-28").reason).toBe("preavviso");
+    expect(caption("2026-09-28")).toBe("\u2014");
+    expect(caption("2026-09-29")).toBe("4 orari");
+    expect(caption("2026-09-30")).toBe("pieno");
+    expect(caption("2026-10-04")).toBe("chiuso");
+    expect(caption("2026-10-11")).toBe("chiuso");
+    expect(dayOf(pt, "2026-10-12").window).toEqual(B4);
+  });
+
+  it("il 29/09: le 11:10 consigliate dopo le sessioni, poi 15, 16 e 17", () => {
+    const day = dayOf(pt, "2026-09-29");
+    expect(day.slots.map((s) => [s.time, s.recommended])).toEqual([
+      ["11:10", true],
+      ["15:00", false],
+      ["16:00", false],
+      ["17:00", false],
+    ]);
+    expect(day.recommendedReason).toBe(RECOMMENDED_AFTER_SESSIONS);
+    expect(
+      slotGroups(day).map((g) => [g.label, g.aria, g.reason, g.slots.map((s) => s.time)]),
+    ).toEqual([
+      ["Consigliati", "Orari consigliati", RECOMMENDED_AFTER_SESSIONS, ["11:10"]],
+      ["Pomeriggio", "Orari pomeriggio", null, ["15:00", "16:00"]],
+      ["Sera", "Orari sera", null, ["17:00"]],
+    ]);
+  });
+
+  it("i nomi accessibili e la testa del giorno", () => {
+    expect(dayAriaLabel(dayOf(pt, "2026-09-29"))).toBe("Martedì 29 settembre, 4 orari");
+    expect(dayAriaLabel(dayOf(pt, "2026-10-04"))).toBe("Domenica 4 ottobre, chiuso");
+    expect(dayAriaLabel(dayOf(pt, "2026-09-30"))).toBe("Mercoledì 30 settembre, pieno");
+    expect(dayAriaLabel(dayOf(pt, "2026-09-28"))).toBe(
+      "Lunedì 28 settembre, serve 24 ore di preavviso",
+    );
+    expect(dayHead(dayOf(pt, "2026-09-29"))).toEqual({ dow: "mar", num: "29" });
+  });
+
+  it("il test, solo col blocco 4: senza crediti fino all'11/10, orari dal quindicesimo giorno", () => {
+    const test = giulia([B4]);
+    expect(test.days).toHaveLength(15);
+    const firstWithSlots = test.days.findIndex((d) => d.slots.length > 0);
+    expect(firstWithSlots).toBe(14);
+    expect(test.days.slice(0, 14).every((d) => d.slots.length === 0)).toBe(true);
+    expect(dayOf(test, "2026-09-29").reason).toBe("crediti");
+    expect(dayCaption(dayOf(test, "2026-09-29"))).toBe("\u2014");
+    expect(dayAriaLabel(dayOf(test, "2026-09-29"))).toBe(
+      "Martedì 29 settembre, nessun credito valido",
+    );
+  });
+
+  it("un orario solo: «1 orario»; senza consigliati, niente gruppo dei consigliati", () => {
+    const day = dayOf(
+      getClientSlotDays(input({ availability: everyDay("09:00:00", "10:10:00") })),
+      "2026-09-30",
+    );
+    expect(dayCaption(day)).toBe("1 orario");
+    expect(slotGroups(day).map((g) => g.label)).toEqual(["Mattina"]);
   });
 });

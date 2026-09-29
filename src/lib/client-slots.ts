@@ -12,6 +12,7 @@
 // ----------------------------------------------------------------------------
 
 import { addDays, format, parseISO, startOfDay } from "date-fns";
+import { it } from "date-fns/locale/it";
 import {
   CLIENT_BOOKING_HORIZON_DAYS,
   CLIENT_MIN_NOTICE_HOURS,
@@ -19,6 +20,7 @@ import {
 } from "@/lib/booking-rules";
 import { generateSlots, ymd, type BlockedRange, type Slot } from "@/lib/booking-slots";
 import type { AvailabilityExceptionRow, AvailabilityRow } from "@/lib/queries";
+import { formatLongDay } from "@/lib/session-time";
 
 export type DayPart = "Mattina" | "Pomeriggio" | "Sera";
 
@@ -226,4 +228,84 @@ function emptyReason(
   if (!window) return "crediti";
   if (possible.every((s) => s.date.getTime() < minStart)) return "preavviso";
   return "pieno";
+}
+
+// ----------------------------------------------------------------------------
+// La fila dei giorni e i gruppi di orari (passata 02): le usano Prenota e
+// Sposta (04), coi componenti ClientDayStrip e ClientSlotGroups
+// ----------------------------------------------------------------------------
+
+/**
+ * Sotto il numero del giorno: «4 orari», «1 orario»; senza orari «chiuso»,
+ * «pieno», oppure il trattino lungo per il preavviso e per i crediti, i due
+ * motivi che la regola sotto la fila spiega.
+ */
+export function dayCaption(day: ClientSlotDay): string {
+  const n = day.slots.length;
+  if (n > 0) return n === 1 ? "1 orario" : `${n} orari`;
+  if (day.reason === "chiuso") return "chiuso";
+  if (day.reason === "pieno") return "pieno";
+  return "\u2014";
+}
+
+/**
+ * Il nome accessibile del giorno: «Martedì 29 settembre, 4 orari»,
+ * «Domenica 4 ottobre, chiuso», «Lunedì 28 settembre, serve 24 ore di
+ * preavviso», «…, nessun credito valido».
+ */
+export function dayAriaLabel(day: ClientSlotDay): string {
+  let why: string;
+  if (day.slots.length > 0) why = dayCaption(day);
+  else if (day.reason === "preavviso") why = `serve ${CLIENT_MIN_NOTICE_HOURS} ore di preavviso`;
+  else if (day.reason === "crediti") why = "nessun credito valido";
+  else why = day.reason === "chiuso" ? "chiuso" : "pieno";
+  return `${formatLongDay(day.date)}, ${why}`;
+}
+
+/** Sopra e al centro del pulsante del giorno: { dow: "mar", num: "29" }. */
+export function dayHead(day: ClientSlotDay): { dow: string; num: string } {
+  return { dow: format(day.date, "EEE", { locale: it }), num: format(day.date, "d") };
+}
+
+export interface ClientSlotGroup {
+  key: "consigliati" | DayPart;
+  /** «Consigliati», «Mattina», «Pomeriggio», «Sera». */
+  label: string;
+  /** Perché i consigliati (recommendedReason); null per le parti del giorno. */
+  reason: string | null;
+  /** Il nome del radiogroup: «Orari consigliati», «Orari mattina»… */
+  aria: string;
+  slots: ClientSlot[];
+}
+
+/**
+ * Gli orari di un giorno a gruppi: prima i consigliati, se ce ne sono, col
+ * loro motivo; poi mattina, pomeriggio e sera con gli orari non consigliati,
+ * solo le parti che ne hanno. Un orario consigliato sta solo fra i consigliati.
+ */
+export function slotGroups(day: ClientSlotDay): ClientSlotGroup[] {
+  const groups: ClientSlotGroup[] = [];
+  const recommended = day.slots.filter((s) => s.recommended);
+  if (recommended.length > 0) {
+    groups.push({
+      key: "consigliati",
+      label: "Consigliati",
+      reason: day.recommendedReason,
+      aria: "Orari consigliati",
+      slots: recommended,
+    });
+  }
+  for (const part of ["Mattina", "Pomeriggio", "Sera"] as const) {
+    const slots = day.slots.filter((s) => !s.recommended && s.part === part);
+    if (slots.length > 0) {
+      groups.push({
+        key: part,
+        label: part,
+        reason: null,
+        aria: `Orari ${part.toLowerCase()}`,
+        slots,
+      });
+    }
+  }
+  return groups;
 }
