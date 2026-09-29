@@ -279,6 +279,35 @@ export function useClientBookings(clientId?: string) {
   });
 }
 
+// Le sessioni del cliente per contare i crediti (Prenota, passata 02): come
+// useClientBookings, più le annullate tardi con deleted_at. cancel_booking lo
+// scrive anche su di loro, e senza quelle getClientPools direbbe tornato un
+// credito che il server ha tenuto. La policy «Client read own bookings» non
+// filtra deleted_at. La chiave comincia come quella di useClientBookings, così
+// invalidateBookingScope (confronto per prefisso) la rinfresca, ma non è
+// uguale: la cornice monta useClientBookings su ogni pagina del cliente, e due
+// letture diverse sotto la stessa chiave si sovrascriverebbero nella cache.
+async function selectClientBookingsForCredits(clientId: string): Promise<BookingRow[]> {
+  return loadBookingsWithFallback((cols) =>
+    supabase
+      .from("bookings")
+      .select(cols)
+      .eq("client_id", clientId)
+      .or("deleted_at.is.null,status.eq.late_cancelled")
+      .order("scheduled_at", { ascending: false })
+      .limit(BOOKINGS_FETCH_LIMIT),
+  );
+}
+
+export function useClientBookingsForCredits(clientId?: string) {
+  return useQuery({
+    queryKey: ["bookings", "client", clientId, "credits"],
+    enabled: !!clientId,
+    staleTime: 30_000,
+    queryFn: () => selectClientBookingsForCredits(clientId!),
+  });
+}
+
 async function loadBlocks(filter: { coach_id?: string; client_id?: string }): Promise<BlockRow[]> {
   let q = supabase
     .from("training_blocks")
