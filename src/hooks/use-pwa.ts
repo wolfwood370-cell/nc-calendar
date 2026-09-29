@@ -37,6 +37,7 @@ function isIos(): boolean {
 let deferredPrompt: BeforeInstallPromptEvent | null = null;
 let appInstalled = false;
 let capturing = false;
+let prompting = false;
 const listeners = new Set<() => void>();
 
 function emit() {
@@ -95,15 +96,27 @@ export function usePwaInstall() {
     startInstallCapture();
   }, []);
 
-  const triggerInstall = useCallback(async () => {
+  /**
+   * Apre il prompt del sistema: "accepted", "dismissed", oppure null se non
+   * c'è un evento o il prompt non si apre (un secondo tocco mentre il primo è
+   * aperto, un evento già usato). Il prompt si apre una volta sola per evento:
+   * dopo, torna «Installa» solo se il browser manda un altro invito.
+   */
+  const triggerInstall = useCallback(async (): Promise<"accepted" | "dismissed" | null> => {
     const current = deferredPrompt;
-    if (!current) return null;
-    await current.prompt();
-    const choice = await current.userChoice;
-    // Il prompt del sistema si apre una volta sola per evento.
-    deferredPrompt = null;
-    emit();
-    return choice.outcome;
+    if (!current || prompting) return null;
+    prompting = true;
+    try {
+      await current.prompt();
+      const choice = await current.userChoice;
+      return choice.outcome;
+    } catch {
+      return null;
+    } finally {
+      prompting = false;
+      deferredPrompt = null;
+      emit();
+    }
   }, []);
 
   /** «Ho installato l'app»: il segno resta sul dispositivo. */

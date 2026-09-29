@@ -20,8 +20,10 @@ import { CLIENT_TABS, activeClientTab, showsTabBar } from "@/lib/client-shell";
 export const Route = createFileRoute("/client")({
   // viewport-fit a «cover» solo sulle route del cliente: senza, su iPhone
   // env(safe-area-inset-*) vale 0 e barra, intestazioni, fogli e toast non
-  // vedono l'indicatore Home. TanStack tiene, per ogni name, il meta della
-  // route più interna: le pagine del coach restano col viewport della radice.
+  // vedono l'indicatore Home. Con «cover» la pagina va anche sotto la tacca in
+  // orizzontale: il layout e la barra tengono i margini di sinistra e destra.
+  // TanStack tiene, per ogni name, il meta della route più interna: le pagine
+  // del coach restano col viewport della radice.
   head: () => ({
     meta: [
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
@@ -62,7 +64,13 @@ function ClientLayout() {
 
   return (
     <ClientShell>
-      <div className="min-h-screen bg-surface flex flex-col">
+      <div
+        className="min-h-screen bg-surface flex flex-col"
+        style={{
+          paddingLeft: "env(safe-area-inset-left)",
+          paddingRight: "env(safe-area-inset-right)",
+        }}
+      >
         {/* Header desktop (da md): le stesse cinque schede della barra, la campanella ed Esci */}
         <header className="hidden md:block border-b sticky top-0 bg-surface/80 backdrop-blur z-40">
           <div className="mx-auto max-w-3xl px-4 h-14 flex items-center justify-between gap-3">
@@ -118,8 +126,10 @@ function ClientLayout() {
         <main className={`flex-1 mx-auto w-full md:max-w-[560px] md:px-4 md:pt-6 ${bottomSpace}`}>
           {/* key sul pathname: rimonta la vista a ogni navigazione così
               l'animazione page-enter (design handoff) riparte. Niente
-              position: fixed qui dentro: il transform che l'animazione lascia
-              sul div ne farebbe il riferimento. */}
+              position: fixed nelle pagine: il transform che l'animazione
+              lascia sul div diventa il riferimento dei fixed, che scorrono
+              col contenuto (succede alla barra «Conferma» di Prenota, che la
+              passata 02 toglie). Barra, fogli e toast stanno fuori da qui. */}
           <div key={path} className="page-enter">
             <Outlet />
           </div>

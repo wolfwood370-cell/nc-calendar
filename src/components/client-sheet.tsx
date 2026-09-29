@@ -18,6 +18,14 @@
 // conferme distruttive role="alertdialog". I pulsanti vanno a tutta
 // larghezza, in colonna (ClientButton con fullWidth): principale,
 // secondario, testuale.
+// Scorre dentro, non il pannello: vaul appende al pannello un ::after alto il
+// 200% (lo sfondo che copre il vuoto quando lo si tira in su), e un pannello
+// scorrevole scorrerebbe anche in quel bianco (misurato: 1176 px su 392). Con
+// overflow hidden il pannello resta «scorrevole» per shouldDrag di vaul, che
+// così riconosce role="dialog" e lascia trascinare anche a pagina scorsa. Con
+// role="alertdialog" shouldDrag non si ferma sul pannello (cerca solo
+// "dialog") e, a pagina scorsa, fuori da Safari il trascinamento non parte:
+// chiudono Esc, lo scrim e i pulsanti.
 // ----------------------------------------------------------------------------
 
 import { useRef, type ReactNode } from "react";
@@ -74,10 +82,8 @@ export function ClientSheet({
             openerRef.current = null;
             if (opener?.isConnected) opener.focus({ preventScroll: true });
           }}
-          style={{ paddingBottom: "max(24px, calc(env(safe-area-inset-bottom) + 12px))" }}
           className={cn(
-            "fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-[90dvh] w-full max-w-[560px] flex-col overflow-y-auto rounded-t-[28px] bg-white px-5 pt-2.5 text-on-surface outline-none",
-            list ? "gap-4" : "gap-3.5",
+            "fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-[90dvh] w-full max-w-[560px] flex-col overflow-hidden rounded-t-[28px] bg-white pt-2.5 text-on-surface outline-none",
             className,
           )}
         >
@@ -85,15 +91,23 @@ export function ClientSheet({
             aria-hidden
             className="mx-auto h-[5px] w-10 shrink-0 rounded-full bg-outline-variant"
           />
-          <Drawer.Title className="font-display text-[22px] leading-tight font-bold tracking-[-0.01em]">
-            {title}
-          </Drawer.Title>
-          {description ? (
-            <Drawer.Description className="text-[15px] leading-normal text-on-surface-variant">
-              {description}
-            </Drawer.Description>
-          ) : null}
-          {children}
+          <div
+            className={cn(
+              "flex min-h-0 flex-col overflow-y-auto px-5",
+              list ? "gap-4 pt-4" : "gap-3.5 pt-3.5",
+            )}
+            style={{ paddingBottom: "max(24px, calc(env(safe-area-inset-bottom) + 12px))" }}
+          >
+            <Drawer.Title className="font-display text-[22px] leading-tight font-bold tracking-[-0.01em]">
+              {title}
+            </Drawer.Title>
+            {description ? (
+              <Drawer.Description className="text-[15px] leading-normal text-on-surface-variant">
+                {description}
+              </Drawer.Description>
+            ) : null}
+            {children}
+          </div>
         </Drawer.Content>
       </Drawer.Portal>
     </Drawer.Root>

@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
   Activity,
@@ -50,6 +51,14 @@ function ClientNotificationsPage() {
   const { reminders, readIds, unread, markAllRead } = useClientShell();
   const navigate = useNavigate();
   const read = new Set(readIds);
+  const summaryRef = useRef<HTMLParagraphElement>(null);
+
+  // «Segna tutte come lette» sparisce appena premuto: il focus va al
+  // riepilogo, che è una regione live e dice «Tutte lette».
+  const markAll = () => {
+    markAllRead();
+    summaryRef.current?.focus();
+  };
 
   const open = (item: ClientReminderItem) => {
     markAllRead();
@@ -68,13 +77,18 @@ function ClientNotificationsPage() {
       <div className="flex flex-col gap-3 px-4 pt-2 pb-8">
         {reminders.length > 0 && (
           <div className="flex items-center justify-between gap-3 px-1">
-            <p className="text-sm text-on-surface-variant">
+            <p
+              ref={summaryRef}
+              role="status"
+              tabIndex={-1}
+              className="text-sm text-on-surface-variant"
+            >
               {unread > 0 ? `${unread} da leggere` : "Tutte lette"}
             </p>
             {unread > 0 && (
               <ClientButton
                 variant="text"
-                onClick={markAllRead}
+                onClick={markAll}
                 className="px-0 text-sm font-bold text-primary-container"
               >
                 Segna tutte come lette

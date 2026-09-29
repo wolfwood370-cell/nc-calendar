@@ -4,7 +4,10 @@
 // Un Toaster solo, sempre montato nella radice e sempre lo stesso componente:
 // sulle route del cliente riceve le props di questo file, fuori tiene quelle
 // di prima (richColors, in alto a destra), così React lo tiene e cambia solo
-// le props. Perché non un Toaster nel layout del cliente (sonner 2.0.7):
+// le props. sonner usa la posizione come chiave del suo <ol>: passando da
+// /auth a /client i toast in volo si rimontano in basso, con l'animazione e
+// il tempo da capo, ma non si perdono. Perché non un Toaster nel layout del
+// cliente (sonner 2.0.7):
 // (a) due Toaster senza id mostrano ogni toast due volte; (b) un Toaster che
 // si smonta al confine di /client perde i toast in volo, e il login fa
 // toast.success e subito navigate; (c) il layout del cliente, mentre carica,
@@ -18,7 +21,8 @@
 // azione alta 44; 3,2 s senza azione, 8 s con un'azione (toastWithUndo).
 // Senza lo stile di sonner (unstyled): il suo CSS non sta in un layer e
 // batterebbe le classi di Tailwind, e scrive la description #3f3f3f, che sul
-// fondo scuro fa circa 1,6:1.
+// fondo scuro fa circa 1,6:1. Per lo stesso motivo il suo outline: 0 sul
+// toast batte il focus visibile globale: l'anello del toast è !important.
 // ----------------------------------------------------------------------------
 
 import type { ComponentProps } from "react";
@@ -48,7 +52,7 @@ const CLIENT_TOAST_OPTIONS: ToasterProps["toastOptions"] = {
   unstyled: true,
   classNames: {
     toast:
-      "flex w-full items-center gap-3 rounded-[16px] bg-toast py-2 pr-2 pl-4 font-sans text-sm leading-[1.35] text-white shadow-[0_12px_32px_rgba(0,0,0,0.25)] [&[data-expanded=false][data-front=false]>*]:opacity-0",
+      "flex w-full items-center gap-3 rounded-[16px] bg-toast py-2 pr-2 pl-4 font-sans text-sm leading-[1.35] text-white shadow-[0_12px_32px_rgba(0,0,0,0.25)] focus-visible:outline-2! focus-visible:outline-offset-2! focus-visible:outline-primary-container! [&[data-expanded=false][data-front=false]>*]:opacity-0",
     icon: "flex shrink-0 items-center",
     content: "flex min-w-0 flex-1 flex-col gap-0.5 py-2",
     title: "font-normal",

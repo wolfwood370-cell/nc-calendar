@@ -9,7 +9,9 @@
 // (beforeinstallprompt, catturato una volta sola in use-pwa.ts), il pulsante
 // principale è «Installa» e apre il prompt del sistema; altrimenti è «Ho
 // installato l'app», che lascia il segno APP_INSTALLED_KEY sul dispositivo.
-// In tutti e due i casi il foglio si chiude col toast «App installata…».
+// Con «Ho installato l'app», o con «Installa» accettato, il foglio si chiude
+// col toast «App installata…»; se il cliente rifiuta il prompt del sistema,
+// il foglio si chiude senza toast.
 // ----------------------------------------------------------------------------
 
 import { Upload } from "lucide-react";
@@ -37,6 +39,7 @@ export function ClientInstallSheet({ open, onOpenChange, from }: ClientInstallSh
   const install = async () => {
     const outcome = await triggerInstall();
     if (outcome === "accepted") installed();
+    else if (outcome === "dismissed") onOpenChange(false);
   };
 
   const steps = [

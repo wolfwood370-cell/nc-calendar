@@ -26,8 +26,12 @@ export function ClientBottomNav() {
   return (
     <nav
       aria-label="Navigazione principale"
-      className="fixed inset-x-0 bottom-0 z-40 flex items-start justify-around gap-0.5 border-t border-outline-variant/45 bg-white/94 px-1.5 pt-1.5 backdrop-blur-[20px] md:hidden"
-      style={{ paddingBottom: "max(6px, env(safe-area-inset-bottom))" }}
+      className="fixed inset-x-0 bottom-0 z-40 flex items-start justify-around gap-0.5 border-t border-outline-variant/45 bg-white/94 pt-1.5 backdrop-blur-[20px] md:hidden"
+      style={{
+        paddingLeft: "max(6px, env(safe-area-inset-left))",
+        paddingRight: "max(6px, env(safe-area-inset-right))",
+        paddingBottom: "max(6px, env(safe-area-inset-bottom))",
+      }}
     >
       {CLIENT_TABS.map((tab) => {
         const on = tab.key === active;
