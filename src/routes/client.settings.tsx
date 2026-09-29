@@ -28,16 +28,18 @@ import { SettingsRow, SettingsDivider } from "@/components/settings-row";
 import { useClientBlocks, useClientBookings, useCoachEventTypes } from "@/lib/queries";
 import { findCurrentBlock } from "@/lib/current-block";
 import { sessionLabel } from "@/lib/mock-data";
+import { ClientTabHeader } from "@/components/client-tab-header";
+import { clientPageTitle } from "@/lib/client-shell";
 
 export const Route = createFileRoute("/client/settings")({
   head: () => ({
     meta: [
-      { title: "Impostazioni | NC Training Systems" },
+      { title: clientPageTitle("Profilo") },
       {
         name: "description",
         content: "Gestisci i tuoi dati personali, le notifiche e le preferenze dell'account.",
       },
-      { property: "og:title", content: "Impostazioni | NC Training Systems" },
+      { property: "og:title", content: clientPageTitle("Profilo") },
       {
         property: "og:description",
         content: "Gestisci i tuoi dati personali, le notifiche e le preferenze dell'account.",
@@ -274,12 +276,7 @@ function ClientSettings() {
 
   return (
     <div className="max-w-md mx-auto bg-surface min-h-screen">
-      {/* Top App Bar */}
-      <header className="bg-surface/80 backdrop-blur-xl sticky top-0 shadow-soft-card z-40">
-        <div className="flex items-center w-full px-margin-mobile py-stack-md">
-          <h1 className="text-2xl font-bold text-aura-primary">Profilo</h1>
-        </div>
-      </header>
+      <ClientTabHeader title="Profilo" />
 
       <main className="px-margin-mobile pt-6 pb-[120px] flex flex-col gap-6">
         {/* Hero identità: sezione trasparente centrata (avatar 88px, una iniziale) */}

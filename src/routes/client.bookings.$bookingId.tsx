@@ -1,7 +1,8 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { ClientPageHeader } from "@/components/client-page-header";
+import { clientPageTitle } from "@/lib/client-shell";
 import { AuraCardSkeleton, AuraLineSkeleton } from "@/components/ui/aura-skeleton";
 import {
   ClientBookingDetailView,
@@ -11,9 +12,9 @@ import {
 export const Route = createFileRoute("/client/bookings/$bookingId")({
   head: () => ({
     meta: [
-      { title: "Dettaglio appuntamento | NC Training Systems" },
+      { title: clientPageTitle("Sessione") },
       { name: "description", content: "Consulta, sposta o annulla il tuo appuntamento." },
-      { property: "og:title", content: "Dettaglio appuntamento | NC Training Systems" },
+      { property: "og:title", content: clientPageTitle("Sessione") },
       { property: "og:description", content: "Consulta, sposta o annulla il tuo appuntamento." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -24,7 +25,6 @@ export const Route = createFileRoute("/client/bookings/$bookingId")({
 
 function BookingDetailPage() {
   const { bookingId } = Route.useParams();
-  const navigate = useNavigate();
 
   const q = useQuery({
     queryKey: ["booking-detail", bookingId],
@@ -77,17 +77,7 @@ function BookingDetailPage() {
   return (
     <div className="bg-surface min-h-screen text-on-surface">
       <div className="max-w-md mx-auto relative pb-24">
-        <header className="flex items-center px-margin-mobile py-stack-md sticky top-0 bg-surface/80 backdrop-blur-xl z-10">
-          <button
-            type="button"
-            onClick={() => navigate({ to: "/client" })}
-            aria-label="Indietro"
-            className="w-10 h-10 flex items-center justify-center rounded-full bg-surface-container-lowest shadow-[0_4px_12px_rgba(0,0,0,0.05)] text-reschedule"
-          >
-            <ArrowLeft className="size-5" />
-          </button>
-          <h1 className="ml-3 font-semibold text-base">Dettaglio Sessione</h1>
-        </header>
+        <ClientPageHeader title="Sessione" />
 
         <main className="px-margin-mobile space-y-gutter">
           {q.isLoading ? (

@@ -1,9 +1,10 @@
 import { useState, useMemo } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Sparkles, Zap, Stethoscope } from "lucide-react";
+import { createFileRoute } from "@tanstack/react-router";
+import { Sparkles, Zap, Stethoscope } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
+import { ClientTabHeader } from "@/components/client-tab-header";
+import { clientPageTitle } from "@/lib/client-shell";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { BoosterCard } from "@/components/booster-card";
@@ -13,9 +14,9 @@ import { useClientExtraCredits } from "@/lib/queries";
 export const Route = createFileRoute("/client/store")({
   head: () => ({
     meta: [
-      { title: "Acquista pacchetti | NC Training Systems" },
+      { title: clientPageTitle("Booster") },
       { name: "description", content: "Acquista percorsi mensili, PT Pack e sessioni singole." },
-      { property: "og:title", content: "Acquista pacchetti | NC Training Systems" },
+      { property: "og:title", content: clientPageTitle("Booster") },
       {
         property: "og:description",
         content: "Acquista percorsi mensili, PT Pack e sessioni singole.",
@@ -190,116 +191,108 @@ function StorePage() {
   };
 
   return (
-    <div className="px-4 py-6 md:px-0 space-y-6">
-      <div className="flex items-center gap-3">
-        <Button asChild variant="ghost" size="icon" className="size-10 rounded-full">
-          <Link to="/client" aria-label="Torna alla dashboard">
-            <ArrowLeft className="size-5" />
-          </Link>
-        </Button>
-        <h1 className="text-2xl md:text-3xl font-manrope font-extrabold tracking-tight text-on-surface">
-          NC Add-on
-        </h1>
-      </div>
-
-      {/* Design handoff: bilancio crediti Booster (barra scura brand) */}
-      <div className="flex items-center gap-4 rounded-3xl px-5 py-4 text-white bg-aura-primary">
-        <div className="w-11 h-11 rounded-xl bg-white/15 grid place-items-center shrink-0">
-          <Sparkles className="size-[22px] text-on-primary-container" aria-hidden />
+    <>
+      <ClientTabHeader title="Booster" subtitle="Crediti in più per il blocco in corso" />
+      <div className="px-4 py-6 md:px-0 space-y-6">
+        {/* Design handoff: bilancio crediti Booster (barra scura brand) */}
+        <div className="flex items-center gap-4 rounded-3xl px-5 py-4 text-white bg-aura-primary">
+          <div className="w-11 h-11 rounded-xl bg-white/15 grid place-items-center shrink-0">
+            <Sparkles className="size-[22px] text-on-primary-container" aria-hidden />
+          </div>
+          {ownedCredits.length === 0 ? (
+            <div>
+              <p className="m-0 text-[13px] font-semibold text-on-primary-container">
+                Nessun credito Booster
+              </p>
+              <p className="m-0 mt-0.5 text-xs text-white/70">
+                Acquista per sbloccare sessioni extra.
+              </p>
+            </div>
+          ) : (
+            <div className="min-w-0">
+              <p className="m-0 text-xs font-semibold text-on-primary-container uppercase tracking-wider">
+                Crediti Booster attivi
+              </p>
+              <p className="m-0 mt-0.5 text-[15px] font-bold tabular-nums">
+                {ownedCredits.map((c) => `+${c.remaining} ${c.eventName}`).join(" · ")}
+              </p>
+            </div>
+          )}
         </div>
-        {ownedCredits.length === 0 ? (
-          <div>
-            <p className="m-0 text-[13px] font-semibold text-on-primary-container">
-              Nessun credito Booster
-            </p>
-            <p className="m-0 mt-0.5 text-xs text-white/70">
-              Acquista per sbloccare sessioni extra.
-            </p>
-          </div>
-        ) : (
-          <div className="min-w-0">
-            <p className="m-0 text-xs font-semibold text-on-primary-container uppercase tracking-wider">
-              Crediti Booster attivi
-            </p>
-            <p className="m-0 mt-0.5 text-[15px] font-bold tabular-nums">
-              {ownedCredits.map((c) => `+${c.remaining} ${c.eventName}`).join(" · ")}
-            </p>
-          </div>
-        )}
-      </div>
 
-      {/* Glass Hub container */}
-      <section
-        aria-label="NC Add-on"
-        className="rounded-[40px] bg-white/40 backdrop-blur-[6px] border border-white/30 shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-5 md:p-8 space-y-6"
-      >
-        <p className="text-sm text-on-surface-variant leading-relaxed">
-          Risorse premium e sessioni one-to-one riservate esclusivamente agli atleti con un percorso
-          attivo. Il tuo accesso diretto per elevare ulteriormente i tuoi standard.
-        </p>
+        {/* Glass Hub container */}
+        <section
+          aria-label="NC Add-on"
+          className="rounded-[40px] bg-white/40 backdrop-blur-[6px] border border-white/30 shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-5 md:p-8 space-y-6"
+        >
+          <p className="text-sm text-on-surface-variant leading-relaxed">
+            Risorse premium e sessioni one-to-one riservate esclusivamente agli atleti con un
+            percorso attivo. Il tuo accesso diretto per elevare ulteriormente i tuoi standard.
+          </p>
 
-        {ownedCredits.length > 0 && (
+          {ownedCredits.length > 0 && (
+            <div className="space-y-3">
+              <h2 className="font-manrope font-semibold text-sm uppercase tracking-wide text-on-surface-variant">
+                I tuoi Booster attivi
+              </h2>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {ownedCredits.map((c) => (
+                  <OwnedBoosterCard
+                    key={c.id}
+                    credit={c}
+                    canPurchaseAddons={canPurchaseAddons}
+                    isPurchaseLoading={loadingPkg !== null}
+                    // Default to the single-session top-up; the pricing
+                    // table seeds 'single' for everyone.
+                    onRecharge={() => handlePurchase("single")}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="space-y-3">
             <h2 className="font-manrope font-semibold text-sm uppercase tracking-wide text-on-surface-variant">
-              I tuoi Booster attivi
+              Acquista nuovi Booster
             </h2>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {ownedCredits.map((c) => (
-                <OwnedBoosterCard
-                  key={c.id}
-                  credit={c}
-                  canPurchaseAddons={canPurchaseAddons}
-                  isPurchaseLoading={loadingPkg !== null}
-                  // Default to the single-session top-up; the pricing
-                  // table seeds 'single' for everyone.
-                  onRecharge={() => handlePurchase("single")}
+            {!canPurchaseAddons && (
+              <div className="rounded-2xl border border-amber-300/60 bg-amber-50/80 px-4 py-3 text-sm text-amber-900">
+                Gli Add-on sono riservati esclusivamente ai clienti con un{" "}
+                <strong>Percorso Fisso</strong> o un <strong>Abbonamento Mensile</strong> attivo.
+              </div>
+            )}
+            <div
+              className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+              onClickCapture={(e) => {
+                if (!canPurchaseAddons) {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  restrictedToast();
+                }
+              }}
+            >
+              {PACKAGES.map((pkg) => (
+                <BoosterCard
+                  key={pkg.id}
+                  title={pkg.title}
+                  description={pkg.description}
+                  price={pkg.price}
+                  perSession={pkg.perSession}
+                  icon={pkg.icon}
+                  hero={pkg.hero}
+                  loading={loadingPkg === pkg.id}
+                  disabled={loadingPkg !== null || !canPurchaseAddons}
+                  onAction={() => handlePurchase(pkg.id)}
                 />
               ))}
             </div>
           </div>
-        )}
 
-        <div className="space-y-3">
-          <h2 className="font-manrope font-semibold text-sm uppercase tracking-wide text-on-surface-variant">
-            Acquista nuovi Booster
-          </h2>
-          {!canPurchaseAddons && (
-            <div className="rounded-2xl border border-amber-300/60 bg-amber-50/80 px-4 py-3 text-sm text-amber-900">
-              Gli Add-on sono riservati esclusivamente ai clienti con un{" "}
-              <strong>Percorso Fisso</strong> o un <strong>Abbonamento Mensile</strong> attivo.
-            </div>
-          )}
-          <div
-            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
-            onClickCapture={(e) => {
-              if (!canPurchaseAddons) {
-                e.stopPropagation();
-                e.preventDefault();
-                restrictedToast();
-              }
-            }}
-          >
-            {PACKAGES.map((pkg) => (
-              <BoosterCard
-                key={pkg.id}
-                title={pkg.title}
-                description={pkg.description}
-                price={pkg.price}
-                perSession={pkg.perSession}
-                icon={pkg.icon}
-                hero={pkg.hero}
-                loading={loadingPkg === pkg.id}
-                disabled={loadingPkg !== null || !canPurchaseAddons}
-                onAction={() => handlePurchase(pkg.id)}
-              />
-            ))}
-          </div>
-        </div>
-
-        <p className="text-xs text-on-surface-variant text-center">
-          I crediti Booster scadono al termine del tuo blocco attuale.
-        </p>
-      </section>
-    </div>
+          <p className="text-xs text-on-surface-variant text-center">
+            I crediti Booster scadono al termine del tuo blocco attuale.
+          </p>
+        </section>
+      </div>
+    </>
   );
 }

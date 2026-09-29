@@ -1,7 +1,7 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Loader2, Info } from "lucide-react";
+import { Loader2, Info } from "lucide-react";
 import { sessionLabel, type SessionType } from "@/lib/mock-data";
 import {
   useClientBlocks,
@@ -31,6 +31,9 @@ import { BookSlotsGrid } from "@/components/book-slots-grid";
 import { BookPoolPicker } from "@/components/book-pool-picker";
 import { allocKey } from "@/lib/booking-allocation";
 import { useBookConfirm } from "@/hooks/use-book-confirm";
+import { ClientTabHeader } from "@/components/client-tab-header";
+import { useClientShell } from "@/hooks/use-client-shell";
+import { bookSubtitle, clientPageTitle } from "@/lib/client-shell";
 
 // Deep-link search params per la pagina prenotazione.
 // `eventType` (UUID di event_types.id) viene passato dal client dashboard
@@ -44,12 +47,12 @@ const BOOK_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 export const Route = createFileRoute("/client/book")({
   head: () => ({
     meta: [
-      { title: "Prenota una sessione | NC Training Systems" },
+      { title: clientPageTitle("Prenota") },
       {
         name: "description",
         content: "Scegli data, orario e tipologia per prenotare la tua prossima sessione.",
       },
-      { property: "og:title", content: "Prenota una sessione | NC Training Systems" },
+      { property: "og:title", content: clientPageTitle("Prenota") },
       {
         property: "og:description",
         content: "Scegli data, orario e tipologia per prenotare la tua prossima sessione.",
@@ -68,7 +71,7 @@ export const Route = createFileRoute("/client/book")({
 function BookFlow() {
   const { user } = useAuth();
   const meId = user?.id;
-  const navigate = useNavigate();
+  const { now } = useClientShell();
   const blocksQ = useClientBlocks(meId);
   const bookingsQ = useClientBookings(meId);
   const extraCreditsQ = useClientExtraCredits(meId);
@@ -448,17 +451,20 @@ function BookFlow() {
     return next ? new Date(next.start_date) : null;
   }, [block, blocksQ.data]);
 
+  // Il sottotitolo dell'intestazione, sul blocco di riferimento della 00
+  // (bookSubtitle); finché blocchi e profilo non ci sono, niente sottotitolo.
+  const subtitle =
+    blocksQ.data && profileQ.data !== undefined
+      ? bookSubtitle(profileQ.data?.path_type ?? null, blocksQ.data, now)
+      : null;
+
   if (blocksQ.isLoading || bookingsQ.isLoading || availQ.isLoading || extraCreditsQ.isLoading) {
     // M6: skeleton mirrors the actual booking layout to reserve space and
     // prevent the layout shift (CLS) that the previous two generic rectangles
     // caused when real content rendered.
     return (
       <div className="bg-surface min-h-screen pb-32">
-        <header className="flex justify-between items-center w-full px-margin-mobile py-stack-md max-w-3xl mx-auto">
-          <Skeleton className="h-9 w-9 rounded-full" />
-          <Skeleton className="h-7 w-32" />
-          <Skeleton className="h-9 w-9 rounded-full" />
-        </header>
+        <ClientTabHeader title="Prenota" />
         <div className="px-margin-mobile max-w-3xl mx-auto space-y-stack-lg">
           {/* Pool selector skeleton */}
           <div className="grid grid-cols-2 gap-3">
@@ -486,34 +492,23 @@ function BookFlow() {
   // No active block AND no extra credits → empty state with link to Store.
   if (!block && pools.length === 0) {
     return (
-      <div className="bg-surface min-h-screen px-margin-mobile py-8 max-w-3xl mx-auto">
-        <EmptyStateCard
-          title="Pronto a salire di livello?"
-          description="Non hai un percorso attivo né sessioni extra. Acquista un NC Add-on o un Booster per sbloccare nuove prenotazioni."
-          ctaLabel="Vai allo Store"
-          ctaTo="/client/store"
-        />
+      <div className="bg-surface min-h-screen max-w-3xl mx-auto">
+        <ClientTabHeader title="Prenota" subtitle={subtitle} />
+        <div className="px-margin-mobile py-8">
+          <EmptyStateCard
+            title="Pronto a salire di livello?"
+            description="Non hai un percorso attivo né sessioni extra. Acquista un NC Add-on o un Booster per sbloccare nuove prenotazioni."
+            ctaLabel="Vai allo Store"
+            ctaTo="/client/store"
+          />
+        </div>
       </div>
     );
   }
 
   return (
     <div className="bg-surface min-h-screen pb-32">
-      {/* Top App Bar */}
-      {/* Velo semitrasparente color surface + blur 6px come da mock */}
-      <header className="flex justify-between items-center w-full px-margin-mobile py-stack-md max-w-3xl mx-auto bg-surface/60 z-40 sticky top-0 backdrop-blur-[6px]">
-        <button
-          onClick={() => navigate({ to: "/client" })}
-          aria-label="Indietro"
-          className="w-10 h-10 flex items-center justify-center rounded-full bg-surface-container-lowest/50 backdrop-blur-md border border-outline-variant/30 text-primary-container active:scale-95 transition-transform"
-        >
-          <ArrowLeft className="size-5" />
-        </button>
-        <h1 className="font-display font-bold text-2xl text-on-surface text-center absolute left-1/2 -translate-x-1/2 whitespace-nowrap">
-          Nuova Prenotazione
-        </h1>
-        <div className="w-10 h-10" />
-      </header>
+      <ClientTabHeader title="Prenota" subtitle={subtitle} />
 
       <main className="max-w-3xl mx-auto px-margin-mobile flex flex-col gap-stack-lg mt-stack-md">
         {/* Selection Type */}
