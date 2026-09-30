@@ -49,6 +49,7 @@ import { canMove } from "@/lib/client-session-status";
 import { getClientSlotDays } from "@/lib/client-slots";
 import { useClientBlocks, useRescheduleBooking, type BookingRow } from "@/lib/queries";
 import { invalidateBookingScope } from "@/lib/query-keys";
+import { failedRead } from "@/lib/query-state";
 import { formatLongDay } from "@/lib/session-time";
 
 /** La sessione che si sposta: i campi del dettaglio, col coach e il cliente. */
@@ -103,22 +104,6 @@ interface MoveBodyProps extends Omit<ClientMoveSheetProps, "open" | "onOpenChang
   onClose: () => void;
 }
 
-interface ReadState {
-  data: unknown;
-  isError: boolean;
-  errorUpdateCount: number;
-  fetchStatus: string;
-}
-
-/**
- * Persa: in errore, oppure senza dati e riletta dopo un errore (TanStack
- * Query, rileggendo una lettura senza dati, ne toglie l'errore). Finché
- * risponde resta la card, col pulsante disattivato, come in Sessioni.
- */
-function lost(q: ReadState): boolean {
-  return q.isError || (q.data === undefined && q.errorUpdateCount > 0 && q.fetchStatus !== "idle");
-}
-
 /**
  * Il contenuto del foglio. Sta dentro il pannello, che si monta solo a
  * foglio aperto: le letture partono all'apertura, e scelte ed errore
@@ -154,7 +139,9 @@ function MoveBody({ booking, name, coach, clientName, onMoved, onClose }: MoveBo
   const blocks = blocksQ.data;
   // Senza blocchi letti la finestra sarebbe null e i giorni vuoti: si aspetta.
   const blocksArrived = blocks !== undefined || !booking.client_id;
-  const failed = [availabilityQ, exceptionsQ, busyQ, blocksQ].some(lost);
+  // In errore, oppure senza dati e riletta dopo un errore (failedRead): finché
+  // risponde resta la card, con «Riprova» occupato, come in Sessioni.
+  const failed = [availabilityQ, exceptionsQ, busyQ, blocksQ].some(failedRead);
   const ready = slotsReady && blocksArrived;
   const moveWindow = useMemo(
     () => getMoveWindow(booking, blocks ?? [], now),

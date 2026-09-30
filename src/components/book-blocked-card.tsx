@@ -5,7 +5,10 @@
 //     concluso, nessun credito, crediti usati. Col Booster, «Acquista un
 //     Booster»; il WhatsApp del coach solo col link;
 //   - BookRetryCard: una lettura fallita, con «Riprova». Mai la card dei
-//     crediti per una lettura fallita: direbbe il falso.
+//     crediti per una lettura fallita: direbbe il falso. Mentre rilegge il
+//     pulsante è aria-disabled e non disabled: resta nell'albero, tiene il
+//     focus (a un pulsante disabled il browser lo toglie) e dice che è
+//     occupato; il tocco si ignora (passata 05).
 // Card bianca, raggio 24, bordo e ombra delle card, padding 20, gap 12.
 // ----------------------------------------------------------------------------
 
@@ -61,7 +64,7 @@ export interface BookRetryCardProps {
   title: string;
   text: string;
   onRetry: () => void;
-  /** Rilegge: il pulsante resta disattivato finché non torna la risposta. */
+  /** Rilegge: il pulsante resta occupato (aria-disabled) finché non torna la risposta. */
   retrying?: boolean;
   titleRef?: Ref<HTMLHeadingElement>;
 }
@@ -73,7 +76,15 @@ export function BookRetryCard({ title, text, onRetry, retrying, titleRef }: Book
         {title}
       </h2>
       <p className="text-[15px] leading-normal text-on-surface-variant">{text}</p>
-      <ClientButton variant="secondary" fullWidth disabled={retrying} onClick={onRetry}>
+      <ClientButton
+        variant="secondary"
+        fullWidth
+        aria-disabled={retrying || undefined}
+        onClick={() => {
+          if (!retrying) onRetry();
+        }}
+        className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
+      >
         Riprova
       </ClientButton>
     </section>

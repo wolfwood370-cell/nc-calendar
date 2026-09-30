@@ -23,6 +23,7 @@ import {
   useCoachAvailabilityExceptions,
   useCoachOptimizationEnabled,
 } from "@/lib/queries";
+import { failedRead } from "@/lib/query-state";
 
 interface BusyRow {
   scheduled_at: string;
@@ -67,7 +68,9 @@ export function useCoachSlotInputs(coachId: string | null, now: Date) {
       }),
     [busyQ.data],
   );
-  const slotsFailed = availabilityQ.isError || exceptionsQ.isError || busyQ.isError;
+  // Anche mentre una lettura fallita si rilegge (failedRead): «Riprova» tiene
+  // la card «Orari non aggiornati».
+  const slotsFailed = [availabilityQ, exceptionsQ, busyQ].some(failedRead);
   // Senza coach non c'è niente da leggere: i giorni vengono chiusi, e basta.
   const slotsReady =
     coachId === null ||

@@ -44,6 +44,7 @@ import {
 } from "@/lib/client-sessions";
 import { clientPageTitle, sessionsSubtitle } from "@/lib/client-shell";
 import type { EventTypeRow } from "@/lib/queries";
+import { arrivedRead, lostRead } from "@/lib/query-state";
 import { cn } from "@/lib/utils";
 
 const DESCRIPTION = "Le tue sessioni, in programma e passate.";
@@ -91,15 +92,12 @@ function ClientSessionsPage() {
   // rimette in attesa e ne toglie l'errore: errorUpdateCount ricorda che era
   // fallita, e finché risponde resta la card, col pulsante disattivato.
   const reading = bookingsQ.fetchStatus !== "idle";
-  const sessionsLost =
-    bookingsQ.data === undefined &&
-    (bookingsQ.isError || (bookingsQ.errorUpdateCount > 0 && reading));
+  const sessionsLost = lostRead(bookingsQ);
   // Pronto: le sessioni, il profilo (fino a lì coachId è nullo anche per chi
   // ha un coach; arrivato con l'errore lo resta) e, con un coach, le
   // tipologie arrivate, coi dati o in errore: in errore i nomi ripiegano sul
   // tipo di sessione. Arrivate anche mentre una lettura fallita si rilegge.
-  const typesArrived =
-    eventTypesQ.data !== undefined || eventTypesQ.isError || eventTypesQ.errorUpdateCount > 0;
+  const typesArrived = arrivedRead(eventTypesQ);
   const ready =
     bookingsQ.data !== undefined && profileArrived && (coachId === null || typesArrived);
 
@@ -138,9 +136,9 @@ function ClientSessionsPage() {
     void bookingsQ.refetch();
     if (coachId) void eventTypesQ.refetch();
   };
-  // «Riprova» fallito di nuovo: il pulsante, disattivato mentre rileggeva, ha
-  // perso il focus (il browser lo toglie a un pulsante disattivato), e lo
-  // riprende il titolo della card, che lo annuncia.
+  // Mentre rilegge il focus resta su «Riprova» (aria-disabled, non disabled:
+  // il browser non glielo toglie). Se la rilettura fallisce di nuovo lo prende
+  // il titolo della card, che lo annuncia.
   useEffect(() => {
     if (!retried.current || reading) return;
     retried.current = false;
