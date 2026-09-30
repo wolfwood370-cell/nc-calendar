@@ -94,6 +94,7 @@ export function ClientSessionRating({
   const choosing = editable && (editing || current === null);
   if (!choosing && current === null) return null;
   const stars = layout === "home" ? "justify-center gap-1" : "gap-0.5";
+  const quoted = currentNote ? `«${currentNote}»` : null;
 
   const onStarKey = (index: number) => (e: KeyboardEvent<HTMLButtonElement>) => {
     const target = segmentKeyTarget(e.key, index, STARS.length);
@@ -185,9 +186,7 @@ export function ClientSessionRating({
               </span>
             ))}
           </div>
-          {currentNote && (
-            <p className="text-sm leading-normal text-on-surface-variant">«{currentNote}»</p>
-          )}
+          {quoted && <p className="text-sm leading-normal text-on-surface-variant">{quoted}</p>}
           {editable && (
             <ClientButton
               variant="text"
