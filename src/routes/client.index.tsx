@@ -7,24 +7,44 @@
 // numero e condizione viene da client-home.ts, sopra lo stato dei crediti di
 // Prenota: il numero della Home è quello di Prenota (H1). La pagina non legge
 // niente da sé: profilo, blocchi, sessioni con le annullate tardi, tipologie
-// e crediti da useClientBookState.
+// e crediti da useClientBookState, le valutazioni da useClientFeedback, le
+// misurazioni da useBiaMeasurements.
 // Gli stati, nell'ordine: il caricamento (lo scheletro); una lettura persa (la
 // card con «Riprova», che resta mentre rilegge); le sezioni di homeSections.
+// Progressi e installazione non dipendono dalla lettura dei crediti.
+// Il focus non finisce mai sul body: dopo «Conferma presenza» e dopo lo
+// spostamento sul titolo della prossima sessione; dopo «Invia valutazione»
+// sul titolo della valutazione, che resta sulla sessione appena valutata
+// (shownId) invece di sparire alla rilettura; dopo «Non ora» e «Ho installato
+// l'app» sull'ultimo titolo prima della card d'installazione, altrimenti sul
+// contenuto.
 // Il coach è NO_COACH finché non c'è get_my_coach (02/10/2026), come in
 // Prenota e nel dettaglio: i testi dicono «il tuo coach», niente WhatsApp.
 // ----------------------------------------------------------------------------
 
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useRef, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { BookRetryCard } from "@/components/book-blocked-card";
-import { ClientTabHeader } from "@/components/client-tab-header";
 import { HomeCreditsCard } from "@/components/client-home-credits";
+import { HomeInstallCard } from "@/components/client-home-install";
 import { HomeConcludedCard, HomeNextCard, HomeNoNextCard } from "@/components/client-home-next";
+import { HomeProgressCard } from "@/components/client-home-progress";
+import { ClientSessionRating } from "@/components/client-session-rating";
+import { ClientTabHeader } from "@/components/client-tab-header";
 import { AuraSkeleton } from "@/components/ui/aura-skeleton";
+import { useBiaMeasurements } from "@/hooks/use-bia";
 import { useClientBookState } from "@/hooks/use-client-book-state";
 import { useClientShell } from "@/hooks/use-client-shell";
+import { useClientFeedback } from "@/hooks/use-session-feedback";
 import { NO_COACH } from "@/lib/client-book";
-import { homeGreeting, homeNext, homeSections } from "@/lib/client-home";
+import {
+  homeGreeting,
+  homeNext,
+  homeRating,
+  homeSections,
+  ratingSubtitle,
+} from "@/lib/client-home";
+import { sessionName } from "@/lib/client-sessions";
 import { clientPageTitle, homeSubtitle } from "@/lib/client-shell";
 import type { BlockRow, BookingRow, EventTypeRow } from "@/lib/queries";
 
@@ -61,6 +81,7 @@ const NO_EVENT_TYPES: EventTypeRow[] = [];
 function ClientHome() {
   const { now } = useClientShell();
   const {
+    meId,
     coachId,
     profile,
     client,
@@ -73,16 +94,88 @@ function ClientHome() {
     retry,
     retrying,
   } = useClientBookState(now, COACH);
+  const feedbackQ = useClientFeedback(meId);
+  const biaQ = useBiaMeasurements(meId);
   const contentRef = useRef<HTMLDivElement>(null);
+  // La sessione della valutazione mostrata: resta dopo «Invia valutazione».
+  const [shownId, setShownId] = useState<string | null>(null);
 
   const blocks = blocksQ.data ?? NO_BLOCKS;
   const bookings = bookingsQ.data ?? NO_BOOKINGS;
   const eventTypes = eventTypesQ.data ?? NO_EVENT_TYPES;
+  const typeOf = (b: BookingRow) => eventTypes.find((t) => t.id === b.event_type_id) ?? null;
+
   const next = useMemo(() => homeNext(bookings, now), [bookings, now]);
-  const sections = useMemo(
-    () => (state ? homeSections({ state, hasNext: next.next !== null, hasRating: false }) : []),
-    [state, next.next],
+  const rating = useMemo(
+    () => homeRating(bookings, feedbackQ.data, shownId, now),
+    [bookings, feedbackQ.data, shownId, now],
   );
+  const ratedId = rating?.booking.id ?? null;
+  useEffect(() => {
+    if (ratedId !== null && ratedId !== shownId) setShownId(ratedId);
+  }, [ratedId, shownId]);
+  const sections = useMemo(
+    () =>
+      state ? homeSections({ state, hasNext: next.next !== null, hasRating: rating !== null }) : [],
+    [state, next.next, rating],
+  );
+
+  // Dove va il focus quando la card d'installazione sparisce: l'ultimo titolo
+  // prima di lei, altrimenti il contenuto.
+  const beforeInstall = () => {
+    const root = contentRef.current;
+    if (!root) return null;
+    const titles = Array.from(root.querySelectorAll<HTMLElement>("h2")).filter(
+      (h) => !h.closest("[data-home-install]"),
+    );
+    return titles.at(-1) ?? root;
+  };
+
+  const section = (key: string): ReactNode => {
+    if (!state) return null;
+    if (key === "concluded") {
+      return (
+        <HomeConcludedCard key={key} endDate={state.reference?.end_date ?? ""} coach={COACH} />
+      );
+    }
+    if (key === "next" && next.next) {
+      return (
+        <HomeNextCard
+          key={key}
+          booking={next.next}
+          eventTypes={eventTypes}
+          others={next.others}
+          coach={COACH}
+          clientName={profile?.full_name ?? null}
+        />
+      );
+    }
+    if (key === "no-next") {
+      return <HomeNoNextCard key={key} options={state.options} coachId={coachId} coach={COACH} />;
+    }
+    if (key === "credits" && client) {
+      return (
+        <HomeCreditsCard key={key} client={client} blocks={blocks} state={state} coach={COACH} />
+      );
+    }
+    if (key === "rating" && rating && meId) {
+      const b = rating.booking;
+      return (
+        <ClientSessionRating
+          key={b.id}
+          bookingId={b.id}
+          clientId={meId}
+          rating={rating.rating}
+          note={rating.note}
+          editable
+          coach={COACH}
+          layout="home"
+          subtitle={ratingSubtitle(sessionName(b, typeOf(b)), b, COACH)}
+        />
+      );
+    }
+    return null;
+  };
 
   let content: ReactNode;
   if (loading) {
@@ -97,46 +190,7 @@ function ClientHome() {
       />
     );
   } else {
-    content = sections.map((section) => {
-      if (section === "concluded") {
-        return (
-          <HomeConcludedCard
-            key={section}
-            endDate={state.reference?.end_date ?? ""}
-            coach={COACH}
-          />
-        );
-      }
-      if (section === "next" && next.next) {
-        return (
-          <HomeNextCard
-            key={section}
-            booking={next.next}
-            eventTypes={eventTypes}
-            others={next.others}
-            coach={COACH}
-            clientName={profile?.full_name ?? null}
-          />
-        );
-      }
-      if (section === "no-next") {
-        return (
-          <HomeNoNextCard key={section} options={state.options} coachId={coachId} coach={COACH} />
-        );
-      }
-      if (section === "credits" && client) {
-        return (
-          <HomeCreditsCard
-            key={section}
-            client={client}
-            blocks={blocks}
-            state={state}
-            coach={COACH}
-          />
-        );
-      }
-      return null;
-    });
+    content = sections.map(section);
   }
 
   return (
@@ -148,6 +202,8 @@ function ClientHome() {
         className="flex flex-col gap-4 px-4 pt-1 pb-6 outline-none"
       >
         {content}
+        {biaQ.data && <HomeProgressCard measurements={biaQ.data} coach={COACH} />}
+        {meId && <HomeInstallCard userId={meId} returnFocus={beforeInstall} />}
       </div>
     </div>
   );
