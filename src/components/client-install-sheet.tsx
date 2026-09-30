@@ -25,9 +25,19 @@ export interface ClientInstallSheetProps {
   onOpenChange: (open: boolean) => void;
   /** Da dove si apre: dal Profilo il terzo passo dice «…da qui». */
   from: "home" | "profilo";
+  /**
+   * Dove va il focus alla chiusura se il pulsante che ha aperto il foglio non
+   * c'è più (la card della Home sparisce con «Ho installato l'app»).
+   */
+  returnFocus?: () => HTMLElement | null | undefined;
 }
 
-export function ClientInstallSheet({ open, onOpenChange, from }: ClientInstallSheetProps) {
+export function ClientInstallSheet({
+  open,
+  onOpenChange,
+  from,
+  returnFocus,
+}: ClientInstallSheetProps) {
   const { canInstall, triggerInstall, markInstalled } = usePwaInstall();
 
   const installed = () => {
@@ -56,7 +66,13 @@ export function ClientInstallSheet({ open, onOpenChange, from }: ClientInstallSh
   ];
 
   return (
-    <ClientSheet open={open} onOpenChange={onOpenChange} title="Installa NC Calendar" list>
+    <ClientSheet
+      open={open}
+      onOpenChange={onOpenChange}
+      returnFocus={returnFocus}
+      title="Installa NC Calendar"
+      list
+    >
       <ol className="flex flex-col gap-3">
         {steps.map((text, i) => (
           <li key={i} className="flex items-center gap-3 text-[15px] leading-[1.4] text-on-surface">

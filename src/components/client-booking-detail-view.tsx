@@ -36,7 +36,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useMemo, useRef, useState, type ReactNode } from "react";
-import { toast } from "sonner";
 import { ClientButton } from "@/components/client-button";
 import { ClientCancelSheet } from "@/components/client-cancel-sheet";
 import { ClientMoveSheet, type MoveBooking } from "@/components/client-move-sheet";
@@ -44,13 +43,13 @@ import { ClientSessionRating } from "@/components/client-session-rating";
 import { useClientBookState } from "@/hooks/use-client-book-state";
 import { useClientShell } from "@/hooks/use-client-shell";
 import { useConfirmAttendance } from "@/hooks/use-confirm-attendance";
+import { useMoveUndo } from "@/hooks/use-move-undo";
 import { useRestoreBooking } from "@/hooks/use-restore-booking";
 import { useClientFeedback } from "@/hooks/use-session-feedback";
 import { NO_COACH, typeTint, withCoachLine, writeOnWhatsApp } from "@/lib/client-book";
 import {
   LOCKED_TITLE,
   absentHint,
-  actionErrorText,
   canRebook,
   cancelToast,
   coachNoteTitle,
@@ -62,7 +61,6 @@ import {
   freeCancelNote,
   inviteText,
   lockedText,
-  moveToast,
   ratingState,
   sessionMinutes,
   statusCard,
@@ -70,7 +68,6 @@ import {
   type DetailEventType,
 } from "@/lib/client-session-detail";
 import { sessionName } from "@/lib/client-sessions";
-import { useRescheduleBooking } from "@/lib/queries";
 import { queryKeys } from "@/lib/query-keys";
 import { iconForType } from "@/lib/session-type-icon";
 import { toastWithUndo } from "@/lib/toast";
@@ -107,7 +104,6 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
   const feedbackQ = useClientFeedback(meId);
   const confirmAttendance = useConfirmAttendance();
   const restore = useRestoreBooking();
-  const reschedule = useRescheduleBooking();
   const [sheet, setSheet] = useState<"move" | "cancel" | null>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const statusRef = useRef<HTMLParagraphElement>(null);
@@ -146,6 +142,7 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
   const refreshDetail = () => {
     void qc.invalidateQueries({ queryKey: detailKey });
   };
+  const moveUndo = useMoveUndo(COACH, refreshDetail);
 
   // «Conferma presenza» sparisce con la rilettura: il focus va sul titolo.
   const onConfirmAttendance = () => {
@@ -184,28 +181,18 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
     toastWithUndo(done.text, restoreSession, done.tone);
   };
 
-  // «Ripristina» dello spostamento: useRescheduleBooking verso l'orario di prima,
-  // che avvisa di nuovo il coach (la sessione torna dov'era).
-  const moveBack = (fromIso: string, toIso: string) => {
-    reschedule
-      .mutateAsync({
-        bookingId: booking.id,
-        newScheduledISO: toIso,
-        oldScheduledISO: fromIso,
-        sessionLabel: name,
-        clientName: profile?.full_name ?? undefined,
-      })
-      .then(() => {
-        refreshDetail();
-        toast.success("Sessione riportata all'orario di prima.");
-      })
-      .catch((err) => toast.warning(actionErrorText(err, "undo-move")));
-  };
-
+  // Il toast con «Ripristina» è di useMoveUndo, che riporta la sessione
+  // all'orario di prima e poi rilegge il dettaglio.
   const onMoved = (fromIso: string, toIso: string) => {
     setSheet(null);
     refreshDetail();
-    toastWithUndo(moveToast(toIso, COACH), () => moveBack(toIso, fromIso));
+    moveUndo({
+      bookingId: booking.id,
+      name,
+      clientName: profile?.full_name ?? null,
+      fromIso,
+      toIso,
+    });
   };
 
   const closeSheet = (open: boolean) => {

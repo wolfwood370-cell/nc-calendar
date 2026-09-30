@@ -66,6 +66,11 @@ export interface ClientMoveSheetProps {
   clientName: string | null;
   /** Spostata: l'inizio di prima e quello nuovo, ISO. */
   onMoved: (fromIso: string, toIso: string) => void;
+  /**
+   * Dove va il focus alla chiusura se il pulsante che ha aperto il foglio non
+   * c'è più (nella Home la prossima sessione cambia dopo lo spostamento).
+   */
+  returnFocus?: () => HTMLElement | null | undefined;
 }
 
 export function ClientMoveSheet({
@@ -76,11 +81,13 @@ export function ClientMoveSheet({
   coach,
   clientName,
   onMoved,
+  returnFocus,
 }: ClientMoveSheetProps) {
   return (
     <ClientSheet
       open={open}
       onOpenChange={onOpenChange}
+      returnFocus={returnFocus}
       title="Sposta la sessione"
       description={
         <span className="block text-sm leading-[1.45]">{moveCurrent(booking, name)}</span>
@@ -100,7 +107,10 @@ export function ClientMoveSheet({
   );
 }
 
-interface MoveBodyProps extends Omit<ClientMoveSheetProps, "open" | "onOpenChange"> {
+interface MoveBodyProps extends Omit<
+  ClientMoveSheetProps,
+  "open" | "onOpenChange" | "returnFocus"
+> {
   onClose: () => void;
 }
 
