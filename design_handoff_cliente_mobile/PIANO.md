@@ -15,7 +15,7 @@ Questo file è il piano da seguire con Claude Code: ordine delle passate, stato,
 | 01 | [Shell: barra, intestazioni, fogli, toast](passes/01-shell.md) | N2, N3, N5, O2, T2, V4, V5, V7, V14, H8 (1ª parte) | 00 | — | [x] |
 | 02 | [Prenota](passes/02-prenota.md) | B1, B3–B7, N4, O1, D2, V15 | 00, 01 | — | [x] |
 | 03 | [Sessioni](passes/03-sessioni.md) | N1, T1, T5, H9, V13 | 00, 01 | — | [x] |
-| 04 | [Dettaglio sessione, Sposta, Annulla](passes/04-sessione-e-sposta.md) | D1–D5, O3, O4, B2, H9, V11 | 02, 03 | sì | [~] |
+| 04 | [Dettaglio sessione, Sposta, Annulla](passes/04-sessione-e-sposta.md) | D1–D5, O3, O4, B2, H9, V11 | 02, 03 | sì | [x] |
 | 05 | [Home](passes/05-home.md) | H1–H7, H9, H10, N1, N5, V1, V2, V8, V9, V10 | 02, 04 | — | [ ] |
 | 06 | [Booster](passes/06-booster.md) | S1–S5, H7, V12, V14 | 01, 02 | sì | [ ] |
 | 07 | [Profilo](passes/07-profilo.md) | R1–R5, H6, N5, O4, V6 | 01 | sì | [ ] |

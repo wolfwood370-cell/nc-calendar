@@ -31,6 +31,7 @@ import {
   moveToast,
   ratingState,
   ratingToast,
+  sessionMinutes,
   starsLabel,
   statusCard,
   tileIcon,
@@ -387,6 +388,43 @@ describe("il dettaglio di ogni sessione", () => {
     for (const b of SESSIONS) {
       expect(ratingState(b, true, NOW).editable, b.id).toBe(ratingState(b, false, NOW).editable);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// I tre casi che mancavano (verifica della 04): fuori da SESSIONS, che ha
+// un'attesa per ogni sessione
+// ---------------------------------------------------------------------------
+
+describe("i casi al confine", () => {
+  it("la durata nulla o zero vale 60, anche nell'intestazione", () => {
+    expect(sessionMinutes({ duration_min: 0 })).toBe(60);
+    // duration_min è NOT NULL nel database; il ripiego c'è lo stesso.
+    expect(sessionMinutes({ duration_min: null as unknown as number })).toBe(60);
+    const zero = s("z1", "pt", at(2026, 9, 30, 10), { duration_min: 0 });
+    expect(detailWhen(zero, NOW)).toEqual({
+      day: "Mercoledì 30 settembre",
+      time: "10:00–11:00 · 60 min · tra 2 giorni",
+    });
+  });
+
+  it("a un'ora esatta dall'inizio si entra nella videochiamata, non si conferma", () => {
+    const call = s("z2", "call", at(2026, 9, 28, 11, 40), { duration_min: 45, meeting_link: MEET });
+    const online = detailPlace(eventType("call"))?.online ?? false;
+    expect(online).toBe(true);
+    expect(detailPanel(call, online, NOW)).toEqual({
+      join: true,
+      confirm: false,
+      manage: "locked",
+      status: false,
+    });
+  });
+
+  it("niente invito per una sessione passata: svolta, o in programma e già finita", () => {
+    const done = s("z3", "pt", at(2026, 9, 25, 9), { status: "completed", google_event_id: "g3" });
+    const ended = s("z4", "pt", at(2026, 9, 28, 8), { google_event_id: "g4" });
+    expect(inviteText(done, EMAIL, NOW)).toBeNull();
+    expect(inviteText(ended, EMAIL, NOW)).toBeNull();
   });
 });
 
