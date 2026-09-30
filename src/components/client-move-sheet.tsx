@@ -1,0 +1,329 @@
+// ----------------------------------------------------------------------------
+// ClientMoveSheet — il foglio Sposta (lato cliente, passata 04, audit B2)
+// ----------------------------------------------------------------------------
+// Lo apre il dettaglio della sessione, e la 05 lo apre dalla card della Home:
+// riceve la sessione e legge da sé il resto (l'ora della cornice, i blocchi
+// del cliente, gli orari del coach di useCoachSlotInputs), solo mentre è
+// aperto. Offre gli stessi giorni e orari di Prenota per la stessa sessione:
+// getClientSlotDays con la finestra del blocco della sessione (getMoveWindow)
+// ed `exclude`, che libera il suo orario; da quei giorni moveDays toglie
+// l'orario in cui la sessione è adesso. La fila dei giorni e i gruppi di
+// orari sono quelli di Prenota (ClientDayStrip col margine di 20,
+// ClientSlotGroups). Sotto le 24 ore dice che non si sposta più, anche se ci
+// arriva a foglio aperto. Con gli orari o i blocchi non letti c'è la card
+// «Orari non aggiornati», mai «Nessun orario libero» per una lettura fallita.
+// Lo spostamento è useRescheduleBooking (evento Google e avviso al coach), con
+// mutateAsync: la sua promessa arriva anche se il foglio si è chiuso nel
+// frattempo (Esc, lo scrim, trascinando), e con lei onMoved. Un errore resta
+// nel foglio, detto da actionErrorText (a foglio chiuso, un toast), e dopo
+// un errore si rileggono gli occupati, come in Prenota.
+// ----------------------------------------------------------------------------
+
+import { useQueryClient } from "@tanstack/react-query";
+import { Info } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { toast } from "sonner";
+import { BookRetryCard } from "@/components/book-blocked-card";
+import { ClientButton } from "@/components/client-button";
+import { ClientDayStrip } from "@/components/client-day-strip";
+import { ClientSheet } from "@/components/client-sheet";
+import { ClientSlotGroups } from "@/components/client-slot-groups";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useClientShell } from "@/hooks/use-client-shell";
+import { useCoachSlotInputs } from "@/hooks/use-coach-slot-inputs";
+import type { BookCoach } from "@/lib/client-book";
+import { getMoveWindow } from "@/lib/client-credits";
+import {
+  actionErrorText,
+  moveBlockedText,
+  moveButton,
+  moveCurrent,
+  moveDay,
+  moveDays,
+  moveNoSlotsText,
+  moveRule,
+  sessionMinutes,
+  type DetailBooking,
+} from "@/lib/client-session-detail";
+import { canMove } from "@/lib/client-session-status";
+import { getClientSlotDays } from "@/lib/client-slots";
+import { useClientBlocks, useRescheduleBooking, type BookingRow } from "@/lib/queries";
+import { invalidateBookingScope } from "@/lib/query-keys";
+import { formatLongDay } from "@/lib/session-time";
+
+/** La sessione che si sposta: i campi del dettaglio, col coach e il cliente. */
+export type MoveBooking = DetailBooking & Pick<BookingRow, "coach_id" | "client_id">;
+
+export interface ClientMoveSheetProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  booking: MoveBooking;
+  /** sessionName: sotto il titolo e nell'avviso al coach. */
+  name: string;
+  coach: BookCoach;
+  /** Il nome del cliente (profiles.full_name), per l'avviso al coach; null senza. */
+  clientName: string | null;
+  /** Spostata: l'inizio di prima e quello nuovo, ISO. */
+  onMoved: (fromIso: string, toIso: string) => void;
+}
+
+export function ClientMoveSheet({
+  open,
+  onOpenChange,
+  booking,
+  name,
+  coach,
+  clientName,
+  onMoved,
+}: ClientMoveSheetProps) {
+  return (
+    <ClientSheet
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Sposta la sessione"
+      description={
+        <span className="block text-sm leading-[1.45]">{moveCurrent(booking, name)}</span>
+      }
+      list
+      className="shadow-[0_-12px_40px_rgba(0,0,0,0.12)]"
+    >
+      <MoveBody
+        booking={booking}
+        name={name}
+        coach={coach}
+        clientName={clientName}
+        onMoved={onMoved}
+        onClose={() => onOpenChange(false)}
+      />
+    </ClientSheet>
+  );
+}
+
+interface MoveBodyProps extends Omit<ClientMoveSheetProps, "open" | "onOpenChange"> {
+  onClose: () => void;
+}
+
+interface ReadState {
+  data: unknown;
+  isError: boolean;
+  errorUpdateCount: number;
+  fetchStatus: string;
+}
+
+/**
+ * Persa: in errore, oppure senza dati e riletta dopo un errore (TanStack
+ * Query, rileggendo una lettura senza dati, ne toglie l'errore). Finché
+ * risponde resta la card, col pulsante disattivato, come in Sessioni.
+ */
+function lost(q: ReadState): boolean {
+  return q.isError || (q.data === undefined && q.errorUpdateCount > 0 && q.fetchStatus !== "idle");
+}
+
+/**
+ * Il contenuto del foglio. Sta dentro il pannello, che si monta solo a
+ * foglio aperto: le letture partono all'apertura, e scelte ed errore
+ * ripartono da capo a ogni apertura.
+ */
+function MoveBody({ booking, name, coach, clientName, onMoved, onClose }: MoveBodyProps) {
+  const { now } = useClientShell();
+  const qc = useQueryClient();
+  const blocksQ = useClientBlocks(booking.client_id ?? undefined);
+  const {
+    availabilityQ,
+    exceptionsQ,
+    optimizationQ,
+    busyQ,
+    busy,
+    slotsReady,
+    retrySlots,
+    retryingSlots,
+  } = useCoachSlotInputs(booking.coach_id, now);
+  const reschedule = useRescheduleBooking();
+  const [dayIso, setDayIso] = useState<string | null>(null);
+  const [slotIso, setSlotIso] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
+  const movable = canMove(booking, now);
+  const blocks = blocksQ.data;
+  // Senza blocchi letti la finestra sarebbe null e i giorni vuoti: si aspetta.
+  const blocksArrived = blocks !== undefined || !booking.client_id;
+  const failed = [availabilityQ, exceptionsQ, busyQ, blocksQ].some(lost);
+  const ready = slotsReady && blocksArrived;
+  const moveWindow = useMemo(
+    () => getMoveWindow(booking, blocks ?? [], now),
+    [booking, blocks, now],
+  );
+  const days = useMemo(() => {
+    if (!movable || failed || !ready) return null;
+    const slotDays = getClientSlotDays({
+      now,
+      durationMin: sessionMinutes(booking),
+      bufferMin: booking.buffer_min,
+      availability: availabilityQ.data ?? [],
+      exceptions: exceptionsQ.data ?? [],
+      busy,
+      windows: moveWindow ? [moveWindow] : [],
+      exclude: new Date(booking.scheduled_at),
+      optimization: optimizationQ.data ?? true,
+    });
+    return moveDays(slotDays.days, booking);
+  }, [
+    movable,
+    failed,
+    ready,
+    now,
+    booking,
+    availabilityQ.data,
+    exceptionsQ.data,
+    busy,
+    moveWindow,
+    optimizationQ.data,
+  ]);
+
+  // Il giorno è quello scelto finché ha orari, altrimenti il primo con orari;
+  // quello mostrato si ricorda, così un giorno prima che si libera non gli
+  // passa davanti (come in Prenota).
+  const day = days ? moveDay(days, dayIso) : null;
+  const shownDay = day?.isoDate ?? null;
+  useEffect(() => {
+    if (shownDay !== null && shownDay !== dayIso) setDayIso(shownDay);
+  }, [shownDay, dayIso]);
+  const slot = day?.slots.find((s) => s.iso === slotIso) ?? null;
+
+  const pickDay = (isoDate: string) => {
+    if (isoDate === day?.isoDate) return;
+    setDayIso(isoDate);
+    setSlotIso(null);
+    setError(null);
+  };
+  const pickSlot = (iso: string) => {
+    setSlotIso(iso);
+    setError(null);
+  };
+  const retry = () => {
+    retrySlots();
+    if (booking.client_id) void blocksQ.refetch();
+  };
+  const onMove = () => {
+    if (!slot) return;
+    const from = booking.scheduled_at;
+    const to = slot.iso;
+    setError(null);
+    reschedule
+      .mutateAsync({
+        bookingId: booking.id,
+        newScheduledISO: to,
+        oldScheduledISO: from,
+        sessionLabel: name,
+        clientName: clientName ?? undefined,
+      })
+      .then(() => onMoved(from, to))
+      .catch((err) => {
+        // Un orario preso da altri resterebbe fra quelli offerti: si rileggono.
+        invalidateBookingScope(qc, { coachId: booking.coach_id, clientId: booking.client_id });
+        const text = actionErrorText(err, "move");
+        if (mounted.current) setError(text);
+        else toast.warning(text);
+      });
+  };
+
+  if (!movable) {
+    return (
+      <>
+        <p className="text-[15px] leading-normal text-on-surface-variant">
+          {moveBlockedText(coach)}
+        </p>
+        <ClientButton variant="text" fullWidth onClick={onClose}>
+          Indietro
+        </ClientButton>
+      </>
+    );
+  }
+
+  let content: ReactNode;
+  if (failed) {
+    content = (
+      <BookRetryCard
+        title="Orari non aggiornati"
+        text="Non siamo riusciti a leggere gli orari liberi. Riprova tra poco."
+        onRetry={retry}
+        retrying={retryingSlots || blocksQ.isFetching}
+      />
+    );
+  } else if (!days) {
+    content = <MoveSkeleton />;
+  } else {
+    content = (
+      <>
+        <div className="flex flex-col gap-2.5">
+          <h3 className="text-[15px] font-bold">Nuovo giorno</h3>
+          <ClientDayStrip
+            days={days}
+            selectedIso={day?.isoDate ?? null}
+            onSelect={pickDay}
+            gutter={20}
+          />
+        </div>
+        <div className="flex flex-col gap-3">
+          <h3 className="text-[15px] font-bold">{day ? formatLongDay(day.date) : "Orari"}</h3>
+          {day ? (
+            <ClientSlotGroups day={day} selectedIso={slot?.iso ?? null} onSelect={pickSlot} />
+          ) : (
+            <p className="text-sm leading-normal text-on-surface-variant">
+              {moveNoSlotsText(coach)}
+            </p>
+          )}
+        </div>
+        <p className="flex gap-2 text-[13px] leading-normal text-on-surface-variant">
+          <Info className="mt-px size-4 shrink-0 text-primary-container" aria-hidden />
+          <span>{moveRule(moveWindow, coach, now)}</span>
+        </p>
+        {error && (
+          <p role="alert" className="text-sm font-semibold text-danger-text">
+            {error}
+          </p>
+        )}
+        <ClientButton fullWidth disabled={!slot || reschedule.isPending} onClick={onMove}>
+          {moveButton(slot)}
+        </ClientButton>
+      </>
+    );
+  }
+
+  return (
+    <>
+      {content}
+      <ClientButton variant="text" fullWidth disabled={reschedule.isPending} onClick={onClose}>
+        Indietro
+      </ClientButton>
+    </>
+  );
+}
+
+/** Mentre arrivano gli orari o i blocchi: la fila dei giorni e una griglia di orari. */
+function MoveSkeleton() {
+  return (
+    <div className="flex flex-col gap-4" aria-busy="true">
+      <div className="flex flex-col gap-2.5">
+        <Skeleton className="h-5 w-32" />
+        <div className="flex gap-2 overflow-hidden">
+          {Array.from({ length: 6 }, (_, i) => (
+            <Skeleton key={i} className="h-20 w-[60px] shrink-0 rounded-[18px]" />
+          ))}
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        {Array.from({ length: 6 }, (_, i) => (
+          <Skeleton key={i} className="h-12 rounded-[14px]" />
+        ))}
+      </div>
+    </div>
+  );
+}

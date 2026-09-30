@@ -1,445 +1,427 @@
-import { useState } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
-import { format, differenceInHours } from "date-fns";
-import { it } from "date-fns/locale";
-import { CalendarDays, Check, MapPin, Timer, Video, User, CalendarPlus, Info } from "lucide-react";
-import { toast } from "sonner";
+// ----------------------------------------------------------------------------
+// ClientBookingDetailView — il dettaglio della sessione (lato cliente, passata
+// 04, audit D1-D5, O3, O4, B2, H9 e V11)
+// ----------------------------------------------------------------------------
+// Sotto l'intestazione della pagina, una colonna con gap 16:
+//   - l'intestazione della sessione (D3): il chip dello stato, la tipologia
+//     col suo riquadro, giorno e orario, «con …» quando il coach si conosce,
+//     il luogo con «Apri in Mappe» o la videochiamata;
+//   - le azioni dello stato, con al massimo un pulsante pieno (V11): entrare
+//     nella videochiamata, confermare la presenza, Sposta e Annulla, il
+//     riquadro delle 24 ore, o la card delle svolte, assenti, annullate e in
+//     verifica;
+//   - la valutazione (H9), la stessa della Home;
+//   - le informazioni (D4, O4), solo quelle che ci sono: la nota del coach,
+//     «Cosa aspettarti», l'invito del calendario. Nessun pulsante per
+//     aggiungere l'evento al calendario (D2): l'invito si aggiorna da solo.
+// Ogni stato, soglia, data e testo viene da client-session-detail.ts. Dopo
+// un'azione si resta sulla sessione: Annulla e Sposta chiudono il foglio,
+// rileggono il dettaglio e lasciano un toast con «Ripristina» per 8 secondi.
+// Il coach è BookCoach: oggi NO_COACH, finché get_my_coach (02/10/2026) non
+// ne dà nome e WhatsApp; i testi dicono «il tuo coach».
+// ----------------------------------------------------------------------------
+
+import { Link } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { sessionLabel, type BookingStatus, type SessionType } from "@/lib/mock-data";
-import { generateGoogleCalendarLink } from "@/lib/calendar";
-import { useCancelBooking } from "@/lib/queries";
-import { errorMessage } from "@/lib/utils";
-import { useAuth } from "@/lib/auth";
-import { ClientRescheduleSheet } from "@/components/client-reschedule-sheet";
+  CalendarCheck,
+  CalendarDays,
+  CircleCheck,
+  Clock,
+  MapPin,
+  MessageCircle,
+  Repeat,
+  User,
+  Video,
+  type LucideIcon,
+} from "lucide-react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
+import { toast } from "sonner";
+import { ClientButton } from "@/components/client-button";
+import { ClientCancelSheet } from "@/components/client-cancel-sheet";
+import { ClientMoveSheet, type MoveBooking } from "@/components/client-move-sheet";
+import { ClientSessionRating } from "@/components/client-session-rating";
+import { useClientBookState } from "@/hooks/use-client-book-state";
+import { useClientShell } from "@/hooks/use-client-shell";
 import { useConfirmAttendance } from "@/hooks/use-confirm-attendance";
+import { useRestoreBooking } from "@/hooks/use-restore-booking";
+import { useClientFeedback } from "@/hooks/use-session-feedback";
+import { NO_COACH, typeTint, withCoachLine, writeOnWhatsApp } from "@/lib/client-book";
+import {
+  LOCKED_TITLE,
+  absentHint,
+  actionErrorText,
+  canRebook,
+  cancelToast,
+  coachNoteTitle,
+  confirmCaption,
+  detailPanel,
+  detailPlace,
+  detailStatus,
+  detailWhen,
+  freeCancelNote,
+  inviteText,
+  lockedText,
+  moveToast,
+  ratingState,
+  sessionMinutes,
+  statusCard,
+  tileIcon,
+  type DetailEventType,
+} from "@/lib/client-session-detail";
+import { sessionName } from "@/lib/client-sessions";
+import { useRescheduleBooking } from "@/lib/queries";
+import { queryKeys } from "@/lib/query-keys";
+import { iconForType } from "@/lib/session-type-icon";
+import { toastWithUndo } from "@/lib/toast";
+import { cn } from "@/lib/utils";
 
-export interface ClientBookingDetail {
-  id: string;
-  scheduled_at: string;
-  status: BookingStatus;
-  session_type: SessionType;
-  trainer_notes: string | null;
-  meeting_link: string | null;
-  coach_id: string;
-  client_id: string | null;
-  block_id: string | null;
-  event_type_id: string | null;
-  google_event_id: string | null;
-  /** Design handoff: timestamp "Conferma presenza" (null = non confermata,
-   *  assente pre-migrazione 20260703090000). */
-  client_confirmed_at?: string | null;
-  /** H3: per-booking snapshot, see queries.ts BookingRow. */
-  duration_min: number;
-  event_type: {
-    name: string;
-    description: string | null;
-    duration: number;
-    color: string;
-    location_type: "physical" | "online";
-    location_address: string | null;
-  } | null;
-  coach: { full_name: string | null } | null;
-}
+/** La sessione del dettaglio, col coach, il cliente e la sua tipologia (null senza). */
+export type ClientBookingDetail = MoveBooking & { event_type: DetailEventType | null };
 
-// Palette badge dal mock (Client Booking Detail.dc.html): hex locali per
-// Cancellata/Completata perché divergono dai token status-* di styles.css;
-// da centralizzare in token se il design viene confermato anche altrove.
-function statusStyle(s: BookingStatus): { bg: string; fg: string; label: string } {
-  switch (s) {
-    case "completed":
-      return {
-        bg: "#ecfdf5",
-        fg: "#059669",
-        label: "Completata",
-      };
-    case "scheduled":
-      return {
-        bg: "var(--color-status-info-bg)",
-        fg: "var(--color-on-status-info)",
-        label: "Programmata",
-      };
-    case "cancelled":
-      return {
-        bg: "#fef2f2",
-        fg: "#dc2626",
-        label: "Cancellata",
-      };
-    case "late_cancelled":
-      return {
-        bg: "#fef2f2",
-        fg: "#dc2626",
-        label: "Cancellazione tardiva",
-      };
-    case "no_show":
-      return {
-        bg: "#fef2f2",
-        fg: "#dc2626",
-        label: "No Show",
-      };
-  }
+// Il coach nei testi. Il cliente oggi non legge il profilo del coach (nessuna
+// policy di profiles glielo dà): nome e WhatsApp arriveranno da get_my_coach,
+// con le migrazioni del 02/10/2026, come in Prenota. Fino ad allora i testi
+// dicono «il tuo coach», e la riga «con …» e i pulsanti WhatsApp non ci sono.
+const COACH = NO_COACH;
+
+const CARD = "rounded-[24px] border border-outline-variant/35 bg-white";
+
+function DetailRow({ icon: Icon, children }: { icon: LucideIcon; children: ReactNode }) {
+  return (
+    <li className="flex gap-2.5 text-[15px] leading-[1.4]">
+      <Icon className="mt-px size-[18px] shrink-0 text-aura-primary" aria-hidden />
+      <span className="flex min-w-0 flex-col">{children}</span>
+    </li>
+  );
 }
 
 export interface ClientBookingDetailViewProps {
   booking: ClientBookingDetail;
 }
 
-/**
- * Body completo della pagina dettaglio booking client (escluso loading/error
- * state e back-header che restano nel route parent):
- *
- *   - Hero card: status badge + title + date/time + location
- *   - Duration card
- *   - Session description (se presente)
- *   - Coach notes card
- *   - Action buttons: Add to GCal / Riprogramma / Cancella (free/late variant)
- *   - 2 AlertDialog conferme (free / late cancellation)
- *   - ClientRescheduleSheet
- *
- * Estratto da client.bookings.$bookingId.tsx (era function BookingDetailView
- * inline). statusStyle helper trasportato qui dentro perché usato solo
- * dalla view.
- */
 export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProps) {
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const cancelMut = useCancelBooking();
-  const [confirmFreeOpen, setConfirmFreeOpen] = useState(false);
-  const [confirmLateOpen, setConfirmLateOpen] = useState(false);
-  const [rescheduleOpen, setRescheduleOpen] = useState(false);
-
-  const start = new Date(booking.scheduled_at);
-  // H3: prefer the per-booking snapshot — the event_type join is the
-  // legacy fallback for very old bookings inserted before the duration
-  // denormalization trigger (migration 20260518120000) shipped.
-  const duration = booking.duration_min ?? booking.event_type?.duration ?? 60;
-  const end = new Date(start.getTime() + duration * 60_000);
-  const status = statusStyle(booking.status);
-  const title = booking.event_type?.name ?? sessionLabel(booking.session_type);
-  const dateStr = format(start, "d MMMM yyyy", { locale: it });
-  const timeStr = `${format(start, "HH:mm")} - ${format(end, "HH:mm")}`;
-
-  const isOnline = booking.event_type?.location_type === "online";
-  const address = booking.event_type?.location_address;
-  const mapsHref = address
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
-    : null;
-
-  const isFuture = start.getTime() > Date.now();
-  // within24h is now purely a UX hint — the server-side cancel_booking RPC
-  // is the authority on whether the cancellation counts as late (M3).
-  const hoursUntil = differenceInHours(start, new Date());
-  const within24h = hoursUntil < 24;
-  const canManage = booking.status === "scheduled" && isFuture;
-  // Mock stato cancellato: GCal/Riprogramma restano visibili ma attenuati e
-  // inerti (il "Ripristina prenotazione" del prototipo non ha RPC: non implementato).
-  const isCancelled = booking.status === "cancelled" || booking.status === "late_cancelled";
-  // Design handoff: conferma presenza (RPC dedicata, vedi use-confirm-attendance)
+  const { now } = useClientShell();
+  const qc = useQueryClient();
+  const { meId, profile, state } = useClientBookState(now, COACH);
+  const feedbackQ = useClientFeedback(meId);
   const confirmAttendance = useConfirmAttendance();
-  const isConfirmed = !!booking.client_confirmed_at;
+  const restore = useRestoreBooking();
+  const reschedule = useRescheduleBooking();
+  const [sheet, setSheet] = useState<"move" | "cancel" | null>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const statusRef = useRef<HTMLParagraphElement>(null);
 
-  function showCancelToast(wasLate: boolean) {
-    if (wasLate) {
-      toast.warning("Sessione annullata", {
-        description: "Credito perso (cancellazione tardiva).",
-      });
-    } else {
-      toast.success("Sessione annullata", { description: "Il credito è stato rimborsato." });
-    }
-  }
+  const eventType = booking.event_type;
+  const name = sessionName(booking, eventType);
+  const email = profile?.email ?? null;
+  const feedback = feedbackQ.data?.find((f) => f.booking_id === booking.id);
+  const model = useMemo(() => {
+    const place = detailPlace(eventType);
+    const panel = detailPanel(booking, place?.online ?? false, now);
+    return {
+      status: detailStatus(booking, now),
+      when: detailWhen(booking, now),
+      place,
+      panel,
+      card: panel.status ? statusCard(booking, canRebook(booking, state), now) : null,
+      invite: inviteText(booking, email, now),
+      rating: ratingState(booking, feedback !== undefined, now),
+    };
+  }, [booking, eventType, now, state, email, feedback]);
+  const { status, when, place, panel, card, invite, rating } = model;
 
-  function handleFreeCancel() {
-    cancelMut.mutate(
-      { id: booking.id },
-      {
-        onSuccess: (result) => {
-          showCancelToast(result.wasLate);
-          navigate({ to: "/client" });
-        },
-        onError: (e: unknown) => toast.error("Errore", { description: errorMessage(e) }),
-      },
+  const StatusIcon = status.icon;
+  const TypeIcon = iconForType(name);
+  const color = eventType?.color ?? null;
+  const coachLine = withCoachLine(COACH);
+  const absent = absentHint(COACH);
+  const note = booking.trainer_notes?.trim() || null;
+  const description = eventType?.description?.trim() || null;
+  // La colonna note arriva col 02/10: la riga di select("*") la porta solo da lì.
+  const savedNote = (feedback as { note?: string | null } | undefined)?.note ?? null;
+  const hasActions = panel.join || panel.confirm || panel.manage !== null || card !== null;
+
+  const detailKey = queryKeys.bookings.detail(booking.id);
+  const refreshDetail = () => {
+    void qc.invalidateQueries({ queryKey: detailKey });
+  };
+
+  // «Conferma presenza» sparisce con la rilettura: il focus va sul titolo.
+  const onConfirmAttendance = () => {
+    confirmAttendance.mutate(
+      { bookingId: booking.id, clientId: booking.client_id },
+      { onSuccess: () => titleRef.current?.focus({ preventScroll: true }) },
     );
-  }
+  };
 
-  function handleLateCancel() {
-    cancelMut.mutate(
-      { id: booking.id },
-      {
-        onSuccess: (result) => {
-          showCancelToast(result.wasLate);
-          navigate({ to: "/client" });
-        },
-        onError: (e: unknown) => toast.error("Errore", { description: errorMessage(e) }),
-      },
+  // «Ripristina» dell'annullamento: la sessione com'era prima (useRestoreBooking
+  // ricrea anche l'evento Google, col riepilogo di Prenota).
+  const restoreSession = () => {
+    restore.mutate({
+      bookingId: booking.id,
+      coachId: booking.coach_id,
+      clientId: booking.client_id,
+      scheduledAt: booking.scheduled_at,
+      durationMin: sessionMinutes(booking),
+      name,
+      clientName: profile?.full_name ?? email ?? "Cliente",
+      color,
+      online: place?.online ?? false,
+      description,
+    });
+  };
+
+  const onCancelled = (wasLate: boolean) => {
+    // Lo stato del server subito: la card compare mentre il foglio si chiude, e
+    // il focus va lì (returnFocus), perché «Annulla sessione» non c'è più.
+    qc.setQueryData<ClientBookingDetail | null>(detailKey, (old) =>
+      old ? { ...old, status: wasLate ? "late_cancelled" : "cancelled" } : old,
     );
-  }
+    setSheet(null);
+    refreshDetail();
+    const done = cancelToast(wasLate);
+    toastWithUndo(done.text, restoreSession, done.tone);
+  };
+
+  // «Ripristina» dello spostamento: useRescheduleBooking verso l'orario di prima,
+  // che avvisa di nuovo il coach (la sessione torna dov'era).
+  const moveBack = (fromIso: string, toIso: string) => {
+    reschedule
+      .mutateAsync({
+        bookingId: booking.id,
+        newScheduledISO: toIso,
+        oldScheduledISO: fromIso,
+        sessionLabel: name,
+        clientName: profile?.full_name ?? undefined,
+      })
+      .then(() => {
+        refreshDetail();
+        toast.success("Sessione riportata all'orario di prima.");
+      })
+      .catch((err) => toast.warning(actionErrorText(err, "undo-move")));
+  };
+
+  const onMoved = (fromIso: string, toIso: string) => {
+    setSheet(null);
+    refreshDetail();
+    toastWithUndo(moveToast(toIso, COACH), () => moveBack(toIso, fromIso));
+  };
+
+  const closeSheet = (open: boolean) => {
+    if (!open) setSheet(null);
+  };
 
   return (
     <>
-      {/* Hero card */}
-      <section className="bg-surface-container-lowest rounded-[32px] p-stack-lg shadow-[0_8px_30px_rgba(0,0,0,0.04)]">
-        <div className="flex flex-col gap-stack-md">
-          <div>
-            <div className="mb-stack-sm">
-              <span
-                className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold"
-                style={{ backgroundColor: status.bg, color: status.fg }}
-              >
-                {status.label}
-              </span>
-            </div>
-            <h1 className="text-2xl font-semibold text-on-surface">{title}</h1>
-          </div>
-          <div className="space-y-stack-sm mt-stack-sm">
-            <div className="flex items-center gap-3 text-on-surface-variant">
-              <CalendarDays className="size-5 text-reschedule shrink-0" />
-              <span>
-                {dateStr} • {timeStr}
-              </span>
-            </div>
-
-            <div className="flex items-start gap-3 text-on-surface-variant">
-              {isOnline ? (
-                <Video className="size-5 text-reschedule shrink-0 mt-0.5" />
-              ) : (
-                <MapPin className="size-5 text-reschedule shrink-0 mt-0.5" />
-              )}
-              {isOnline ? (
-                booking.meeting_link ? (
-                  <a
-                    href={booking.meeting_link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-reschedule underline underline-offset-2"
-                  >
-                    Sessione Online — Apri videocall
-                  </a>
-                ) : (
-                  <span>Sessione Online</span>
-                )
-              ) : mapsHref ? (
+      <section className={cn(CARD, "flex flex-col gap-3.5 p-5 shadow-soft-card")}>
+        <span
+          className={cn(
+            "inline-flex items-center gap-1.5 self-start rounded-full px-2.5 py-1 text-xs font-bold",
+            status.tone.bg,
+            status.tone.fg,
+          )}
+        >
+          <StatusIcon className="size-3.5 shrink-0" aria-hidden />
+          {status.label}
+        </span>
+        <div className="flex items-center gap-3">
+          <span
+            aria-hidden
+            className="grid size-12 shrink-0 place-items-center rounded-[14px]"
+            style={{ background: typeTint(color), color: tileIcon(color) }}
+          >
+            <TypeIcon className="size-6" />
+          </span>
+          <h2
+            ref={titleRef}
+            tabIndex={-1}
+            className="font-display text-[24px] leading-[1.2] font-bold tracking-[-0.01em]"
+          >
+            {name}
+          </h2>
+        </div>
+        <ul className="flex flex-col gap-2.5">
+          <DetailRow icon={CalendarDays}>
+            <strong className="font-bold">{when.day}</strong>
+            <span>{when.time}</span>
+          </DetailRow>
+          {coachLine && <DetailRow icon={User}>{coachLine}</DetailRow>}
+          {place && (
+            <DetailRow icon={place.online ? Video : MapPin}>
+              <span>{place.text}</span>
+              {place.mapsHref && (
                 <a
-                  href={mapsHref}
+                  href={place.mapsHref}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-reschedule underline underline-offset-2"
+                  className="mt-0.5 self-start text-sm font-bold text-aura-primary"
                 >
-                  {address}
+                  Apri in Mappe
                 </a>
-              ) : (
-                <span>Luogo da definire</span>
               )}
+            </DetailRow>
+          )}
+        </ul>
+      </section>
+
+      {hasActions && (
+        <div className="flex flex-col gap-3">
+          {panel.join && booking.meeting_link && (
+            <ClientButton asChild fullWidth>
+              <a href={booking.meeting_link} target="_blank" rel="noopener noreferrer">
+                <Video className="size-[18px]" aria-hidden />
+                Entra nella videochiamata
+              </a>
+            </ClientButton>
+          )}
+          {panel.confirm && (
+            <div className="flex flex-col gap-2">
+              <ClientButton
+                fullWidth
+                icon={CircleCheck}
+                disabled={confirmAttendance.isPending}
+                onClick={onConfirmAttendance}
+              >
+                Conferma presenza
+              </ClientButton>
+              <p className="text-center text-[13px] leading-[1.45] text-on-surface-variant">
+                {confirmCaption(COACH)}
+              </p>
             </div>
-          </div>
+          )}
+          {panel.manage === "free" && (
+            <div className="flex flex-col gap-2">
+              <ClientButton
+                variant="secondary"
+                fullWidth
+                icon={Repeat}
+                className="bg-white font-bold"
+                onClick={() => setSheet("move")}
+              >
+                Sposta
+              </ClientButton>
+              <ClientButton variant="text-danger" fullWidth onClick={() => setSheet("cancel")}>
+                Annulla sessione
+              </ClientButton>
+              <p className="text-center text-[13px] leading-[1.45] text-on-surface-variant">
+                {freeCancelNote(booking)}
+              </p>
+            </div>
+          )}
+          {panel.manage === "locked" && (
+            <section className="flex flex-col gap-2.5 rounded-[24px] bg-warning-soft p-4">
+              <p className="flex items-center gap-2 text-[15px] font-bold text-warning-ink">
+                <Clock className="size-[18px] shrink-0" aria-hidden />
+                {LOCKED_TITLE}
+              </p>
+              <p className="text-sm leading-normal text-on-surface-variant">
+                {lockedText(name, COACH)}
+              </p>
+              {COACH.whatsapp && (
+                <ClientButton asChild variant="secondary" fullWidth className="bg-white font-bold">
+                  <a href={COACH.whatsapp} target="_blank" rel="noopener noreferrer">
+                    <MessageCircle className="size-4" aria-hidden />
+                    {writeOnWhatsApp(COACH)}
+                  </a>
+                </ClientButton>
+              )}
+              <ClientButton variant="text-danger" fullWidth onClick={() => setSheet("cancel")}>
+                Annulla comunque
+              </ClientButton>
+            </section>
+          )}
+          {card && (
+            <section className={cn(CARD, "flex flex-col gap-2.5 p-4")}>
+              <p
+                ref={statusRef}
+                tabIndex={-1}
+                className={cn("flex gap-2 text-[15px] font-bold", status.tone.fg)}
+              >
+                <StatusIcon className="mt-px size-[18px] shrink-0" aria-hidden />
+                {card.line}
+              </p>
+              {card.absent && absent.href && (
+                <a
+                  href={absent.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="self-start text-sm font-bold text-aura-primary"
+                >
+                  {absent.text}
+                </a>
+              )}
+              {card.absent && !absent.href && (
+                <p className="text-sm font-bold text-aura-primary">{absent.text}</p>
+              )}
+              {card.rebook && (
+                <ClientButton asChild variant="secondary" fullWidth className="font-bold">
+                  <Link
+                    to="/client/book"
+                    search={{ eventType: booking.event_type_id ?? undefined }}
+                  >
+                    Prenota di nuovo
+                  </Link>
+                </ClientButton>
+              )}
+            </section>
+          )}
         </div>
-      </section>
+      )}
 
-      {/* Duration */}
-      <section className="bg-surface-container-lowest rounded-[32px] p-stack-md shadow-[0_8px_30px_rgba(0,0,0,0.04)] flex items-center gap-3">
-        <Timer className="size-5 text-reschedule" />
-        <p className="text-base text-on-surface">
-          Durata: <span className="font-semibold">{duration} min</span>
-        </p>
-      </section>
+      {rating.show && meId && feedbackQ.data !== undefined && (
+        <ClientSessionRating
+          bookingId={booking.id}
+          clientId={meId}
+          rating={feedback?.rating ?? null}
+          note={savedNote}
+          editable={rating.editable}
+          coach={COACH}
+          layout="detail"
+        />
+      )}
 
-      {/* Session description */}
-      {booking.event_type?.description && (
-        <section className="rounded-2xl bg-white/40 backdrop-blur-xl border border-white/30 shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-stack-lg">
-          <div className="flex items-center gap-3 mb-stack-sm">
-            <div className="w-9 h-9 rounded-full bg-reschedule/10 text-reschedule grid place-items-center">
-              <Info className="size-4" />
+      {(note || description || invite) && (
+        <section className={cn(CARD, "flex flex-col gap-3.5 p-4")}>
+          {note && (
+            <div className="flex flex-col gap-1">
+              <h3 className="text-sm font-bold">{coachNoteTitle(COACH)}</h3>
+              <p className="text-[15px] leading-normal whitespace-pre-wrap text-on-surface-variant">
+                {note}
+              </p>
             </div>
-            <h2 className="text-sm font-semibold text-on-surface">
-              Cosa aspettarti da questa sessione
-            </h2>
-          </div>
-          <p className="text-sm text-on-surface-variant leading-relaxed whitespace-pre-wrap">
-            {booking.event_type.description}
-          </p>
+          )}
+          {description && (
+            <div className="flex flex-col gap-1">
+              <h3 className="text-sm font-bold">Cosa aspettarti</h3>
+              <p className="text-[15px] leading-normal text-on-surface-variant">{description}</p>
+            </div>
+          )}
+          {invite && (
+            <p className="flex gap-2.5 text-sm leading-[1.45] text-on-surface-variant">
+              <CalendarCheck className="mt-px size-[18px] shrink-0 text-aura-primary" aria-hidden />
+              <span>{invite}</span>
+            </p>
+          )}
         </section>
       )}
 
-      {/* Coach notes */}
-      <section className="bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] overflow-hidden relative border-l-4 border-reschedule">
-        <div className="p-stack-lg">
-          <div className="flex items-center gap-3 mb-stack-md">
-            <div className="w-10 h-10 rounded-full bg-primary-container text-white grid place-items-center border border-outline-variant">
-              <User className="size-5" />
-            </div>
-            <div>
-              <h2 className="text-sm font-semibold text-on-surface">Note del Coach</h2>
-              {booking.coach?.full_name && (
-                <p className="text-xs text-on-surface-variant">{booking.coach.full_name}</p>
-              )}
-            </div>
-          </div>
-          {booking.trainer_notes ? (
-            <p className="text-base text-on-surface-variant leading-relaxed whitespace-pre-wrap">
-              {booking.trainer_notes}
-            </p>
-          ) : (
-            <p className="text-base text-on-surface-variant leading-relaxed">
-              Nessuna nota per questa sessione. Ci vediamo in studio!
-            </p>
-          )}
-        </div>
-      </section>
-
-      {/* Action buttons */}
-      <div className="pt-stack-lg pb-stack-lg space-y-stack-md">
-        {/* Mock: il bottone resta nelle azioni anche a presenza confermata
-            (variante verde soft, cursor default), niente chip nel hero. */}
-        {canManage &&
-          (isConfirmed ? (
-            <button
-              type="button"
-              className="flex items-center justify-center gap-2 w-full py-4 rounded-full bg-success-strong/12 text-success-strong font-bold cursor-default"
-            >
-              <Check className="size-5" strokeWidth={2.5} aria-hidden />
-              Presenza confermata
-            </button>
-          ) : (
-            <button
-              type="button"
-              disabled={confirmAttendance.isPending}
-              onClick={() =>
-                confirmAttendance.mutate({ bookingId: booking.id, clientId: booking.client_id })
-              }
-              className="flex items-center justify-center gap-2 w-full py-4 rounded-full bg-on-status-success text-white font-bold hover:opacity-90 active:scale-95 transition disabled:opacity-60"
-            >
-              <Check className="size-5" aria-hidden />
-              Conferma presenza
-            </button>
-          ))}
-
-        {(canManage || isCancelled) && (
-          <a
-            href={generateGoogleCalendarLink(
-              { scheduled_at: booking.scheduled_at },
-              booking.event_type,
-              booking.coach?.full_name ?? null,
-            )}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-disabled={isCancelled || undefined}
-            tabIndex={isCancelled ? -1 : undefined}
-            className={`flex items-center justify-center gap-2 w-full py-4 rounded-full bg-primary-container text-white font-semibold shadow-md hover:opacity-90 active:scale-95 transition ${
-              isCancelled ? "opacity-40 pointer-events-none" : ""
-            }`}
-          >
-            <CalendarPlus className="size-5" />
-            Aggiungi a Google Calendar
-          </a>
-        )}
-
-        {((canManage && !within24h) || isCancelled) && (
-          <button
-            type="button"
-            disabled={isCancelled}
-            onClick={() => setRescheduleOpen(true)}
-            className={`block w-full py-4 rounded-full border border-outline-variant text-reschedule font-semibold bg-transparent hover:bg-surface-container-low transition-colors text-center ${
-              isCancelled ? "opacity-40 pointer-events-none" : ""
-            }`}
-          >
-            Riprogramma
-          </button>
-        )}
-
-        {canManage && !within24h && (
-          <button
-            type="button"
-            onClick={() => setConfirmFreeOpen(true)}
-            className="block w-full py-4 rounded-full bg-surface-container-high text-on-surface font-semibold hover:bg-surface-container-highest transition-colors text-center"
-          >
-            Cancella
-          </button>
-        )}
-
-        {canManage && within24h && (
-          <button
-            type="button"
-            onClick={() => setConfirmLateOpen(true)}
-            className="block w-full py-4 rounded-full bg-destructive text-destructive-foreground font-semibold hover:opacity-90 transition-opacity text-center"
-          >
-            Cancella
-          </button>
-        )}
-
-        {!canManage && (
-          <Link
-            to="/client/book"
-            className="block w-full py-4 rounded-full border border-outline-variant text-primary font-semibold bg-transparent hover:bg-surface-container-low transition-colors text-center"
-          >
-            Prenota prossima sessione
-          </Link>
-        )}
-      </div>
-
-      {/* Free cancel dialog */}
-      <AlertDialog open={confirmFreeOpen} onOpenChange={setConfirmFreeOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Annulla sessione</AlertDialogTitle>
-            <AlertDialogDescription>
-              Annullamento gratuito. Il credito verrà rimborsato.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Indietro</AlertDialogCancel>
-            <AlertDialogAction onClick={handleFreeCancel} disabled={cancelMut.isPending}>
-              Conferma annullamento
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Late cancel dialog */}
-      <AlertDialog open={confirmLateOpen} onOpenChange={setConfirmLateOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Cancellazione tardiva</AlertDialogTitle>
-            <AlertDialogDescription>
-              Mancano meno di 24 ore. L'annullamento comporterà la perdita del credito (sessione
-              erogata).
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Indietro</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleLateCancel}
-              disabled={cancelMut.isPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Cancella comunque
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Reschedule sheet (athlete-driven UPDATE flow; coach is notified). */}
-      <ClientRescheduleSheet
-        open={rescheduleOpen}
-        onOpenChange={setRescheduleOpen}
-        booking={{
-          id: booking.id,
-          scheduled_at: booking.scheduled_at,
-          coach_id: booking.coach_id,
-          client_id: booking.client_id,
-          duration_min: duration,
-          google_event_id: booking.google_event_id,
-          session_label: title,
-        }}
-        clientName={
-          (user?.user_metadata?.full_name as string | undefined) ?? user?.email ?? "Cliente"
-        }
+      <ClientMoveSheet
+        open={sheet === "move"}
+        onOpenChange={closeSheet}
+        booking={booking}
+        name={name}
+        coach={COACH}
+        clientName={profile?.full_name ?? null}
+        onMoved={onMoved}
+      />
+      <ClientCancelSheet
+        open={sheet === "cancel"}
+        onOpenChange={closeSheet}
+        booking={booking}
+        name={name}
+        onCancelled={onCancelled}
+        returnFocus={() => statusRef.current ?? titleRef.current}
       />
     </>
   );

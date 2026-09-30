@@ -200,6 +200,20 @@ describe("upcomingGroups", () => {
     ]);
   });
 
+  // u8 cade di lunedì, e col giorno della sessione al posto del lunedì il
+  // gruppo si chiamerebbe allo stesso modo: qui nessuna cade di lunedì.
+  it("dalla terza settimana il gruppo prende il lunedì, non il giorno della sessione", () => {
+    const list = [
+      s("mer", "pt", at(2026, 10, 14, 9), "scheduled"),
+      s("sab", "pt", at(2026, 10, 17, 9), "scheduled"),
+      s("gio", "pt", at(2026, 10, 22, 9), "scheduled"),
+    ];
+    expect(groups(upcomingGroups(list, NOW))).toEqual([
+      ["Dal lunedì 12 ottobre", ["mer", "sab"]],
+      ["Dal lunedì 19 ottobre", ["gio"]],
+    ]);
+  });
+
   // A Roma quella settimana dura 167 ore (in UTC e a Los Angeles 168): la
   // prova distingue le settimane di calendario dai millisecondi solo col fuso
   // europeo, per questo i test girano anche a Roma (R5).

@@ -7,6 +7,9 @@
 // permette di correggere la valutazione.
 //
 // Degradazione garbata pre-migrazione: vedi isMissingMigration in use-bia.
+// La nota facoltativa (dettaglio della sessione, passata 04) vuole la colonna
+// note, della migrazione del 02/10/2026: finché manca il voto si salva senza,
+// e useSetSessionFeedback lo dice con noteSaved falso.
 // ----------------------------------------------------------------------------
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -16,6 +19,7 @@ import { isMissingMigration } from "@/hooks/use-bia";
 import type { Database } from "@/integrations/supabase/types";
 
 export type SessionFeedback = Database["public"]["Tables"]["session_feedback"]["Row"];
+type FeedbackInsert = Database["public"]["Tables"]["session_feedback"]["Insert"];
 
 /** Tutte le valutazioni del cliente (serve a capire quali sessioni completate
  *  sono ancora senza feedback). */
@@ -44,15 +48,38 @@ export function useClientFeedback(clientId: string | null | undefined) {
   });
 }
 
-/** Cliente: registra (o corregge) la valutazione di una sessione completata. */
+/**
+ * Cliente: registra (o corregge) la valutazione di una sessione completata.
+ * `note`: una stringa, o null per toglierla; chi non la passa (la Home) non la
+ * tocca, e la riga non ha la chiave. Senza la colonna note (PostgREST risponde
+ * PGRST204, «Could not find the 'note' column … in the schema cache») riprova
+ * una volta senza la nota e restituisce noteSaved falso.
+ */
 export function useSetSessionFeedback() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { booking_id: string; client_id: string; rating: number }) => {
+    mutationFn: async (input: {
+      booking_id: string;
+      client_id: string;
+      rating: number;
+      note?: string | null;
+    }): Promise<{ noteSaved: boolean }> => {
+      const { note, ...row } = input;
+      // I tipi generati non hanno ancora la colonna note.
+      const values = (note === undefined ? row : { ...row, note }) as FeedbackInsert;
       const { error } = await supabase
         .from("session_feedback")
-        .upsert(input, { onConflict: "booking_id" });
-      if (error) throw new Error(error.message);
+        .upsert(values, { onConflict: "booking_id" });
+      if (!error) return { noteSaved: true };
+      // Sull'errore di PostgREST, che ha il codice: new Error(error.message) lo perde.
+      if (note !== undefined && isMissingMigration(error)) {
+        const retry = await supabase
+          .from("session_feedback")
+          .upsert(row, { onConflict: "booking_id" });
+        if (retry.error) throw new Error(retry.error.message);
+        return { noteSaved: false };
+      }
+      throw new Error(error.message);
     },
     onSuccess: (_d, input) => {
       qc.invalidateQueries({ queryKey: queryKeys.sessionFeedback.client(input.client_id) });
