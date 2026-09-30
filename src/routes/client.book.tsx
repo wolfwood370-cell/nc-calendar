@@ -16,8 +16,6 @@
 // ----------------------------------------------------------------------------
 
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { addDays, parseISO } from "date-fns";
 import { Info, MessageCircle } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { BookActionBar } from "@/components/book-action-bar";
@@ -32,14 +30,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useBookConfirm, type BookConfirmType } from "@/hooks/use-book-confirm";
 import { useClientBookState } from "@/hooks/use-client-book-state";
 import { useClientShell } from "@/hooks/use-client-shell";
-import { supabase } from "@/integrations/supabase/client";
+import { useCoachSlotInputs } from "@/hooks/use-coach-slot-inputs";
 import { useAuth } from "@/lib/auth";
-import {
-  CLIENT_BOOKING_HORIZON_DAYS,
-  bookingRulesText,
-  type CreditWindow,
-} from "@/lib/booking-rules";
-import type { BlockedRange } from "@/lib/booking-slots";
+import { bookingRulesText, type CreditWindow } from "@/lib/booking-rules";
 import {
   NO_COACH,
   barType,
@@ -60,12 +53,6 @@ import {
 } from "@/lib/client-book";
 import { bookSubtitle, clientPageTitle } from "@/lib/client-shell";
 import { getClientSlotDays } from "@/lib/client-slots";
-import { toIsoDate } from "@/lib/current-block";
-import {
-  useCoachAvailability,
-  useCoachAvailabilityExceptions,
-  useCoachOptimizationEnabled,
-} from "@/lib/queries";
 import { renewsAutomatically } from "@/lib/renewal";
 import { formatLongDay } from "@/lib/session-time";
 
@@ -117,12 +104,6 @@ interface ChosenSlot {
   window: CreditWindow;
 }
 
-interface BusyRow {
-  scheduled_at: string;
-  duration: number | null;
-  buffer_minutes: number | null;
-}
-
 function BookFlow() {
   const { user } = useAuth();
   const { now } = useClientShell();
@@ -143,33 +124,17 @@ function BookFlow() {
     retry,
     retrying,
   } = useClientBookState(now, COACH);
-  const availabilityQ = useCoachAvailability(coachId);
-  const exceptionsQ = useCoachAvailabilityExceptions(coachId);
-  const optimizationQ = useCoachOptimizationEnabled(coachId);
-
-  // Gli occupati del coach da mezzanotte di oggi alla fine di oggi + 14. La
-  // chiave comincia con ["coach-busy", coachId]: invalidateBookingScope la
-  // rinfresca dopo ogni prenotazione.
-  const today = toIsoDate(now);
-  const busyQ = useQuery({
-    queryKey: ["coach-busy", coachId, "prenota", today],
-    enabled: !!coachId,
-    // A mezzanotte la chiave cambia: intanto restano gli occupati di prima.
-    placeholderData: (previous) => previous,
-    queryFn: async (): Promise<BusyRow[]> => {
-      if (!coachId) return [];
-      const from = parseISO(today);
-      const to = addDays(from, CLIENT_BOOKING_HORIZON_DAYS);
-      to.setHours(23, 59, 59, 999);
-      const { data, error } = await supabase.rpc("get_coach_busy", {
-        p_coach_id: coachId,
-        p_from: from.toISOString(),
-        p_to: to.toISOString(),
-      });
-      if (error) throw error;
-      return (data ?? []) as BusyRow[];
-    },
-  });
+  // Gli orari del coach e le loro letture: lo stesso hook di Sposta.
+  const {
+    availabilityQ,
+    exceptionsQ,
+    optimizationQ,
+    busy,
+    slotsFailed,
+    slotsReady,
+    retrySlots,
+    retryingSlots,
+  } = useCoachSlotInputs(coachId, now);
 
   const options = state?.options ?? NO_OPTIONS;
 
@@ -229,21 +194,6 @@ function BookFlow() {
   };
 
   // ---- Giorni e orari ---------------------------------------------------
-  const busy = useMemo<BlockedRange[]>(
-    () =>
-      (busyQ.data ?? []).map((b) => {
-        const start = new Date(b.scheduled_at).getTime();
-        return { start, end: start + ((b.duration ?? 60) + (b.buffer_minutes ?? 0)) * 60_000 };
-      }),
-    [busyQ.data],
-  );
-  const slotsFailed = availabilityQ.isError || exceptionsQ.isError || busyQ.isError;
-  // Senza coach non c'è niente da leggere: i giorni vengono chiusi, e basta.
-  const slotsReady =
-    coachId === null ||
-    (availabilityQ.data !== undefined &&
-      exceptionsQ.data !== undefined &&
-      busyQ.data !== undefined);
   const slotDays = useMemo(() => {
     if (!bookable || !slotsReady || slotsFailed) return null;
     return getClientSlotDays({
@@ -409,13 +359,6 @@ function BookFlow() {
       ? bookSubtitle(client.path_type, blocksQ.data, now)
       : null;
 
-  const retrySlots = () => {
-    if (!coachId) return;
-    void availabilityQ.refetch();
-    void exceptionsQ.refetch();
-    void busyQ.refetch();
-  };
-
   let content: ReactNode;
   if (loading) {
     content = <BookSkeleton />;
@@ -454,7 +397,7 @@ function BookFlow() {
               title="Orari non aggiornati"
               text="Non siamo riusciti a leggere gli orari liberi. Riprova tra poco."
               onRetry={retrySlots}
-              retrying={availabilityQ.isFetching || exceptionsQ.isFetching || busyQ.isFetching}
+              retrying={retryingSlots}
             />
           ) : !slotDays ? (
             <SlotsSkeleton />
