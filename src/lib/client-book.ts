@@ -166,12 +166,12 @@ export interface BookStateInput {
 // Il coach nei testi
 // ----------------------------------------------------------------------------
 
-function coachFirstName(coach: BookCoach): string | null {
+export function coachFirstName(coach: BookCoach): string | null {
   return coach.firstName?.trim() || coach.name?.trim().split(/\s+/)[0] || null;
 }
 
 /** «Il tuo coach» a inizio frase, altrimenti il nome. */
-function coachSubject(coach: BookCoach): string {
+export function coachSubject(coach: BookCoach): string {
   return coachFirstName(coach) ?? "Il tuo coach";
 }
 
@@ -182,7 +182,7 @@ function coachWith(coach: BookCoach): string {
 }
 
 /** «al tuo coach» · «a Nicolò». */
-function coachTo(coach: BookCoach): string {
+export function coachTo(coach: BookCoach): string {
   const first = coachFirstName(coach);
   return first ? `a ${first}` : "al tuo coach";
 }

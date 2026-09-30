@@ -221,7 +221,9 @@ const RATING_TONE = { bg: "bg-rating-soft", fg: "text-rating-text" };
 
 // Il contrasto WCAG, con la formula di luminance in event-colors.ts (lì è
 // privata). La tinta al 10% (#rrggbb1a, alfa 26/255) è composta sul bianco
-// della riga, canale per canale e arrotondata come la dipinge il browser.
+// della riga, canale per canale e arrotondata come la dipinge il browser. Il
+// dettaglio (passata 04) usa lo stesso contrasto per l'icona della tipologia,
+// con la soglia degli elementi grafici.
 const MIN_TEXT_CONTRAST = 4.5;
 const TINT_ALPHA = 0x1a / 255;
 
@@ -247,27 +249,45 @@ function luminance([r, g, b]: Rgb): number {
 }
 
 /**
+ * Il contrasto fra il colore della tipologia (typeColor) e la sua tinta al
+ * 10% dipinta sul bianco: #D50000 4,55, #7986CB 3,11, #039BE5 2,75, e 6,69
+ * senza colore (#005685).
+ */
+export function tintContrast(color: string | null): number {
+  const rgb = channels(typeColor(color));
+  const a = luminance(rgb);
+  const b = luminance(tintOnWhite(rgb));
+  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+}
+
+/**
  * Il testo del riquadro della data: il colore della tipologia se sulla sua
  * tinta fa almeno 4,5:1 (il testo del giorno è 12 px), altrimenti il
  * primario. I colori delle tipologie sono quelli di Google Calendar: fra
  * quelli del backup resta solo #D50000 (4,55), e #005685 senza colore (6,69).
  */
 export function tileText(color: string | null): string {
-  const fg = typeColor(color);
-  const rgb = channels(fg);
-  const a = luminance(rgb);
-  const b = luminance(tintOnWhite(rgb));
-  const ratio = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
-  return ratio >= MIN_TEXT_CONTRAST ? fg : "var(--color-aura-primary)";
+  return tintContrast(color) >= MIN_TEXT_CONTRAST ? typeColor(color) : "var(--color-aura-primary)";
+}
+
+/**
+ * Il nome della sessione: quello della tipologia; senza (o con un id che non
+ * c'è fra quelle lette) «Consulenza» per le consulenze, altrimenti
+ * sessionLabel. Mai il titolo: è quello dell'evento nel calendario Google del
+ * coach, spesso col nome del cliente. Lo usano la riga e il dettaglio (04).
+ */
+export function sessionName(
+  b: Pick<SessionBooking, "category" | "session_type">,
+  eventType: Pick<SessionEventType, "name"> | null | undefined,
+): string {
+  if (eventType) return eventType.name;
+  return b.category === "consulenza" ? "Consulenza" : sessionLabel(b.session_type);
 }
 
 /**
  * La riga di una sessione. `ratings`: dall'id della sessione al voto; null =
  * valutazioni non lette (in caricamento o in errore), e allora niente «Da
- * valutare» né stelle. Il nome è quello della tipologia; senza (o con un id
- * che non c'è fra quelle lette) «Consulenza» per le consulenze, altrimenti
- * sessionLabel. Mai il titolo: è quello dell'evento nel calendario Google del
- * coach, spesso col nome del cliente.
+ * valutare» né stelle. Il nome è sessionName.
  */
 export function sessionRow(
   b: SessionBooking,
@@ -277,8 +297,7 @@ export function sessionRow(
 ): SessionRowModel {
   const start = new Date(b.scheduled_at);
   const eventType = b.event_type_id ? eventTypes.find((t) => t.id === b.event_type_id) : undefined;
-  const name =
-    eventType?.name ?? (b.category === "consulenza" ? "Consulenza" : sessionLabel(b.session_type));
+  const name = sessionName(b, eventType);
   const online = eventType?.location_type === "online";
   const range = formatTimeRange(start, b.duration_min);
 
