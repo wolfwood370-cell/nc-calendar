@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { isClientPath } from "@/lib/client-shell";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -33,7 +34,11 @@ function isIos(): boolean {
 // lato cliente). Il browser manda l'evento una volta, presto: un componente
 // che si mette in ascolto quando si apre (il foglio di installazione) lo ha
 // già perso. Quindi l'evento sta qui, a livello di modulo, sopravvive ai
-// montaggi, e il layout del cliente avvia l'ascolto quando si monta.
+// montaggi, e l'ascolto lo avvia la radice dell'app (__root.tsx, passata 05):
+// chi apre prima /auth e poi entra non lo perde. L'evento si tiene sempre;
+// preventDefault(), che nasconde la mini-barra d'installazione di Chrome, solo
+// sulle route del cliente (isClientPath): su /auth e sul lato coach la
+// mini-barra resta, come prima.
 let deferredPrompt: BeforeInstallPromptEvent | null = null;
 let appInstalled = false;
 let capturing = false;
@@ -56,7 +61,7 @@ export function startInstallCapture(): void {
   if (capturing || typeof window === "undefined") return;
   capturing = true;
   window.addEventListener("beforeinstallprompt", (e) => {
-    e.preventDefault();
+    if (isClientPath(window.location.pathname)) e.preventDefault();
     deferredPrompt = e as BeforeInstallPromptEvent;
     emit();
   });
@@ -91,7 +96,7 @@ export function usePwaInstall() {
   const installed = standalone || installedNow;
 
   // Chi legge l'evento si assicura che l'ascolto sia partito (di solito l'ha
-  // già avviato il layout del cliente).
+  // già avviato la radice).
   useEffect(() => {
     startInstallCapture();
   }, []);

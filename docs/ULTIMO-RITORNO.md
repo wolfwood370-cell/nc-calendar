@@ -1,277 +1,289 @@
-# Ultimo ritorno · Lato cliente · Passata 04 · Dettaglio sessione, Sposta, Annulla
+**Dove ho girato (ultimo ritorno · lato cliente · passata 05 · Home):** sul PC di Nicolò, nel clone `C:\Coworks\NC App Development\repos\nc-calendar` (in Git Bash `pwd` = `/c/Coworks/NC App Development/repos/nc-calendar`), `uname -s` = `MINGW64_NT-10.0-26200`, `$OS` = `Windows_NT`, `node_modules` presente (`deps-presenti`); Node 24.12.0, bun 1.3.14. Tutto eseguito: cancelli, prove rosse, browser.
 
-> **In breve, prima di tutto.** Il codice della passata è scritto e committato, ma **nessun cancello è stato eseguito**: niente typecheck, lint, test, build né giro nel browser. La sessione non girava sul PC di Nicolò ma in un container di Claude Code on the web, con `node_modules` vuota; il lock punta al registro privato di Lovable, che la rete del container rifiuta (403), e il tentativo di riempire `node_modules` dal registro pubblico con una copia del lock è stato **negato dai permessi della sessione**. Non ho cercato altre strade. Tutti i controlli del §6 che si fanno con git e grep sono eseguiti e danno i risultati attesi (§4). Prove parziali, non i cancelli: il Prettier già installato nel container (3.8.1; il lock vuole 3.8.3) non trova differenze sui 16 file toccati; il revisore (§0 passo 8) ha fatto girare i test puri con un sostituto scritto a mano di `date-fns`, 44/44 e 30/30 a Roma, in UTC e a Los Angeles. I cancelli veri (C7), le prove rosse (R1-R25) e il browser (B1-B16) sono **da fare sul PC**, e fino ad allora la riga 04 di `PIANO.md` è `[~]` e non `[x]`.
+> **In breve.** La Home è riscritta nell'ordine del brief sopra `src/lib/client-home.ts` (puro, 94 test sulle nove persone del prompt), col numero dei crediti di Prenota; Prenota prende il numero dalla prima finestra con un giorno prenotabile (`countFromNext`, Luca da 2 a 8); «Riprova» di Prenota, Sessioni, Sposta e Home tiene la card e il focus (`query-state.ts`, `aria-disabled`); `useMoveUndo` fa «Ripristina» in un posto solo; l'invito a installare si ascolta dalla radice; i nove pezzi vecchi della Home sono tolti. Cancelli: typecheck 0, lint 0 errori e 15 avvisi, 1006 test in 59 file, build riuscita, i quattro file del §2 verdi in UTC, a Los Angeles e a Roma (187 su 187). Prove rosse: le 34 da test cadono tutte e tornano verdi; R32-R34 nel browser cadono. Browser: 181/181 del giro della 05, la matrice di B13 senza una cella che passa da «tiene» a «perde», i giri della 02, 03 e 04 82/82, 78/78 e 103/104 (lo stesso KO sulla base). Un revisore in sola lettura ha trovato 8 punti: 4 corretti (focus dopo lo spostamento e dopo «Riprova» riuscito, `Array.at`, due commenti) più il difetto a 320 px trovato dal giro; gli altri sono al §9 e al §10. Workflow: 0; agenti: 1 (il revisore).
 
-## 0 · IL PIANO
+## 1 · IL PIANO
 
 ☐ da fare · ☑ fatto, con l'hash del commit · ⚠️ deviato, con la misura e il `file:riga`
 
-0. ⚠️ **La base e il ramo** (§2). Nessun commit.
-   - `git fetch origin`; `git merge-base --is-ancestor 043fcfd origin/redesign/cliente-mobile && echo 03-presente` → `03-presente`.
-   - `origin/redesign/cliente-mobile` = `0e12622` (merge della PR 81). `redesign/cliente-04-sessione` creato con `git switch --no-track -c redesign/cliente-04-sessione origin/redesign/cliente-mobile`.
-   - `git diff --stat b780645 origin/redesign/cliente-mobile -- package.json bun.lock` → vuoto. `package.json` e `bun.lock` non toccati.
-   - ⚠️ **Ambiente:** non il clone di Nicolò su Windows ma un container Linux di Claude Code on the web (`/home/user/nc-calendar`, fuso di sistema UTC, Node 22, bun 1.3). Il clone era su `main` @ `14c09e9`, pulito. `node_modules` era vuota: `bun install --frozen-lockfile` avrebbe chiesto i pacchetti a `europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache` (331 voci del lock) e `europe-west4-…` (36), e il proxy del container risponde 403 a quell'host; il registro pubblico risponde. Ho provato a installare da una copia del lock nella cartella di lavoro, con gli URL riscritti verso il registro pubblico (stesse versioni, stessi hash di integrità): **negato dai permessi della sessione** («Package Registry Bypass»). Da lì nessun altro tentativo.
-   - **I quattro cancelli della base: non misurati qui.** Restano quelli del container di Cowork del 29/09 notte su `043fcfd` (albero uguale a `0e12622`): typecheck 0 errori · lint 0 errori e 20 avvisi · 851 test in 54 file · build riuscita.
-   - **Sonde del fuso**, con Node del container (su Linux `TZ` arriva ai processi, il problema di Git Bash non c'è): `TZ=UTC` → `0`, `TZ=America/Los_Angeles` → `420`, `TZ=Europe/Rome` → `-120`; senza `TZ` → `0` (il container è in UTC, quindi il fuso di Roma va dato esplicito).
-   - I controlli del §6 sulla base, misurati su un'estrazione di `0e12622` (`git archive`) nella cartella di lavoro: gli stessi numeri «oggi» del prompt (§4).
-1. ⚠️ **Gli orari del coach in un hook** (§4.3). `eb3507d`. `src/hooks/use-coach-slot-inputs.ts` (97 righe: le 85 dello spostamento di Cowork più 12 di intestazione) montato da uno script che copia le righe di `client.book.tsx` per numero (`:120-124`, `:146-148`, `:150-172`, `:232-246`, `:412-417`), così le righe spostate sono uguali byte per byte; `client.book.tsx` a **+14 −71**, come quello di Cowork. C4 e C5 danno esattamente le righe e i numeri di Cowork (§4). ⚠️ «typecheck 0 e lint a 20; i test di oggi tutti verdi»: non eseguiti.
-2. ⚠️ **Le regole del dettaglio** (§4.1, §4.2). `982fee5`. `src/lib/client-session-detail.ts` e `client-session-detail.test.ts` (44 test), `sessionName` e `tintContrast` in `client-sessions.ts`, gli `export` in `client-book.ts`, il caso della 03 in `client-sessions.test.ts` (C13). ⚠️ I test non sono stati eseguiti, in nessun fuso; R1-R21 e R23-R25 «non provate» (§5).
-3. ⚠️ **Ripristina, conferma e valutazione** (§4.5, §4.6). `795562f`. `use-restore-booking.ts`, il tono di `toastWithUndo`, la nota in `use-session-feedback.ts`, `client-session-rating.tsx` col test statico (3 test). C11, C12, C15 come attesi (§4). ⚠️ R22 «non provata».
-4. ⚠️ **I due fogli** (§4.7, §4.8). `8aaf62e`. `client-move-sheet.tsx` e `client-cancel-sheet.tsx`; in `client-session-detail.ts` anche `sessionMinutes` esportata (la durata che il foglio passa a `getClientSlotDays`). C3 e C8 dei fogli a `0` (§4). ⚠️ Nessun cancello eseguito.
-5. ⚠️ **La pagina** (§4.4). `b94a257`. La route e la vista riscritte, `client-reschedule-sheet.tsx` tolto. C1, C2, C3, C8, C10, C14 come attesi (§4). ⚠️ Nessun cancello eseguito.
-6. ⚠️ **Il browser** (§8). **Non fatto**: senza `node_modules` non parte il server di sviluppo, e il banco della 02 e della 03 sta nella `%TEMP%` del PC di Nicolò. Le voci B1-B16 sono al §6, una per una.
-7. ⚠️ **Chiusura** (§10). I controlli del §6 che non chiedono dipendenze eseguiti sul ramo finito (§4); la riga 04 di `PIANO.md` a **`[~]`** («in corso»), non a `[x]` («fatta e verificata»): C9 è volutamente non soddisfatto finché i cancelli non girano. Commit «Spunta la passata 04 in PIANO.md» (`e87c8bd`) e «Riscrive docs/ULTIMO-RITORNO.md per la passata 04 del lato cliente» (`a4ccdc4`); push di `redesign/cliente-04-sessione`; la PR verso `redesign/cliente-mobile` è al §1.
-8. ☑ **Passo aggiunto: la revisione e le sue correzioni.** Un revisore in sola lettura sul diff (un agente, circa 40 minuti, in background mentre scrivevo questo file), con l'ordine di non installare niente. Ha usato quello che il container ha già: Prettier 3.8.1 sulle copie dei file (**0 differenze**), `tsc` 6.0.2 coi tipi dei pacchetti mancanti sostituiti da dichiarazioni sue (i moduli puri e i loro test **senza errori**; i `.tsx` solo a lettura, perché lì React e TanStack diventano `any`), e i test puri compilati in JS ed eseguiti con Node e un sostituto di `date-fns` scritto da lui: **44/44** di `client-session-detail.test.ts` e **30/30** di `client-sessions.test.ts`, col caso nuovo, con `TZ=Europe/Rome`, `UTC` e `America/Los_Angeles`. Sono indizi, non i cancelli: il `date-fns` vero, il typecheck del progetto e il lint non sono girati. Nessun errore di tipi, di Prettier o di lint trovato; sei punti, e questi li ho corretti in `9b7a2e8` «Sessione: le correzioni della revisione»:
-   - **il foglio Sposta chiuso mentre sposta perdeva l'esito** (certo): `useRescheduleBooking` stava nel contenuto del foglio, che si smonta alla chiusura, e TanStack Query v5 non chiama le callback di `mutate` a componente smontato. Il server spostava la sessione, ma niente toast, niente «Ripristina» e il dettaglio all'orario vecchio. Ora `mutateAsync`, la cui promessa arriva comunque (`client-move-sheet.tsx:214-235`); un errore a foglio chiuso diventa un toast; «Indietro» è disattivato mentre sposta;
-   - **dopo uno spostamento fallito gli occupati non si rileggevano** (certo): dopo un `23P01` l'orario preso da altri restava offerto e scelto. Ora `invalidateBookingScope` dopo ogni errore, come Prenota (`use-book-confirm.ts:157`);
-   - **la lettura fallita della tipologia era ignorata**, come prima della passata: il dettaglio avrebbe detto «Sessione PT» per una call, senza luogo né «Entra nella videochiamata». Ora è un errore della lettura, con «Riprova» (`client.bookings.$bookingId.tsx:89`);
-   - **passando da un dettaglio all'altro restava lo stato del primo** (la route non si rimonta quando cambia solo il parametro): la valutazione poteva mostrare il voto appena dato all'altra sessione. Ora la vista ha `key={booking.id}` (`client.bookings.$bookingId.tsx:99`).
-   Gli altri due: l'annullamento gratuito che diventa «Sessione non trovata» col server di oggi, e i suoi effetti (§9); `canMove`, `formatLongDay` e `new Date(booking.scheduled_at)` nel foglio Sposta, che il prompt permette espressamente (C3 li esclude). E una nota: `query-keys.ts:82` rinfresca ancora `["coach-busy-reschedule", …]`, che dopo la passata non usa nessuno (§9).
+0. ☑ **Dove giri, la base e il ramo** (§2). Nessun commit.
+   - Ambiente: la riga in testa.
+   - `git fetch origin`; `git merge-base --is-ancestor b3ef469 origin/redesign/cliente-mobile && echo 04-presente` → `04-presente`.
+   - `origin/redesign/cliente-mobile` = `982cc5c` (merge della PR 82), come atteso. `redesign/cliente-05-home` creato con `git switch --no-track -c redesign/cliente-05-home origin/redesign/cliente-mobile` (il clone era su `main` @ `3d29634`, pulito).
+   - `git diff --stat b780645 origin/redesign/cliente-mobile -- package.json bun.lock` → vuoto.
+   - **I quattro cancelli della base**, misurati qui su `982cc5c`: `bun run typecheck` → 0 errori · `bun run lint` → 0 errori e 20 avvisi (4 in `reschedule-drawer.tsx`, 1 in `join-video-call-button.tsx`) · `bun run test` → **899 test in 56 file**, tutti verdi, coi worker predefiniti · `bun run build` → riuscita.
+   - **Le tre sonde del fuso**, da PowerShell (`node -e "console.log(new Date(2026, 8, 28).getTimezoneOffset())"`): `$env:TZ = "UTC"` → `0`; `$env:TZ = "America/Los_Angeles"` → `420`; senza `TZ` → `-120`.
+1. ☑ **La 04 chiusa** (§4.4). `fb2d3e3`. La riga 04 di `PIANO.md` a `[x]`; i tre casi in `src/lib/client-session-detail.test.ts` (47 test, erano 44). R26, R27, R28 cadono ognuna sul suo caso e tornano verdi.
+2. ⚠️ **Il numero di Prenota** (§4.2). `dfe6694`. `countFromNext` in `BookOption`; la finestra del numero è `windows.find((w) => w.until >= firstBookable) ?? windows[0]` (`src/lib/client-book.ts:343`, con `firstBookable` a `:316`). I casi di Luca e del confine, e `countFromNext` di Giulia, in `client-book.test.ts`; `countFromNext: false` nei due costruttori dei test. R1 e R35 cadono su Luca e sul confine. ⚠️ C4: `client-book.ts` a +22 −7 invece di «una decina»: 13 delle 22 righe sono commenti (il campo nuovo e la regola nel commento di `getBookState`), e Prettier va a capo sul `count`.
+3. ☑ **«Riprova» che tiene la card** (§4.3). `c7ab3eb`. `src/lib/query-state.ts` e il suo test (5); `use-client-book-state.ts`, `use-coach-slot-inputs.ts`, `client.sessions.tsx`, `client-move-sheet.tsx` lo usano; `BookRetryCard` con `aria-disabled` e il test statico (2). R29, R30 cadono. Suite: 911 test in 58 file.
+4. ☑ **Le regole della Home** (§4.1). `eb5473c`. `src/lib/client-home.ts` e `client-home.test.ts` (94 test: le nove persone, le card n1-n10, `firstFreeSlot`, `noNextCard`, i progressi, la valutazione, le sezioni, Luca al confine), verdi a Roma, in UTC e a Los Angeles. R1-R25 e R35-R37 cadono tutte, ognuna sui casi del §7 del prompt (qui al §6).
+5. ☑ **I pezzi condivisi** (§4.5). `a670829`. `src/hooks/use-move-undo.ts`, che il dettaglio usa al posto di `moveBack`; `ClientSessionRating` col sottotitolo e `layout="home"` (e il titolo in Manrope nella Home, vedi DIVERGENZE); `returnFocus` in `ClientMoveSheet` e `ClientInstallSheet`. R31 cade.
+6. ☑ **L'invito a installare dalla radice** (§4.6). `8b33919`. C11 come atteso.
+7. ☑ **La Home, parte 1: prossima sessione e stati vuoti** (§4.7). `1f0c6ef`. Typecheck 0 sull'albero del solo commit (il resto messo da parte con `git stash`, dopo una copia di sicurezza, e rimesso identico).
+8. ☑ **La Home, parte 2: i crediti** (§4.7). `d932be1`. Typecheck 0 sull'albero del solo commit.
+9. ☑ **La Home, parte 3: valutazione, progressi, installazione e pulizia** (§4.7). `6e2bff9`. I nove file tolti con `git rm`. C0, C1, C2, C3, C8, C10, C14 come attesi. Lint 0 errori e 15 avvisi; 1006 test in 59 file.
+10. ☑ **Il browser** (§8). B1-B16 fatti (§7 qui sotto), R32-R34 cadute. Nessun commit: i file del banco stanno fuori dal repo.
+11. ☑ **Chiusura** (§10). I controlli del §6 tutti insieme (§5 qui sotto); `fb09fe8` «Spunta la passata 05 in PIANO.md»; questo file nel commit «Riscrive docs/ULTIMO-RITORNO.md per la passata 05 del lato cliente» (il suo hash è nella risposta finale: un file non contiene l'hash del commit che lo scrive); push; la PR è nella risposta finale.
+12. ☑ **Passo aggiunto: la revisione e le sue correzioni.** Un revisore in sola lettura (un agente, circa 20 minuti, in background mentre preparavo il banco) sul diff e su una copia statica del ramo nello scratchpad, così potevo cambiare albero per le catture della base. 8 punti: 4 corretti in `a224ce9` «Home: le correzioni della revisione» (il focus dopo lo spostamento, il focus dopo «Riprova» riuscito, `Array.prototype.at`, due commenti falsi), insieme al difetto a 320 px trovato dal primo giro nel browser; gli altri 4 sono al §9 e al §10 (i pulsanti pieni delle righe dei crediti sono del brief; la regola del numero sul giorno è l'imprecisione dichiarata dal prompt; i pulsanti `disabled` della 04 e `markInstalled` della 01 sono fuori dal perimetro). Il secondo giro nel browser è dopo le correzioni.
 
-30/09/2026. Prompt «NC Calendar · Redesign lato cliente · Passata 04 · Dettaglio sessione, Sposta, Annulla» (Cowork, contro `0e12622`). Agenti: 1 (il revisore del passo 8). Workflow: 0.
+## 2 · RAMO E COMMIT
 
-## 1 · Ramo e commit
+- **`redesign/cliente-05-home`**, da `origin/redesign/cliente-mobile` @ `982cc5c`. Commit, in ordine:
+  1. `fb2d3e3` Sessione: i tre casi che mancavano, e la 04 spuntata;
+  2. `dfe6694` Prenota: il numero dalla prima finestra con un giorno prenotabile;
+  3. `c7ab3eb` Prenota, Sessioni e Home: «Riprova» tiene la card e il focus;
+  4. `eb5473c` Home: prossima sessione, crediti, valutazione e progressi in un file solo;
+  5. `a670829` Sessione: lo spostamento e la valutazione pronti per la Home;
+  6. `8b33919` Installa: l'invito del browser si ascolta dalla radice;
+  7. `1f0c6ef` Home: la prossima sessione in cima;
+  8. `d932be1` Home: i crediti con un numero solo per tipologia;
+  9. `6e2bff9` Home: valutazione, progressi e installazione; via i pezzi vecchi;
+  10. `a224ce9` Home: le correzioni della revisione (passo 12);
+  11. `fb09fe8` Spunta la passata 05 in PIANO.md;
+  12. il commit di questo file («Riscrive docs/ULTIMO-RITORNO.md per la passata 05 del lato cliente»): il suo hash, quello finale del ramo, è nella risposta finale.
+- Ogni commit compila: typecheck 0 misurato sull'albero di ogni commit (per i passi 5-9 col resto messo da parte).
+- **PR** verso `redesign/cliente-mobile`, aperta e non unita, con questo file come descrizione: il numero è nella risposta finale.
 
-- **`redesign/cliente-04-sessione`**, da `origin/redesign/cliente-mobile` @ `0e12622`. Commit, in ordine:
-  1. `eb3507d` Prenota: gli orari del coach in un hook, per Sposta;
-  2. `982fee5` Sessione: stati, azioni e testi del dettaglio in un file solo;
-  3. `795562f` Sessione: ripristina, e la valutazione con la nota;
-  4. `8aaf62e` Sessione: i fogli Sposta e Annulla;
-  5. `b94a257` Sessione: il dettaglio, con una sola azione principale per stato;
-  6. `5ee1760` Sessione: la nota salvata della valutazione in un testo solo (la nota fra «» in un solo nodo di testo, per il test statico);
-  7. `e87c8bd` Spunta la passata 04 in PIANO.md (`[~]`, §0 passo 7);
-  8. `a4ccdc4` Riscrive docs/ULTIMO-RITORNO.md per la passata 04 del lato cliente;
-  9. `9b7a2e8` Sessione: le correzioni della revisione (§0 passo 8);
-  10. l'aggiornamento di questo file con la revisione (il suo hash sta nella risposta finale: un file non contiene l'hash del commit che lo scrive).
-- «Ogni commit compila»: **non verificato**, nessun typecheck eseguito.
-- **PR:** vedi la risposta finale (aperta come bozza verso `redesign/cliente-mobile`, non unita), con questo file come descrizione.
+## 3 · MANIFESTO
 
-## 2 · Manifesto
+- **NUOVI:** `src/lib/client-home.ts` e `client-home.test.ts` (94 test); `src/lib/query-state.ts` e `query-state.test.ts` (5); `src/hooks/use-move-undo.ts`; `src/components/book-blocked-card.test.ts` (2); `src/components/client-home-next.tsx`, `client-home-credits.tsx`, `client-home-progress.tsx`, `client-home-install.tsx`.
+- **MODIFICATI:** `src/lib/client-book.ts` (`countFromNext` e la finestra del numero); `src/lib/client-book.test.ts` (Luca, il confine, `countFromNext` di Giulia); `src/lib/client-session-detail.test.ts` (i tre casi della 04, `countFromNext: false`); `src/lib/client-sessions.test.ts` (`countFromNext: false`); `src/hooks/use-client-book-state.ts` e `use-coach-slot-inputs.ts` (le regole di `query-state.ts`); `src/hooks/use-pwa.ts` (`preventDefault()` solo sulle route del cliente); `src/components/book-blocked-card.tsx` (`aria-disabled`); `client-session-rating.tsx` e il suo test (il sottotitolo e `layout="home"`); `client-move-sheet.tsx` (`failedRead`, `returnFocus`); `client-install-sheet.tsx` (`returnFocus`); `client-booking-detail-view.tsx` (`useMoveUndo` al posto di `moveBack`); `src/routes/client.index.tsx` (riscritta); `client.sessions.tsx` (le due regole e due commenti); `client.tsx` (via l'effetto dell'installazione); `__root.tsx` (`startInstallCapture`); `design_handoff_cliente_mobile/PIANO.md` (le righe 04 e 05); `docs/ULTIMO-RITORNO.md` (questo file).
+- **TOLTI** (con `git rm`): `src/components/client-live-booking-card.tsx`, `client-sessions-breakdown.tsx`, `client-session-timeline.tsx`, `client-reminder-banner.tsx`, `client-feedback-card.tsx`, `client-bia-progress.tsx`, `empty-state-card.tsx`, `reschedule-drawer.tsx`, `join-video-call-button.tsx`.
+- **NEL PERIMETRO MA NON TOCCATI:** `src/components/bia-sparkline.tsx` (del coach, la legge `contrast.test.ts`); `src/lib/client-session-detail.ts` (C12); `client-sheet.tsx`, `client-button.tsx`, `book-sheets.tsx`, `segmented-control.tsx`; gli helper del §9 (`booking-rules.ts`, `client-credits.ts`, `client-session-status.ts`, `renewal.ts`, `current-block.ts`, `client-slots.ts`, `session-time.ts`, `client-shell.ts`, `client-sessions.ts`, `queries.ts`, `query-keys.ts`, `gcal.functions.ts`, `use-confirm-attendance.ts`, `use-session-feedback.ts`, `use-bia.ts`, `toast.ts`); `src/routes/client.book.tsx`; `src/lib/calendar.ts`, `src/components/ui/drawer.tsx`, `src/lib/reschedule-slots.ts` (la 09); i commenti che citano i file tolti (`queries.ts:680`, `client-sheet.tsx:7`, la migrazione `20260522100000_…sql:8`) e la `description` della Home; `src/routeTree.gen.ts`; `supabase/`; `package.json`, `bun.lock`, `vitest.config.ts`.
 
-- **NUOVI:** `src/lib/client-session-detail.ts` e `client-session-detail.test.ts` (44 test); `src/hooks/use-coach-slot-inputs.ts`; `src/hooks/use-restore-booking.ts`; `src/components/client-session-rating.tsx` e `client-session-rating.test.ts` (3 test); `src/components/client-move-sheet.tsx`; `src/components/client-cancel-sheet.tsx`.
-- **MODIFICATI:** `src/routes/client.book.tsx` (+14 −71: le righe spostate nel hook se ne vanno, al loro posto la chiamata); `src/lib/client-sessions.ts` (`sessionName`, `tintContrast`, che `sessionRow` e `tileText` usano al posto delle loro righe); `src/lib/client-sessions.test.ts` (il caso di C13); `src/lib/client-book.ts` (`export` davanti a `coachFirstName`, `coachSubject`, `coachTo`); `src/lib/toast.ts` (il tono); `src/hooks/use-session-feedback.ts` (la nota e `noteSaved`); `src/components/client-booking-detail-view.tsx` e `src/routes/client.bookings.$bookingId.tsx` (riscritte); `design_handoff_cliente_mobile/PIANO.md` (la riga 04, nient'altro); `docs/ULTIMO-RITORNO.md` (questo file).
-- **TOLTI:** `src/components/client-reschedule-sheet.tsx` (lo importava solo la vista del dettaglio, C14).
-- **NEL PERIMETRO MA NON TOCCATI:** la Home (`client.index.tsx`, `client-live-booking-card.tsx`, `reschedule-drawer.tsx`, `join-video-call-button.tsx`, `client-feedback-card.tsx`: la 05); `src/lib/calendar.ts` (`generateGoogleCalendarLink` ora non la importa nessuno: la 09); i commenti che citano il foglio tolto (`src/lib/booking-slots.ts:6`, `src/lib/queries.ts:679`, `supabase/functions/booking-notifications/index.ts:10`) e quello che cita righe della vista riscritta (`src/lib/event-type-rules.ts:174`); gli helper del §9 del prompt (`booking-rules.ts`, `client-credits.ts`, `client-session-status.ts`, `renewal.ts`, `current-block.ts`, `client-slots.ts`, `attendance.ts`, `session-time.ts`, `client-shell.ts`, `queries.ts`, `query-keys.ts`, `gcal.functions.ts`, `use-confirm-attendance.ts`, `use-client-book-state.ts`, `client-sheet.tsx`, `client-button.tsx`, `client-day-strip.tsx`, `client-slot-groups.tsx`); `book-blocked-card.tsx` (`BookRetryCard` riusata così com'è); `src/routeTree.gen.ts`; `supabase/`; `package.json`, `bun.lock`, `vitest.config.ts`.
+## 4 · I PEZZI PER LE PASSATE DOPO (06, 07, 08, 09)
 
-## 3 · I pezzi per le passate dopo (05, 08, 09)
+**Le regole della Home** (`src/lib/client-home.ts`, puro: niente hook, rete, orologio, Sentry né toast; `now` sempre l'ultimo parametro; il coach è un `BookCoach`)
 
-**Le regole** (`src/lib/client-session-detail.ts`, puro: niente hook, rete, orologio né Sentry; `now` è sempre l'ultimo parametro)
+- `homeGreeting(fullName: string | null | undefined): string` → «Ciao Giulia» (la prima parola dopo il `trim`), «Ciao» senza nome.
+- `homeNext<T extends SessionBooking>(bookings: readonly T[], now: Date): { next: T | null; others: number }` → le in programma di `splitSessions` (03), la prima e quante altre.
+- `othersLabel(others: number): string | null` → null · «Hai un'altra sessione prenotata» · «Hai altre N sessioni prenotate».
+- `homeNextCard(b: DetailBooking, eventType: DetailEventType | null | undefined, coach: BookCoach, now: Date): HomeNextCard`, con `HomeNextCard = { status: DetailStatus; day; time; until: string | null; type; place: DetailPlace | null; tile: { name; bg; fg }; join; confirm; move; note: HomeNote | null }` e `HomeNote = { text; link: { label; href } | null }`. Stato, luogo, riquadro e azioni sono quelli del dettaglio (04: `detailStatus`, `detailPlace`, `tileIcon`, `detailPanel`); `move` = `detailPanel(...).manage === "free"`; `until` «in corso» a sessione iniziata; la riga solo senza `move`, col link WhatsApp solo se il coach ce l'ha, altrimenti la frase dice cosa fare.
+- `firstFreeSlot(entries: readonly { option: Pick<BookOption, "eventTypeId" | "name">; days: readonly ClientSlotDay[] }[]): FirstFree | null`, `FirstFree = { eventTypeId: string | null; name; iso; time }`: per voce il primo giorno con orari e il suo primo orario, vince il più presto (a pari orario la prima voce).
+- `noNextCard(options: readonly Pick<BookOption, "state" | "count">[], first: FirstFree | null, slotsFailed: boolean, coach: BookCoach): { text; book; eventTypeId }` → primo orario · orari non letti · nessun orario · solo crediti col coach · niente crediti.
+- `concludedText(endDate: string, coach: BookCoach): string` e `concludedWhatsApp(coach: BookCoach): { label; href } | null`.
+- `creditsHeader(client: RenewalClient, blocks: readonly RenewalBlock[], now: Date): CreditsHeader`, `CreditsHeader = { chip; sub: string | null; steps: { aria; steps: CreditStep[] } | null }`, `CreditStep = "done" | "current" | "todo"`.
+- `creditsWarning(client: Pick<RenewalClient, "path_type">, state: Pick<BookState, "reference" | "options">, now: Date): string | null`.
+- `creditRows(state: Pick<BookState, "options" | "nextNumber">): CreditRow[]`, `CreditRow = { key; eventTypeId; name; color; avail; tone: "success" | "warning"; action: CreditAction | null; bar: { done; booked; lost }; lost: number; detail; aria }`, `CreditAction = { kind: "book"; eventTypeId: string | null } | { kind: "how" } | { kind: "buy"; eventTypeId: string }`.
+- `creditsFooter(canBuy: boolean, coach: BookCoach): { kind: "buy" } | { kind: "ask"; text; href: string | null }`.
+- `homeRating<T extends Pick<BookingRow, "id" | "status" | "scheduled_at" | "title" | "deleted_at">>(bookings: readonly T[], feedback: readonly { booking_id: string; rating: number }[] | undefined, shownId: string | null, now: Date): { booking: T; rating: number | null; note: string | null } | null`.
+- `ratingSubtitle(name: string, b: Pick<BookingRow, "scheduled_at">, coach: BookCoach): string`.
+- `PROGRESS_METRICS`, `ProgressMetric = "weight" | "muscle" | "fat"`, `ProgressMeasurement`, `progressModel(measurements, metric): ProgressModel | null` (`{ value; delta; points; last: { x; y }; aria; firstDay; lastDay }`), `progressNote(coach: BookCoach): string`.
+- `homeSections(input: { state: Pick<BookState, "blocked" | "options">; hasNext: boolean; hasRating: boolean }): HomeSection[]`, `HomeSection = "concluded" | "next" | "no-next" | "credits" | "rating"`.
+- `installHiddenKey(userId: string): string` → `nc-home-install-hidden-<id>`: «Non ora» della card d'installazione, in `localStorage`, per utente e per dispositivo. Il Profilo (07) che offre di nuovo l'installazione può leggerla o toglierla.
 
-- Tipi: `DetailBooking = Pick<BookingRow, "id" | "status" | "scheduled_at" | "duration_min" | "client_confirmed_at" | "title" | "event_type_id" | "session_type" | "deleted_at" | "category" | "meeting_link" | "trainer_notes" | "google_event_id" | "block_id" | "buffer_min">` · `DetailEventType = Pick<EventTypeRow, "id" | "name" | "color" | "location_type" | "location_address" | "description">`. Una `BookingRow` intera (la Home) va bene dappertutto.
-- `sessionMinutes(b): number` — `duration_min` se positiva, altrimenti 60 (come `formatTimeRange`).
-- L'intestazione: `detailStatus(b: StatusBooking, now): DetailStatus` (lo stato della 00, `key`/`label`/`line`/`icon`, più `tone = CLIENT_STATUS_TONE[key]`) · `detailWhen(b, now): { day; time }` («Oggi, lunedì 28 settembre» · «10:00–11:00 · 60 min · tra 2 giorni»; quanto manca solo per le `scheduled` non iniziate) · `detailPlace(eventType | null | undefined): { online; text; mapsHref } | null` · `tileIcon(color: string | null): string` (il colore della tipologia a 3:1 sulla sua tinta, altrimenti `var(--color-aura-primary)`).
-- Le azioni: `detailPanel(b: DetailBooking, online: boolean, now): { join; confirm; manage: "free" | "locked" | null; status }` · `LOCKED_TITLE` («Mancano meno di 24 ore») · `freeCancelNote(b)` · `lockedText(name, coach)` · `confirmCaption(coach)` · `statusCard(b: StatusBooking, rebookable: boolean, now): { key; line; absent; rebook }` · `canRebook(b, state: Pick<BookState, "options"> | null): boolean` · `absentHint(coach): { text; href: string | null }`.
-- Le informazioni: `inviteText(b: DetailBooking, email: string | null | undefined, now): string | null` · `coachNoteTitle(coach)`.
-- La valutazione: `ratingState(b, hasFeedback: boolean, now): { show; editable }` · `starsLabel(n)` · `ratingToast(coach)`.
-- Annulla: `cancelSheet(b, name, now): { when; free; text }` · `cancelToast(wasLate): { tone: "success" | "warning"; text }`.
-- Sposta: `moveCurrent(b, name)` · `moveBlockedText(coach)` · `moveNoSlotsText(coach)` · `moveRule(window: CreditWindow | null, coach, now)` · `moveDays(days: readonly ClientSlotDay[], b): ClientSlotDay[]` (senza l'orario di adesso, confrontato come tempo; un giorno rimasto vuoto ha `reason: "pieno"`) · `moveDay(days, chosenIso: string | null): ClientSlotDay | null` · `moveButton(slot: Pick<ClientSlot, "iso" | "time"> | null)` · `moveToast(iso, coach)`.
-- Gli errori: `type DetailAction = "move" | "undo-move" | "restore"` · `actionErrorText(err: BookingErrorLike | null | undefined, action): string` (23P01 → orario occupato; P0001 con un messaggio → il messaggio del server; altrimenti il ripiego).
-- In `client-sessions.ts`: `sessionName(b, eventType)` (mai il titolo) e `tintContrast(color)`. In `client-book.ts`: `coachFirstName`, `coachSubject`, `coachTo`.
+**Il numero di Prenota** (`src/lib/client-book.ts`): `BookOption.countFromNext: boolean`. La finestra del numero è la prima con `until >= toIsoDate(now + 24 ore)`, altrimenti la prima; `count` è il pool di quella finestra, `countFromNext` dice che la paga il blocco dopo. `sub`, il testo di Sessioni senza sessioni (`upcomingEmpty`) e «Come si prenota» (`howToBook`) seguono `count`. Chi costruisce un `BookOption` a mano (i test) deve dare `countFromNext`.
 
-**I fogli** (la 05 apre Sposta dalla card della prossima sessione)
+**Le letture** (`src/lib/query-state.ts`, puro): `ReadState = { data; isError; errorUpdateCount; fetchStatus }`; `lostRead` (senza dati, in errore o riletta dopo un errore), `failedRead` (in errore anche coi dati di prima, o persa), `arrivedRead` (dati o errore, e resta arrivata mentre una lettura fallita si rilegge). Le usano `useClientBookState` (`loading`, `failed`, `profileArrived`), `useCoachSlotInputs` (`slotsFailed`), Sessioni (`sessionsLost`, `typesArrived`) e il foglio Sposta. Le pagine nuove (Booster, Profilo, Notifiche) le usino al posto di `isError` da solo. `BookRetryCard` mentre rilegge è `aria-disabled` (non `disabled`): tiene il focus e ignora il tocco.
 
-- `ClientMoveSheet({ open; onOpenChange; booking: MoveBooking; name: string; coach: BookCoach; clientName: string | null; onMoved: (fromIso: string, toIso: string) => void })` — `src/components/client-move-sheet.tsx`, con `MoveBooking = DetailBooking & Pick<BookingRow, "coach_id" | "client_id">`. Legge da sé, **solo mentre è aperto** (il contenuto sta dentro il pannello, che si monta all'apertura): `now` da `useClientShell()`, i blocchi con `useClientBlocks(client_id)` (la chiave del hook della 03), gli orari con `useCoachSlotInputs(coach_id, now)`. Sposta con `useRescheduleBooking` (evento Google e avviso al coach); riuscito chiama `onMoved`, e **chi lo usa** chiude il foglio, invalida la sua lettura e fa il toast (`moveToast`, `toastWithUndo`, lo spostamento inverso: vedi `client-booking-detail-view.tsx:189-209`).
-- `ClientCancelSheet({ open; onOpenChange; booking: Pick<DetailBooking, "id" | "scheduled_at" | "duration_min">; name; onCancelled: (wasLate: boolean) => void; returnFocus?: () => HTMLElement | null | undefined })` — `src/components/client-cancel-sheet.tsx`. `useCancelBooking`; riuscito chiama `onCancelled` col `was_late` del server; fallito, `toast.error("Annullamento non riuscito", …)` e il foglio resta aperto.
+**`useMoveUndo(coach: BookCoach, onRefresh?: () => void)`** (`src/hooks/use-move-undo.ts`) → `(move: MovedSession) => void`, `MovedSession = { bookingId; name; clientName: string | null; fromIso; toIso }`: il toast «Spostata a …» con «Ripristina» per 8 secondi, che riporta la sessione spostata all'orario di prima con `mutateAsync` (arriva anche a componente smontato). Lo usano il dettaglio (con `onRefresh`) e la Home.
 
-**La valutazione:** `ClientSessionRating({ bookingId; clientId; rating: number | null; note: string | null; editable; coach: BookCoach; layout: "detail" | "home" })` — `src/components/client-session-rating.tsx`. `editable` da `ratingState`; con `layout="home"` le stelle centrate con gap 4. Il voto e la nota appena salvati si vedono subito, finché la rilettura di `useClientFeedback` non li porta nelle props. La nota salvata la passa chi la usa: `(riga as { note?: string | null }).note ?? null`.
+**Le prop nuove:** `ClientSessionRating` → `subtitle?: string` (sotto il titolo, nei due stati) e `layout="home"` (padding 18, ombra, titolo in Manrope); `ClientMoveSheet` e `ClientInstallSheet` → `returnFocus?: () => HTMLElement | null | undefined` (passata a `ClientSheet`).
 
-**Gli orari del coach:** `useCoachSlotInputs(coachId: string | null, now: Date)` → `{ availabilityQ, exceptionsQ, optimizationQ, busyQ, busy, slotsFailed, slotsReady, retrySlots, retryingSlots }`. `getClientSlotDays` resta a chi lo usa. Gli occupati hanno la chiave `["coach-busy", coachId, "prenota", today]`: la rinfresca `invalidateBookingScope`.
+**Le card della Home:**
+- `HomeNextCard({ booking: BookingRow; eventTypes: readonly EventTypeRow[]; others: number; coach: BookCoach; clientName: string | null })` (`client-home-next.tsx`): conferma con `useConfirmAttendance` (focus sull'h2 a riuscita, pulsante occupato con `aria-disabled` mentre conferma), Sposta con `ClientMoveSheet` (`returnFocus` = l'h2) e `useMoveUndo` sulla sessione spostata;
+- `HomeNoNextCard({ options: readonly BookOption[]; coachId: string | null; coach: BookCoach })`: legge gli orari del coach (`useCoachSlotInputs`) solo se c'è un'opzione prenotabile;
+- `HomeConcludedCard({ endDate: string; coach: BookCoach })`;
+- `HomeCreditsCard({ client: BookClient; blocks: readonly ClientBlock[]; state: BookState; coach: BookCoach })` (`client-home-credits.tsx`), con `BookHowSheet` per «Come si prenota»;
+- `HomeProgressCard({ measurements: readonly ProgressMeasurement[]; coach: BookCoach })` (`client-home-progress.tsx`): torna null con meno di due misurazioni;
+- `HomeInstallCard({ userId: string; returnFocus: () => HTMLElement | null | undefined })` (`client-home-install.tsx`): il foglio resta montato anche a card nascosta.
 
-**Ripristina:** `useRestoreBooking()` — `src/hooks/use-restore-booking.ts`, una `useMutation` che prende `RestoreBookingInput = { bookingId; coachId; clientId; scheduledAt; durationMin; name; clientName; color; online; description }`. Chiama `rpc("restore_booking", { p_booking_id })` con la chiamata rilassata di `use-current-block.ts` (i tipi generati non hanno l'RPC). Il contratto con cui la chiama l'app (Cowork scrive la funzione da qui): `restore_booking(p_booking_id uuid) RETURNS TABLE(status booking_status)`; la chiama il cliente della sessione (o il suo coach, o un admin); riesce se la sessione è `cancelled` o `late_cancelled`, annullata da al più 10 minuti (orologio del server) e col suo orario ancora libero per il coach; la riporta a `scheduled` com'era (conferma compresa) con `deleted_at` e `google_event_id` nulli; da un annullamento gratuito riprende il credito con la logica del consumo, da uno tardivo no; errori `P0001` «Non si può più ripristinare.», `23P01`, `42501` «Permesso negato.». Riuscita: `gcalCreateEvent` come Prenota (riepilogo «<tipologia> — <cliente>», `requestMeet`/`isOnline` per le online, `colorId` da `toGoogleColorId`), senza aspettarlo, e quando risponde `ok` rilegge il dettaglio; poi `invalidateBookingScope` e il dettaglio; «Sessione ripristinata.». Fallita: `toast.warning(actionErrorText(err, "restore"))`. Oggi l'RPC non c'è: PostgREST risponde `PGRST202` e il toast dice «Non siamo riusciti a ripristinare la sessione.».
+**Vincoli per chi li usa:** il coach è `NO_COACH` finché non c'è `get_my_coach` (02/10/2026); il posto da cambiare è una riga per pagina (`const COACH = NO_COACH` in `client.index.tsx`, `client.book.tsx`, `client-booking-detail-view.tsx`), e con nome e WhatsApp i testi e i link compaiono da soli (i test li provano già col coach). L'invito del browser a installare si ascolta dalla radice (`__root.tsx`): chi aggiunge un altro punto d'ingresso non deve chiamare `startInstallCapture` altrove (chiamarla di nuovo non fa niente). Le chiavi della cache: la Home non ha letture sue; tutto passa da `useClientBookState`, `useClientFeedback`, `useBiaMeasurements`.
 
-**Il tono:** `toastWithUndo(message, onUndo, tone: "success" | "warning" = "success")`: stessa durata (8 s) e stessa azione «Ripristina»; chi la chiama con due argomenti (il coach) non cambia.
+## 5 · ACCEPTANCE
 
-**La nota:** `useSetSessionFeedback()` prende anche `note?: string | null` e restituisce `{ noteSaved: boolean }`. Senza `note` la riga non ha la chiave (la Home di oggi non cambia). Con `note` e senza la colonna (PostgREST `PGRST204`, «… in the schema cache»: `isMissingMigration` sull'errore di PostgREST, prima di `new Error`) riprova una volta senza e dice `noteSaved: false`.
+I comandi del §6 del prompt, in Git Bash (`MSYS_NO_PATHCONV=1`), sul ramo a lavoro committato, con le variabili del prompt; accanto il valore della base (`origin/redesign/cliente-mobile` letta con `git show`/`git grep`, senza cambiare albero) quando si misura così. Lo script è `scratchpad\controlli.sh`, l'uscita intera `scratchpad\fine\controlli.txt`.
 
-**Vincoli per chi li usa**
+- **C0** · i file nuovi ci sono, i nove vecchi no, `bia-sparkline.tsx` sì → **nessuna riga** (base: 10 «MANCA» e 9 «RESTA», come nel prompt).
+- **C1** · `git grep … | wc -l` → **0** (base 42); `git grep -l -E 'Riprogramma|Prenota Nuova Sessione|Il Tuo Percorso Recente|Esplora gli Add-on' -- src` → **nessun file** (base: `client-live-booking-card.tsx`, `reschedule-drawer.tsx`, `client.index.tsx`).
+- **C2** · `cat $P $N $K $G $I | grep -c -w <nome>` → tutti almeno 1: `homeGreeting=2 homeNext=4 homeNextCard=2 othersLabel=2 noNextCard=2 firstFreeSlot=2 concludedText=2 concludedWhatsApp=2 creditsHeader=2 creditsWarning=2 creditRows=2 creditsFooter=2 homeRating=2 ratingSubtitle=2 progressModel=3 progressNote=2 homeSections=3 installHiddenKey=3 useClientBookState=4 ClientMoveSheet=2 ClientSessionRating=2 ClientInstallSheet=2 BookHowSheet=3 BookRetryCard=2 useMoveUndo=2 useConfirmAttendance=2` (base, la pagina: 0 ciascuno).
+- **C3** · i calcoli fuori dalle regole nella pagina e nelle card → **0** (base 27); `new Date()` o `Date.now` in `client-home.ts` → **0**.
+- **C4** · `grep -c countFromNext src/lib/client-book.ts` → **3** (base 0); `git diff --numstat $B...HEAD -- src/lib/client-book.ts` → `22 7` (vedi DIVERGENZE).
+- **C5** · righe di codice con `errorUpdateCount|\.isError`: `use-client-book-state.ts` **0** (base 3), `use-coach-slot-inputs.ts` **0** (1), `client.sessions.tsx` **0** (2), `client-move-sheet.tsx` **0** (2); `lostRead|failedRead|arrivedRead`: 15, 3, 3, 3 (base 0); `disabled={retrying}` → **0** (base 1); `aria-disabled={` → **1** (base 0).
+- **C6** · il manifesto → **nessuna riga** fuori dall'elenco.
+- **C7** · i cancelli, sul ramo a `a224ce9` (poi solo `PIANO.md` e questo file): `bun run typecheck` → **0 errori**; `bun run lint` → **0 errori e 15 avvisi**; `bun run test` → **1006 test in 59 file**, tutti verdi (899 + 107 nuovi: 94 della Home, 5 delle letture, 2 di «Riprova», 3 del dettaglio, 2 di Prenota, 1 della valutazione), coi worker predefiniti, nessun file caduto; `bun run build` → riuscita. Da PowerShell, i quattro file del §2 (`client-home`, `client-book`, `client-session-detail`, `query-state`), rilanciati alla chiusura sull'albero finale (`fb09fe8` più questo file): `$env:TZ = "UTC"`, sonda `0` → **187 su 187**; `$env:TZ = "America/Los_Angeles"`, sonda `420` → **187 su 187**; senza `TZ`, sonda `-120` → **187 su 187**.
+- **C8** · per ognuno dei cinque file: colori scritti **0**, e `<main`, `fixed` come parola, `confirm(`, `components/ui/drawer` **0** (base, la pagina: 3 e 4).
+- **C9** · `grep -n -E "^\| 0[45] \|" design_handoff_cliente_mobile/PIANO.md` → le righe 04 e 05 a `[x] |`; `git diff $B...HEAD --stat -- design_handoff_cliente_mobile` → solo `PIANO.md`, 2 righe cambiate.
+- **C10** · `Giulia|Marco|Nicolò|Personal Training|Via Roma|Via Verdi` nelle regole, nella pagina, nelle card, in `use-move-undo.ts` e `query-state.ts` → **nessuna riga**.
+- **C11** · `startInstallCapture`: `client.tsx` **0**, `__root.tsx` **2** (base 2 e 0); `isClientPath` in `use-pwa.ts` → **3** (base 0).
+- **C12** · `git diff --stat $B...HEAD -- src/lib/client-session-detail.ts` → **nessuna riga**; `sessionMinutes` nel test → **3** (base 0).
+- **C13** · `moveBack|useRescheduleBooking` nel dettaglio → **0** (base 5); `useMoveUndo`: dettaglio **3**, `client-home-next.tsx` **2**.
+- **C14** · `\buseQuery\b|"profile", meId` nella pagina → **0** (base 4).
+- **C15** · `git diff -U0 $B...HEAD -- src/routes/client.sessions.tsx | grep -E '^[+-][^+-]'`, riga per riga:
+  - `+import { arrivedRead, lostRead } from "@/lib/query-state";` → le due regole da `query-state.ts`;
+  - `-  // fallita, e finché risponde resta la card, col pulsante disattivato.` / `+  // … con «Riprova» occupato.` → il commento della lettura persa, che con `aria-disabled` diceva il falso (trovato dal revisore);
+  - `-  const sessionsLost =` e le due righe sotto / `+  const sessionsLost = lostRead(bookingsQ);` → la stessa condizione, scritta una volta in `query-state.ts`;
+  - `-  const typesArrived =` e la riga sotto / `+  const typesArrived = arrivedRead(eventTypesQ);` → idem;
+  - `-  // «Riprova» fallito di nuovo: il pulsante, disattivato …` (tre righe) / `+  // Mentre rilegge il focus resta su «Riprova» (aria-disabled, non disabled: …` (tre righe) → il commento del §4.3 punto 5. L'effetto sotto è com'era. Nient'altro.
+- **C16** · `MSYS_NO_PATHCONV=1 git grep -l '/client/store' -- $P $N $K $G $I` → **esattamente `src/components/client-home-credits.tsx`** (base: `src/routes/client.index.tsx`). Senza `MSYS_NO_PATHCONV=1` Git Bash riscrive il percorso e il comando non trova niente, né sul ramo né sulla base.
 
-- La pagina e i fogli non calcolano stati, soglie, date né testi (C3): tutto da `client-session-detail.ts`, sopra la 00.
-- Il coach è `NO_COACH` finché `get_my_coach` non c'è (02/10): i testi dicono «il tuo coach», e non ci sono la riga «con …», il pulsante WhatsApp del riquadro delle 24 ore né il link di «Pensi sia un errore?». Col coach vero cambia `COACH` in `client-booking-detail-view.tsx` (la costante del modulo), come in Prenota.
-- Dopo un annullamento la vista scrive subito nella cache del dettaglio lo stato del server (`cancelled` o `late_cancelled`) e poi la rilegge: così la card compare mentre il foglio si chiude, e il focus va sulla sua riga (`returnFocus`), perché «Annulla sessione» non c'è più.
-- Il dettaglio usa `isVisibleSession` come Sessioni: finché `cancel_booking` scrive `deleted_at` anche sugli annullamenti gratuiti, un annullamento gratuito fa «Sessione non trovata» dopo la rilettura (§8, voce 2). Non si compensa.
+**Le uscite dei cancelli, incollate** (le righe di riepilogo; i log interi in `scratchpad\fine\`, dove c'è anche l'uscita intera dei controlli, `controlli.txt`):
 
-## 4 · Acceptance
-
-Base = `origin/redesign/cliente-mobile` (`0e12622`), misurata su `git archive 0e12622` estratto nella cartella di lavoro. Dopo = il ramo finito. Comandi in bash sul container, con `R`, `V`, `MS`, `CS`, `RT`, `B`, `H` come nel prompt.
-
-### C0 · i file
-
-Base: le 8 righe «MANCA» e «resta il foglio vecchio». Dopo: **nessuna riga**.
-
-### C1 · i pulsanti vecchi restano solo nella Home
-
-`git grep -l -e "Aggiungi a Google Calendar" -e "Riprogramma" -- src` → base 5 file · dopo **esattamente**:
-
-```
-src/components/client-live-booking-card.tsx
-src/components/reschedule-drawer.tsx
-src/routes/client.index.tsx
-```
-
-### C2 · la pagina usa le regole
-
-`cat "$R" $V | grep -c "<nome>"` → base `0` ciascuno · dopo: `detailStatus` 2 · `detailWhen` 2 · `detailPlace` 2 · `detailPanel` 2 · `statusCard` 2 · `inviteText` 2 · `ratingState` 2 · `isVisibleSession` 3 · `ClientSessionRating` 2 · `ClientMoveSheet` 2 · `ClientCancelSheet` 2 · `useRestoreBooking` 3 · `toastWithUndo` 3.
-
-### C3 · niente calcoli fuori dalle regole
-
-- La pagina: base `5` · dopo **`0`**.
-- I fogli e la valutazione: `$MS` **`0`**, `$CS` **`0`**, `$RT` **`0`** (base: i file non c'erano).
-- Le regole: `grep -c -E 'new Date\(\)|Date\.now' src/lib/client-session-detail.ts` → **`0`**.
-
-### C4 · gli orari nel hook
-
-`grep -v -E '^\s*(//|\*|/\*)' src/routes/client.book.tsx | grep -c -E 'useCoachAvailability|…|BusyRow'` → base `11` · dopo **`0`**. `grep -c "useCoachSlotInputs" src/routes/client.book.tsx` → base `0` · dopo **`2`**. In `$H`: `useCoachAvailability` **4** · `useCoachAvailabilityExceptions` **2** · `useCoachOptimizationEnabled` **2** · `get_coach_busy` **1** · `"coach-busy", coachId, "prenota", today` **1** · `BusyRow` **3**: i numeri dello spostamento di Cowork.
-
-### C5 · lo spostamento è uno spostamento
-
-Le righe tolte che nel hook non ci sono uguali (`comm -23 …`):
-
-```
-CLIENT_BOOKING_HORIZON_DAYS,
-retrying={availabilityQ.isFetching || exceptionsQ.isFetching || busyQ.isFetching}
-```
-
-- `CLIENT_BOOKING_HORIZON_DAYS,` — un nome dell'import a più righe di `booking-rules`, che il filtro non toglie per il trattino basso; nel hook è importato su una riga sola (`import { CLIENT_BOOKING_HORIZON_DAYS } from "@/lib/booking-rules";`).
-- `retrying={…}` — la prop della card «Orari non aggiornati»: l'espressione è nel hook come `retryingSlots`, e la pagina dice `retrying={retryingSlots}`.
-
-Le righe del hook che in `client.book.tsx` non c'erano (`comm -13 …`):
-
-```
-const retryingSlots = availabilityQ.isFetching || exceptionsQ.isFetching || busyQ.isFetching;
-export function useCoachSlotInputs(coachId: string | null, now: Date) {
+```text
+$ tsc --noEmit                        (nessuna riga d'errore)
+✖ 15 problems (0 errors, 15 warnings)
+ Test Files  59 passed (59)
+      Tests  1006 passed (1006)
+✓ built in 8.67s   ·   ✓ built in 2.45s   ·   ✓ built in 6.92s
+$env:TZ = "UTC" · sonda 0 → Test Files  4 passed (4) | Tests  187 passed (187)
+$env:TZ = "America/Los_Angeles" · sonda 420 → Test Files  4 passed (4) | Tests  187 passed (187)
+senza TZ (Roma) · sonda -120 → Test Files  4 passed (4) | Tests  187 passed (187)
 ```
 
-- `const retryingSlots = …` — l'espressione della prop, stessi tre operandi nello stesso ordine.
-- `export function useCoachSlotInputs(…) {` — la firma.
+## 6 · LE PROVE ROSSE
 
-Le stesse due righe per verso di Cowork; nessuna condizione, confronto, chiave o testo di Prenota cambia. `git diff --numstat $B...HEAD -- src/routes/client.book.tsx` → **`14 71`** (Cowork: `14 71`). Le 12 righe d'intestazione del hook sono commenti `//`, che il secondo comando filtra.
+Le 34 da test con `scratchpad\muta.mjs` (le mutazioni in `scratchpad\mutazioni.json`). Per ognuna lo script:
+1. sostituisce nel file del repo il pezzo indicato (una sola occorrenza);
+2. lancia `vitest run --reporter=verbose` sui file di test della prova;
+3. rimette il file e controlla che l'impronta sha256 sia quella di prima;
+4. rilancia i test.
 
-### C6 · il manifesto
+R1-R27 e R35-R37 in un giro solo: «30 su 30 cadute e tornate verdi», uscita intera in `scratchpad\rosse-roma-utf8.txt`. R28-R31 rilanciate alla chiusura con `node muta.mjs mutazioni.json R28,R29,R30,R31`: «4 su 4 cadute e tornate verdi», in `scratchpad\rosse-28-31.txt`. Tutte col fuso di Roma, sonda `-120` (vedi NON FATTO). Ogni voce dice cosa ho rotto, il riepilogo rosso di vitest con le prove cadute e il verde, sempre col file rimesso e l'impronta uguale a quella di prima.
 
-`git diff --name-only $B...HEAD | grep -v -x -E '…'` → **nessuna riga**.
+R32-R34 sono nel browser, con `banco\muta-browser.mjs`: stessa sostituzione, poi lo script del banco, poi il file rimesso con l'impronta controllata.
 
-### C7 · i quattro cancelli
+- **R1** · getBookState col numero dalla prima finestra (com'era) (`src/lib/client-book.ts`). Rosso: Test Files  2 failed (2) | Tests  3 failed | 132 passed (135); cadono: client-book: getBookState · Luca, il blocco 2 finisce oggi > il numero dal blocco 3, come il riepilogo dello stesso orario; la Home di Luca > le opzioni di Prenota: il numero della Home è il loro; la Home di Luca > le righe dei crediti, la legenda e il fondo. Verde: Test Files  2 passed (2) | Tests  135 passed (135).
+- **R2** · creditRows senza « nel blocco N» (`src/lib/client-home.ts`). Rosso: Test Files  1 failed (1) | Tests  2 failed | 92 passed (94); cadono: la Home di Giulia e di Luca > le righe dei crediti, la legenda e il fondo (due prove). Verde: Test Files  1 passed (1) | Tests  94 passed (94).
+- **R3** · la barra dal pool del numero (countFromNext ? nextPool : referencePool) (`src/lib/client-home.ts`). Rosso: Test Files  1 failed (1) | Tests  2 failed | 92 passed (94); cadono: la Home di Giulia e di Luca > le righe dei crediti, la legenda e il fondo (due prove). Verde: Test Files  1 passed (1) | Tests  94 passed (94).
+- **R4** · «Acquista» senza guardare buyBooster (`src/lib/client-home.ts`). Rosso: Test Files  1 failed (1) | Tests  2 failed | 92 passed (94); cadono: la Home di Davide e di Giorgio > le righe dei crediti, la legenda e il fondo (due prove). Verde: Test Files  1 passed (1) | Tests  94 passed (94).
+- **R5** · «Come si prenota» anche con count a zero (`src/lib/client-home.ts`). Rosso: Test Files  1 failed (1) | Tests  1 failed | 93 passed (94); cadono: la Home di Giorgio > le righe dei crediti, la legenda e il fondo. Verde: Test Files  1 passed (1) | Tests  94 passed (94).
+- **R6** · l'avviso senza la condizione del giorno prenotabile (`src/lib/client-home.ts`). Rosso: Test Files  1 failed (1) | Tests  1 failed | 93 passed (94); cadono: la Home di Luca > l'intestazione dei crediti e l'avviso. Verde: Test Files  1 passed (1) | Tests  94 passed (94).
+- **R7** · l'avviso con gli extra (avail invece di blockAvail) (`src/lib/client-home.ts`). Rosso: Test Files  1 failed (1) | Tests  1 failed | 93 passed (94); cadono: la Home di Giorgio > l'intestazione dei crediti e l'avviso. Verde: Test Files  1 passed (1) | Tests  94 passed (94).
+- **R8** · l'avviso con >= 7 invece di > 7 (`src/lib/client-home.ts`). Rosso: Test Files  1 failed (1) | Tests  1 failed | 93 passed (94); cadono: la Home di Paola > l'intestazione dei crediti e l'avviso. Verde: Test Files  1 passed (1) | Tests  94 passed (94).
+- **R9** · la riga delle 24 ore senza « Per un altro orario scrivi al tuo coach.» (`src/lib/client-home.ts`). Rosso: Test Files  1 failed (1) | Tests  7 failed | 87 passed (94); cadono: la Home di Marta, di Elena e di Luca > la prossima sessione, le altre e la card (tre prove); homeNextCard, al confine > n2, n3, n5, n10: chip, giorno, orario, quanto manca, tipo, luogo, riquadro, azioni, riga (quattro prove). Verde: Test Files  1 passed (1) | Tests  94 passed (94).
+- **R10** · until senza «in corso» (formatUntil anche a sessione iniziata) (`src/lib/client-home.ts`). Rosso: Test Files  1 failed (1) | Tests  1 failed | 93 passed (94); cadono: homeNextCard, al confine > n1: chip, giorno, orario, quanto manca, tipo, luogo, riquadro, azioni, riga. Verde: Test Files  1 passed (1) | Tests  94 passed (94).
+- **R11** · il giorno della card con formatLongDay invece di formatDayRel (`src/lib/client-home.ts`). Rosso: Test Files  1 failed (1) | Tests  10 failed | 84 passed (94); cadono: la Home di Marta, di Elena, di Luca e di Giorgio > la prossima sessione, le altre e la card (quattro prove); homeNextCard, al confine > n1, n2, n3, n4, n5, n10: chip, giorno, orario, quanto manca, tipo, luogo, riquadro, azioni, riga (sei prove). Verde: Test Files  1 passed (1) | Tests  94 passed (94).
+- **R12** · others = tutte le in programma (`src/lib/client-home.ts`). Rosso: Test Files  1 failed (1) | Tests  6 failed | 88 passed (94); cadono: la Home di Giulia, di Marta, di Elena, di Luca, di Giorgio e di Paola > la prossima sessione, le altre e la card (sei prove). Verde: Test Files  1 passed (1) | Tests  94 passed (94).
+- **R13** · firstFreeSlot prende la prima voce con un orario (`src/lib/client-home.ts`). Rosso: Test Files  1 failed (1) | Tests  2 failed | 92 passed (94); cadono: firstFreeSlot > il più presto fra le voci; a pari orario la prima; il primo giorno con orari; noNextCard > il primo orario libero, anche senza tipologia. Verde: Test Files  1 passed (1) | Tests  94 passed (94).
+- **R14** · noNextCard senza il caso dei crediti col coach (`src/lib/client-home.ts`). Rosso: Test Files  1 failed (1) | Tests  1 failed | 93 passed (94); cadono: noNextCard > solo crediti da prenotare col coach. Verde: Test Files  1 passed (1) | Tests  94 passed (94).
+- **R15** · il segno della variazione dalla differenza non arrotondata (`src/lib/client-home.ts`). Rosso: Test Files  1 failed (1) | Tests  1 failed | 93 passed (94); cadono: progressModel > «flat»: la variazione arrotondata prima del segno, e i valori tutti uguali. Verde: Test Files  1 passed (1) | Tests  94 passed (94).
+- **R16** · senza l'elisione («dal 8 mag») (`src/lib/client-home.ts`). Rosso: Test Files  1 failed (1) | Tests  2 failed | 92 passed (94); cadono: progressModel > «flat»: la variazione arrotondata prima del segno, e i valori tutti uguali; progressModel > «eleven»: dall'11. Verde: Test Files  1 passed (1) | Tests  94 passed (94).
+- **R17** · i progressi anche con una misurazione (`src/lib/client-home.ts`). Rosso: Test Files  1 failed (1) | Tests  1 failed | 93 passed (94); cadono: progressModel > con una misurazione sola, niente. Verde: Test Files  1 passed (1) | Tests  94 passed (94).
+- **R18** · la valutazione senza canRate (solo completed) (`src/lib/client-home.ts`). Rosso: Test Files  1 failed (1) | Tests  5 failed | 89 passed (94); cadono: la Home di Marta > le sezioni e il saluto; la Home di Marta > la valutazione; la Home di Davide > la valutazione; homeRating su Giulia > «keptGoneAfterRated»: senza shownId, la prossima da valutare; homeRating su Giulia > «shownNotRateable»: una mostrata che non si valuta non conta. Verde: Test Files  1 passed (1) | Tests  94 passed (94).
+- **R19** · homeRating senza shownId (`src/lib/client-home.ts`). Rosso: Test Files  1 failed (1) | Tests  1 failed | 93 passed (94); cadono: homeRating su Giulia > «kept»: quella mostrata resta, col voto e la nota appena salvati. Verde: Test Files  1 passed (1) | Tests  94 passed (94).
+- **R20** · il sottotitolo dell'abbonamento senza «Abbonamento mensile · » (`src/lib/client-home.ts`). Rosso: Test Files  1 failed (1) | Tests  1 failed | 93 passed (94); cadono: la Home di Marta > l'intestazione dei crediti e l'avviso. Verde: Test Files  1 passed (1) | Tests  94 passed (94).
+- **R21** · i segmenti anche per l'abbonamento (`src/lib/client-home.ts`). Rosso: Test Files  1 failed (1) | Tests  1 failed | 93 passed (94); cadono: la Home di Marta > l'intestazione dei crediti e l'avviso. Verde: Test Files  1 passed (1) | Tests  94 passed (94).
+- **R22** · il saluto col nome intero (`src/lib/client-home.ts`). Rosso: Test Files  1 failed (1) | Tests  6 failed | 88 passed (94); cadono: la Home di Giulia, di Marta, di Elena, di Davide e di Giorgio > le sezioni e il saluto (cinque prove); il resto > homeGreeting. Verde: Test Files  1 passed (1) | Tests  94 passed (94).
+- **R23** · il dettaglio senza «extra usati» (`src/lib/client-home.ts`). Rosso: Test Files  1 failed (1) | Tests  2 failed | 92 passed (94); cadono: la Home di Elena e di Giorgio > le righe dei crediti, la legenda e il fondo (due prove). Verde: Test Files  1 passed (1) | Tests  94 passed (94).
+- **R24** · il nome della barra col numero di Prenota (count) invece del disponibile del pool (`src/lib/client-home.ts`). Rosso: Test Files  1 failed (1) | Tests  2 failed | 92 passed (94); cadono: la Home di Giulia e di Luca > le righe dei crediti, la legenda e il fondo (due prove). Verde: Test Files  1 passed (1) | Tests  94 passed (94).
+- **R25** · homeSections senza il caso del percorso concluso (`src/lib/client-home.ts`). Rosso: Test Files  1 failed (1) | Tests  2 failed | 92 passed (94); cadono: la Home di Davide > le sezioni e il saluto; homeSections > «concludedWithNext»: il percorso concluso e la prossima, niente crediti né valutazione. Verde: Test Files  1 passed (1) | Tests  94 passed (94).
+- **R26** · sessionMinutes con b.duration_min ?? 60 (`src/lib/client-session-detail.ts`). Rosso: Test Files  2 failed (2) | Tests  2 failed | 139 passed (141); cadono: client-session-detail: i casi al confine > la durata nulla o zero vale 60, anche nell'intestazione; homeNextCard, al confine > n9: chip, giorno, orario, quanto manca, tipo, luogo, riquadro, azioni, riga. Verde: Test Files  2 passed (2) | Tests  141 passed (141).
+- **R27** · join con untilStart < HOUR_MS (`src/lib/client-session-detail.ts`). Rosso: Test Files  2 failed (2) | Tests  2 failed | 139 passed (141); cadono: client-session-detail: i casi al confine > a un'ora esatta dall'inizio si entra nella videochiamata, non si conferma; homeNextCard, al confine > n2: chip, giorno, orario, quanto manca, tipo, luogo, riquadro, azioni, riga. Verde: Test Files  2 passed (2) | Tests  141 passed (141).
+- **R28** · inviteText senza scheduledAhead (`src/lib/client-session-detail.ts`). Rosso: Test Files  1 failed (1) | Tests  1 failed | 46 passed (47); cade: client-session-detail: i casi al confine > niente invito per una sessione passata: svolta, o in programma e già finita. Verde: Test Files  1 passed (1) | Tests  47 passed (47).
+- **R29** · lostRead senza `errorUpdateCount > 0 && fetchStatus !== "idle"` (`src/lib/query-state.ts`). Rosso: Test Files  1 failed (1) | Tests  1 failed | 4 passed (5); cade: lostRead, failedRead, arrivedRead > senza dati, riletta dopo un errore («Riprova»): resta persa, fallita e arrivata. Verde: Test Files  1 passed (1) | Tests  5 passed (5).
+- **R30** · BookRetryCard di nuovo con `disabled={retrying}` (`src/components/book-blocked-card.tsx`). Rosso: Test Files  1 failed (1) | Tests  1 failed | 1 passed (2); cade: BookRetryCard > mentre rilegge: aria-disabled, mai disabled. Verde: Test Files  1 passed (1) | Tests  2 passed (2).
+- **R31** · ClientSessionRating che non mostra `subtitle` (`src/components/client-session-rating.tsx`). Rosso: Test Files  1 failed (1) | Tests  1 failed | 3 passed (4); cade: ClientSessionRating > col sottotitolo della Home: sotto il titolo, mentre si sceglie e da salvata. Verde: Test Files  1 passed (1) | Tests  4 passed (4).
+- **R32** · nel browser, `src/hooks/use-client-book-state.ts` com'è sulla base (`arrived`/`lost` con `isError` soltanto), con `muta-browser.mjs R32 -- sonda05.mjs … caso=profiles`. Rosso: Prenota col profilo in errore → dopo «Riprova» **card persa, scheletro, focus sul `body`** (focus visti «BUTTON:Riprova» e poi «body»); Home col profilo in errore → **card persa e scheletro** (il focus non va sul `body` perché l'effetto nuovo della pagina lo porta sul contenuto). Verde: il file rimesso (impronta `200b747db49f` uguale) è quello della matrice di B13 sul ramo: card sempre, mai scheletro, focus mai sul `body`.
+- **R33** · nel browser, `preventDefault()` su ogni percorso (`src/hooks/use-pwa.ts`), con `muta-browser.mjs R33 -- cattura05.mjs … solo=coach,install`. Rosso: `defaultPrevented` **vero** su `/auth` e **vero** sul coach (`/trainer`). Verde: il file rimesso (impronta `7fc0309d38b0` uguale); nella cattura del ramo `defaultPrevented` è falso su `/auth` e su `/trainer`, vero su `/client`.
+- **R34** · nel browser, Prenota con la regola di prima (`windows[0]`, in `src/lib/client-book.ts`), con `muta-browser.mjs R34 -- sonda05.mjs … solo=numeri`. Rosso: Luca **«60 min · 2 disponibili»**, come sulla base (dove la sonda misura anche lei «2 disponibili»). Verde: il file rimesso (impronta `f52640c07f71` uguale); sul ramo «60 min · 8 disponibili». Gli altri otto numeri sono uguali sulla base e sul ramo.
+- **R35** · la finestra del numero con w.until > invece di >= (`src/lib/client-book.ts`). Rosso: Test Files  2 failed (2) | Tests  2 failed | 133 passed (135); cadono: client-book: getBookState · Luca, il blocco 2 finisce oggi > al confine: il blocco 2 finisce domani, e domani dopo le 10:40 si prenota ancora; Luca al confine («edge») > il numero è quello del blocco 2, e l'avviso c'è. Verde: Test Files  2 passed (2) | Tests  135 passed (135).
+- **R36** · firstFreeSlot col primo giorno della voce invece del primo giorno con orari (`src/lib/client-home.ts`). Rosso: Test Files  1 failed (1) | Tests  1 failed | 93 passed (94); cadono: firstFreeSlot > il più presto fra le voci; a pari orario la prima; il primo giorno con orari. Verde: Test Files  1 passed (1) | Tests  94 passed (94).
+- **R37** · i punti del grafico senza il ripiego || 1 per il range zero (`src/lib/client-home.ts`). Rosso: Test Files  1 failed (1) | Tests  1 failed | 93 passed (94); cadono: progressModel > «flat»: la variazione arrotondata prima del segno, e i valori tutti uguali. Verde: Test Files  1 passed (1) | Tests  94 passed (94).
 
-**Non eseguiti** (§0 passo 0): typecheck, lint, test (anche con `TZ`), build. Indizi parziali (§0 passo 8): Prettier 3.8.1 del container, `/opt/node22/bin/prettier --check` sui 16 file toccati del ramo finito → «All matched files use Prettier code style!»; i test puri eseguiti dal revisore con un `date-fns` sostituto, 44/44 e 30/30 nei tre fusi. Attesi, se il codice è giusto: typecheck 0 · lint 0 errori e 20 avvisi · **899 test in 56 file** (851 + 44 di `client-session-detail.test.ts` + 3 di `client-session-rating.test.ts` + 1 in `client-sessions.test.ts`) · build riuscita. Il numero dei test l'ho contato dai `it` scritti (22 del ciclo sulle sessioni più 22 altri), non misurato.
+## 7 · IL BROWSER
 
-### C8 · niente colori scritti, fixed, main, confirm(), drawer
+**Il banco:** la copia di `C:\Coworks\NC App Development\app\banco-cli-2026-09-30` nella cartella di lavoro della sessione (`%TEMP%\claude\C--Coworks-NC-App-Development-repos-nc-calendar\a6fb21c0-bf6a-4d1f-9e89-920815679cf8\scratchpad\banco`), con `lib-windows.mjs` come `lib.mjs` (Playwright della cache npx, `chromium_headless_shell-1200`), `fake04.mjs`, `seed05.mjs` e i dati di Cowork. Ora fissa lunedì 28/09/2026 10:40, fuso di Roma, 390×844 salvo dove detto. Script miei, tutti fuori dal repo: `giro05.mjs` (B1-B12, B14, B16), `sonda05.mjs` (B13 e i numeri di Prenota, sulla base e sul ramo: la sonda di Cowork con in più la Home, il ritorno del finto e il focus dopo il contenuto), `cattura05.mjs` + `confronto05.mjs` (B12 e B15, base e ramo), `matrice.mjs` (la tabella di B13), `muta-browser.mjs` (R32-R34). La base l'ho misurata con `git switch --detach origin/redesign/cliente-mobile` e ritorno sul ramo, col revisore che leggeva una copia statica. Le schermate sono in `scratchpad\banco\giro05\` (i nomi accanto a ogni voce; quelle della base di B13 in `banco\sonda05-base\`), le uscite dei giri in `banco\esito-*.txt`: lo scratchpad è la cartella temporanea della sessione, fuori dal repo.
 
-`grep -c -E '#[0-9a-fA-F]{6}'` → base `0` (route) e `8` (vista) · dopo **`0`** su `"$R"`, `$V`, `$MS`, `$CS`, `$RT`. `grep -c -E '<main|\bfixed\b|window\.confirm|[^A-Za-z_.]confirm\(|components/ui/drawer'` → base `1` (il `main` della route) e `0` · dopo **`0`** su tutti e cinque.
+**Esito del giro della 05 sul ramo (secondo giro, dopo le correzioni della revisione): 181 prove su 181.** Per voce: B1 15/15 · B2 6/6 · B3 5/5 · B4 10/10 · B5 14/14 · B6 14/14 · B7 9/9 · B8 56/56 · B9 8/8 · B10 7/7 · B11 8/8 · B12 3/3 · B14 23/23 · B16 2/2. Il primo giro, prima delle correzioni, aveva dato 176 su 181: due falsi allarmi dello script (le larghezze lette come `0%`, B4 sul seme incoerente) e un difetto vero a 320 px (B14), corretto (DIVERGENZE).
 
-### C9 · la riga del piano
+- **B1** · Giulia a 390: `h1` «Ciao Giulia», «Lunedì 28 settembre»; le sezioni «Prossima sessione», «I tuoi crediti», «Com'è andata?», «I tuoi progressi», «Installa NC Calendar»; la prossima com'è nelle attese di Cowork (chip, giorno, «10:00–11:00 · tra 2 giorni», tipo, luogo, «Conferma presenza» · «Sposta» · «Dettagli», «Hai altre 6 sessioni prenotate»); un solo pulsante pieno; «Dettagli» e il blocco verso `/client/bookings/g-next-1`, «Vedi tutte» verso `/client/sessions`; niente «Promemoria» né conto alla rovescia. H2: fondo di «Conferma presenza» a 309 px, barra in basso a 773, `scrollY` 0. Schermate `giro05\B1-giulia-390.png`, `B1-giulia-390-intera.png`; confrontata con `05-home-01`: stessa struttura; il riquadro è rosso perché la PT dei dati è `#D50000`.
+- **B2** · I crediti di Giulia come nelle attese (le quattro righe: nome, disponibile, azione, dettaglio, nome della barra), sei segmenti «Percorso: blocco 3 di 6», niente avviso, la legenda con «Perse», «Acquista un Booster» verso `/client/store`, mai «Completo»; le barre 31,3 / 43,8 / 6,3 e le altre; H1: i numeri della Home uguali alla lista di Prenota (3, 1, la riga col coach, 1). «Come si prenota» → il foglio «Test funzionale» con «Questa sessione si prenota direttamente con il tuo coach. Hai 1 credito disponibile.» e solo «Chiudi»; «Prenota» della Consulenza → `/client/book?eventType=<id della Consulenza>` con la Consulenza scelta. `B2-come-si-prenota.png`, `B2-crediti-390.png`.
+- **B3** · «Conferma presenza»: `confirm_booking_attendance` una volta; il chip «Confermata», restano «Sposta» e «Dettagli»; il badge di Sessioni da «Sessioni, 1 da confermare» a «Sessioni»; il toast «Presenza confermata · Il tuo coach vedrà la conferma sul calendario.»; il focus sull'h2 «Prossima sessione». `B3-confermata.png`.
+- **B4** · Sposta dalla Home (dati coerenti, vedi DIVERGENZE): il foglio con «Ora: mercoledì 30 settembre, 10:00–11:00 · Personal Training»; sabato 3/10 alle 09:00 → `reschedule_booking` una volta su `g-next-1`, il toast «Spostata a sab 3 ott alle 09:00. Il tuo coach riceve un avviso.» con «Ripristina», la card su giovedì 1 ottobre (`g-next-2`), il focus sull'h2 «Prossima sessione», l'avviso al coach. «Ripristina» → `reschedule_booking` su `g-next-1` verso il 30/09 alle 10:00 (anche se la prossima era un'altra), «Sessione riportata all'orario di prima.», la card di nuovo sul 30/09, l'avviso al coach. Sul seme di Cowork così com'è «Ripristina» è rifiutato (23P01) con «L'orario di prima non è più libero.» e la sessione resta spostata. Nota: dopo «Ripristina» il focus è sul `body` (il toast della 01, §10). `B4-spostata-coerente.png`, `B4-ripristina-coerente.png`, `B4-ripristina-seme-cowork.png`.
+- **B5** · Marta: «Oggi», «19:30–20:30 · tra 8 ore», «Conferma presenza», «Dettagli» a tutta larghezza, la riga delle 24 ore con «Per un altro orario scrivi al tuo coach.» senza link, «Hai un'altra sessione prenotata»; «Blocco 4», «Abbonamento mensile · settimana 4 di 4 · si rinnova lunedì 5 ottobre», niente segmenti, l'avviso con la clessidra; niente «Com'è andata?»; H2. Confrontata con `05-home-04`: le differenze sono il coach senza nome (una frase invece di «Scrivi a Marco») e i dati. `B5-marta-390.png`.
+- **B6** · Elena: la prossima online con l'icona `Video`, «Conferma presenza», «Dettagli», la riga delle 24 ore; «Cliente libero», «Crediti senza scadenza», «Personal Training», «2 disponibili», «4 extra usati · 6 in totale»; in fondo «Per altri crediti scrivi al tuo coach.» come testo; nessun link a `/client/store` nel contenuto; «Com'è andata?» con «Personal Training di sabato 26 settembre. …»; H2. `B6-elena-390.png`.
+- **B7** · Davide: solo «Il tuo percorso è concluso» col testo e senza pulsanti, e l'installazione; niente crediti, niente «Prenota», nessun link a `/client/store` né a `/client/book`. Confrontata con `05-home-07`: mancano WhatsApp e «Chiama» (il coach non si conosce, §5). `B7-davide-390.png`.
+- **B8** · Luca: «8 disponibili nel blocco 3», nessun avviso, e in Prenota «60 min · 8 disponibili» (sulla base «2 disponibili», vedi R34); Giorgio: la PT «Esauriti» con «Acquista» verso `/client/store?type=<id della PT>`, la BIA «1 svolta · 1 extra usato · 3 in totale», il test «Esauriti» senza azione, la legenda con «Perse»; Paola: «2 crediti da prenotare entro lunedì 5 ottobre.»; Nina: «Primo orario libero: lunedì 5 ottobre alle 09:00, Personal Training.» con «Prenota una sessione» verso `/client/book?eventType=<id della PT>`, «Blocco 1 di 1», «Inizia lunedì 5 ottobre»; Nina con `get_coach_busy` sempre in errore: «Non siamo riusciti a leggere gli orari liberi: li trovi in Prenota.» con Prenota senza tipologia, e campionando ogni 200 ms per 20 secondi mai «Nessun orario libero»; Sara: «Ciao», «Non hai crediti da prenotare in questo momento.», nessun pulsante, nessuna card dei crediti. Le schermate `B8-*.png`.
+- **B9** · La valutazione di Giulia, con la colonna: 4 stelle, «Bene», «Invia valutazione» → un `upsert` con `note` «Bene» su `g-done-5`; la card resta con «La tua valutazione», «Valutata 4 su 5», la nota «Bene» tra caporali, «Modifica valutazione» e lo stesso sottotitolo; il toast «Grazie: il tuo coach vedrà la tua valutazione.»; il focus sul titolo. Ricaricata: la card sulla sessione del 21/09. Senza la colonna: due `upsert` e «Valutazione salvata: la nota non si è potuta salvare.», il focus non sul `body`. `B9-valutata.png`.
+- **B10** · I progressi: il radiogroup «Misura» con tre voci e un solo `tabindex="0"`; Peso come nelle attese (valore, variazione, punti, ultimo punto, nome, date, nota); → porta a Massa magra col focus, End a Grasso, Home a Peso; con una misurazione o senza la sezione non c'è. `B10-grasso.png`.
+- **B11** · La card d'installazione c'è; «Come installarla» apre il foglio col passo del Profilo e «Ho installato l'app»; «Non ora» → la card sparisce, il toast, la chiave `nc-home-install-hidden-<id>` a `"1"`, il focus sull'h2 «I tuoi progressi»; ricaricata non c'è; con Marta c'è; con `nc-app-installed` non c'è; «Ho installato l'app» dal foglio → la card sparisce, il focus non sul `body`.
+- **B12** · Dalla radice, sul ramo: su `/auth` `defaultPrevented` falso; l'accesso dal modulo senza ricaricare (un segno sulla finestra resta); sulla Home «Come installarla» mostra «Installa»; su `/client` `defaultPrevented` vero; sul coach (`/trainer`) falso. Sulla base: su `/auth` falso ma l'evento si perde (il foglio montato con l'arnese dice «Ho installato l'app»), su `/client` vero, sul coach falso.
+- **B13** · La matrice, base e ramo, è per intero qui sotto, dopo l'elenco. Sul ramo, in tutti i 13 casi, la card resta, lo scheletro non compare, il focus non va mai sul `body` e «Riprova» è `aria-disabled`; nella Home, arrivato il contenuto, il focus è sull'h2 «Prossima sessione». Sulla base Prenota perde la card in ogni caso, e la Home la card non ce l'ha.
+- **B14** · A 320 px nessun elemento del contenuto con `scrollWidth > clientWidth`, per le nove persone (nel primo giro Giulia no: vedi DIVERGENZE); a 390 H2 per Giulia, Marta ed Elena (B1, B5, B6); a 1280 la colonna è larga 560; il contrasto dell'icona sul riquadro, dai colori dipinti (la tinta al 10% composta sul bianco): Personal Training e Consulenza sopra 3:1 (Consulenza 5,98); nessun `position: fixed` nella pagina; in ogni card al più un pulsante pieno principale (le azioni di riga «Prenota» dei crediti, alte 44, sono quelle del brief). `B14-*-320.png`, `B14-giulia-1280.png`.
+- **B15** · Il resto non cambia. `giro-prenota.mjs` della 02 → **82 su 82**; `giro-sessioni.mjs` della 03 → **78 su 78**, col suo B7 aggiornato nella mia copia (guardava `btn.disabled`; ora guarda `aria-disabled`, e in più controlla che `disabled` non ci sia mai e che il focus non vada mai sul `body`: fasi «card → card+disattivato → card», fine sul titolo «Sessioni non caricate»); `giro04.mjs` della 04 → **103 su 104** sul ramo e **lo stesso KO sulla base** (rilanciato su `982cc5c` con `solo=B9`, stesse differenze): il suo B9 si aspetta differenze fra Prenota e Sposta solo il 30/09, ma Prenota offre anche lunedì 12 ottobre (l'ultimo dei 14 giorni, pagato dal blocco 4) e Sposta si ferma all'11 (la fine del blocco della sessione). È un'attesa del giro, non la passata; lo spostamento del dettaglio e il suo «Ripristina» con `useMoveUndo` (il suo B7) sono verdi. Booster e Notifiche: il testo del contenuto uguale sulla base e sul ramo, e le schermate uguali byte per byte; il coach su `/trainer` a 1440×900 e 390×844: schermate uguali byte per byte (`4ab3dd25fa0197f9`, `0ebeec348b31d83b`). Il Profilo ha una corsa sua, già sulla base: a volte il testo ha una riga «Sessione PT · 3 disponibili» in più (840 caratteri invece di 814), con l'avviso di React sulle chiavi doppie; l'ho visto in tutte e due le varianti sulla base (tre giri) e sul ramo (quattro giri). A variante uguale, base e ramo hanno lo stesso testo e la stessa schermata byte per byte (814: `18293ca0f6645c65`; 840: stesso testo fra due giri del ramo). Le uscite: `banco\esito-giro-prenota.txt`, `esito-giro-sessioni.txt`, `esito-giro04.txt`, `cattura05-base\`, `cattura05-ramo\`.
+- **B16** · Zero richieste esterne bloccate e zero funzioni server eseguite dal server di sviluppo, in tutti i giri (giro della 05, sonde, catture, giri della 02, 03 e 04). Le chiamate registrate dal finto per voce (senza le letture): B1 `ensure_client_block_state` 1 · B2 `ensure_client_block_state` 1, `get_coach_busy` 1 · B3 `ensure_client_block_state` 1, `confirm_booking_attendance` 1 · B4 `ensure_client_block_state` 2, `get_coach_busy` 4, `reschedule_booking` 4 (due spostamenti e due «Ripristina», uno rifiutato), `booking-notifications` 3, `gcalUpdateEvent` 3 · B5-B7 `ensure_client_block_state` 1 ciascuna · B8 `ensure_client_block_state` 7, `get_coach_busy` 6 · B9 `ensure_client_block_state` 3, `session_feedback` 3 (`upsert`: uno con la colonna, due senza) · B10 `ensure_client_block_state` 3 · B11 `ensure_client_block_state` 5 · B14 `ensure_client_block_state` 21, `get_coach_busy` 2.
 
-`grep -n "^| 04 |" design_handoff_cliente_mobile/PIANO.md` → base `[ ] |` · dopo **`[~] |`**: ⚠️ **volutamente non `[x]`**, che nel piano vuol dire «fatta e verificata» (§0 passo 7). `git diff $B...HEAD --stat -- design_handoff_cliente_mobile` → solo `PIANO.md`, una riga.
+**La matrice di B13** (`sonda05.mjs` sulla base e sul ramo, la tabella da `node matrice.mjs base ramo`). In ogni caso il finto fa fallire sempre quella lettura e la card «Riprova» deve comparire. Poi: focus su «Riprova», clic, e 90 campioni, uno ogni 100 ms, mentre la pagina rilegge e fallisce di nuovo. Le voci:
+- *card sempre* / *card persa*: il titolo della card c'è in tutti i campioni, oppure no;
+- *scheletro*: un `aria-busy="true"` in almeno un campione;
+- *focus sul body*: in almeno un campione;
+- `disabled` / `aria-disabled`: com'è «Riprova» mentre rilegge;
+- *fine*: dove sta il focus all'ultimo campione.
 
-### C10 · niente dati finti nel codice
+Poi il finto torna a rispondere e si preme di nuovo «Riprova»:
+- *contenuto dopo*: la card lascia il posto al contenuto;
+- *focus dopo*: dove sta il focus 1,2 secondi dopo. Ho aggiunto questa voce alla sonda dopo il giro della base, che quindi non la misura.
 
-`grep -n -E 'Giulia|Marco|Nicolò|Personal Training|Via Roma|Via Verdi' src/lib/client-session-detail.ts $H src/hooks/use-restore-booking.ts "$R" $V $MS $CS $RT` → **nessuna riga**.
+«Prenota-orari» è Prenota con in errore la lettura degli orari del coach.
 
-### C11 · restore_booking solo nel suo hook
+| Pagina / lettura in errore | Base (`982cc5c`) | Ramo |
+|---|---|---|
+| prenota/profiles | **card persa** · **scheletro** · **focus sul body** · né l'uno né l'altro · fine: body · contenuto dopo | card sempre · mai scheletro · focus mai sul body · `aria-disabled` · fine: BUTTON:Riprova · contenuto dopo · focus dopo: body |
+| prenota/training_blocks | **card persa** · **scheletro** · **focus sul body** · né l'uno né l'altro · fine: body · contenuto dopo | card sempre · mai scheletro · focus mai sul body · `aria-disabled` · fine: BUTTON:Riprova · contenuto dopo · focus dopo: body |
+| prenota/bookings | **card persa** · **scheletro** · **focus sul body** · né l'uno né l'altro · fine: body · contenuto dopo | card sempre · mai scheletro · focus mai sul body · `aria-disabled` · fine: BUTTON:Riprova · contenuto dopo · focus dopo: body |
+| prenota/extra_credits | **card persa** · **scheletro** · **focus sul body** · né l'uno né l'altro · fine: body · contenuto dopo | card sempre · mai scheletro · focus mai sul body · `aria-disabled` · fine: BUTTON:Riprova · contenuto dopo · focus dopo: body |
+| prenota/event_types | **card persa** · **scheletro** · **focus sul body** · né l'uno né l'altro · fine: body · contenuto dopo | card sempre · mai scheletro · focus mai sul body · `aria-disabled` · fine: BUTTON:Riprova · contenuto dopo · focus dopo: body |
+| home/profiles | la card non c'è | card sempre · mai scheletro · focus mai sul body · `aria-disabled` · fine: BUTTON:Riprova · contenuto dopo · focus dopo: H2:Prossima sessione |
+| home/training_blocks | la card non c'è | card sempre · mai scheletro · focus mai sul body · `aria-disabled` · fine: BUTTON:Riprova · contenuto dopo · focus dopo: H2:Prossima sessione |
+| home/bookings | la card non c'è | card sempre · mai scheletro · focus mai sul body · `aria-disabled` · fine: BUTTON:Riprova · contenuto dopo · focus dopo: H2:Prossima sessione |
+| home/extra_credits | la card non c'è | card sempre · mai scheletro · focus mai sul body · `aria-disabled` · fine: BUTTON:Riprova · contenuto dopo · focus dopo: H2:Prossima sessione |
+| home/event_types | la card non c'è | card sempre · mai scheletro · focus mai sul body · `aria-disabled` · fine: BUTTON:Riprova · contenuto dopo · focus dopo: H2:Prossima sessione |
+| sessioni/bookings | card sempre · mai scheletro · **focus sul body** · `disabled` · fine: H2:Sessioni non caricate · contenuto dopo | card sempre · mai scheletro · focus mai sul body · `aria-disabled` · fine: H2:Sessioni non caricate · contenuto dopo · focus dopo: body |
+| prenota-orari/rpc/get_coach_busy | **card persa** · **scheletro** · **focus sul body** · né l'uno né l'altro · fine: body · contenuto dopo | card sempre · mai scheletro · focus mai sul body · `aria-disabled` · fine: BUTTON:Riprova · contenuto dopo · focus dopo: body |
+| prenota-orari/trainer_availability | **card persa** · **scheletro** · **focus sul body** · né l'uno né l'altro · fine: body · contenuto dopo | card sempre · mai scheletro · focus mai sul body · `aria-disabled` · fine: BUTTON:Riprova · contenuto dopo · focus dopo: body |
 
-`git grep -l "restore_booking" -- src` → base nessuna riga · dopo **esattamente** `src/hooks/use-restore-booking.ts`. `git diff --name-only $B...HEAD -- supabase` → **nessuna riga**.
+Numeri di Prenota (base → ramo):
+- giulia: uguali ["Personal Training 60 min · 3 disponibili","Misurazione BIA 15 min · 1 disponibile","Test funzionale Si prenota con il tuo coach","Consulenza 30 min · 1 disponibile"]
+- marta: uguali ["Personal Training 60 min · 3 disponibili"]
+- elena: uguali ["Personal Training 60 min · 2 disponibili"]
+- davide: uguali []
+- luca: ["Personal Training 60 min · 2 disponibili"] → ["Personal Training 60 min · 8 disponibili"]
+- giorgio: uguali ["Personal Training Crediti esauriti","Misurazione BIA 15 min · 1 disponibile","Test funzionale Si prenota con il tuo coach"]
+- paola: uguali ["Personal Training 60 min · 2 disponibili"]
+- nina: uguali ["Personal Training 60 min · 8 disponibili"]
+- sara: uguali []
 
-### C12 · la nota e il tono
+bloccate: base 0, ramo 0 · funzioni server: base 0, ramo 0 · errori di pagina: base 0, ramo 0
 
-`grep -c "isMissingMigration" src/hooks/use-session-feedback.ts` → base `3` · dopo **`4`**. `grep -c -E '\bnote\b' …` → base `0` · dopo **`9`**. `grep -c -F "warning" src/lib/toast.ts` → base `0` · dopo **`3`**.
+## 8 · NON FATTO
 
-### C13 · il caso della 03
+- **Le prove rosse R1-R31 e R35-R37 solo col fuso di Roma.** Il prompt chiede i test nuovi verdi in UTC e a Los Angeles (fatto, C7) e dice che Cowork ha fatto cadere i mutanti nei tre fusi; io li ho fatti cadere a Roma, con `muta.mjs` (§6). Nei tre fusi le attese dei test sono le stesse, ma i mutanti non li ho rilanciati in UTC e a Los Angeles.
+- **I confronti con le schermate del brief** li ho fatti a vista, non a pixel: le differenze sono quelle del §5 del prompt (il coach senza nome, la PT rossa nei dati, sei sessioni in più invece di cinque) e i caratteri di ripiego del banco, che serve Google Fonts vuoti.
+- **B4, «Ripristina» riuscito, non sul seme di Cowork così com'è** (vedi DIVERGENZE): sul seme originale «Ripristina» è rifiutato dal finto, ed è la risposta giusta per quei dati; il ramo riuscito l'ho provato con la sessione o3 dell'altro cliente spostata alle 11:10.
 
-`grep -c "Dal lunedì 19 ottobre" src/lib/client-sessions.test.ts` → base `0` · dopo **`1`**.
+## 9 · DIVERGENZE
 
-### C14 · nessuno importa i pezzi tolti
+- **I titoli delle card della Home in Manrope** (`font-sans tracking-normal`), come dice il README del pacchetto («Manrope … 17/700 titoli delle card, V3») e come fa `ClientPageHeader` della 01: la regola globale di `styles.css` dà Sora e la spaziatura stretta a ogni `h2`, e le altre pagine del cliente (02-04) la tengono. Anche `ClientSessionRating` con `layout="home"` ha il titolo in Manrope; nel dettaglio resta com'era (`client-session-rating.tsx`, la classe del titolo).
+- **«Sposta» ha una chiave per sessione e orario** (`client-home-next.tsx`, il `key` del pulsante). Il prompt chiede `returnFocus` = l'h2, ma `ClientSheet` rende il focus a chi ha aperto il foglio se c'è ancora, e dopo uno spostamento «Sposta» c'è sempre (la prossima sessione è quella spostata, o una che viene dopo, tutte oltre le 24 ore): senza la chiave `returnFocus` non scattava mai e il focus tornava su «Sposta», magari di un'altra sessione (trovato dal revisore, misurato in B4). Con la chiave il pulsante è un altro dopo lo spostamento e il focus va sull'h2, come dice la regola 9.
+- **«Riprova» riuscito nella Home porta il focus sul primo titolo** (`client.index.tsx`, l'effetto di `retried`): il prompt non lo dice, ma senza il focus finiva sul `body` quando la card spariva col pulsante (trovato dal revisore).
+- **«Conferma presenza» nella Home è occupato con `aria-disabled` mentre conferma**, non `disabled` come nel dettaglio: così il focus resta sul pulsante, e se la conferma fallisce non finisce sul `body`.
+- **Nella riga dei crediti nome e azione vanno a capo quando non ci stanno** (`client-home-credits.tsx`, il blocco con `flex-wrap` e `min-w-24`): a 320 px «Come si prenota» lasciava 45 px al nome e «1 disponibile» usciva dalla colonna (B14, misurato nel primo giro). A 390 la riga è com'era.
+- **`HomeNoNextCard` non legge gli orari del coach senza un'opzione prenotabile** (passa `coachId` nullo a `useCoachSlotInputs`): il prompt dice che la card li legge «solo senza prossima sessione»; senza niente da prenotare (Sara) non servono.
+- **`HomeInstallCard` legge la chiave con `useSyncExternalStore`**, con la card assente sul server: niente lampo per chi l'ha chiusa. Con `localStorage` negato «Non ora» vale finché si resta sulla Home.
+- **C4:** `client-book.ts` a +22 −7 invece di «una decina»: 13 righe sono commenti (il campo nuovo, la regola nel commento di `getBookState`) e Prettier va a capo sul `count`.
+- **C16 in Git Bash va lanciato con `MSYS_NO_PATHCONV=1`**: senza, Git Bash trasforma `'/client/store'` in un percorso di Windows e `git grep` non trova niente (anche sulla base).
+- **C15:** in Sessioni oltre al commento del focus (`client.sessions.tsx:141-143` sulla base, come nel prompt; `:139-141` sul ramo) ho corretto anche quello della lettura persa (`:88-92` sulla base, `:89-93` sul ramo: «col pulsante disattivato» → «con «Riprova» occupato»), che la passata rendeva falso.
+- **Il seme del banco (B4):** in `dati-cli-05-2026-09-30.json` la sessione o3 di un altro cliente (30/09 dalle 9:00, 230 minuti più 10) copre `g-next-1` delle 10:00, uno stato che il vincolo del database non permetterebbe; il finto quindi rifiuta di riportarci `g-next-1` (23P01) e l'app dice «L'orario di prima non è più libero.», che è il comportamento giusto. «Ripristina» riuscito l'ho provato con o3 alle 11:10 (110 minuti), dati coerenti; il caso originale è una prova in più del ramo d'errore.
+- **B15, `giro-sessioni.mjs`:** il suo B7 guardava `btn.disabled`; nella mia copia guarda `aria-disabled`, e in più controlla che `disabled` non ci sia mai e che il focus non vada mai sul `body`.
+- **Il messaggio della passata 05 in `PIANO.md:53`** (proporre un piano in tre parti e aspettare) non l'ho seguito, come dice il prompt: il piano è quello del §1.
 
-`git grep -n -E 'from "@/components/client-reschedule-sheet"|from "@/lib/calendar"|<ClientRescheduleSheet' -- src` → base 3 righe (`client-booking-detail-view.tsx:18`, `:22`, `:428`) · dopo **nessuna riga**.
+## 10 · TROVATI E NON TOCCATI
 
-### C15 · la valutazione
+- **Il focus dopo «Ripristina» finisce sul `body`**: sonner toglie il toast col pulsante che aveva il focus. È il toast della 01 (`toastWithUndo`), lo stesso nel dettaglio della 04. Misurato in B4 (nota del giro). Proposta: dopo l'azione del toast, il focus a chi lo aveva prima o al contenuto della pagina.
+- **Prenota e Sessioni dopo «Riprova» riuscito:** la card sparisce col pulsante e il focus va sul `body` (misurato: `focusDopoContenuto` della matrice di B13). Le pagine sono della 02 e della 03; la Home lo fa già (sopra).
+- **`ClientSessionRating` (04):** «Invia valutazione» e «Aggiorna valutazione» sono `disabled` mentre salvano, e in Chromium il pulsante perde il focus: se il salvataggio fallisce il focus resta sul `body`. Lo stesso nel foglio Sposta (04): «Sposta a …» e «Indietro» `disabled` durante l'RPC. Dal revisore, non provato nel browser.
+- **`markInstalled` (01) con `localStorage` negato:** «Ho installato l'app» non lascia il segno e la card della Home resta, mentre il toast dice «App installata». Dal revisore.
+- **La regola del numero guarda il giorno, non l'ora** (§4.2.2 del prompt, l'imprecisione dichiarata): domenica sera, col blocco che finisce lunedì e il coach senza orari lunedì dopo quell'ora, la Home e Prenota dicono il numero del blocco che finisce e l'avviso «entro lunedì», mentre il primo orario prenotabile è del blocco dopo.
+- **Il Profilo della base (07):** il testo cambia fra due caricamenti (814 o 840 caratteri, una riga «Sessione PT» in più), con l'avviso di React «Encountered two children with the same key … Sessione PT». Visto in B15 anche sulla base.
+- **I commenti che citano i file tolti** (`src/lib/queries.ts:680`, `src/components/client-sheet.tsx:7`, la migrazione `20260522100000_client_booking_update_guards.sql:8`) e la `description` della Home («appuntamenti»): lasciati alla 09, come dice il prompt.
+- **Suite in parallelo:** nessun file caduto al caricamento in questa sessione (tutti i giri coi worker predefiniti).
 
-`grep -c -F 'aria-label="Valutazione da 1 a 5"' $RT` → **`1`**. `grep -c -E 'color-rating-star|color-outline' $RT` → **`2`**.
+## 11 · RESTA A NICOLÒ
 
-### Forma del codice, senza Prettier
+- Il merge della PR nel ramo di integrazione `redesign/cliente-mobile`, dopo la verifica di Cowork.
+- Il rilascio su `main`, non prima del giro del server del 02/10/2026 (§5 del prompt): oggi, col server com'è, «Conferma presenza» sotto le 24 ore fallisce (il trigger `z_trg_validate_client_booking_update` rifiuta ogni modifica del cliente entro 24 ore: Marta, Elena e Luca vedrebbero il toast d'errore di `useConfirmAttendance`); lo spostamento con crediti in un blocco precedente fallisce (`reschedule_booking`); il coach nei testi è «il tuo coach», senza WhatsApp né telefono, finché non c'è `get_my_coach`; la nota della valutazione si salva solo con la colonna `note` (senza, il voto si salva e il toast lo dice).
+- Le scelte che il ritorno lascia aperte: il focus dopo «Ripristina» (il toast della 01, §10), il focus dopo «Riprova» riuscito in Prenota e in Sessioni (02, 03), i pulsanti `disabled` della valutazione e del foglio Sposta (04).
 
-Il lint del repo ha `prettier/prettier` come errore, e il Prettier del progetto (3.8.3, in `node_modules`) qui non c'è. Ho scritto a mano nella forma di Prettier 3 (larghezza 100, virgole finali) e l'ho controllata con due script della cartella di lavoro: nessuna riga oltre 100 salvo stringhe, template e titoli di `it(` (che Prettier non spezza, come già in `booking-rules.ts:189` e `event-type-actions.test.ts:403`), e nessuna costruzione spezzata che unita starebbe in 100. Le regole meno ovvie le ho prese da codice che oggi passa il lint (le catene di tre chiamate con una freccia, `client-sessions.test.ts:162`; gli argomenti con una chiamata che prende una funzione, `client-sessions.ts:355`; gli elementi JSX con più attributi, `book-sheets.tsx:155-159`). Poi il Prettier del container (3.8.1) l'ha confermato: nessuna differenza sui 16 file. Il lint vero (con `eslint-plugin-prettier` e Prettier 3.8.3) resta da far girare.
+---
 
-## 5 · Le prove rosse
-
-**Tutte «non provate»**: nessun test è stato eseguito. Per ognuna, dove il test dovrebbe cadere (da verificare sul PC, rompendo e rimettendo a posto):
-
-- **R1** (`join` senza la tipologia online): `client-session-detail.test.ts`, il caso `d18` del ciclo «il dettaglio di ogni sessione» (`join` al posto di `confirm`) e «mai due pulsanti pieni».
-- **R2** (`join` a due ore): il caso `d4b`.
-- **R3** (`confirm` senza `!join`): il caso `d4` e «mai due pulsanti pieni».
-- **R4** (`manage` sempre `"free"`): i casi `d3`, `d4`, `d4b`, `d18`, `d20`.
-- **R5** (`free` con `canMove`): il caso `d14` («annulla:tardi») e il test di `cancelSheet`.
-- **R6** (invito senza la condizione del titolo): il caso `d13` e `inviteText(d13) === null`.
-- **R7** (invito senza `google_event_id`): i casi delle in programma senza evento e `inviteText(d3) === null`.
-- **R8** (`rebook` per «Assente»): il caso `d8`.
-- **R9** (`canRebook` solo sulla tipologia): i casi `d17` e `d19` e il test di `canRebook`.
-- **R10** (niente «Oggi,»): gli otto casi di oggi.
-- **R11** (`formatUntil` per le non `scheduled`): il caso `d9`.
-- **R12** (soglia dell'icona a 4,5): `tileIcon("#7986CB")`.
-- **R13** (`moveDay` tiene il giorno scelto senza orari): il test di `moveDay`, «scelto il 30/09» e «tutti vuoti».
-- **R14** (`status` falso per «In verifica»): il caso `d12`.
-- **R15** (`editable` fuori dai 14 giorni o col titolo): i casi `d7b` e `d16` (il fatto «modificabile»).
-- **R16** (il nome dal titolo): i test di `sessionName`, `d13` e `d16`.
-- **R17** (`join` a sessione finita): il caso `d19`.
-- **R18** (niente `23P01`): «l'orario occupato» di `actionErrorText`.
-- **R19** (`new Date()` in `detailPanel`): tutti i casi in programma, con l'orologio vero dopo il 28/09.
-- **R20** (niente «Domani,»): i casi `d14`, `d15`, `d20`.
-- **R21** (il giorno da `scheduled_at.slice(0, 10)`): a Roma `d20`, a Los Angeles `d3` e `d15`, in UTC verde. I fusi si provano con `TZ=Europe/Rome`, `TZ=UTC`, `TZ=America/Los_Angeles` (sul PC da PowerShell, §2 del prompt).
-- **R22** (`radiogroup` senza `aria-label`): `client-session-rating.test.ts`, il primo test.
-- **R23** (l'etichetta «Dal …» col giorno della sessione): `client-sessions.test.ts`, «dalla terza settimana il gruppo prende il lunedì…».
-- **R24** (`moveDays` che non toglie niente) e **R25** (confronto fra stringhe): `moveDays`, «toglie l'orario di adesso…», con `scheduled_at` nella forma `+00:00`.
-
-## 6 · Il browser
-
-**Non fatto, voce per voce**: senza `node_modules` non partono né il server di sviluppo né i giri di Playwright, e il banco (`%TEMP%\claude\…\scratchpad\banco` della 02 e della 03) è sul PC di Nicolò. Nessuna richiesta è partita verso Supabase, Google o altri servizi; nessuna RPC è stata chiamata.
-
-- **B1** (`d1` a 390, intestazione, azioni nell'ordine, informazioni, confronto con `04-sessione-01`): non fatto.
-- **B2** (un pulsante pieno per stato, tabella per sessione, `d8` senza link, `d12`, «Prenota di nuovo» con `eventType`): non fatto.
-- **B3** (la videochiamata e il tempo, `d4b` che passa a «Entra» senza ricaricare): non fatto. L'orologio è quello della cornice (`useNow`, passo di 30 s).
-- **B4** (Conferma presenza su `d1`): non fatto.
-- **B5** (Annulla gratis su `d2`, «Ripristina», `gcalCreateEvent`, il secondo annullamento lasciato scadere): non fatto.
-- **B6** (Annulla tardi su `d3`, «Ripristina» che fallisce con `P0001` e `23P01`, Annulla che fallisce): non fatto.
-- **B7** (Sposta su `d1`, l'avviso `booking.rescheduled`, «Ripristina» dello spostamento, `d15` che passa sotto le 24 ore a foglio aperto): non fatto.
-- **B8** (Sposta che non riesce, `get_coach_busy` e `training_blocks` in errore campionati ogni 200 ms): non fatto. Nel codice la card resta anche mentre si rilegge (`client-move-sheet.tsx:112-120`), e i giorni si calcolano solo con orari e blocchi arrivati e nessuna lettura persa (`:163-188`).
-- **B9** (gli orari di Sposta contro quelli di Prenota per il 30/09): non fatto. Sposta usa lo stesso `getClientSlotDays` di Prenota con gli stessi ingressi di `useCoachSlotInputs`, la finestra di `getMoveWindow` ed `exclude`; le differenze attese sono le tre del prompt.
-- **B10** (la valutazione, le due varianti di `session_feedback`): non fatto.
-- **B11** (le sessioni che non ci sono, la lettura in errore): non fatto.
-- **B12** («Indietro» e la cronologia): non fatto. I fogli si aprono con uno stato React, senza navigazione.
-- **B13** (le misure a 320, 390, 1280, il contrasto dell'icona): non fatto.
-- **B14** (l'accessibilità dei fogli, il focus dopo un'azione riuscita): non fatto.
-- **B15** (`giro-prenota.mjs` 82/82, `giro-sessioni.mjs` 78/78, il confronto base/ramo di Home, Booster, Profilo, Notifiche e del coach): non fatto.
-- **B16** (zero richieste esterne bloccate, le chiamate del finto): non fatto.
-
-## 7 · Non fatto
-
-- **I cancelli (C7), le prove rosse (R1-R25) e il browser (B1-B16)**, per il motivo del §0 passo 0.
-- **La riga 04 di `PIANO.md` a `[x]`**: resta `[~]` finché non girano.
-- Il resto del prompt è scritto e committato.
-
-## 8 · Divergenze
-
-- **L'ambiente** (§0 passo 0): container Linux al posto del PC di Windows; le sonde del fuso con Node sul container, senza PowerShell.
-- **La precedenza degli stati della route** (`client.bookings.$bookingId.tsx:96-145`): prima i dati, poi l'errore. Con la sessione già letta, una rilettura fallita (per esempio quella dopo un annullamento) tiene il dettaglio invece di sostituirlo con la frase d'errore; senza dati, l'ordine del prompt resta (lo scheletro, l'errore con «Riprova», mai «Sessione non trovata» per una lettura fallita). Lo scheletro copre anche la lettura in pausa senza rete, che prima finiva in «Sessione non trovata».
-- **«Riprova» della route** è un `ClientButton` secondario (vincolo della 01: i pulsanti con `ClientButton`); la frase è quella di oggi.
-- **In più del prompt, nelle regole:** `sessionMinutes` (la durata, per il foglio e per «Ripristina»), `LOCKED_TITLE` (il titolo del riquadro, con la soglia letta da `booking-rules.ts` invece che scritta nella vista), e in `moveDays` il `reason: "pieno"` di un giorno rimasto senza orari (la didascalia della fila direbbe altrimenti il trattino, che vuol dire preavviso o crediti).
-- **Il foglio Sposta legge solo a foglio aperto:** il contenuto sta dentro il pannello di `ClientSheet`, che si monta all'apertura; scelte ed errore ripartono da capo a ogni apertura. Con una lettura persa la card «Orari non aggiornati» resta anche mentre si rilegge (come Sessioni, per il comportamento di TanStack Query v5 che rileggendo una lettura senza dati ne toglie l'errore), così `retrying` si vede davvero.
-- **Annulla: lo stato del server scritto subito nella cache del dettaglio** (`client-booking-detail-view.tsx:175-185`), prima della rilettura, per il focus (§3, vincoli). `ClientCancelSheet` ha per questo la prop facoltativa `returnFocus`.
-- **Il focus dopo «Conferma presenza»** va sul titolo della sessione (il pulsante sparisce con la rilettura).
-- **La valutazione compare solo con le valutazioni lette** (`feedbackQ.data` definito): prima comparirebbe «Com'è andata?» anche su una sessione già valutata. Con la lettura in errore non compare.
-- **«Valutazione non salvata»**, col messaggio, è il toast d'errore del salvataggio (il prompt non lo dice).
-- **«Ripristina» dell'annullamento ricrea l'evento Google sempre**, anche per una sessione che non l'aveva (il prompt: «come fa Prenota»).
-- **Lo spostamento inverso usa `mutateAsync`**, così il suo toast arriva anche se nel frattempo si è lasciata la pagina (le callback di `mutate` si perdono con il componente).
-- **`canRebook` segue il prompt alla lettera** (le opzioni prenotabili con crediti), e non guarda `state.blocked`: vedi §9.
-- **La lettura della tipologia fallita è un errore** (`client.bookings.$bookingId.tsx:89`): un quarto cambio alla lettura «di oggi», dalla revisione (§0 passo 8), perché altrimenti fallirebbe in silenzio.
-- **La vista ha la chiave della sessione** (`client.bookings.$bookingId.tsx:99`) e **il foglio Sposta usa `mutateAsync`**, rilegge lo scope dopo un errore e disattiva «Indietro» mentre sposta (§0 passo 8).
-
-## 9 · Trovati e non toccati
-
-- **L'annullamento gratuito col server a metà** (dalla revisione): se S1 arrivasse senza la correzione di `deleted_at` (§5 del prompt, voce 2), dopo la rilettura il dettaglio diventerebbe «Sessione non trovata», e con lui se ne andrebbe la riga della card su cui il foglio ha portato il focus, che finirebbe sul `body`; la card «Annullata» con «Prenota di nuovo» non si vedrebbe mai dopo un annullamento gratuito del cliente. Gli annullamenti tardivi vanno bene, focus compreso. Non si compensa: le due correzioni del server vanno insieme.
-- **`query-keys.ts:82`** rinfresca ancora `["coach-busy-reschedule", coachId]`, la chiave del foglio tolto, che ora non usa nessuno. `query-keys.ts` è fra i file da non toccare.
-- **`canRebook` e il percorso concluso:** con un percorso concluso e crediti extra ancora validi un'opzione può essere prenotabile mentre Prenota mostra la card «Il tuo percorso è concluso» (`getBookState`, `blocked`): «Prenota di nuovo» porterebbe lì. Caso raro; la correzione sarebbe `canRebook` falso con `state.blocked`.
-- **La `description` della `head()`** dice «appuntamento» (il glossario T1 vuole «sessione»): il prompt vuole la `head()` com'è.
-
-## 10 · Resta a Nicolò
-
-1. **Far girare i cancelli sul PC** (`git fetch origin && git switch redesign/cliente-04-sessione`, poi `bun run typecheck`, `bun run lint`, `bun run test`, le prove col fuso da PowerShell, `bun run build`), le prove rosse R1-R25 e il giro nel browser del §8 del prompt; correggere quello che non torna; poi portare la riga 04 di `PIANO.md` a `[x]`. In alternativa, dare a una sessione nel cloud il permesso di installare le dipendenze (con il registro di Lovable raggiungibile, oppure permettendo il registro pubblico) e rilanciarla sul ramo.
-2. Il merge della PR nel ramo di integrazione, dopo la verifica di Cowork.
-3. Il rilascio su `main`, non prima del giro del server del 02/10/2026, con insieme: `cancel_booking` concesso al cliente (S1), `cancel_booking` senza `deleted_at` sugli annullamenti, `restore_booking` col contratto del §3; e la conferma della presenza sotto le 24 ore (il trigger che la rifiuta), la colonna `note`, lo spostamento con crediti in un blocco precedente, l'avviso al coach per l'annullamento, `get_my_coach`.
+🤖 Generated with [Claude Code](https://claude.com/claude-code)

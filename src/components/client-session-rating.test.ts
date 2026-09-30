@@ -71,4 +71,16 @@ describe("ClientSessionRating", () => {
     expect(markup).not.toContain("Modifica valutazione");
     expect(markup).not.toContain("«");
   });
+
+  it("col sottotitolo della Home: sotto il titolo, mentre si sceglie e da salvata", () => {
+    const subtitle =
+      "Personal Training di lunedì 28 settembre. La valutazione arriva al tuo coach.";
+    const choosing = html({ layout: "home", subtitle });
+    expect(choosing).toContain(">Com&#x27;è andata?<");
+    expect(choosing).toContain(`>${subtitle}<`);
+    const saved = html({ layout: "home", subtitle, rating: 4, note: null });
+    expect(saved).toContain(">La tua valutazione<");
+    expect(saved).toContain(`>${subtitle}<`);
+    expect(html()).not.toContain(subtitle);
+  });
 });

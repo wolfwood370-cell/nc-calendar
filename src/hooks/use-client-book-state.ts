@@ -35,6 +35,7 @@ import {
   useClientExtraCredits,
   useCoachEventTypes,
 } from "@/lib/queries";
+import { arrivedRead, lostRead } from "@/lib/query-state";
 import { captureMessage } from "@/lib/sentry";
 
 // Le incoerenze dei crediti già mandate a Sentry, per tutta la vita della
@@ -95,26 +96,27 @@ export function useClientBookState(now: Date, coach: BookCoach) {
   }, [blockMissing, rpcBlockId, refetchedFor, refetchBlocks]);
   const waitingBlocks = blockMissing && (refetchedFor !== rpcBlockId || blocksQ.isFetching);
 
-  // Arrivata: coi dati o con l'errore. L'RPC in errore conta come arrivata.
-  // Persa: in errore e senza dati. Una rilettura fallita in background tiene i
-  // dati di prima (TanStack Query) e non toglie la pagina né un foglio aperto.
-  const arrived = (q: { data: unknown; isError: boolean }) => q.data !== undefined || q.isError;
-  const lost = (q: { data: unknown; isError: boolean }) => q.isError && q.data === undefined;
+  // Arrivata: coi dati o con l'errore, e lo resta mentre una lettura fallita
+  // si rilegge (arrivedRead). L'RPC in errore conta come arrivata. Persa:
+  // senza dati, in errore o riletta dopo un errore (lostRead): con «Riprova»
+  // resta la card dell'errore, mai lo scheletro. Una rilettura fallita in
+  // background tiene i dati di prima (TanStack Query) e non toglie la pagina
+  // né un foglio aperto.
   const loading =
     !meId ||
-    !arrived(profileQ) ||
-    !arrived(blocksQ) ||
-    !arrived(bookingsQ) ||
-    !arrived(extrasQ) ||
-    (coachId !== null && !arrived(eventTypesQ)) ||
-    !arrived(currentBlockQ) ||
+    !arrivedRead(profileQ) ||
+    !arrivedRead(blocksQ) ||
+    !arrivedRead(bookingsQ) ||
+    !arrivedRead(extrasQ) ||
+    (coachId !== null && !arrivedRead(eventTypesQ)) ||
+    !arrivedRead(currentBlockQ) ||
     waitingBlocks;
   const failed =
-    lost(profileQ) ||
-    lost(blocksQ) ||
-    lost(bookingsQ) ||
-    lost(extrasQ) ||
-    lost(eventTypesQ) ||
+    lostRead(profileQ) ||
+    lostRead(blocksQ) ||
+    lostRead(bookingsQ) ||
+    lostRead(extrasQ) ||
+    lostRead(eventTypesQ) ||
     (profileQ.data === null && !profileQ.isFetching);
 
   const profile = profileQ.data ?? null;
@@ -185,7 +187,7 @@ export function useClientBookState(now: Date, coach: BookCoach) {
     meId,
     coachId,
     profile,
-    profileArrived: arrived(profileQ) || profileQ.errorUpdateCount > 0,
+    profileArrived: arrivedRead(profileQ),
     client,
     blocksQ,
     bookingsQ,

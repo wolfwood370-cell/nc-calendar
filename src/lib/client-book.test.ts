@@ -291,6 +291,8 @@ describe("getBookState · Giulia, blocco 3 di 6", () => {
     ]);
     // Il numero è il credito che userà, quello del blocco 4, non «0 disponibili».
     expect(option(s, "test").count).toBe(1);
+    expect(option(s, "test").countFromNext).toBe(true);
+    expect(option(s, "pt").countFromNext).toBe(false);
   });
 
   it("initialOption: eventType se prenotabile, altrimenti la prima prenotabile", () => {
@@ -453,6 +455,49 @@ describe("getBookState · Marta, abbonamento col rinnovo acceso", () => {
     expect(rule(s, MARTA, option(s, "pt"))).toBe(
       "Si prenota da 24 ore a 14 giorni prima. I crediti del blocco 4 valgono fino a domenica 4 ottobre: le date successive si aprono con il blocco successivo.",
     );
+  });
+});
+
+describe("getBookState · Luca, il blocco 2 finisce oggi", () => {
+  // I 2 crediti del blocco 2 non si prenotano più (24 ore): il numero è quello
+  // del blocco 3, lo stesso del riepilogo.
+  const lucaBlocks = (l2End: string, l3Start: string, l3End: string): ClientBlock[] => [
+    block("l1", 1, "2026-08-04", "2026-08-31", [], "completed"),
+    block("l2", 2, "2026-09-01", l2End, [alloc("l2", "pt", 8, 6)]),
+    block("l3", 3, l3Start, l3End, [alloc("l3", "pt", 8, 0)]),
+  ];
+  const bookings = [
+    ...[2, 7, 14, 18, 23].map((d) => session("l2", "pt", "completed", at(2026, 9, d, 9))),
+    session("l2", "pt", "scheduled", at(2026, 9, 28, 17)),
+  ];
+
+  it("il numero dal blocco 3, come il riepilogo dello stesso orario", () => {
+    const s = giulia({ blocks: lucaBlocks("2026-09-28", "2026-09-29", "2026-10-26"), bookings });
+    const pt = option(s, "pt");
+    expect([pt.state, pt.count, pt.countFromNext, pt.sub]).toEqual([
+      "prenotabile",
+      8,
+      true,
+      "60 min · 8 disponibili",
+    ]);
+    expect(pt.windows).toEqual([
+      { from: "2026-09-01", until: "2026-09-28", source: "block", blockId: "l2", blockNumber: 2 },
+      { from: "2026-09-29", until: "2026-10-26", source: "block", blockId: "l3", blockNumber: 3 },
+    ]);
+    expect(creditLine(pt, pt.windows[1]!, s)).toBe(
+      "Userai 1 credito Sessione PT del blocco 3: ne resteranno 7.",
+    );
+  });
+
+  it("al confine: il blocco 2 finisce domani, e domani dopo le 10:40 si prenota ancora", () => {
+    const s = giulia({ blocks: lucaBlocks("2026-09-29", "2026-09-30", "2026-10-27"), bookings });
+    const pt = option(s, "pt");
+    expect([pt.state, pt.count, pt.countFromNext, pt.sub]).toEqual([
+      "prenotabile",
+      2,
+      false,
+      "60 min · 2 disponibili",
+    ]);
   });
 });
 

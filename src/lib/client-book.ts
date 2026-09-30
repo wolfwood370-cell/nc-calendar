@@ -22,7 +22,7 @@
 // Puro: niente hook, niente rete, niente Sentry; l'ora entra come parametro.
 // ----------------------------------------------------------------------------
 
-import { addDays, format, parseISO } from "date-fns";
+import { addDays, addHours, format, parseISO } from "date-fns";
 import {
   CLIENT_BOOKING_HORIZON_DAYS,
   CLIENT_CONFIRM_WINDOW_HOURS,
@@ -98,8 +98,13 @@ export interface BookOption {
   /** unavailable_message, per «Come si prenota». */
   message: string | null;
   state: BookOptionState;
-  /** I crediti da mostrare: quelli del pool della prima finestra (vedi getBookState). */
+  /** I crediti da mostrare: quelli del pool della finestra del numero (vedi getBookState). */
   count: number;
+  /**
+   * La finestra del numero è pagata dal blocco dopo (paidByNext): count sono
+   * i crediti del blocco dopo. Falso senza finestre.
+   */
+  countFromNext: boolean;
   /** «60 min · 3 disponibili» · «Si prenota con il tuo coach» · «Crediti esauriti». */
   sub: string;
   /** getCreditWindows della tipologia: i giorni in cui si prenota, e con quale credito. */
@@ -268,9 +273,13 @@ function poolCount(
  *     blocco dopo che il riferimento non ha. Ognuna con le sue finestre
  *     (getCreditWindows) e il suo stato: coach se non è prenotabile dal
  *     cliente, prenotabile se ha una finestra, esaurita se no;
- *   - count, il numero da mostrare: quello del pool della prima finestra, così
- *     una tipologia finita nel blocco 3 e presente nel 4 dice il credito che
- *     userà; senza finestre, il disponibile del riferimento;
+ *   - count, il numero da mostrare: quello del pool della prima finestra che
+ *     ha ancora un giorno prenotabile (finisce da oggi + 24 ore in poi),
+ *     altrimenti della prima. Così una tipologia finita nel blocco 3 e
+ *     presente nel 4 dice il credito che userà, e negli ultimi giorni di un
+ *     blocco, quando per le 24 ore non si prenotano più, il numero è quello
+ *     del blocco dopo (countFromNext); senza finestre, il disponibile del
+ *     riferimento;
  *   - blocked, il primo caso che vale: percorso concluso; nessuna opzione;
  *     nessuna prenotabile e nessuna col coach con crediti.
  */
@@ -302,6 +311,9 @@ export function getBookState(input: BookStateInput): BookState {
     client,
     blocks.some((b) => b.status === "active"),
   );
+  // Il primo giorno che si prenota ancora: le finestre che finiscono prima
+  // non danno il numero.
+  const firstBookable = toIsoDate(addHours(now, CLIENT_MIN_NOTICE_HOURS));
 
   const pairs: Array<{ ref: ClientPool | null; next: ClientPool | null }> = [
     ...refPools.rows.map((r) => ({ ref: r, next: nextRows.find((n) => n.key === r.key) ?? null })),
@@ -328,8 +340,10 @@ export function getBookState(input: BookStateInput): BookState {
         ? "prenotabile"
         : "esaurita";
     const pools = { referencePool: ref, nextPool };
-    const first = windows[0];
-    const count = first ? poolCount(first, pools, next) : (ref?.avail ?? nextPool?.blockAvail ?? 0);
+    const numbered = windows.find((w) => w.until >= firstBookable) ?? windows[0];
+    const count = numbered
+      ? poolCount(numbered, pools, next)
+      : (ref?.avail ?? nextPool?.blockAvail ?? 0);
     const sub =
       state === "prenotabile"
         ? `${row.durationMin} min · ${count} ${count === 1 ? "disponibile" : "disponibili"}`
@@ -349,6 +363,7 @@ export function getBookState(input: BookStateInput): BookState {
       message: row.message,
       state,
       count,
+      countFromNext: numbered ? paidByNext(numbered, next) : false,
       sub,
       windows,
       buyBooster:

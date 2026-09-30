@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import {
   createFileRoute,
   Outlet,
@@ -14,7 +14,6 @@ import { Button } from "@/components/ui/button";
 import { ClientBottomNav } from "@/components/client-bottom-nav";
 import { ClientNotificationsBell } from "@/components/client-notifications-bell";
 import { ClientShellContext, useClientShellState } from "@/hooks/use-client-shell";
-import { startInstallCapture } from "@/hooks/use-pwa";
 import { CLIENT_TABS, activeClientTab, showsTabBar } from "@/lib/client-shell";
 
 export const Route = createFileRoute("/client")({
@@ -42,12 +41,6 @@ function ClientLayout() {
   const { session, role, loading, signOut } = useAuth();
   const navigate = useNavigate();
   const path = useRouterState({ select: (s) => s.location.pathname });
-
-  // La cattura di beforeinstallprompt parte qui, una volta: il browser manda
-  // l'evento presto, e il foglio di installazione lo legge quando si apre.
-  useEffect(() => {
-    startInstallCapture();
-  }, []);
 
   if (loading) return null;
   if (!session) return <Navigate to="/auth" />;

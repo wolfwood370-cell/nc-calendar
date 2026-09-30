@@ -2,9 +2,11 @@
 // ClientSessionRating — la valutazione di una sessione svolta (lato cliente,
 // passata 04, audit H9)
 // ----------------------------------------------------------------------------
-// La card del dettaglio, che la Home (05) riusa con layout="home" (le stelle
-// centrate, con gap 4). «Com'è andata?» mentre si sceglie, «La tua
-// valutazione» col voto salvato. Le stelle sono un radiogroup con un solo
+// La card del dettaglio, che la Home (05) riusa con layout="home" (padding 18
+// e l'ombra delle card della Home, le stelle centrate con gap 4) e col
+// sottotitolo sotto il titolo («… La valutazione arriva al tuo coach.»), nei
+// due stati. «Com'è andata?» mentre si sceglie, «La tua valutazione» col voto
+// salvato. Le stelle sono un radiogroup con un solo
 // punto di Tab (la stella scelta, altrimenti la prima); frecce, Home ed End
 // spostano focus e scelta, come gli orari di Prenota (segmentKeyTarget). Dopo
 // la scelta compare l'area di testo per la nota; il principale c'è sempre,
@@ -30,7 +32,7 @@ import { cn } from "@/lib/utils";
 const STAR_PATH = "M12 17.3 6.2 21l1.6-6.6L2.4 9.6l6.8-.5L12 3l2.8 6.1 6.8.5-5.4 4.8 1.6 6.6z";
 const STARS = [1, 2, 3, 4, 5];
 
-const CARD = "flex flex-col gap-3 rounded-[24px] border border-outline-variant/35 bg-white p-4";
+const CARD = "flex flex-col gap-3 rounded-[24px] border border-outline-variant/35 bg-white";
 
 export interface ClientSessionRatingProps {
   bookingId: string;
@@ -43,8 +45,10 @@ export interface ClientSessionRatingProps {
   editable: boolean;
   /** Il coach dei testi (BookCoach): «Grazie: … vedrà la tua valutazione.» */
   coach: BookCoach;
-  /** "home": le stelle centrate, con gap 4 (la card della Home, 05). */
+  /** "home": padding 18 e ombra, le stelle centrate con gap 4 (la card della Home, 05). */
   layout: "detail" | "home";
+  /** Sotto il titolo, nei due stati: ratingSubtitle della Home; niente riga se manca. */
+  subtitle?: string;
 }
 
 /** Quello appena salvato, e il voto e la nota delle props in quel momento. */
@@ -77,6 +81,7 @@ export function ClientSessionRating({
   editable,
   coach,
   layout,
+  subtitle,
 }: ClientSessionRatingProps) {
   const setFeedback = useSetSessionFeedback();
   const [saved, setSaved] = useState<Saved | null>(null);
@@ -138,11 +143,27 @@ export function ClientSessionRating({
     );
   };
 
+  // Nella Home i titoli delle card sono in Manrope, come le altre card.
+  const title = (
+    <h2
+      ref={titleRef}
+      tabIndex={-1}
+      className={cn("text-[17px] font-bold", layout === "home" && "font-sans tracking-normal")}
+    >
+      {choosing ? "Com'è andata?" : "La tua valutazione"}
+    </h2>
+  );
+
   return (
-    <section className={CARD}>
-      <h2 ref={titleRef} tabIndex={-1} className="text-[17px] font-bold">
-        {choosing ? "Com'è andata?" : "La tua valutazione"}
-      </h2>
+    <section className={cn(CARD, layout === "home" ? "p-[18px] shadow-soft-card" : "p-4")}>
+      {subtitle ? (
+        <div className="flex flex-col gap-1">
+          {title}
+          <p className="text-sm leading-[1.45] text-on-surface-variant">{subtitle}</p>
+        </div>
+      ) : (
+        title
+      )}
       {choosing ? (
         <>
           <div role="radiogroup" aria-label="Valutazione da 1 a 5" className={cn("flex", stars)}>

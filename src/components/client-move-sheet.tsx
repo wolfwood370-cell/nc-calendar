@@ -49,6 +49,7 @@ import { canMove } from "@/lib/client-session-status";
 import { getClientSlotDays } from "@/lib/client-slots";
 import { useClientBlocks, useRescheduleBooking, type BookingRow } from "@/lib/queries";
 import { invalidateBookingScope } from "@/lib/query-keys";
+import { failedRead } from "@/lib/query-state";
 import { formatLongDay } from "@/lib/session-time";
 
 /** La sessione che si sposta: i campi del dettaglio, col coach e il cliente. */
@@ -65,6 +66,11 @@ export interface ClientMoveSheetProps {
   clientName: string | null;
   /** Spostata: l'inizio di prima e quello nuovo, ISO. */
   onMoved: (fromIso: string, toIso: string) => void;
+  /**
+   * Dove va il focus alla chiusura se il pulsante che ha aperto il foglio non
+   * c'è più (nella Home la prossima sessione cambia dopo lo spostamento).
+   */
+  returnFocus?: () => HTMLElement | null | undefined;
 }
 
 export function ClientMoveSheet({
@@ -75,11 +81,13 @@ export function ClientMoveSheet({
   coach,
   clientName,
   onMoved,
+  returnFocus,
 }: ClientMoveSheetProps) {
   return (
     <ClientSheet
       open={open}
       onOpenChange={onOpenChange}
+      returnFocus={returnFocus}
       title="Sposta la sessione"
       description={
         <span className="block text-sm leading-[1.45]">{moveCurrent(booking, name)}</span>
@@ -99,24 +107,11 @@ export function ClientMoveSheet({
   );
 }
 
-interface MoveBodyProps extends Omit<ClientMoveSheetProps, "open" | "onOpenChange"> {
+interface MoveBodyProps extends Omit<
+  ClientMoveSheetProps,
+  "open" | "onOpenChange" | "returnFocus"
+> {
   onClose: () => void;
-}
-
-interface ReadState {
-  data: unknown;
-  isError: boolean;
-  errorUpdateCount: number;
-  fetchStatus: string;
-}
-
-/**
- * Persa: in errore, oppure senza dati e riletta dopo un errore (TanStack
- * Query, rileggendo una lettura senza dati, ne toglie l'errore). Finché
- * risponde resta la card, col pulsante disattivato, come in Sessioni.
- */
-function lost(q: ReadState): boolean {
-  return q.isError || (q.data === undefined && q.errorUpdateCount > 0 && q.fetchStatus !== "idle");
 }
 
 /**
@@ -154,7 +149,9 @@ function MoveBody({ booking, name, coach, clientName, onMoved, onClose }: MoveBo
   const blocks = blocksQ.data;
   // Senza blocchi letti la finestra sarebbe null e i giorni vuoti: si aspetta.
   const blocksArrived = blocks !== undefined || !booking.client_id;
-  const failed = [availabilityQ, exceptionsQ, busyQ, blocksQ].some(lost);
+  // In errore, oppure senza dati e riletta dopo un errore (failedRead): finché
+  // risponde resta la card, con «Riprova» occupato, come in Sessioni.
+  const failed = [availabilityQ, exceptionsQ, busyQ, blocksQ].some(failedRead);
   const ready = slotsReady && blocksArrived;
   const moveWindow = useMemo(
     () => getMoveWindow(booking, blocks ?? [], now),
