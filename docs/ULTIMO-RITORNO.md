@@ -1,6 +1,6 @@
 # Ultimo ritorno · Lato cliente · Passata 04 · Dettaglio sessione, Sposta, Annulla
 
-> **In breve, prima di tutto.** Il codice della passata è scritto e committato, ma **nessun cancello è stato eseguito**: niente typecheck, lint, test, build né giro nel browser. La sessione non girava sul PC di Nicolò ma in un container di Claude Code on the web, con `node_modules` vuota; il lock punta al registro privato di Lovable, che la rete del container rifiuta (403), e il tentativo di riempire `node_modules` dal registro pubblico con una copia del lock è stato **negato dai permessi della sessione**. Non ho cercato altre strade. Tutti i controlli del §6 che si fanno con git e grep sono eseguiti e danno i risultati attesi (§4); i cancelli (C7), le prove rosse (R1-R25) e il browser (B1-B16) sono **da fare sul PC**, e fino ad allora la riga 04 di `PIANO.md` è `[~]` e non `[x]`.
+> **In breve, prima di tutto.** Il codice della passata è scritto e committato, ma **nessun cancello è stato eseguito**: niente typecheck, lint, test, build né giro nel browser. La sessione non girava sul PC di Nicolò ma in un container di Claude Code on the web, con `node_modules` vuota; il lock punta al registro privato di Lovable, che la rete del container rifiuta (403), e il tentativo di riempire `node_modules` dal registro pubblico con una copia del lock è stato **negato dai permessi della sessione**. Non ho cercato altre strade. Tutti i controlli del §6 che si fanno con git e grep sono eseguiti e danno i risultati attesi (§4). Prove parziali, non i cancelli: il Prettier già installato nel container (3.8.1; il lock vuole 3.8.3) non trova differenze sui 16 file toccati; il revisore (§0 passo 8) ha fatto girare i test puri con un sostituto scritto a mano di `date-fns`, 44/44 e 30/30 a Roma, in UTC e a Los Angeles. I cancelli veri (C7), le prove rosse (R1-R25) e il browser (B1-B16) sono **da fare sul PC**, e fino ad allora la riga 04 di `PIANO.md` è `[~]` e non `[x]`.
 
 ## 0 · IL PIANO
 
@@ -20,9 +20,15 @@
 4. ⚠️ **I due fogli** (§4.7, §4.8). `8aaf62e`. `client-move-sheet.tsx` e `client-cancel-sheet.tsx`; in `client-session-detail.ts` anche `sessionMinutes` esportata (la durata che il foglio passa a `getClientSlotDays`). C3 e C8 dei fogli a `0` (§4). ⚠️ Nessun cancello eseguito.
 5. ⚠️ **La pagina** (§4.4). `b94a257`. La route e la vista riscritte, `client-reschedule-sheet.tsx` tolto. C1, C2, C3, C8, C10, C14 come attesi (§4). ⚠️ Nessun cancello eseguito.
 6. ⚠️ **Il browser** (§8). **Non fatto**: senza `node_modules` non parte il server di sviluppo, e il banco della 02 e della 03 sta nella `%TEMP%` del PC di Nicolò. Le voci B1-B16 sono al §6, una per una.
-7. ⚠️ **Chiusura** (§10). I controlli del §6 che non chiedono dipendenze eseguiti sul ramo finito (§4); la riga 04 di `PIANO.md` a **`[~]`** («in corso»), non a `[x]` («fatta e verificata»): C9 è volutamente non soddisfatto finché i cancelli non girano. Commit «Spunta la passata 04 in PIANO.md» e «Riscrive docs/ULTIMO-RITORNO.md per la passata 04 del lato cliente»; push di `redesign/cliente-04-sessione`; la PR verso `redesign/cliente-mobile` è al §1.
+7. ⚠️ **Chiusura** (§10). I controlli del §6 che non chiedono dipendenze eseguiti sul ramo finito (§4); la riga 04 di `PIANO.md` a **`[~]`** («in corso»), non a `[x]` («fatta e verificata»): C9 è volutamente non soddisfatto finché i cancelli non girano. Commit «Spunta la passata 04 in PIANO.md» (`e87c8bd`) e «Riscrive docs/ULTIMO-RITORNO.md per la passata 04 del lato cliente» (`a4ccdc4`); push di `redesign/cliente-04-sessione`; la PR verso `redesign/cliente-mobile` è al §1.
+8. ☑ **Passo aggiunto: la revisione e le sue correzioni.** Un revisore in sola lettura sul diff (un agente, circa 40 minuti, in background mentre scrivevo questo file), con l'ordine di non installare niente. Ha usato quello che il container ha già: Prettier 3.8.1 sulle copie dei file (**0 differenze**), `tsc` 6.0.2 coi tipi dei pacchetti mancanti sostituiti da dichiarazioni sue (i moduli puri e i loro test **senza errori**; i `.tsx` solo a lettura, perché lì React e TanStack diventano `any`), e i test puri compilati in JS ed eseguiti con Node e un sostituto di `date-fns` scritto da lui: **44/44** di `client-session-detail.test.ts` e **30/30** di `client-sessions.test.ts`, col caso nuovo, con `TZ=Europe/Rome`, `UTC` e `America/Los_Angeles`. Sono indizi, non i cancelli: il `date-fns` vero, il typecheck del progetto e il lint non sono girati. Nessun errore di tipi, di Prettier o di lint trovato; sei punti, e questi li ho corretti in `9b7a2e8` «Sessione: le correzioni della revisione»:
+   - **il foglio Sposta chiuso mentre sposta perdeva l'esito** (certo): `useRescheduleBooking` stava nel contenuto del foglio, che si smonta alla chiusura, e TanStack Query v5 non chiama le callback di `mutate` a componente smontato. Il server spostava la sessione, ma niente toast, niente «Ripristina» e il dettaglio all'orario vecchio. Ora `mutateAsync`, la cui promessa arriva comunque (`client-move-sheet.tsx:214-235`); un errore a foglio chiuso diventa un toast; «Indietro» è disattivato mentre sposta;
+   - **dopo uno spostamento fallito gli occupati non si rileggevano** (certo): dopo un `23P01` l'orario preso da altri restava offerto e scelto. Ora `invalidateBookingScope` dopo ogni errore, come Prenota (`use-book-confirm.ts:157`);
+   - **la lettura fallita della tipologia era ignorata**, come prima della passata: il dettaglio avrebbe detto «Sessione PT» per una call, senza luogo né «Entra nella videochiamata». Ora è un errore della lettura, con «Riprova» (`client.bookings.$bookingId.tsx:89`);
+   - **passando da un dettaglio all'altro restava lo stato del primo** (la route non si rimonta quando cambia solo il parametro): la valutazione poteva mostrare il voto appena dato all'altra sessione. Ora la vista ha `key={booking.id}` (`client.bookings.$bookingId.tsx:99`).
+   Gli altri due: l'annullamento gratuito che diventa «Sessione non trovata» col server di oggi, e i suoi effetti (§9); `canMove`, `formatLongDay` e `new Date(booking.scheduled_at)` nel foglio Sposta, che il prompt permette espressamente (C3 li esclude). E una nota: `query-keys.ts:82` rinfresca ancora `["coach-busy-reschedule", …]`, che dopo la passata non usa nessuno (§9).
 
-30/09/2026. Prompt «NC Calendar · Redesign lato cliente · Passata 04 · Dettaglio sessione, Sposta, Annulla» (Cowork, contro `0e12622`). Agenti: 1 (un revisore in sola lettura del diff, §9). Workflow: 0.
+30/09/2026. Prompt «NC Calendar · Redesign lato cliente · Passata 04 · Dettaglio sessione, Sposta, Annulla» (Cowork, contro `0e12622`). Agenti: 1 (il revisore del passo 8). Workflow: 0.
 
 ## 1 · Ramo e commit
 
@@ -32,8 +38,11 @@
   3. `795562f` Sessione: ripristina, e la valutazione con la nota;
   4. `8aaf62e` Sessione: i fogli Sposta e Annulla;
   5. `b94a257` Sessione: il dettaglio, con una sola azione principale per stato;
-  6. Spunta la passata 04 in PIANO.md (`[~]`, §0 passo 7);
-  7. Riscrive docs/ULTIMO-RITORNO.md per la passata 04 del lato cliente (questo file: il suo hash sta nella risposta finale).
+  6. `5ee1760` Sessione: la nota salvata della valutazione in un testo solo (la nota fra «» in un solo nodo di testo, per il test statico);
+  7. `e87c8bd` Spunta la passata 04 in PIANO.md (`[~]`, §0 passo 7);
+  8. `a4ccdc4` Riscrive docs/ULTIMO-RITORNO.md per la passata 04 del lato cliente;
+  9. `9b7a2e8` Sessione: le correzioni della revisione (§0 passo 8);
+  10. l'aggiornamento di questo file con la revisione (il suo hash sta nella risposta finale: un file non contiene l'hash del commit che lo scrive).
 - «Ogni commit compila»: **non verificato**, nessun typecheck eseguito.
 - **PR:** vedi la risposta finale (aperta come bozza verso `redesign/cliente-mobile`, non unita), con questo file come descrizione.
 
@@ -143,7 +152,7 @@ Le stesse due righe per verso di Cowork; nessuna condizione, confronto, chiave o
 
 ### C7 · i quattro cancelli
 
-**Non eseguiti** (§0 passo 0): typecheck, lint, test (anche con `TZ`), build. Attesi, se il codice è giusto: typecheck 0 · lint 0 errori e 20 avvisi · **899 test in 56 file** (851 + 44 di `client-session-detail.test.ts` + 3 di `client-session-rating.test.ts` + 1 in `client-sessions.test.ts`) · build riuscita. Il numero dei test l'ho contato dai `it` scritti (22 del ciclo sulle sessioni più 22 altri), non misurato.
+**Non eseguiti** (§0 passo 0): typecheck, lint, test (anche con `TZ`), build. Indizi parziali (§0 passo 8): Prettier 3.8.1 del container, `/opt/node22/bin/prettier --check` sui 16 file toccati del ramo finito → «All matched files use Prettier code style!»; i test puri eseguiti dal revisore con un `date-fns` sostituto, 44/44 e 30/30 nei tre fusi. Attesi, se il codice è giusto: typecheck 0 · lint 0 errori e 20 avvisi · **899 test in 56 file** (851 + 44 di `client-session-detail.test.ts` + 3 di `client-session-rating.test.ts` + 1 in `client-sessions.test.ts`) · build riuscita. Il numero dei test l'ho contato dai `it` scritti (22 del ciclo sulle sessioni più 22 altri), non misurato.
 
 ### C8 · niente colori scritti, fixed, main, confirm(), drawer
 
@@ -179,7 +188,7 @@ Le stesse due righe per verso di Cowork; nessuna condizione, confronto, chiave o
 
 ### Forma del codice, senza Prettier
 
-Il lint del repo ha `prettier/prettier` come errore, e Prettier qui non gira. Ho scritto a mano nella forma di Prettier 3 (larghezza 100, virgole finali) e l'ho controllata con due script della cartella di lavoro: nessuna riga oltre 100 salvo stringhe, template e titoli di `it(` (che Prettier non spezza, come già in `booking-rules.ts:189` e `event-type-actions.test.ts:403`), e nessuna costruzione spezzata che unita starebbe in 100. Le regole meno ovvie le ho prese da codice che oggi passa il lint (le catene di tre chiamate con una freccia, `client-sessions.test.ts:162`; gli argomenti con una chiamata che prende una funzione, `client-sessions.ts:355`; gli elementi JSX con più attributi, `book-sheets.tsx:155-159`). Resta una stima: il lint vero lo dirà.
+Il lint del repo ha `prettier/prettier` come errore, e il Prettier del progetto (3.8.3, in `node_modules`) qui non c'è. Ho scritto a mano nella forma di Prettier 3 (larghezza 100, virgole finali) e l'ho controllata con due script della cartella di lavoro: nessuna riga oltre 100 salvo stringhe, template e titoli di `it(` (che Prettier non spezza, come già in `booking-rules.ts:189` e `event-type-actions.test.ts:403`), e nessuna costruzione spezzata che unita starebbe in 100. Le regole meno ovvie le ho prese da codice che oggi passa il lint (le catene di tre chiamate con una freccia, `client-sessions.test.ts:162`; gli argomenti con una chiamata che prende una funzione, `client-sessions.ts:355`; gli elementi JSX con più attributi, `book-sheets.tsx:155-159`). Poi il Prettier del container (3.8.1) l'ha confermato: nessuna differenza sui 16 file. Il lint vero (con `eslint-plugin-prettier` e Prettier 3.8.3) resta da far girare.
 
 ## 5 · Le prove rosse
 
@@ -221,7 +230,7 @@ Il lint del repo ha `prettier/prettier` come errore, e Prettier qui non gira. Ho
 - **B5** (Annulla gratis su `d2`, «Ripristina», `gcalCreateEvent`, il secondo annullamento lasciato scadere): non fatto.
 - **B6** (Annulla tardi su `d3`, «Ripristina» che fallisce con `P0001` e `23P01`, Annulla che fallisce): non fatto.
 - **B7** (Sposta su `d1`, l'avviso `booking.rescheduled`, «Ripristina» dello spostamento, `d15` che passa sotto le 24 ore a foglio aperto): non fatto.
-- **B8** (Sposta che non riesce, `get_coach_busy` e `training_blocks` in errore campionati ogni 200 ms): non fatto. Nel codice la card resta anche mentre si rilegge (`client-move-sheet.tsx:106-114`), e i giorni si calcolano solo con orari e blocchi arrivati e nessuna lettura persa (`:140-152`).
+- **B8** (Sposta che non riesce, `get_coach_busy` e `training_blocks` in errore campionati ogni 200 ms): non fatto. Nel codice la card resta anche mentre si rilegge (`client-move-sheet.tsx:112-120`), e i giorni si calcolano solo con orari e blocchi arrivati e nessuna lettura persa (`:163-188`).
 - **B9** (gli orari di Sposta contro quelli di Prenota per il 30/09): non fatto. Sposta usa lo stesso `getClientSlotDays` di Prenota con gli stessi ingressi di `useCoachSlotInputs`, la finestra di `getMoveWindow` ed `exclude`; le differenze attese sono le tre del prompt.
 - **B10** (la valutazione, le due varianti di `session_feedback`): non fatto.
 - **B11** (le sessioni che non ci sono, la lettura in errore): non fatto.
@@ -240,7 +249,7 @@ Il lint del repo ha `prettier/prettier` come errore, e Prettier qui non gira. Ho
 ## 8 · Divergenze
 
 - **L'ambiente** (§0 passo 0): container Linux al posto del PC di Windows; le sonde del fuso con Node sul container, senza PowerShell.
-- **La precedenza degli stati della route** (`client.bookings.$bookingId.tsx:77-127`): prima i dati, poi l'errore. Con la sessione già letta, una rilettura fallita (per esempio quella dopo un annullamento) tiene il dettaglio invece di sostituirlo con la frase d'errore; senza dati, l'ordine del prompt resta (lo scheletro, l'errore con «Riprova», mai «Sessione non trovata» per una lettura fallita). Lo scheletro copre anche la lettura in pausa senza rete, che prima finiva in «Sessione non trovata».
+- **La precedenza degli stati della route** (`client.bookings.$bookingId.tsx:96-145`): prima i dati, poi l'errore. Con la sessione già letta, una rilettura fallita (per esempio quella dopo un annullamento) tiene il dettaglio invece di sostituirlo con la frase d'errore; senza dati, l'ordine del prompt resta (lo scheletro, l'errore con «Riprova», mai «Sessione non trovata» per una lettura fallita). Lo scheletro copre anche la lettura in pausa senza rete, che prima finiva in «Sessione non trovata».
 - **«Riprova» della route** è un `ClientButton` secondario (vincolo della 01: i pulsanti con `ClientButton`); la frase è quella di oggi.
 - **In più del prompt, nelle regole:** `sessionMinutes` (la durata, per il foglio e per «Ripristina»), `LOCKED_TITLE` (il titolo del riquadro, con la soglia letta da `booking-rules.ts` invece che scritta nella vista), e in `moveDays` il `reason: "pieno"` di un giorno rimasto senza orari (la didascalia della fila direbbe altrimenti il trattino, che vuol dire preavviso o crediti).
 - **Il foglio Sposta legge solo a foglio aperto:** il contenuto sta dentro il pannello di `ClientSheet`, che si monta all'apertura; scelte ed errore ripartono da capo a ogni apertura. Con una lettura persa la card «Orari non aggiornati» resta anche mentre si rilegge (come Sessioni, per il comportamento di TanStack Query v5 che rileggendo una lettura senza dati ne toglie l'errore), così `retrying` si vede davvero.
@@ -251,13 +260,15 @@ Il lint del repo ha `prettier/prettier` come errore, e Prettier qui non gira. Ho
 - **«Ripristina» dell'annullamento ricrea l'evento Google sempre**, anche per una sessione che non l'aveva (il prompt: «come fa Prenota»).
 - **Lo spostamento inverso usa `mutateAsync`**, così il suo toast arriva anche se nel frattempo si è lasciata la pagina (le callback di `mutate` si perdono con il componente).
 - **`canRebook` segue il prompt alla lettera** (le opzioni prenotabili con crediti), e non guarda `state.blocked`: vedi §9.
+- **La lettura della tipologia fallita è un errore** (`client.bookings.$bookingId.tsx:89`): un quarto cambio alla lettura «di oggi», dalla revisione (§0 passo 8), perché altrimenti fallirebbe in silenzio.
+- **La vista ha la chiave della sessione** (`client.bookings.$bookingId.tsx:99`) e **il foglio Sposta usa `mutateAsync`**, rilegge lo scope dopo un errore e disattiva «Indietro» mentre sposta (§0 passo 8).
 
 ## 9 · Trovati e non toccati
 
-- **La lettura della tipologia nella route ignora il suo errore**, come oggi (`client.bookings.$bookingId.tsx:70-76`): con quella lettura fallita il dettaglio mostra il nome di ripiego («Sessione PT» da `sessionLabel`), niente luogo né «Cosa aspettarti». Il prompt voleva la lettura «quella di oggi».
+- **L'annullamento gratuito col server a metà** (dalla revisione): se S1 arrivasse senza la correzione di `deleted_at` (§5 del prompt, voce 2), dopo la rilettura il dettaglio diventerebbe «Sessione non trovata», e con lui se ne andrebbe la riga della card su cui il foglio ha portato il focus, che finirebbe sul `body`; la card «Annullata» con «Prenota di nuovo» non si vedrebbe mai dopo un annullamento gratuito del cliente. Gli annullamenti tardivi vanno bene, focus compreso. Non si compensa: le due correzioni del server vanno insieme.
+- **`query-keys.ts:82`** rinfresca ancora `["coach-busy-reschedule", coachId]`, la chiave del foglio tolto, che ora non usa nessuno. `query-keys.ts` è fra i file da non toccare.
 - **`canRebook` e il percorso concluso:** con un percorso concluso e crediti extra ancora validi un'opzione può essere prenotabile mentre Prenota mostra la card «Il tuo percorso è concluso» (`getBookState`, `blocked`): «Prenota di nuovo» porterebbe lì. Caso raro; la correzione sarebbe `canRebook` falso con `state.blocked`.
 - **La `description` della `head()`** dice «appuntamento» (il glossario T1 vuole «sessione»): il prompt vuole la `head()` com'è.
-- **Il revisore** (un agente in sola lettura sul diff, lanciato a fine lavoro): l'esito e quello che ne ho corretto sono nella risposta finale.
 
 ## 10 · Resta a Nicolò
 
