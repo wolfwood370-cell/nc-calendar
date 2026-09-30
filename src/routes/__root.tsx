@@ -14,6 +14,7 @@ import appCss from "../styles.css?url";
 import { AuthProvider } from "@/lib/auth";
 import { ClientToaster } from "@/components/client-toaster";
 import { PwaRegister } from "@/components/pwa-register";
+import { startInstallCapture } from "@/hooks/use-pwa";
 import { initSentry, setSentryRouteTag } from "@/lib/sentry";
 
 function NotFoundComponent() {
@@ -139,8 +140,11 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   // Init Sentry una sola volta lato client. No-op se VITE_SENTRY_DSN
   // non è settato (dev locale, staging senza quota).
+  // L'invito del browser a installare arriva una volta, presto: si ascolta
+  // da qui, così chi entra da /auth non lo perde (use-pwa.ts).
   useEffect(() => {
     initSentry();
+    startInstallCapture();
   }, []);
   return (
     <QueryClientProvider client={queryClient}>
