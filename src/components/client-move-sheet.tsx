@@ -12,12 +12,17 @@
 // ClientSlotGroups). Sotto le 24 ore dice che non si sposta più, anche se ci
 // arriva a foglio aperto. Con gli orari o i blocchi non letti c'è la card
 // «Orari non aggiornati», mai «Nessun orario libero» per una lettura fallita.
-// Lo spostamento è useRescheduleBooking (evento Google e avviso al coach); un
-// errore resta nel foglio, detto da actionErrorText.
+// Lo spostamento è useRescheduleBooking (evento Google e avviso al coach), con
+// mutateAsync: la sua promessa arriva anche se il foglio si è chiuso nel
+// frattempo (Esc, lo scrim, trascinando), e con lei onMoved. Un errore resta
+// nel foglio, detto da actionErrorText (a foglio chiuso, un toast), e dopo
+// un errore si rileggono gli occupati, come in Prenota.
 // ----------------------------------------------------------------------------
 
+import { useQueryClient } from "@tanstack/react-query";
 import { Info } from "lucide-react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { toast } from "sonner";
 import { BookRetryCard } from "@/components/book-blocked-card";
 import { ClientButton } from "@/components/client-button";
 import { ClientDayStrip } from "@/components/client-day-strip";
@@ -43,6 +48,7 @@ import {
 import { canMove } from "@/lib/client-session-status";
 import { getClientSlotDays } from "@/lib/client-slots";
 import { useClientBlocks, useRescheduleBooking, type BookingRow } from "@/lib/queries";
+import { invalidateBookingScope } from "@/lib/query-keys";
 import { formatLongDay } from "@/lib/session-time";
 
 /** La sessione che si sposta: i campi del dettaglio, col coach e il cliente. */
@@ -120,6 +126,7 @@ function lost(q: ReadState): boolean {
  */
 function MoveBody({ booking, name, coach, clientName, onMoved, onClose }: MoveBodyProps) {
   const { now } = useClientShell();
+  const qc = useQueryClient();
   const blocksQ = useClientBlocks(booking.client_id ?? undefined);
   const {
     availabilityQ,
@@ -135,6 +142,13 @@ function MoveBody({ booking, name, coach, clientName, onMoved, onClose }: MoveBo
   const [dayIso, setDayIso] = useState<string | null>(null);
   const [slotIso, setSlotIso] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   const movable = canMove(booking, now);
   const blocks = blocksQ.data;
@@ -202,19 +216,22 @@ function MoveBody({ booking, name, coach, clientName, onMoved, onClose }: MoveBo
     const from = booking.scheduled_at;
     const to = slot.iso;
     setError(null);
-    reschedule.mutate(
-      {
+    reschedule
+      .mutateAsync({
         bookingId: booking.id,
         newScheduledISO: to,
         oldScheduledISO: from,
         sessionLabel: name,
         clientName: clientName ?? undefined,
-      },
-      {
-        onSuccess: () => onMoved(from, to),
-        onError: (err) => setError(actionErrorText(err, "move")),
-      },
-    );
+      })
+      .then(() => onMoved(from, to))
+      .catch((err) => {
+        // Un orario preso da altri resterebbe fra quelli offerti: si rileggono.
+        invalidateBookingScope(qc, { coachId: booking.coach_id, clientId: booking.client_id });
+        const text = actionErrorText(err, "move");
+        if (mounted.current) setError(text);
+        else toast.warning(text);
+      });
   };
 
   if (!movable) {
@@ -283,7 +300,7 @@ function MoveBody({ booking, name, coach, clientName, onMoved, onClose }: MoveBo
   return (
     <>
       {content}
-      <ClientButton variant="text" fullWidth onClick={onClose}>
+      <ClientButton variant="text" fullWidth disabled={reschedule.isPending} onClick={onClose}>
         Indietro
       </ClientButton>
     </>

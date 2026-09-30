@@ -11,6 +11,9 @@
 // assente, o eliminata dal coach (isVisibleSession, come in Sessioni), la card
 // «Sessione non trovata»; la lettura in errore, la frase e «Riprova»; prima,
 // lo scheletro. Una rilettura fallita coi dati di prima tiene il dettaglio.
+// Anche la tipologia fallita è un errore: il dettaglio senza direbbe il nome
+// sbagliato e perderebbe il luogo e «Entra nella videochiamata». La vista ha
+// la chiave della sessione: passando da un dettaglio all'altro riparte da capo.
 // ----------------------------------------------------------------------------
 
 import { createFileRoute, Link } from "@tanstack/react-router";
@@ -83,6 +86,7 @@ function BookingDetailPage() {
           .select("id, name, description, color, location_type, location_address")
           .eq("id", booking.event_type_id)
           .maybeSingle();
+        if (etRes.error) throw etRes.error;
         eventType = (etRes.data as ClientBookingDetail["event_type"]) ?? null;
       }
       return { ...booking, event_type: eventType };
@@ -92,7 +96,7 @@ function BookingDetailPage() {
   const booking = q.data;
   let content: ReactNode;
   if (booking && isVisibleSession(booking)) {
-    content = <ClientBookingDetailView booking={booking} />;
+    content = <ClientBookingDetailView key={booking.id} booking={booking} />;
   } else if (booking !== undefined) {
     content = (
       <section className={CARD}>
