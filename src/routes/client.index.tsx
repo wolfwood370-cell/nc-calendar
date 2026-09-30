@@ -18,6 +18,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useRef, type ReactNode } from "react";
 import { BookRetryCard } from "@/components/book-blocked-card";
 import { ClientTabHeader } from "@/components/client-tab-header";
+import { HomeCreditsCard } from "@/components/client-home-credits";
 import { HomeConcludedCard, HomeNextCard, HomeNoNextCard } from "@/components/client-home-next";
 import { AuraSkeleton } from "@/components/ui/aura-skeleton";
 import { useClientBookState } from "@/hooks/use-client-book-state";
@@ -25,7 +26,7 @@ import { useClientShell } from "@/hooks/use-client-shell";
 import { NO_COACH } from "@/lib/client-book";
 import { homeGreeting, homeNext, homeSections } from "@/lib/client-home";
 import { clientPageTitle, homeSubtitle } from "@/lib/client-shell";
-import type { BookingRow, EventTypeRow } from "@/lib/queries";
+import type { BlockRow, BookingRow, EventTypeRow } from "@/lib/queries";
 
 export const Route = createFileRoute("/client/")({
   head: () => ({
@@ -54,14 +55,27 @@ export const Route = createFileRoute("/client/")({
 const COACH = NO_COACH;
 
 const NO_BOOKINGS: BookingRow[] = [];
+const NO_BLOCKS: BlockRow[] = [];
 const NO_EVENT_TYPES: EventTypeRow[] = [];
 
 function ClientHome() {
   const { now } = useClientShell();
-  const { coachId, profile, bookingsQ, eventTypesQ, loading, failed, state, retry, retrying } =
-    useClientBookState(now, COACH);
+  const {
+    coachId,
+    profile,
+    client,
+    blocksQ,
+    bookingsQ,
+    eventTypesQ,
+    loading,
+    failed,
+    state,
+    retry,
+    retrying,
+  } = useClientBookState(now, COACH);
   const contentRef = useRef<HTMLDivElement>(null);
 
+  const blocks = blocksQ.data ?? NO_BLOCKS;
   const bookings = bookingsQ.data ?? NO_BOOKINGS;
   const eventTypes = eventTypesQ.data ?? NO_EVENT_TYPES;
   const next = useMemo(() => homeNext(bookings, now), [bookings, now]);
@@ -108,6 +122,17 @@ function ClientHome() {
       if (section === "no-next") {
         return (
           <HomeNoNextCard key={section} options={state.options} coachId={coachId} coach={COACH} />
+        );
+      }
+      if (section === "credits" && client) {
+        return (
+          <HomeCreditsCard
+            key={section}
+            client={client}
+            blocks={blocks}
+            state={state}
+            coach={COACH}
+          />
         );
       }
       return null;
