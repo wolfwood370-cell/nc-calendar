@@ -93,8 +93,8 @@ const MIN_ICON_CONTRAST = 3;
 
 const MAPS_SEARCH = "https://www.google.com/maps/search/?api=1&query=";
 
-/** La durata, come formatTimeRange: duration_min se positiva, altrimenti 60. */
-function minutesOf(b: Pick<DetailBooking, "duration_min">): number {
+/** La durata in minuti, come formatTimeRange: duration_min se positiva, altrimenti 60. */
+export function sessionMinutes(b: Pick<DetailBooking, "duration_min">): number {
   return b.duration_min && b.duration_min > 0 ? b.duration_min : 60;
 }
 
@@ -107,7 +107,7 @@ function scheduledAhead(
   b: Pick<DetailBooking, "status" | "scheduled_at" | "duration_min">,
   now: Date,
 ): boolean {
-  return b.status === "scheduled" && startMs(b) + minutesOf(b) * MINUTE_MS > now.getTime();
+  return b.status === "scheduled" && startMs(b) + sessionMinutes(b) * MINUTE_MS > now.getTime();
 }
 
 // ----------------------------------------------------------------------------
@@ -150,7 +150,7 @@ export function detailWhen(
   let day = long;
   if (days === 0) day = `Oggi, ${long.toLowerCase()}`;
   else if (days === 1) day = `Domani, ${long.toLowerCase()}`;
-  const parts = [formatTimeRange(start, b.duration_min), `${minutesOf(b)} min`];
+  const parts = [formatTimeRange(start, b.duration_min), `${sessionMinutes(b)} min`];
   const until = b.status === "scheduled" ? formatUntil(start, now) : null;
   if (until) parts.push(until);
   return { day, time: parts.join(" · ") };
