@@ -215,18 +215,22 @@ function CreditRowView({
         >
           <Icon className="size-5" />
         </span>
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="text-[15px] font-bold">{row.name}</span>
-          <span
-            className={cn(
-              "text-sm font-bold",
-              row.tone === "success" ? "text-success-text" : "text-warning-text",
-            )}
-          >
-            {row.avail}
+        {/* Nome e azione vanno a capo solo se non ci stanno: a 320 px «Come si
+            prenota» scende sotto il nome invece di schiacciarlo. */}
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2">
+          <span className="flex min-w-24 flex-1 flex-col gap-0.5">
+            <span className="text-[15px] font-bold">{row.name}</span>
+            <span
+              className={cn(
+                "text-sm font-bold",
+                row.tone === "success" ? "text-success-text" : "text-warning-text",
+              )}
+            >
+              {row.avail}
+            </span>
           </span>
-        </span>
-        {button}
+          {button}
+        </div>
       </div>
       <div
         role="img"

@@ -199,7 +199,16 @@ export function HomeNextCard({
       )}
       {card.move ? (
         <div className="grid grid-cols-2 gap-2">
-          <ClientButton variant="secondary" fullWidth icon={Repeat} onClick={openMove}>
+          {/* Una chiave per sessione e orario: spostata la sessione, «Sposta» è un
+              altro pulsante, e il foglio rende il focus al titolo (returnFocus)
+              invece che al «Sposta» di prima, magari di un'altra sessione. */}
+          <ClientButton
+            key={`${booking.id}:${booking.scheduled_at}`}
+            variant="secondary"
+            fullWidth
+            icon={Repeat}
+            onClick={openMove}
+          >
             Sposta
           </ClientButton>
           {details}

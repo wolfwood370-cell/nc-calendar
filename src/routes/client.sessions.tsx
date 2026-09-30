@@ -90,7 +90,7 @@ function ClientSessionsPage() {
   // tiene l'elenco (TanStack Query tiene i dati). Rileggendo una lettura
   // senza dati (con «Riprova», o tornando sulla finestra) TanStack Query la
   // rimette in attesa e ne toglie l'errore: errorUpdateCount ricorda che era
-  // fallita, e finché risponde resta la card, col pulsante disattivato.
+  // fallita, e finché risponde resta la card, con «Riprova» occupato.
   const reading = bookingsQ.fetchStatus !== "idle";
   const sessionsLost = lostRead(bookingsQ);
   // Pronto: le sessioni, il profilo (fino a lì coachId è nullo anche per chi

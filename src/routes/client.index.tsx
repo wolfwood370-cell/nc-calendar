@@ -17,7 +17,7 @@
 // sul titolo della valutazione, che resta sulla sessione appena valutata
 // (shownId) invece di sparire alla rilettura; dopo «Non ora» e «Ho installato
 // l'app» sull'ultimo titolo prima della card d'installazione, altrimenti sul
-// contenuto.
+// contenuto; dopo «Riprova» riuscito sul primo titolo.
 // Il coach è NO_COACH finché non c'è get_my_coach (02/10/2026), come in
 // Prenota e nel dettaglio: i testi dicono «il tuo coach», niente WhatsApp.
 // ----------------------------------------------------------------------------
@@ -128,8 +128,30 @@ function ClientHome() {
     const titles = Array.from(root.querySelectorAll<HTMLElement>("h2")).filter(
       (h) => !h.closest("[data-home-install]"),
     );
-    return titles.at(-1) ?? root;
+    return titles[titles.length - 1] ?? root;
   };
+
+  // «Riprova» riuscito: la card lascia il posto allo scheletro e poi alle
+  // sezioni, e il pulsante che aveva il focus sparisce con lei. Il focus va
+  // sul contenuto e, a sezioni pronte, sul primo titolo.
+  const retried = useRef(false);
+  const onRetry = () => {
+    retried.current = true;
+    retry();
+  };
+  const showRetry = !loading && (failed || !state);
+  useEffect(() => {
+    const root = contentRef.current;
+    if (!retried.current || showRetry || !root) return;
+    const active = document.activeElement;
+    const lost = !active || active === document.body || active === root;
+    if (loading) {
+      if (lost) root.focus({ preventScroll: true });
+      return;
+    }
+    retried.current = false;
+    if (lost) (root.querySelector<HTMLElement>("h2") ?? root).focus({ preventScroll: true });
+  }, [showRetry, loading]);
 
   const section = (key: string): ReactNode => {
     if (!state) return null;
@@ -180,12 +202,12 @@ function ClientHome() {
   let content: ReactNode;
   if (loading) {
     content = <HomeSkeleton />;
-  } else if (failed || !state) {
+  } else if (showRetry) {
     content = (
       <BookRetryCard
         title="La Home non si è caricata"
         text="Non siamo riusciti a leggere le tue sessioni e i tuoi crediti. Riprova tra poco."
-        onRetry={retry}
+        onRetry={onRetry}
         retrying={retrying}
       />
     );

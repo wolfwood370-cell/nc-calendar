@@ -55,7 +55,8 @@ export function HomeInstallCard({ userId, returnFocus }: HomeInstallCardProps) {
     () => readHidden(key),
     () => true,
   );
-  // Con localStorage negato «Non ora» vale almeno fino al ricaricamento.
+  // Con localStorage negato «Non ora» vale almeno finché si resta sulla Home
+  // (il layout rimonta la pagina a ogni navigazione).
   const [hiddenNow, setHiddenNow] = useState(false);
   const [open, setOpen] = useState(false);
   const visible = !installed && !markedInstalled && !stored && !hiddenNow;
@@ -64,7 +65,7 @@ export function HomeInstallCard({ userId, returnFocus }: HomeInstallCardProps) {
     try {
       localStorage.setItem(key, "1");
     } catch {
-      /* storage pieno o negato: la card sparisce lo stesso, fino al ricaricamento */
+      /* storage pieno o negato: la card sparisce lo stesso, finché si resta sulla Home */
     }
     setHiddenNow(true);
     for (const listener of hiddenListeners) listener();
