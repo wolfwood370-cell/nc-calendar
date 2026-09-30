@@ -13,9 +13,19 @@ import { toast } from "sonner";
  */
 export const UNDO_TOAST_DURATION = 8000;
 
-export function toastWithUndo(message: string, onUndo: () => void) {
-  return toast.success(message, {
+/**
+ * Il toast con «Ripristina» per 8 secondi. Il tono sceglie l'icona: "success"
+ * (quello di sempre) o "warning", con la stessa durata e la stessa azione
+ * (l'annullamento tardivo del cliente, passata 04).
+ */
+export function toastWithUndo(
+  message: string,
+  onUndo: () => void,
+  tone: "success" | "warning" = "success",
+) {
+  const options = {
     duration: UNDO_TOAST_DURATION,
     action: { label: "Ripristina", onClick: onUndo },
-  });
+  };
+  return tone === "warning" ? toast.warning(message, options) : toast.success(message, options);
 }
