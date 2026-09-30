@@ -480,6 +480,7 @@ const opt = (state: BookOption["state"], count: number): BookOption => ({
   message: null,
   state,
   count,
+  countFromNext: false,
   sub: "",
   windows: [],
   buyBooster: false,

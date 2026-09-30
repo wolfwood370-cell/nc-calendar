@@ -113,6 +113,7 @@ const option = (id: string, state: BookOption["state"], count: number): BookOpti
   message: null,
   state,
   count,
+  countFromNext: false,
   sub: "",
   windows: [],
   buyBooster: false,
