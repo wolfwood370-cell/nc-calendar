@@ -6,11 +6,21 @@
 // Sheet that opens /trainer/calendar. On desktop it's the «Attività clienti»
 // Popover of the coach header: a row marks the notification read and opens
 // the Calendar on the event's day with the event selected (audit S4).
+// Un acquisto di Booster (booster.purchased, passata 06 del cliente) apre
+// invece il profilo del cliente, da tutte e due.
 // ----------------------------------------------------------------------------
 
 import * as React from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Bell, BellOff, CalendarPlus, CheckCheck, ChevronRight, Repeat } from "lucide-react";
+import {
+  Bell,
+  BellOff,
+  CalendarPlus,
+  CheckCheck,
+  ChevronRight,
+  Repeat,
+  Sparkles,
+} from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { it } from "date-fns/locale";
 
@@ -106,7 +116,8 @@ const DesktopBellButton = React.forwardRef<HTMLButtonElement, BellButtonProps>(
 function ActivityRow({ n, onOpen }: { n: NotificationRow; onOpen: () => void }) {
   const isUnread = n.read_at == null;
   const view = describeNotification(n);
-  const Icon = view.kind === "rescheduled" ? Repeat : CalendarPlus;
+  const Icon =
+    view.kind === "rescheduled" ? Repeat : view.kind === "purchase" ? Sparkles : CalendarPlus;
 
   return (
     <button
@@ -129,7 +140,8 @@ function ActivityRow({ n, onOpen }: { n: NotificationRow; onOpen: () => void }) 
         {view.body && <span className="text-xs text-on-surface-variant">{view.body}</span>}
         {view.when && <span className="text-xs text-on-surface-variant">{view.when}</span>}
         <span className="mt-0.5 text-[11px] text-outline">
-          {formatAgo(n.created_at)} · Apri nel calendario
+          {formatAgo(n.created_at)} ·{" "}
+          {view.kind === "purchase" ? "Apri il profilo" : "Apri nel calendario"}
         </span>
       </span>
       <span
@@ -203,6 +215,12 @@ function NotificationItem({ n, onClick }: { n: NotificationRow; onClick: () => v
     const newWhen = format(new Date(p.new_scheduled_at), "d MMM · HH:mm", { locale: it });
     title = "Sessione spostata";
     body = `${p.client_name}\n${oldWhen} → ${newWhen}`;
+  } else {
+    const view = describeNotification(n);
+    if (view.kind === "purchase") {
+      title = view.title;
+      body = view.body;
+    }
   }
 
   return (
@@ -317,11 +335,17 @@ export function TrainerNotificationsBell() {
   const unread = unreadCount(notifications);
   const canMarkAll = unread > 0;
 
+  // Un acquisto apre il profilo del cliente; il resto, il Calendario.
+  const openProfile = (clientId: string) =>
+    void navigate({ to: "/trainer/clients/$id", params: { id: clientId } });
+
   const handleItemClick = (n: NotificationRow) => {
     if (n.read_at == null) markRead.mutate(n.id);
     setSheetOpen(false);
     setPopoverOpen(false);
-    void navigate({ to: "/trainer/calendar" });
+    const { clientId } = describeNotification(n);
+    if (clientId) openProfile(clientId);
+    else void navigate({ to: "/trainer/calendar" });
   };
 
   // Audit S4 (desktop): il Calendario si apre sulla settimana dell'evento;
@@ -329,7 +353,11 @@ export function TrainerNotificationsBell() {
   const openInCalendar = (n: NotificationRow) => {
     if (n.read_at == null) markRead.mutate(n.id);
     setPopoverOpen(false);
-    const { date, bookingId } = describeNotification(n);
+    const { date, bookingId, clientId } = describeNotification(n);
+    if (clientId) {
+      openProfile(clientId);
+      return;
+    }
     void navigate({
       to: "/trainer/calendar",
       search: date ? { date, event: bookingId ?? undefined } : {},
