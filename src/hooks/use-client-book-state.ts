@@ -15,6 +15,8 @@
 // l'errore, e resta arrivato mentre un profilo in errore si rilegge (TanStack
 // Query, rileggendo una lettura senza dati, ne toglie l'errore). Prima coachId
 // è nullo anche per chi ha un coach; arrivato con l'errore, lo resta.
+// Per lo Store (06) restituisce anche extrasQ (gli acquisti, che rilegge
+// mentre aspetta il webhook) e input, l'ingresso da cui viene state.
 // ----------------------------------------------------------------------------
 
 import { useQuery } from "@tanstack/react-query";
@@ -27,6 +29,7 @@ import {
   reportPoolMismatches,
   type BookClient,
   type BookCoach,
+  type BookStateInput,
 } from "@/lib/client-book";
 import {
   useActiveShopTitles,
@@ -133,11 +136,13 @@ export function useClientBookState(now: Date, coach: BookCoach) {
     [profile],
   );
 
-  const state = useMemo(() => {
+  // L'ingresso di getBookState, restituito anche da solo: lo Store (06) lo usa
+  // per il riepilogo e per l'esito del pagamento, invece di ricostruirlo.
+  const input = useMemo<BookStateInput | null>(() => {
     if (loading || failed || !client || !blocksQ.data || !bookingsQ.data || !extrasQ.data) {
       return null;
     }
-    return getBookState({
+    return {
       now,
       client,
       blocks: blocksQ.data,
@@ -146,7 +151,7 @@ export function useClientBookState(now: Date, coach: BookCoach) {
       eventTypes: eventTypesQ.data ?? [],
       boosterTitles: boostersQ.data ?? [],
       coach,
-    });
+    };
   }, [
     loading,
     failed,
@@ -159,6 +164,7 @@ export function useClientBookState(now: Date, coach: BookCoach) {
     boostersQ.data,
     coach,
   ]);
+  const state = useMemo(() => (input ? getBookState(input) : null), [input]);
 
   // Solo a letture ferme: dopo una prenotazione sessioni e blocchi si rileggono
   // con risposte separate, e nel mezzo i due conteggi non coincidono.
@@ -192,9 +198,11 @@ export function useClientBookState(now: Date, coach: BookCoach) {
     blocksQ,
     bookingsQ,
     eventTypesQ,
+    extrasQ,
     loading,
     failed,
     state,
+    input,
     retry,
     retrying,
   };
