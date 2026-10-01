@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CreditUnavailableError, SessionChangedError, removeSession } from "@/lib/cancel-session";
 import {
+  NO_CREDIT_TO_PUT_BACK,
   canEditTime,
   ignoreOrphan,
   linkOrphan,
@@ -288,6 +289,62 @@ describe("«Rimetti in agenda»", () => {
   it("una sessione non annullata non si rimette", async () => {
     const { mem, id } = await martaSession();
     await expect(putBackInAgenda(mem.store, id)).rejects.toBeInstanceOf(SessionChangedError);
+  });
+
+  describe("senza blocco: solo un extra che vale alla data della sessione (06b)", () => {
+    // Le scadenze come le scrive stripe-webhook, la fine di un giorno di Roma:
+    // A a fine domenica 4/10, B a fine martedì 3/11. La sessione annullata è
+    // di martedì 20/10 alle 9:00, messa così com'è (creata, la prenderebbe il
+    // trigger dell'archivio).
+    const A04 = "2026-10-04T21:59:59.999Z";
+    const B03 = "2026-11-03T22:59:59.999Z";
+    const IL20 = "2026-10-20T07:00:00.000Z";
+    const veraWith = (extras: Array<[id: string, expiresAt: string]>) => {
+      const mem = createMemoryProfile({
+        types: [TYPES.pt],
+        blocks: [],
+        allocations: [],
+        extras: extras.map(([id, expires_at]) => ({
+          id,
+          client_id: "vera",
+          event_type_id: "pt",
+          quantity: 1,
+          quantity_booked: 0,
+          expires_at,
+        })),
+        bookings: [],
+      });
+      mem.put({
+        id: "s",
+        client_id: "vera",
+        coach_id: COACH,
+        event_type_id: "pt",
+        status: "cancelled",
+        scheduled_at: IL20,
+      });
+      return mem;
+    };
+
+    it("A scaduto per quella data, B valido: riprende B", async () => {
+      const mem = veraWith([
+        ["A", A04],
+        ["B", B03],
+      ]);
+      const r = await putBackInAgenda(mem.store, "s");
+      expect(r.taken).toEqual({ kind: "extra", id: "B" });
+      expect(row(mem, "s").status).toBe("scheduled");
+      expect(mem.extraBooked("A")).toBe(0);
+      expect(mem.extraBooked("B")).toBe(1);
+    });
+
+    it("il solo A, scaduto per quella data: lo dice e la sessione resta annullata", async () => {
+      const mem = veraWith([["A", A04]]);
+      const err = await putBackInAgenda(mem.store, "s").catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(CreditUnavailableError);
+      expect((err as Error).message).toBe(NO_CREDIT_TO_PUT_BACK);
+      expect(row(mem, "s").status).toBe("cancelled");
+      expect(mem.extraBooked("A")).toBe(0);
+    });
   });
 });
 

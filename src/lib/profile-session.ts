@@ -223,6 +223,7 @@ async function creditToTake(store: SessionStore, s: StoredSession): Promise<Cred
   const e = pickConsumeExtraCredit(
     s.event_type_id,
     await store.listExtraCredits(s.client_id, s.event_type_id),
+    s.scheduled_at,
   );
   return e ? { kind: "extra", id: e.id } : null;
 }

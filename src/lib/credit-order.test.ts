@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  extraValidAt,
   pickConsumeAllocation,
   pickConsumeExtraCredit,
   pickRefundAllocation,
@@ -171,7 +172,7 @@ describe("crediti extra", () => {
       credit("bia", { event_type_id: "bia", expires_at: "2026-10-01T00:00:00Z" }),
       credit("nulla-da-restituire", { quantity_booked: 0, expires_at: "2026-11-01T00:00:00Z" }),
     ];
-    expect(pickRefundExtraCredit("pt", credits)?.id).toBe("vicino");
+    expect(pickRefundExtraCredit("pt", credits, "2026-10-05T08:00:00Z")?.id).toBe("vicino");
   });
 
   it("scala dalla scadenza più vicina con residuo", () => {
@@ -179,7 +180,67 @@ describe("crediti extra", () => {
       credit("lontano"),
       credit("vicino-esaurito", { quantity_booked: 3, expires_at: "2027-01-01T00:00:00Z" }),
     ];
-    expect(pickConsumeExtraCredit("pt", credits)?.id).toBe("lontano");
-    expect(pickConsumeExtraCredit(null, credits)).toBeNull();
+    expect(pickConsumeExtraCredit("pt", credits, "2026-10-05T08:00:00Z")?.id).toBe("lontano");
+    expect(pickConsumeExtraCredit(null, credits, "2026-10-05T08:00:00Z")).toBeNull();
+  });
+});
+
+// La scadenza degli extra (06b). Le scadenze sono quelle che scrive
+// stripe-webhook, la fine di un giorno di Roma; un credito vale per una
+// sessione che inizia entro la sua scadenza, come validate_booking_extra_credits
+// dal giro del server del 02/10/2026.
+describe("crediti extra: la scadenza", () => {
+  /** Fine di domenica 4/10 a Roma. */
+  const A04 = "2026-10-04T21:59:59.999Z";
+  /** Fine di martedì 3/11 a Roma, dopo il cambio dell'ora. */
+  const B03 = "2026-11-03T22:59:59.999Z";
+  /** Fine di domenica 11/10 a Roma. */
+  const A11 = "2026-10-11T21:59:59.999Z";
+  /** Martedì 20/10 alle 9:00 di Roma. */
+  const IL20 = "2026-10-20T07:00:00.000Z";
+  const one = (id: string, expires_at: string, quantity_booked = 0): OrderedExtraCredit => ({
+    id,
+    event_type_id: "pt",
+    quantity: 1,
+    quantity_booked,
+    expires_at,
+  });
+
+  it("extraValidAt: vale fino all'istante della scadenza, compreso", () => {
+    expect(extraValidAt(one("A", A11), A11)).toBe(true);
+    expect(extraValidAt(one("A", A11), "2026-10-11T22:00:00.000Z")).toBe(false);
+  });
+
+  it("extraValidAt confronta istanti, non testi", () => {
+    // Come le restituisce PostgREST (+00:00) contro un toISOString (Z): lo
+    // stesso istante, che come testo verrebbe prima.
+    expect(extraValidAt(one("A", "2026-10-11T21:59:59.999+00:00"), A11)).toBe(true);
+    // Le 23:30 di Roma dell'ultimo giorno: come testo dopo la scadenza.
+    expect(extraValidAt(one("A", A11), "2026-10-11T23:30:00+02:00")).toBe(true);
+  });
+
+  it("scala solo un extra che vale alla data della sessione, il più vicino a scadere", () => {
+    const pick = (credits: OrderedExtraCredit[], at: string) =>
+      pickConsumeExtraCredit("pt", credits, at)?.id ?? null;
+    expect(pick([one("A", A04), one("B", B03)], IL20)).toBe("B");
+    expect(pick([one("A", A11)], A11)).toBe("A");
+    expect(pick([one("A", A11)], "2026-10-11T22:00:00.000Z")).toBeNull();
+    expect(
+      pick(
+        [one("lontano", "2100-01-01T00:00:00.000Z"), one("vicino", "2027-01-01T00:00:00.000Z")],
+        "2026-10-05T08:00:00.000Z",
+      ),
+    ).toBe("vicino");
+  });
+
+  it("restituisce solo a un extra che vale alla data della sessione", () => {
+    const pick = (credits: OrderedExtraCredit[]) =>
+      pickRefundExtraCredit("pt", credits, IL20)?.id ?? null;
+    // A scaduto prima della sessione, B valido: torna a B.
+    expect(pick([one("A", A04, 1), one("B", B03, 1)])).toBe("B");
+    // A scade proprio all'inizio della sessione: vale ancora, ed è il più vicino.
+    expect(pick([one("A", IL20, 1), one("B", B03, 1)])).toBe("A");
+    // Il solo A, scaduto prima: niente da restituire.
+    expect(pick([one("A", A04, 1)])).toBeNull();
   });
 });

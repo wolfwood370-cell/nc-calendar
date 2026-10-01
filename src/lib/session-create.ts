@@ -115,7 +115,7 @@ export function planSessionCredit(input: CreditPlanInput): CreditPlan | null {
     );
     if (allocation) return { source: "block", refBlockId: ref.id, allocation };
   }
-  const credit = pickConsumeExtraCredit(input.eventTypeId, input.extras);
+  const credit = pickConsumeExtraCredit(input.eventTypeId, input.extras, input.scheduledAt);
   return credit ? { source: "extra", credit } : null;
 }
 

@@ -280,6 +280,65 @@ describe("removeSession · annulla", () => {
     expect(db.extras.get("extra-bia")!.quantity_booked).toBe(1);
   });
 
+  describe("sessione senza blocco: solo a un extra che vale alla sua data (06b)", () => {
+    // Le scadenze come le scrive stripe-webhook, la fine di un giorno di Roma:
+    // A a fine domenica 4/10, B a fine martedì 3/11. La sessione è di martedì
+    // 20/10 alle 9:00 e si annulla il 1/10, più di 24 ore prima; ogni extra ha
+    // il suo credito usato.
+    const A04 = "2026-10-04T21:59:59.999Z";
+    const B03 = "2026-11-03T22:59:59.999Z";
+    const IL20 = "2026-10-20T07:00:00.000Z";
+    const cancel = async (extras: Array<[id: string, expiresAt: string]>) => {
+      const db = memoryStore({
+        sessions: [session({ block_id: null, scheduled_at: IL20 })],
+        extras: extras.map(([id, expires_at]) => ({
+          id,
+          client_id: CLIENT,
+          event_type_id: "pt",
+          quantity: 1,
+          quantity_booked: 1,
+          expires_at,
+        })),
+      });
+      const r = await removeSession(db.store, {
+        sessionId: "s1",
+        removal: "cancel",
+        now: new Date("2026-10-01T08:00:00.000Z"),
+      });
+      return { r, booked: (id: string) => db.extras.get(id)!.quantity_booked };
+    };
+
+    it("A scaduto prima della sessione, B valido: il credito torna a B", async () => {
+      const { r, booked } = await cancel([
+        ["A", A04],
+        ["B", B03],
+      ]);
+      expect(r.credit).toBe("refunded");
+      expect(r.refunded).toEqual({ kind: "extra", id: "B" });
+      expect(booked("A")).toBe(1);
+      expect(booked("B")).toBe(0);
+    });
+
+    it("A scade proprio all'inizio della sessione: vale ancora, il credito torna ad A", async () => {
+      const { r, booked } = await cancel([
+        ["A", IL20],
+        ["B", B03],
+      ]);
+      expect(r.credit).toBe("refunded");
+      expect(r.refunded).toEqual({ kind: "extra", id: "A" });
+      expect(booked("A")).toBe(0);
+      expect(booked("B")).toBe(1);
+    });
+
+    it("il solo A, scaduto prima della sessione: annulla e non restituisce niente", async () => {
+      const { r, booked } = await cancel([["A", A04]]);
+      expect(r.status).toBe("cancelled");
+      expect(r.credit).toBe("none");
+      expect(r.refunded).toBeNull();
+      expect(booked("A")).toBe(1);
+    });
+  });
+
   it("nessun credito impegnato da restituire: annulla lo stesso e lo dice («none»)", async () => {
     const db = memoryStore({
       sessions: [session()],

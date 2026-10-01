@@ -14,7 +14,11 @@
 //   5. poi l'allocazione creata prima.
 // Sono ammesse le allocazioni della stessa tipologia oppure dello stesso
 // session_type, come nel WHERE del server. Senza blocco il credito sta negli
-// extra_credits della tipologia, per expires_at crescente.
+// extra_credits della tipologia, per expires_at crescente, e un extra vale
+// solo per una sessione che inizia entro la sua scadenza (extraValidAt): per
+// scalarlo, come validate_booking_extra_credits dal giro del server del
+// 02/10/2026 (decisioni 10 e 13), e per restituirlo, perché la sessione l'ha
+// pagata un extra che valeva alla sua data, e uno scaduto prima non serve più.
 // ----------------------------------------------------------------------------
 
 /** Campi della sessione che decidono quale credito toccare. */
@@ -184,22 +188,57 @@ function byExpiry(credits: OrderedExtraCredit[]): OrderedExtraCredit | null {
   );
 }
 
-/** Credito extra a cui restituire il credito: stessa tipologia, già impegnato, scadenza più vicina. */
+/**
+ * Un credito extra vale per una sessione che inizia entro la sua scadenza:
+ * expires_at >= scheduledAt, all'istante della scadenza compreso, come
+ * `ec.expires_at >= NEW.scheduled_at` in validate_booking_extra_credits dal
+ * giro del server del 02/10/2026. Gli istanti si confrontano come istanti,
+ * non come testo: il fuso dell'ISO non conta.
+ */
+export function extraValidAt(
+  credit: Pick<OrderedExtraCredit, "expires_at">,
+  scheduledAt: string,
+): boolean {
+  return new Date(credit.expires_at).getTime() >= new Date(scheduledAt).getTime();
+}
+
+/**
+ * Credito extra a cui restituire il credito: stessa tipologia, già impegnato,
+ * che vale alla data della sessione (extraValidAt), scadenza più vicina. Dal
+ * giro del server del 02/10/2026 una sessione la paga solo un extra che vale
+ * alla sua data: restituire il credito a uno scaduto prima lascerebbe usato
+ * quello valido, e il cliente perderebbe un credito.
+ */
 export function pickRefundExtraCredit(
   eventTypeId: string | null,
   credits: readonly OrderedExtraCredit[],
-): OrderedExtraCredit | null {
-  if (!eventTypeId) return null;
-  return byExpiry(credits.filter((c) => c.event_type_id === eventTypeId && c.quantity_booked > 0));
-}
-
-/** Credito extra da cui scalare: stessa tipologia, con residuo, scadenza più vicina. */
-export function pickConsumeExtraCredit(
-  eventTypeId: string | null,
-  credits: readonly OrderedExtraCredit[],
+  scheduledAt: string,
 ): OrderedExtraCredit | null {
   if (!eventTypeId) return null;
   return byExpiry(
-    credits.filter((c) => c.event_type_id === eventTypeId && c.quantity > c.quantity_booked),
+    credits.filter(
+      (c) =>
+        c.event_type_id === eventTypeId && c.quantity_booked > 0 && extraValidAt(c, scheduledAt),
+    ),
+  );
+}
+
+/**
+ * Credito extra da cui scalare: stessa tipologia, con residuo, che vale alla
+ * data della sessione (extraValidAt), scadenza più vicina.
+ */
+export function pickConsumeExtraCredit(
+  eventTypeId: string | null,
+  credits: readonly OrderedExtraCredit[],
+  scheduledAt: string,
+): OrderedExtraCredit | null {
+  if (!eventTypeId) return null;
+  return byExpiry(
+    credits.filter(
+      (c) =>
+        c.event_type_id === eventTypeId &&
+        c.quantity > c.quantity_booked &&
+        extraValidAt(c, scheduledAt),
+    ),
   );
 }
