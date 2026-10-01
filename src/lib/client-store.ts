@@ -11,7 +11,9 @@
 //     (attivi, in euro, legati per nome a una tipologia del coach, come fa il
 //     pagamento), col numero di crediti nel titolo e «Più conveniente» solo
 //     dove è vero (S2, S4); storeEmpty quando non ce n'è nessuno;
-//   - storeBought: i pagamenti del blocco in corso (S1, S4);
+//   - storeBought: i pagamenti del blocco in corso (S1, S4), e
+//     storeBoughtVisible: se la lista si vede, anche sotto la card
+//     dell'ultima settimana;
 //   - storeSummary: il foglio «Riepilogo», col numero di crediti dopo
 //     l'acquisto, quello di Prenota adesso più i crediti comprati;
 //   - findPurchase e storeOutcome: il ritorno da Stripe (S3), mentre il
@@ -381,6 +383,21 @@ export function storeBought(
         meta: hasPrice(p) ? `${day} · ${euro(Math.round(p.price_paid * 100))}` : day,
       };
     });
+}
+
+/**
+ * Se lo Store mostra «Acquistati in questo blocco»: senza card, quando ci sono
+ * acquisti; fra le card, solo sotto quella dell'ultima settimana («fine»,
+ * decisione 14), perché il blocco è ancora in corso e chi ha comprato prima
+ * deve ritrovare i suoi Booster. Sotto le altre la lista non serve: con
+ * «pacchetto» i Booster non si comprano, con «concluso» e «libero» il blocco
+ * non c'è, con «altro» non c'è un blocco in corso o il cliente è archiviato.
+ */
+export function storeBoughtVisible(
+  lock: Pick<StoreLock, "kind"> | null,
+  bought: readonly StoreBoughtRow[],
+): boolean {
+  return bought.length > 0 && (lock === null || lock.kind === "fine");
 }
 
 // ----------------------------------------------------------------------------
