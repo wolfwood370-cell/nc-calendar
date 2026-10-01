@@ -885,7 +885,7 @@ const WANT: Record<string, [Person, Want]> = {
       greeting: "Ciao Nina",
       options: [["pt", "prenotabile", 8, false, "60 min · 8 disponibili"]],
       blocked: null,
-      canBuy: true,
+      canBuy: false,
       next: null,
       others: null,
       noNext: {
@@ -906,7 +906,7 @@ const WANT: Record<string, [Person, Want]> = {
         ],
       ],
       lost: false,
-      footer: [BUY, BUY],
+      footer: [ASK, ASK_COACH],
       rating: null,
     },
   ],

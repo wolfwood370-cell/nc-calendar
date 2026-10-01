@@ -49,6 +49,7 @@ import { blockTiming, toIsoDate } from "@/lib/current-block";
 import type { SessionType } from "@/lib/mock-data";
 import { clientReferenceBlock } from "@/lib/renewal";
 import { formatLongDay, formatShortDay } from "@/lib/session-time";
+import { boosterPathAllowed } from "../../supabase/functions/_shared/booster-validity";
 
 const HOUR_MS = 3_600_000;
 
@@ -229,18 +230,15 @@ export function typeTint(color: string | null): string {
 // ----------------------------------------------------------------------------
 
 /**
- * Chi compra un Booster (la regola dello Store): cliente attivo, con un blocco
- * attivo, e percorso fisso senza pack_label oppure abbonamento.
+ * Chi compra un Booster (la regola dello Store e del pagamento): un blocco in
+ * corso oggi, e boosterPathAllowed del file condiviso con booster-checkout
+ * (cliente attivo, percorso fisso senza pack_label oppure abbonamento).
  */
 export function canBuyBooster(
   client: Pick<BookClient, "path_type" | "status" | "pack_label">,
-  hasActiveBlock: boolean,
+  hasCurrentBlock: boolean,
 ): boolean {
-  return (
-    client.status === "active" &&
-    hasActiveBlock &&
-    ((client.path_type === "fixed" && !client.pack_label) || client.path_type === "recurring")
-  );
+  return hasCurrentBlock && boosterPathAllowed(client);
 }
 
 /** La finestra è pagata dal blocco dopo: crediti del blocco, e il blocco è il blocco dopo. */
@@ -309,7 +307,7 @@ export function getBookState(input: BookStateInput): BookState {
 
   const canBuy = canBuyBooster(
     client,
-    blocks.some((b) => b.status === "active"),
+    reference !== null && blockTiming(reference, now) === "current",
   );
   // Il primo giorno che si prenota ancora: le finestre che finiscono prima
   // non danno il numero.

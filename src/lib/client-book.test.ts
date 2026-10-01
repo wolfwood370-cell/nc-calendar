@@ -737,6 +737,40 @@ describe("canBuyBooster", () => {
     expect(canBuyBooster(client({ status: "archived" }), true)).toBe(false);
     expect(canBuyBooster(client({}), false)).toBe(false);
   });
+
+  // Il blocco deve essere in corso oggi: un blocco che deve iniziare è
+  // «active» da quando esiste, e uno finito lo resta finché
+  // ensure_client_block_state non lo chiude.
+  const canBuyWith = (blocks: ClientBlock[]) =>
+    getBookState({
+      now: NOW,
+      client: GIULIA,
+      blocks,
+      bookings: [],
+      extras: [],
+      eventTypes: TYPES,
+      boosterTitles: BOOSTERS,
+      coach: NO_COACH,
+    }).canBuy;
+
+  it("con getBookState: solo un blocco che inizia fra 7 giorni, no", () => {
+    expect(
+      canBuyWith([block("f1", 1, "2026-10-05", "2026-11-01", [alloc("f1", "pt", 8, 0)])]),
+    ).toBe(false);
+  });
+
+  it("con getBookState: l'ultimo blocco è finito ieri ed è ancora active, no", () => {
+    expect(
+      canBuyWith([block("y1", 1, "2026-08-31", "2026-09-27", [alloc("y1", "pt", 8, 6)])]),
+    ).toBe(false);
+  });
+
+  it("con getBookState: il blocco in corso, anche l'ultimo giorno, sì", () => {
+    expect(canBuyWith(giuliaBlocks())).toBe(true);
+    expect(
+      canBuyWith([block("z1", 1, "2026-09-01", "2026-09-28", [alloc("z1", "pt", 8, 6)])]),
+    ).toBe(true);
+  });
 });
 
 describe("reportPoolMismatches", () => {
