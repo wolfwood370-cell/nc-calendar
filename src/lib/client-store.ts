@@ -45,6 +45,8 @@ import {
   BOOSTER_EXTENSION_DAYS,
   BOOSTER_SHORT_BLOCK_DAYS,
   boosterPackTitle,
+  boosterPathAllowed,
+  boosterSaleClosed,
   boosterValidity,
   endOfRomeDay,
 } from "../../supabase/functions/_shared/booster-validity";
@@ -52,6 +54,15 @@ import {
 /** Il nome del coach a metà frase: il nome, o «il tuo coach». */
 function coachName(coach: BookCoach): string {
   return coachFirstName(coach) ?? "il tuo coach";
+}
+
+/**
+ * Il percorso continua dopo il blocco di riferimento: c'è il blocco dopo, o
+ * l'abbonamento si rinnova da solo. Lo stesso per la card dell'ultima
+ * settimana e per la validità (e per getBookState).
+ */
+function pathContinues(client: BookClient, state: Pick<BookState, "next">): boolean {
+  return state.next !== null || renewsAutomatically(client);
 }
 
 const credits = (n: number) => (n === 1 ? "credito" : "crediti");
@@ -63,8 +74,11 @@ const available = (n: number) => (n === 1 ? "disponibile" : "disponibili");
 
 export const STORE_LOCK_TITLE = "I Booster si aggiungono a un percorso";
 
-/** concluso: il percorso è finito; libero: crediti senza percorso; pacchetto: PT Pack. */
-export type StoreLockKind = "concluso" | "libero" | "pacchetto" | "altro";
+/**
+ * concluso: il percorso è finito; libero: crediti senza percorso; pacchetto:
+ * PT Pack; fine: l'ultima settimana di un percorso che finisce (decisione 14).
+ */
+export type StoreLockKind = "concluso" | "libero" | "pacchetto" | "fine" | "altro";
 
 export interface StoreLock {
   kind: StoreLockKind;
@@ -77,12 +91,14 @@ export interface StoreLock {
 /**
  * La card di chi non compra; null se compra. Il primo caso che vale: cliente
  * libero; blocco di riferimento finito (anche un PT Pack finito: il percorso
- * è concluso); PT Pack con un blocco in corso; tutto il resto (nessun blocco
- * in corso, un blocco che deve iniziare, cliente archiviato).
+ * è concluso); PT Pack con un blocco in corso; l'ultima settimana di un
+ * percorso che finisce (boosterSaleClosed sul blocco in corso, col «continua»
+ * della validità); tutto il resto (nessun blocco in corso, un blocco che deve
+ * iniziare, cliente archiviato).
  */
 export function storeLock(
   client: BookClient,
-  state: Pick<BookState, "reference" | "canBuy">,
+  state: Pick<BookState, "reference" | "next" | "canBuy">,
   coach: BookCoach,
   now: Date,
 ): StoreLock | null {
@@ -113,6 +129,22 @@ export function storeLock(
       "pacchetto",
       `I Booster si aggiungono a un percorso fisso o a un abbonamento. Se ti servono altre sessioni, ${name} può aggiungerle o proporti un percorso.`,
     );
+  }
+  if (state.reference && timing === "current" && boosterPathAllowed(client)) {
+    const today = toIsoDate(now);
+    const end = state.reference.end_date.slice(0, 10);
+    const closed = boosterSaleClosed({
+      today,
+      blockEnd: end,
+      continues: pathContinues(client, state),
+    });
+    if (closed) {
+      const when = end === today ? "oggi" : formatLongDay(parseISO(end)).toLowerCase();
+      return lock(
+        "fine",
+        `Il tuo percorso finisce ${when}, e nell'ultima settimana di un percorso i Booster non si acquistano. Per una sessione in più, o per continuare, scrivi ${coachTo(coach)}.`,
+      );
+    }
   }
   return lock(
     "altro",
@@ -151,11 +183,10 @@ export function storeValidity(
 ): StoreValidity | null {
   const reference = state.reference;
   if (!state.canBuy || !reference) return null;
-  const continues = state.next !== null || renewsAutomatically(client);
   const { until, extended } = boosterValidity({
     today: toIsoDate(now),
     blockEnd: reference.end_date.slice(0, 10),
-    continues,
+    continues: pathContinues(client, state),
   });
   const day = formatLongDay(parseISO(until)).toLowerCase();
   const block =
@@ -522,6 +553,7 @@ export const STORE_PAY_ERRORS: readonly string[] = [
   "Pacchetto non valido.",
   "Tipologia di sessione non disponibile per questo coach.",
   "Al momento non puoi acquistare Booster: serve un blocco in corso.",
+  "Nell'ultima settimana del percorso i Booster non si acquistano: per una sessione in più scrivi al tuo coach.",
   "Errore durante la creazione del checkout. Riprova più tardi.",
 ];
 

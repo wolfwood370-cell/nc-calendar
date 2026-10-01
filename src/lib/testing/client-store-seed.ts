@@ -2,9 +2,10 @@
 // Le persone dello Store (passata 06)
 // ----------------------------------------------------------------------------
 // Lo usano solo i test. Le nove persone della Home (client-home-seed.ts), con
-// Giulia che ha i suoi acquisti, più sei persone nuove: il PT Pack in corso e
-// finito, l'abbonamento senza rinnovo, i 7 e i 6 giorni alla fine del blocco,
-// il cliente archiviato. Poi i pacchetti di booster_packs e le righe del
+// Giulia che ha i suoi acquisti, più sette persone nuove: il PT Pack in corso
+// e finito, l'abbonamento senza rinnovo, i 7 e i 6 giorni alla fine del
+// blocco, il cliente archiviato, l'ultimo giorno di un percorso che finisce
+// (decisione 14). Poi i pacchetti di booster_packs e le righe del
 // ritorno da Stripe. Lunedì 28/09/2026 alle 10:40, ora locale: le stesse
 // attese a Roma, in UTC e a Los Angeles. Le scadenze dei Booster sono quelle
 // che scrive il pagamento (endOfRomeDay), i crediti del coach scadono nel 2100.
@@ -197,7 +198,19 @@ export const CARLO: StorePersona = {
   extras: [],
 };
 
-/** Le quindici persone, nell'ordine dei test. */
+/**
+ * Fisso, oggi è l'ultimo giorno del suo ultimo blocco e il blocco dopo non
+ * c'è: non compra (decisione 14). Il caso trovato dal revisore della 06.
+ */
+export const VERA: StorePersona = {
+  name: "Vera",
+  client: client("fixed"),
+  blocks: [block("ve1", 1, "2026-09-01", "2026-09-28", [alloc("ve1", "pt", 8, 6)])],
+  bookings: [],
+  extras: [],
+};
+
+/** Le sedici persone, nell'ordine dei test. */
 export const PERSONAS06: readonly StorePersona[] = [
   GIULIA06,
   fromHome("Marta", MARTA),
@@ -214,6 +227,7 @@ export const PERSONAS06: readonly StorePersona[] = [
   ANNA,
   BRUNO,
   CARLO,
+  VERA,
 ];
 
 /** Una persona per nome. */

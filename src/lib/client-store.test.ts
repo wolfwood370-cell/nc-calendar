@@ -1,4 +1,4 @@
-// Le regole dello Store (passata 06): le quindici persone di
+// Le regole dello Store (passata 06): le sedici persone di
 // client-store-seed.ts, lunedì 28/09/2026 alle 10:40. Date costruite con l'ora
 // locale, come nella 05: le stesse attese a Roma, in UTC e a Los Angeles. Lo
 // stato dei crediti viene da getBookState, come nella pagina.
@@ -48,12 +48,12 @@ import {
   persona,
   type StorePersona,
 } from "@/lib/testing/client-store-seed";
-import { boosterPurchase } from "../../supabase/functions/_shared/booster-validity";
+import { boosterPurchase, boosterRefusal } from "../../supabase/functions/_shared/booster-validity";
 
 const stateOf = (p: StorePersona, coach: BookCoach = NOC) => getBookState(inputOf(p, coach));
 
 // ---------------------------------------------------------------------------
-// Le quindici persone
+// Le sedici persone
 // ---------------------------------------------------------------------------
 
 const RULE = "Le sessioni si prenotano entro quella data.";
@@ -73,6 +73,12 @@ const PACCHETTO_COACH =
   "I Booster si aggiungono a un percorso fisso o a un abbonamento. Se ti servono altre sessioni, Nicolò può aggiungerle o proporti un percorso.";
 const ALTRO_NOC = "Al momento non hai un blocco attivo. Scrivi al tuo coach per continuare.";
 const ALTRO_COACH = "Al momento non hai un blocco attivo. Scrivi a Nicolò per continuare.";
+/** La card dell'ultima settimana di un percorso che finisce (decisione 14): tipo, senza coach, col coach. */
+const lastWeek = (when: string): [StoreLockKind, string, string] => {
+  const text = (to: string) =>
+    `Il tuo percorso finisce ${when}, e nell'ultima settimana di un percorso i Booster non si acquistano. Per una sessione in più, o per continuare, scrivi ${to}.`;
+  return ["fine", text("al tuo coach"), text("a Nicolò")];
+};
 
 /** Le tre righe «Dopo l'acquisto…»: singolo, pacchetto, test. */
 const after = (single: number, pack: number, test: number): [string, string, string] => {
@@ -159,20 +165,8 @@ const WANT: Record<string, WantPerson> = {
     bought: [],
     after: after(1, 3, 1),
   },
-  Giorgio: {
-    lock: null,
-    // Il percorso finisce col blocco: niente proroga (decisione 13).
-    validity: {
-      blockNumber: 1,
-      until: "2026-10-03",
-      extended: false,
-      expiresAt: "2026-10-03T21:59:59.999Z",
-      text: `Si aggiungono ai crediti del blocco 1 e valgono fino a sabato 3 ottobre, come gli altri. ${RULE}`,
-      summary: "Valgono fino a sabato 3 ottobre, fine del blocco 1.",
-    },
-    bought: [],
-    after: after(1, 3, 1),
-  },
+  // Il percorso finisce col blocco fra 5 giorni: l'ultima settimana (decisione 14).
+  Giorgio: { lock: lastWeek("sabato 3 ottobre"), validity: null, bought: [], after: null },
   Paola: {
     lock: null,
     validity: {
@@ -199,20 +193,9 @@ const WANT: Record<string, WantPerson> = {
     bought: [],
     after: null,
   },
-  Rita: {
-    lock: null,
-    // Abbonamento senza rinnovo e senza il mese dopo: il percorso finisce.
-    validity: {
-      blockNumber: 1,
-      until: "2026-10-01",
-      extended: false,
-      expiresAt: "2026-10-01T21:59:59.999Z",
-      text: `Si aggiungono ai crediti del blocco 1 e valgono fino a giovedì 1 ottobre, come gli altri. ${RULE}`,
-      summary: "Valgono fino a giovedì 1 ottobre, fine del blocco 1.",
-    },
-    bought: [],
-    after: after(3, 5, 1),
-  },
+  // Abbonamento senza rinnovo e senza il mese dopo: il percorso finisce fra 3
+  // giorni, l'ultima settimana.
+  Rita: { lock: lastWeek("giovedì 1 ottobre"), validity: null, bought: [], after: null },
   Anna: {
     lock: null,
     // 7 giorni esatti alla fine del blocco: niente proroga.
@@ -241,9 +224,11 @@ const WANT: Record<string, WantPerson> = {
     after: after(3, 5, 1),
   },
   Carlo: { lock: ["altro", ALTRO_NOC, ALTRO_COACH], validity: null, bought: [], after: null },
+  // Oggi è l'ultimo giorno del suo ultimo blocco.
+  Vera: { lock: lastWeek("oggi"), validity: null, bought: [], after: null },
 };
 
-describe("le quindici persone", () => {
+describe("le sedici persone", () => {
   it("ci sono tutte, una volta", () => {
     expect(PERSONAS06.map((p) => p.name).sort()).toEqual(Object.keys(WANT).sort());
   });
@@ -324,6 +309,9 @@ for (const p of PERSONAS06) {
     it("il pagamento decide come lo Store", () => {
       const validity = storeValidity(p.client, state, NOW);
       const purchase = boosterPurchase(p.client, p.blocks, toIsoDate(NOW));
+      // La card dell'ultima settimana e il rifiuto «fine» del pagamento vanno insieme.
+      const refusal = boosterRefusal(p.client, p.blocks, toIsoDate(NOW));
+      expect(refusal === "fine").toBe(want.lock?.[0] === "fine");
       if (!validity) {
         expect(purchase).toBeNull();
         return;
@@ -704,16 +692,24 @@ describe("storeOutcome", () => {
 // ---------------------------------------------------------------------------
 
 describe("storePayError", () => {
+  const LAST_WEEK_PAY =
+    "Nell'ultima settimana del percorso i Booster non si acquistano: per una sessione in più scrivi al tuo coach.";
+
   it("le frasi del pagamento per il cliente restano", () => {
     expect(STORE_PAY_ERRORS).toEqual([
       "Troppe richieste, riprova tra qualche minuto.",
       "Pacchetto non valido.",
       "Tipologia di sessione non disponibile per questo coach.",
       "Al momento non puoi acquistare Booster: serve un blocco in corso.",
+      LAST_WEEK_PAY,
       "Errore durante la creazione del checkout. Riprova più tardi.",
     ]);
     for (const m of STORE_PAY_ERRORS) expect(storePayError(m)).toBe(m);
     expect(storePayError("  Pacchetto non valido.  ")).toBe("Pacchetto non valido.");
+  });
+
+  it("il rifiuto dell'ultima settimana (decisione 14) resta com'è", () => {
+    expect(storePayError(LAST_WEEK_PAY)).toBe(LAST_WEEK_PAY);
   });
 
   it("tutto il resto diventa il testo generico", () => {
