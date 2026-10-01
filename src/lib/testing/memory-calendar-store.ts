@@ -5,7 +5,10 @@
 //   - i trigger BEFORE INSERT su bookings, nell'ordine alfabetico in cui
 //     girano: durate (set_booking_duration_defaults, 20260814102120_…sql),
 //     credito di blocco (validate_booking_block_allocation) e credito extra
-//     (validate_booking_extra_credits), 20260827143053_…sql:1-95;
+//     (validate_booking_extra_credits), 20260827143053_…sql:1-95; il credito
+//     extra com'è dal giro del server del 02/10/2026: paga solo una sessione
+//     che inizia entro la sua expires_at, e se gli extra con residuo sono
+//     tutti scaduti per quella data lo dice;
 //   - reschedule_booking (stesso file, :130-298);
 //   - il trigger delle durate anche sugli UPDATE di scheduled_at,
 //     duration_min ed event_type_id;
@@ -222,15 +225,26 @@ export function createMemoryCalendar(db: MemDb): MemoryCalendar {
         "Credito esaurito: nessun tipo sessione specificato per la prenotazione.",
       );
     }
-    const e = db.extras
-      .filter(
-        (x) =>
-          x.client_id === b.client_id &&
-          x.event_type_id === b.event_type_id &&
-          x.quantity - x.quantity_booked > 0,
-      )
+    // Dal giro del server del 02/10/2026: fra gli extra con residuo, il più
+    // vicino a scadere fra quelli che valgono alla data della sessione
+    // (ec.expires_at >= NEW.scheduled_at); se nessuno vale ma uno ha ancora
+    // crediti, il rifiuto lo dice.
+    const left = db.extras.filter(
+      (x) =>
+        x.client_id === b.client_id &&
+        x.event_type_id === b.event_type_id &&
+        x.quantity - x.quantity_booked > 0,
+    );
+    const e = left
+      .filter((x) => Date.parse(x.expires_at) >= Date.parse(b.scheduled_at))
       .sort((x, y) => Date.parse(x.expires_at) - Date.parse(y.expires_at))[0];
     if (!e) {
+      if (left.length > 0) {
+        throw new PgError(
+          "P0001",
+          "Il credito extra non vale per questa data: scade prima della sessione.",
+        );
+      }
       throw new PgError(
         "P0001",
         "Credito esaurito per questa tipologia di sessione. Acquista un Booster per continuare.",

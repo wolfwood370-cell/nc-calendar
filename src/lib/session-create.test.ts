@@ -300,3 +300,162 @@ describe("creazione · Google e «Ripristina»", () => {
     expect(row.duration_min).toBe(30);
   });
 });
+
+// ---------------------------------------------------------------------------
+// La scadenza degli extra (06b): l'archivio inserisce come il server dopo il
+// giro del 02/10/2026, e il dialog prevede lo stesso credito. Vera non ha
+// blocchi e ogni suo extra PT ha un credito. Le scadenze come le scrive
+// stripe-webhook, alla fine di un giorno di Roma: A04 la domenica 4/10, B03 il
+// martedì 3/11 (dopo il cambio dell'ora), A11 la domenica 11/10; IL20 è
+// martedì 20/10 alle 9:00.
+// ---------------------------------------------------------------------------
+
+const A04 = "2026-10-04T21:59:59.999Z";
+const B03 = "2026-11-03T22:59:59.999Z";
+const A11 = "2026-10-11T21:59:59.999Z";
+const IL20 = "2026-10-20T07:00:00.000Z";
+const NEW_EXTRA_REFUSAL = "Il credito extra non vale per questa data: scade prima della sessione.";
+const NOT_SAVED =
+  "Il cliente non ha più crediti per questa tipologia: la sessione non è stata salvata.";
+
+type VeraExtra = [id: string, expiresAt: string];
+
+function vera(extras: VeraExtra[]) {
+  return createMemoryCalendar({
+    types: [pt],
+    blocks: [],
+    allocations: [],
+    extras: extras.map(([id, expires_at]) => ({
+      id,
+      client_id: "vera",
+      event_type_id: "pt",
+      quantity: 1,
+      quantity_booked: 0,
+      expires_at,
+    })),
+    bookings: [],
+  });
+}
+
+const usedOf = (mem: MemoryCalendar) =>
+  Object.fromEntries(mem.db.extras.map((x) => [x.id, x.quantity_booked]));
+
+/** Una PT di un'ora per Vera, inserita come la scrive il dialog: l'esito e i crediti usati. */
+async function insertPt(when: string, extras: VeraExtra[]) {
+  const mem = vera(extras);
+  let outcome: string;
+  try {
+    await mem.store.insertSession({
+      coach_id: COACH,
+      client_id: "vera",
+      block_id: null,
+      event_type_id: "pt",
+      session_type: "PT Session",
+      scheduled_at: when,
+      end_at: new Date(Date.parse(when) + 3_600_000).toISOString(),
+      duration_min: 60,
+      status: "scheduled",
+      is_personal: false,
+      category: "client_session",
+      title: null,
+    });
+    outcome = "prenotata";
+  } catch (e) {
+    outcome = `rifiutata: ${(e as Error).message}`;
+  }
+  return { outcome, used: usedOf(mem) };
+}
+
+describe("archivio · il credito extra paga solo una sessione entro la sua scadenza (06b)", () => {
+  const booked = (used: Record<string, number>) => ({ outcome: "prenotata", used });
+  const refused = (used: Record<string, number>) => ({ outcome: `rifiutata: ${NOT_SAVED}`, used });
+
+  it("1 · dentro la scadenza", async () => {
+    expect(await insertPt("2026-10-10T07:00:00.000Z", [["A", A11]])).toEqual(booked({ A: 1 }));
+  });
+
+  it("2 · l'ultimo giorno alle 23:30 di Roma", async () => {
+    expect(await insertPt("2026-10-11T21:30:00.000Z", [["A", A11]])).toEqual(booked({ A: 1 }));
+  });
+
+  it("2b · all'istante della scadenza", async () => {
+    expect(await insertPt(A11, [["A", A11]])).toEqual(booked({ A: 1 }));
+  });
+
+  it("3 · la mezzanotte dopo: rifiutata, niente scalato", async () => {
+    expect(await insertPt("2026-10-11T22:00:00.000Z", [["A", A11]])).toEqual(refused({ A: 0 }));
+  });
+
+  it("4 · dopo la scadenza: rifiutata, niente scalato", async () => {
+    expect(await insertPt("2026-10-12T07:00:00.000Z", [["A", A11]])).toEqual(refused({ A: 0 }));
+  });
+
+  it("5 · A scaduto per quella data, B valido: scala B", async () => {
+    expect(
+      await insertPt(IL20, [
+        ["A", A04],
+        ["B", B03],
+      ]),
+    ).toEqual(booked({ A: 0, B: 1 }));
+  });
+
+  it("6 · nessun extra: rifiutata", async () => {
+    expect(await insertPt("2026-10-10T07:00:00.000Z", [])).toEqual(refused({}));
+  });
+
+  it("7 · un extra del coach (2100) vale sempre", async () => {
+    expect(await insertPt("2027-05-01T07:00:00.000Z", [["A", "2100-01-01T00:00:00.000Z"]])).toEqual(
+      booked({ A: 1 }),
+    );
+  });
+
+  it("la frase nuova del trigger, per il coach, dice che il cliente non ha crediti", () => {
+    expect(coachWriteError({ code: "P0001", message: NEW_EXTRA_REFUSAL })).toBe(NOT_SAVED);
+  });
+});
+
+describe("creazione · il credito previsto coincide con quello che prende l'archivio (06b)", () => {
+  it("A scaduto per quella data, B valido: previsto B, creata con B", async () => {
+    const mem = vera([
+      ["A", A04],
+      ["B", B03],
+    ]);
+    const { predicted, r, changedExtras } = await createAndCompare(mem, "vera", "Vera Rossi", IL20);
+    expect(predicted).toMatchObject({ source: "extra", credit: { id: "B" } });
+    expect(r.plan).toMatchObject({ source: "extra", credit: { id: "B" } });
+    expect(changedExtras.map((e) => e.id)).toEqual(["B"]);
+    expect(usedOf(mem)).toEqual({ A: 0, B: 1 });
+  });
+
+  it("il solo A, scaduto per quella data: niente previsto, niente sessione", async () => {
+    const mem = vera([["A", A11]]);
+    const when = "2026-10-12T07:00:00.000Z";
+    expect(await plan(mem, "vera", when)).toBeNull();
+    await expect(
+      createClientSession(mem.store, {
+        coachId: COACH,
+        clientId: "vera",
+        clientName: "Vera Rossi",
+        type: pt,
+        scheduledAt: when,
+        durationMin: 60,
+      }),
+    ).rejects.toThrow(new NoCreditError("Vera non ha crediti Personal Training disponibili."));
+    expect(mem.inserted).toHaveLength(0);
+    expect(usedOf(mem)).toEqual({ A: 0 });
+  });
+
+  it("il solo A, valido: previsto A, creata con A", async () => {
+    const mem = vera([["A", A11]]);
+    const { predicted, r, changedExtras } = await createAndCompare(
+      mem,
+      "vera",
+      "Vera Rossi",
+      "2026-10-10T07:00:00.000Z",
+    );
+    expect(predicted).toMatchObject({ source: "extra", credit: { id: "A" } });
+    expect(r.plan).toMatchObject({ source: "extra", credit: { id: "A" } });
+    expect(changedExtras.map((e) => e.id)).toEqual(["A"]);
+    expect(usedOf(mem)).toEqual({ A: 1 });
+  });
+});
