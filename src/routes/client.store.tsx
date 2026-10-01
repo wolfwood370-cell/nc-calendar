@@ -24,7 +24,7 @@
 // altre pagine: i testi dicono «il tuo coach», niente WhatsApp.
 // ----------------------------------------------------------------------------
 
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { BookRetryCard } from "@/components/book-blocked-card";
@@ -123,6 +123,7 @@ interface DoneState {
 function StorePage() {
   const { now } = useClientShell();
   const navigate = useNavigate();
+  const router = useRouter();
   const search = Route.useSearch();
   const { client, eventTypesQ, extrasQ, loading, failed, state, input, retry, retrying } =
     useClientBookState(now, COACH);
@@ -135,8 +136,14 @@ function StorePage() {
   const eventTypes = eventTypesQ.data ?? NO_EVENT_TYPES;
   const purchases = extrasQ.data ?? NO_PURCHASES;
 
-  const lock = state && client ? storeLock(client, state, COACH, now) : null;
-  const validity = state && client ? storeValidity(client, state, now) : null;
+  const lock = useMemo(
+    () => (state && client ? storeLock(client, state, COACH, now) : null),
+    [client, state, now],
+  );
+  const validity = useMemo(
+    () => (state && client ? storeValidity(client, state, now) : null),
+    [client, state, now],
+  );
   const products = useMemo(
     () => storeProducts(packsQ.data ?? NO_PACKS, eventTypes, COACH, typeParam),
     [packsQ.data, eventTypes, typeParam],
@@ -172,14 +179,32 @@ function StorePage() {
   const [paying, setPaying] = useState(false);
   const payingRef = useRef(false);
   const product = products.find((p) => p.key === summaryKey) ?? null;
-  const summary = product && validity && input ? storeSummary(product, validity, input) : null;
+  const summary = useMemo(
+    () => (product && validity && input ? storeSummary(product, validity, input) : null),
+    [product, validity, input],
+  );
 
   // V12: il cliente non compra più (lo stato si è riletto): il foglio si
-  // chiude e non si riapre da solo se poi torna a comprare.
+  // chiude e non si riapre da solo se poi torna a comprare. Lo stesso se il
+  // riepilogo resta senza contenuto per un altro motivo (il pacchetto non c'è
+  // più, lo stato si sta rileggendo): aperto e vuoto si riaprirebbe da solo.
   const locked = lock !== null;
+  const hasSummary = summary !== null;
   useEffect(() => {
-    if (locked) setSummaryOpen(false);
-  }, [locked]);
+    if (locked || !hasSummary) setSummaryOpen(false);
+  }, [locked, hasSummary]);
+
+  // Tornati indietro da Stripe, il browser può rimettere la pagina com'era
+  // (la cache avanti e indietro): «Paga» resterebbe occupato.
+  useEffect(() => {
+    const onShow = (e: PageTransitionEvent) => {
+      if (!e.persisted) return;
+      payingRef.current = false;
+      setPaying(false);
+    };
+    window.addEventListener("pageshow", onShow);
+    return () => window.removeEventListener("pageshow", onShow);
+  }, []);
 
   const openSummary = (key: string) => {
     setSummaryKey(key);
@@ -226,26 +251,31 @@ function StorePage() {
     setRounds(0);
   }, [success, sessionParam, typeParam]);
 
-  const outcome =
-    done && input
-      ? storeOutcome({
-          purchases,
-          session: done.session,
-          typeId: done.typeId,
-          elapsedMs: rounds * STORE_POLL_MS,
-          input,
-          coach: COACH,
-        })
-      : null;
+  const outcome = useMemo(
+    () =>
+      done && input
+        ? storeOutcome({
+            purchases,
+            session: done.session,
+            typeId: done.typeId,
+            elapsedMs: rounds * STORE_POLL_MS,
+            input,
+            coach: COACH,
+          })
+        : null,
+    [done, input, purchases, rounds],
+  );
 
   // Finché i crediti non arrivano: una rilettura degli acquisti e un giro ogni
-  // 2 secondi. Arrivati, o dopo 20 secondi, si ferma.
+  // 2 secondi. Arrivati, o dopo 20 secondi, si ferma. Una rilettura ancora in
+  // corso non si annulla (cancelRefetch): con la rete lenta ogni giro
+  // annullerebbe il precedente, e la riga non arriverebbe mai.
   const waiting = done?.open === true && outcome?.kind === "waiting";
   const refetchExtras = extrasQ.refetch;
   useEffect(() => {
     if (!waiting) return;
     const id = window.setInterval(() => {
-      void refetchExtras();
+      void refetchExtras({ cancelRefetch: false });
       setRounds((n) => n + 1);
     }, STORE_POLL_MS);
     return () => window.clearInterval(id);
@@ -254,6 +284,14 @@ function StorePage() {
   const closeDone = () => {
     setDone((d) => (d ? { ...d, open: false } : d));
     clearReturn();
+  };
+
+  // «Prenota ora»: il link porta a Prenota nello stesso giro. La cronologia
+  // del router unisce le due scritture in una sola, e l'indirizzo con
+  // booster=success resterebbe dietro Prenota: il replace si scrive subito.
+  const bookFromDone = () => {
+    closeDone();
+    router.history.flush();
   };
 
   // Annullato su Stripe: il toast una volta (anche col doppio effetto di
@@ -352,7 +390,7 @@ function StorePage() {
         }}
         outcome={outcome}
         returnFocus={pageTitle}
-        onBook={closeDone}
+        onBook={bookFromDone}
       />
     </div>
   );
