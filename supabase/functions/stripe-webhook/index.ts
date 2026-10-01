@@ -148,8 +148,10 @@ Deno.serve(async (req) => {
           metadata_event_type_id: metadataEventTypeId ?? null,
           stripe_session: session.id,
         });
-        // 400 → Stripe non ritenta. Stato corretto: il pagamento esiste
-        // ma il credito non può essere assegnato senza intervento manuale.
+        // 400: Stripe ritenta ogni consegna che non riceve un 2xx (in
+        // produzione fino a tre giorni, in sandbox tre volte in qualche ora)
+        // e riceve sempre lo stesso esito. Il pagamento esiste ma il credito
+        // non si assegna senza intervento manuale.
         return new Response("Event type not resolved", { status: 400 });
       }
 

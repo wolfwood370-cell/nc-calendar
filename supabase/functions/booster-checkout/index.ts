@@ -1,6 +1,11 @@
 import Stripe from "npm:stripe@^14.0.0";
 import { requireAuth, assertUuid } from "../_shared/auth.ts";
-import { boosterPackTitle, boosterPurchase, romeDate } from "../_shared/booster-validity.ts";
+import {
+  boosterPackTitle,
+  boosterPurchase,
+  boosterRefusal,
+  romeDate,
+} from "../_shared/booster-validity.ts";
 import { jsonResponse } from "../_shared/cors.ts";
 import { checkRateLimit } from "../_shared/rate-limit.ts";
 
@@ -104,6 +109,10 @@ Deno.serve(async (req) => {
     // pack_label o abbonamento, e un blocco in corso oggi a Roma. La
     // scadenza è l'ultimo istante a Roma della fine del blocco, o di 30
     // giorni dopo se il blocco sta per finire e il percorso continua.
+    // Nell'ultima settimana di un percorso che finisce non si vende
+    // (decisione 14): il 400 lo dice con la sua frase, che lo Store mostra
+    // com'è; ogni altro rifiuto, e un profilo che non c'è, con quella del
+    // blocco in corso.
     const [{ data: buyer, error: buyerErr }, { data: blocks, error: blocksErr }] =
       await Promise.all([
         admin
@@ -119,10 +128,17 @@ Deno.serve(async (req) => {
       ]);
     if (buyerErr) throw new Error(`profiles: ${buyerErr.message}`);
     if (blocksErr) throw new Error(`training_blocks: ${blocksErr.message}`);
-    const decision = buyer ? boosterPurchase(buyer, blocks ?? [], romeDate(new Date())) : null;
+    const today = romeDate(new Date());
+    const refusal = buyer ? boosterRefusal(buyer, blocks ?? [], today) : null;
+    const decision = buyer && !refusal ? boosterPurchase(buyer, blocks ?? [], today) : null;
     if (!decision) {
       return jsonResponse(
-        { error: "Al momento non puoi acquistare Booster: serve un blocco in corso." },
+        {
+          error:
+            refusal === "fine"
+              ? "Nell'ultima settimana del percorso i Booster non si acquistano: per una sessione in più scrivi al tuo coach."
+              : "Al momento non puoi acquistare Booster: serve un blocco in corso.",
+        },
         400,
         req,
       );
