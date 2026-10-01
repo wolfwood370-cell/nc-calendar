@@ -771,7 +771,7 @@ const WANT: Record<string, [Person, Want]> = {
         ["test", "coach", 0, false, "Si prenota con il tuo coach"],
       ],
       blocked: null,
-      canBuy: true,
+      canBuy: false,
       next: "r-bia-extra",
       others: null,
       card: [
@@ -797,7 +797,7 @@ const WANT: Record<string, [Person, Want]> = {
           "Personal Training",
           "Esauriti",
           "warning",
-          "Acquista (pt)",
+          "nessuna",
           "75.0% / 0.0% / 25.0%",
           "3 svolte · 1 persa · 4 in totale",
           "Personal Training: 3 svolte, 1 persa, 0 disponibili su 4",
@@ -822,7 +822,7 @@ const WANT: Record<string, [Person, Want]> = {
         ],
       ],
       lost: true,
-      footer: [BUY, BUY],
+      footer: [ASK, ASK_COACH],
       rating: [
         "r-done-2",
         "Personal Training di martedì 15 settembre. La valutazione arriva al tuo coach.",

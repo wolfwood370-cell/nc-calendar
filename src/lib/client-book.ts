@@ -47,9 +47,12 @@ import type { ClientSlot } from "@/lib/client-slots";
 import { formatCreditsAgreed } from "@/lib/credits";
 import { blockTiming, toIsoDate } from "@/lib/current-block";
 import type { SessionType } from "@/lib/mock-data";
-import { clientReferenceBlock } from "@/lib/renewal";
+import { clientReferenceBlock, renewsAutomatically } from "@/lib/renewal";
 import { formatLongDay, formatShortDay } from "@/lib/session-time";
-import { boosterPathAllowed } from "../../supabase/functions/_shared/booster-validity";
+import {
+  boosterPathAllowed,
+  boosterSaleClosed,
+} from "../../supabase/functions/_shared/booster-validity";
 
 const HOUR_MS = 3_600_000;
 
@@ -231,14 +234,17 @@ export function typeTint(color: string | null): string {
 
 /**
  * Chi compra un Booster (la regola dello Store e del pagamento): un blocco in
- * corso oggi, e boosterPathAllowed del file condiviso con booster-checkout
- * (cliente attivo, percorso fisso senza pack_label oppure abbonamento).
+ * corso oggi, non nell'ultima settimana di un percorso che finisce
+ * (boosterSaleClosed, decisione 14), e boosterPathAllowed del file condiviso
+ * con booster-checkout (cliente attivo, percorso fisso senza pack_label
+ * oppure abbonamento).
  */
 export function canBuyBooster(
   client: Pick<BookClient, "path_type" | "status" | "pack_label">,
   hasCurrentBlock: boolean,
+  saleClosed: boolean,
 ): boolean {
-  return hasCurrentBlock && boosterPathAllowed(client);
+  return hasCurrentBlock && !saleClosed && boosterPathAllowed(client);
 }
 
 /** La finestra è pagata dal blocco dopo: crediti del blocco, e il blocco è il blocco dopo. */
@@ -305,10 +311,17 @@ export function getBookState(input: BookStateInput): BookState {
     : null;
   const nextRows = nextPools?.rows ?? [];
 
-  const canBuy = canBuyBooster(
-    client,
-    reference !== null && blockTiming(reference, now) === "current",
-  );
+  const current = reference !== null && blockTiming(reference, now) === "current";
+  // Il percorso continua come per la validità del Booster: il blocco dopo, o
+  // l'abbonamento che si rinnova da solo.
+  const saleClosed =
+    current &&
+    boosterSaleClosed({
+      today: toIsoDate(now),
+      blockEnd: reference.end_date.slice(0, 10),
+      continues: next !== null || renewsAutomatically(client),
+    });
+  const canBuy = canBuyBooster(client, current, saleClosed);
   // Il primo giorno che si prenota ancora: le finestre che finiscono prima
   // non danno il numero.
   const firstBookable = toIsoDate(addHours(now, CLIENT_MIN_NOTICE_HOURS));

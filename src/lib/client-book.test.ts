@@ -725,26 +725,30 @@ describe("canBuyBooster", () => {
   const client = (over: Partial<BookClient>): BookClient => ({ ...GIULIA, ...over });
 
   it("fisso sì, fisso con PT Pack no, abbonamento anche con pack_label sì", () => {
-    expect(canBuyBooster(client({}), true)).toBe(true);
-    expect(canBuyBooster(client({ pack_label: "PT Pack" }), true)).toBe(false);
-    expect(canBuyBooster(client({ path_type: "recurring", pack_label: "Mensile" }), true)).toBe(
-      true,
-    );
+    expect(canBuyBooster(client({}), true, false)).toBe(true);
+    expect(canBuyBooster(client({ pack_label: "PT Pack" }), true, false)).toBe(false);
+    expect(
+      canBuyBooster(client({ path_type: "recurring", pack_label: "Mensile" }), true, false),
+    ).toBe(true);
   });
 
   it("libero, archiviato, senza blocco attivo: no", () => {
-    expect(canBuyBooster(client({ path_type: "free" }), true)).toBe(false);
-    expect(canBuyBooster(client({ status: "archived" }), true)).toBe(false);
-    expect(canBuyBooster(client({}), false)).toBe(false);
+    expect(canBuyBooster(client({ path_type: "free" }), true, false)).toBe(false);
+    expect(canBuyBooster(client({ status: "archived" }), true, false)).toBe(false);
+    expect(canBuyBooster(client({}), false, false)).toBe(false);
+  });
+
+  it("nell'ultima settimana di un percorso che finisce: no (decisione 14)", () => {
+    expect(canBuyBooster(client({}), true, true)).toBe(false);
   });
 
   // Il blocco deve essere in corso oggi: un blocco che deve iniziare è
   // «active» da quando esiste, e uno finito lo resta finché
   // ensure_client_block_state non lo chiude.
-  const canBuyWith = (blocks: ClientBlock[]) =>
+  const canBuyWith = (blocks: ClientBlock[], who: BookClient = GIULIA) =>
     getBookState({
       now: NOW,
-      client: GIULIA,
+      client: who,
       blocks,
       bookings: [],
       extras: [],
@@ -752,6 +756,8 @@ describe("canBuyBooster", () => {
       boosterTitles: BOOSTERS,
       coach: NO_COACH,
     }).canBuy;
+  // Oggi è l'ultimo giorno di questo blocco.
+  const z1 = block("z1", 1, "2026-09-01", "2026-09-28", [alloc("z1", "pt", 8, 6)]);
 
   it("con getBookState: solo un blocco che inizia fra 7 giorni, no", () => {
     expect(
@@ -765,11 +771,24 @@ describe("canBuyBooster", () => {
     ).toBe(false);
   });
 
-  it("con getBookState: il blocco in corso, anche l'ultimo giorno, sì", () => {
+  it("con getBookState: il blocco in corso, sì", () => {
     expect(canBuyWith(giuliaBlocks())).toBe(true);
+  });
+
+  it("con getBookState: l'ultimo giorno di un percorso che finisce, no (decisione 14)", () => {
+    expect(canBuyWith([z1])).toBe(false);
+  });
+
+  it("con getBookState: l'ultimo giorno col blocco dopo, sì", () => {
     expect(
-      canBuyWith([block("z1", 1, "2026-09-01", "2026-09-28", [alloc("z1", "pt", 8, 6)])]),
+      canBuyWith([z1, block("z2", 2, "2026-09-29", "2026-10-26", [alloc("z2", "pt", 8, 0)])]),
     ).toBe(true);
+  });
+
+  it("con getBookState: l'ultimo giorno di un abbonamento col rinnovo, sì", () => {
+    expect(canBuyWith([z1], { ...GIULIA, path_type: "recurring", auto_renew_blocks: true })).toBe(
+      true,
+    );
   });
 });
 
