@@ -1,256 +1,455 @@
-**Dove ho girato (ultimo ritorno · lato cliente · passata 06 · Booster):** **nel cloud, non sul PC.** Container Linux: `pwd` = `/home/user/nc-calendar`, `uname -s` = `Linux`, `$OS` vuoto, `node_modules` assente (`deps-assenti`), `deno --version` → `deno-assente`; ci sono bun 1.3.14, node 22.22.0 e, globali, `prettier` 3.8.1 e `tsc` 6.0.2. Come chiede il §2 non ho installato niente, né nel repo né fuori (il revisore ha scaricato nello scratchpad i sorgenti di quattro librerie per leggerli: §1, passo 10). **Cancelli, prove rosse e browser ufficiali: non eseguiti: sessione nel cloud** (li rifà Cowork alla verifica); la riga 06 di `PIANO.md` è a `[~]`. Al loro posto, dichiarate per quello che sono, verifiche nello scratchpad con gli strumenti già presenti (§5, §6).
+**Dove ho girato (ultimo ritorno · lato cliente · passata 06 · ripresa sul PC):** **sul PC.** Git Bash: `pwd` = `/c/Coworks/NC App Development/repos/nc-calendar`, `uname -s` = `MINGW64_NT-10.0-26200`, `$OS` = `Windows_NT`, `deps-presenti`; `deno --version` → `deno 2.9.1 (stable, release, x86_64-pc-windows-msvc)`, v8 14.9.207.2-rusty, typescript 6.0.3; bun 1.3.14, node v24.12.0, git 2.54.0.windows.1. Nessuna installazione, nel repo né fuori.
 
-> **In breve.** La regola dei Booster è una sola, in `supabase/functions/_shared/booster-validity.ts`, e la usano lo Store, `canBuyBooster` e `booster-checkout`: vale fino alla fine del blocco in corso, o 30 giorni dopo se mancano meno di 7 giorni e il percorso continua; la scadenza è l'ultimo istante del giorno a Roma. Compra solo chi ha un blocco in corso oggi (fra le persone cambia solo Nina). Lo Store è riscritto sopra `src/lib/client-store.ts` (puro): prodotti da `booster_packs`, validità, acquisti del blocco, riepilogo, ritorno da Stripe con l'attesa del webhook, errori per persone. Il pagamento decide con la regola condivisa e torna allo Store; il webhook avvisa il coach (`booster.purchased`), e la campanella apre il profilo del cliente. Le due card vecchie sono tolte. **Nel cloud** i cancelli non girano (niente `node_modules`): nello scratchpad, senza installare niente, `bun test` con una sostituta di `date-fns` scritta a mano e calibrata sulla base (266 test della base verdi nei tre fusi) dà **1132 test in 61 file, gli stessi 9 rossi d'ambiente della base** (965 in 59), le **59 prove rosse R1-R59 tutte rosse nei tre fusi e poi verdi**, e una prova di fumo delle due funzioni di Stripe con Stripe e Supabase finti (18 su 18; sulla base 15 su 18 cadono). Prettier passa su tutti i file toccati; un typecheck parziale con `tsc` e dichiarazioni minime dei pacchetti assenti non trova errori nei file nuovi; `bun build` compila le due funzioni. I due semi di Cowork sono sul PC: li ho ricostruiti dal prompt (§9). Un revisore in sola lettura (un agente) ha trovato 5 difetti e 4 note: 4 difetti corretti in `89c24ad` (il più serio: «Prenota ora» lasciava l'esito di Stripe nella cronologia); il quinto, **comprare l'ultimo giorno di un percorso che finisce**, chiede di cambiare la regola di chi compra e resta a Nicolò (§10, §11). Workflow: 0; agenti: 1 (il revisore).
+> **In breve.** Il lavoro del cloud (`a3f71db`) passa i quattro cancelli veri al primo colpo: typecheck 0, lint 0 errori e 14 avvisi, **1173 test in 61 file**, build riuscita, i cinque file verdi in UTC, a Los Angeles e a Roma. Sopra c'è la **decisione 14**: nell'ultima settimana di un percorso che finisce il Booster non si compra. La regola sta solo nel file condiviso (`boosterSaleClosed`, `boosterRefusal`, una decisione sola per rifiuto e pagamento). La usano `getBookState` (quindi Home e Prenota, senza cambiare i loro file), lo Store (la card «fine») e `booster-checkout` (il 400 con la sua frase). Giorgio, Rita e Vera non comprano più, Paola sì, con 7 giorni esatti. Alla fine: **1205 test in 61 file** verdi, i cinque file verdi nei tre fusi, **71 mutazioni (R1-R59, R63-R72) rosse nei tre fusi** e poi verdi. Nel browser **127 prove su 127** sullo Store (B1-B14, B16, B17), più R60, R61, R62 e R73 rosse. B15: Prenota 82/82, Sessioni 78/78, la 04 103/104 (il suo B9 confronta l'ordine, non le differenze: §11), la Home della 05 154/154. Profilo, Notifiche e coach sono uguali alla base. Un revisore in sola lettura ha dato 6 punti: uno corretto (`731a136`), cinque misurati e lasciati a Nicolò (§11). La PR resta la #84, aperta e non unita. Workflow: 0 (il prompt dice che Ultracode non serve); agenti: 1 (il revisore).
 
 ## 1 · IL PIANO
 
 ☐ da fare · ☑ fatto, con l'hash del commit · ⚠️ deviato, con la misura e il `file:riga`
 
-0. ⚠️ **Dove giri, la base e il ramo** (§2). Nessun commit.
-   - Ambiente: la riga in testa (cloud).
-   - `git fetch origin`; `git merge-base --is-ancestor ac44ec2 origin/redesign/cliente-mobile && echo 05-presente` → `05-presente`.
-   - `origin/redesign/cliente-mobile` = `a9bf1de` (albero `845498f`), come atteso. `redesign/cliente-06-booster` creato con `git switch --no-track -c redesign/cliente-06-booster origin/redesign/cliente-mobile` (il clone era su `main` @ `14c09e9`, pulito).
-   - `git diff --stat b780645 origin/redesign/cliente-mobile -- package.json bun.lock` → vuoto.
-   - ⚠️ I quattro cancelli della base: non eseguiti: sessione nel cloud.
-   - Le sonde del fuso, con node (`node -e "console.log(new Date(2026, 8, 28).getTimezoneOffset())"`): `TZ=UTC` → `0`; `TZ=America/Los_Angeles` → `420`; `TZ=Europe/Rome` → `-120`; senza `TZ` → `0` (il container è in UTC).
-   - `deno --version` → `deno-assente`.
-   - ⚠️ Lo script dei controlli di Cowork è sul PC: ho riscritto i controlli del §6 (salvo C7 e C12) in `scratchpad/controlli.sh`; sulla base riproduce **tutta** la colonna «oggi» del §6 (§5 qui sotto).
-1. ☑ **La regola condivisa** (§4.1). `ab18476`. 45 test, verdi a Roma, in UTC e a Los Angeles (banco); R1-R18 cadono sui casi del file.
-2. ☑ **Chi compra, nell'app** (§4.2). `a850a20`. C4: `client-book.ts` a +7 −9. Tre casi nuovi in `client-book.test.ts` (44 test, erano 41); le due righe di Nina in `client-home.test.ts`. R19, R20 e la regola di oggi cadono (solo Nina fra le persone, più i casi nuovi).
-3. ⚠️ **Le regole dello Store** (§4.3) e i dati dei test (§4.9). `5e2e9d2`. 112 test in `client-store.test.ts`, verdi nei tre fusi al primo giro; R1-R57 cadono anche sulle persone. ⚠️ I due semi sono ricostruiti, non copiati (§9).
-4. ☑ **Le letture** (§4.4). `2a63ec8`.
-5. ☑ **La pagina** (§4.5). `ffdf69c`. C0-C3, C8, C14 e C10 (pagina e regole) come attesi.
-6. ☑ **Il pagamento** (§4.6). `01a8fd7`. C5, C11, C12 come attesi; prova di fumo nel banco.
-7. ☑ **L'avviso al coach** (§4.7). `ac242ee`. C12, C13 come attesi; R58, R59 cadono.
-8. ⚠️ **Il browser** (§8). Non eseguito: sessione nel cloud (senza `node_modules` il server di sviluppo non parte). La lacuna voce per voce al §7.
-9. ⚠️ **Chiusura** (§10). I controlli del §6 tutti insieme (§5, rilanciati dopo le correzioni della revisione: stessi valori); `debf56f` «Spunta la passata 06 in PIANO.md» (la riga a `[~]`, cloud); questo file in `e57885e` «Riscrive docs/ULTIMO-RITORNO.md per la passata 06 del lato cliente» e, aggiornato con la revisione, nel commit «Aggiorna docs/ULTIMO-RITORNO.md con la revisione della passata 06» (il suo hash, quello finale del ramo, è nella risposta finale); push; la PR verso `redesign/cliente-mobile` è nella risposta finale. ⚠️ Due commit del ritorno invece di uno: il controllo di fine turno della sessione vuole l'albero pulito e pubblicato, e la revisione è arrivata dopo.
-10. ☑ **Passo aggiunto: la revisione e le sue correzioni.** `dde7076` e `89c24ad`. Un revisore in sola lettura (un agente, circa 20 minuti, in background mentre scrivevo questo file) sul diff fino a `e57885e`. Prima del suo esito, rileggendo la pagina, `dde7076`: i giri dell'attesa ripartono da zero a ogni ritorno da Stripe. Il revisore: 5 difetti e 4 note, verificati uno per uno sul codice e sui sorgenti delle librerie.
-    - Corretti in `89c24ad` «Store: le correzioni della revisione» (`src/routes/client.store.tsx`):
-      - **«Prenota ora» lasciava l'esito nella cronologia** (medio): il link fa il suo `push` nello stesso giro del `replace` di `closeDone`, e `@tanstack/history` 1.162.1 li unisce in un solo `pushState` dell'ultimo indirizzo (`queueHistoryAction`, `next = [href, state, next?.[2] || isPush]`): con Indietro da Prenota tornava `/client/store?booster=success…` e il foglio «Pagamento completato» si riapriva. Adesso `router.history.flush()` scrive il `replace` prima del `push` (verificato nei sorgenti: `navigate` mette in coda la scrittura prima di ogni `await`, e senza blocchi `replace` la mette subito);
-      - **il riepilogo rimasto vuoto si riapriva da solo** (basso): `summaryOpen` restava vero se il riepilogo spariva per un altro motivo (il pacchetto non c'è più, lo stato si rilegge); si chiude, come in Prenota (`client.book.tsx:317-320`);
-      - **l'attesa del webhook con la rete lenta** (basso): `refetch()` annulla la lettura in corso quando ci sono già dati (`cancelRefetch` vero, query-core 5.100.1); con risposte oltre i 2 secondi nessuna arrivava. Ora `refetch({ cancelRefetch: false })`;
-      - **«Paga» bloccato tornando da Stripe** (basso, solo se il browser rimette la pagina dalla cache avanti e indietro): si libera su `pageshow` con `persisted`;
-      - (nota) validità, blocco, riepilogo ed esito calcolati una volta per stato (`useMemo`), invece di rifare `getBookState` a ogni disegno.
-    - **Non corretto, a Nicolò:** comprare l'ultimo giorno di un percorso che finisce (§10). Le altre tre note sono al §10.
-    - Dopo le correzioni: Prettier, typecheck parziale, banco (le suite e le R) e i controlli del §6 rilanciati, stessi esiti.
-    - ⚠️ Per leggere il comportamento delle librerie il revisore ha scaricato da registry.npmjs.org, nello scratchpad (fuori dal repo), i sorgenti di `@tanstack/history` 1.162.1, `@tanstack/router-core` 1.171.23, `@tanstack/react-router` 1.170.28 e `@tanstack/query-core` 5.100.1, le versioni del lock. Non gliel'avevo chiesto (gli avevo detto di non installare niente): nel repo non è cambiato niente, ma lo dichiaro.
+0. ☑ **Dove giri, la base e il ramo** (§2). Nessun commit.
+   - Ambiente: la riga in testa (PC).
+   - ⚠️ All'avvio il clone era su `main` @ `3d29634` (pulito, 64 commit dietro `origin/main`), non su `redesign/cliente-05-home` @ `ac44ec2` come l'aveva misurato Cowork alle 09:21. Il reflog: `checkout: moving from redesign/cliente-05-home to main` alle 11:29:49 del 01/10. Non conta, perché il ramo nasce dal remoto.
+   - `git fetch origin` → `* [new branch] redesign/cliente-06-booster`; `git switch -c redesign/cliente-06-booster --track origin/redesign/cliente-06-booster` → **`a3f71db`** (il remoto non era più avanti); `origin/redesign/cliente-mobile` = **`a9bf1de`**, il `merge-base` col ramo.
+   - `gh pr view 84 --json state,baseRefName,headRefName` → `OPEN`, `redesign/cliente-mobile`, `redesign/cliente-06-booster`. `git diff --stat b780645 origin/redesign/cliente-06-booster -- package.json bun.lock` → vuoto.
+   - Le sonde del fuso, da PowerShell (`node -e "console.log(new Date(2026, 8, 28).getTimezoneOffset())"`): `UTC` → `0`; `America/Los_Angeles` → `420`; senza `TZ` (Roma) → `-120`. In più una sonda dentro i worker di vitest (un test temporaneo, poi cancellato), lanciata da PowerShell: `SONDA 0 UTC`, `SONDA 420 America/Los_Angeles`, `SONDA -120 (senza TZ)`.
+   - Lo script dei controlli di Cowork su `a3f71db` dà la colonna «oggi», uguale riga per riga a quella del §6 (§6 qui sotto).
+1. ☑ **I cancelli sul lavoro del cloud**, su `a3f71db`: tutti verdi, **nessun commit** (§4).
+2. ☑ **La decisione 14 nel file condiviso** (§4.1). `00059e3`. `booster-validity.test.ts` ha **67 test** (erano 45), verdi nei tre fusi; `deno check` del file condiviso verde; C16 `0`. R63, R64, R65, R67, R68 rosse nei tre fusi sui casi del file.
+   - ⚠️ Atteso: fino al passo 4 `client-store.test.ts` cade su `lo Store di Giorgio > il pagamento decide come lo Store` e su `lo Store di Rita > …` (`AssertionError: expected null to deeply equal { blockId: 'r1', …(3) }`). Il pagamento non vende più, lo Store sì. Nei tre fusi: `Tests 2 failed | 339 passed (341)`.
+3. ☑ **Chi compra, nell'app** (§4.2). `50cbc46`. `client-book.test.ts` ha 48 test (erano 44); in `client-home.test.ts` cambiano solo le tre righe di Giorgio. Verdi nei tre fusi. C4 e C15 come attesi; R66 e R71 rosse nei tre fusi.
+   - ⚠️ Atteso: fino al passo 4 `client-store.test.ts` cade su sei casi di Giorgio e Rita (card, validità, riepiloghi), `Tests 6 failed | 339 passed (345)` nei tre fusi.
+4. ☑ **Lo Store** (§4.3) e **Vera** (§5). `d303e03`. `client-store.test.ts` ha 118 test (erano 112). La suite intera: 1205 test in 61 file; i cinque file verdi nei tre fusi. R69, R70, R72 rosse; C17 e C19 come attesi.
+5. ☑ **Il pagamento e il webhook** (§4.4, §4.5). `4e92b18`. C11, C12, C13, C18 come attesi. In più una prova di fumo della funzione vera, con Stripe e Supabase finti (§6, C12).
+6. ☑ **I cancelli e le prove rosse.** Nessun commit (§4, §6, §7).
+   - ⚠️ La prima suite intera su `4e92b18` aveva un solo test rosso, fuori dalla passata: `clock.test.ts` in timeout (6485 ms contro 5000), con 0,1 GB di RAM fisica libera (§11). Rilanciata: 1205 su 1205.
+   - Le 71 mutazioni sono tutte rosse nei tre fusi, ognuna sui test che dipendono dal file rotto (`vitest related`). Dopo il ripristino la suite intera è verde.
+7. ☑ **Il browser** (§8). Nessun commit: i file del banco stanno nello scratchpad.
+   - ⚠️ Il B9 di `giro04.mjs` è rosso solo per l'ordine. Con gli orari ordinati è verde (§11).
+   - ⚠️ Il B7 di `giro-sessioni.mjs` l'ho aggiornato come nella 05 (`aria-disabled`).
+8. ☑ **Chiusura** (§10). I controlli del §6 tutti insieme. `a49550f` «Spunta la passata 06 in PIANO.md» (una riga, il blob `541938a` uguale a quello del ramo simulato di Cowork). Questo file è committato nell'ultimo commit del ramo; poi push e descrizione della PR #84 (§2).
+9. ☑ **Passo aggiunto: la revisione.** `731a136`. Un revisore in sola lettura (un agente, circa 11 minuti) su una fotografia del ramo nello scratchpad (`git archive` di `4e92b18`), così non leggeva i file rotti dalle prove rosse. Ha dato 6 punti:
+   - il 6 l'ho verificato e corretto in `731a136`: il commento del webhook diceva «riceve sempre lo stesso esito», ma a ogni tentativo `event_types` si rilegge;
+   - gli altri cinque li ho misurati e lasciati a Nicolò (§11).
 
 ## 2 · RAMO E COMMIT
 
-- **`redesign/cliente-06-booster`**, da `origin/redesign/cliente-mobile` @ `a9bf1de`. Commit, in ordine:
-  1. `ab18476` Booster: la validità e chi compra in un file solo, per lo Store e per il pagamento;
-  2. `a850a20` Booster: compra solo chi ha un blocco in corso;
-  3. `5e2e9d2` Store: prodotti, validità, riepilogo, acquisti ed esito del pagamento in un file solo;
-  4. `2a63ec8` Store: le letture dei pacchetti e degli acquisti;
-  5. `ffdf69c` Store: la pagina nuova, dal brief della 06; via le card vecchie;
-  6. `01a8fd7` Pagamento dei Booster: la regola dello Store, il ritorno allo Store e il titolo del pacchetto;
-  7. `ac242ee` Coach: la notifica dell'acquisto di un Booster, che apre il profilo del cliente;
-  8. `dde7076` Store: l'attesa del webhook riparte da zero a ogni ritorno da Stripe (passo 10);
-  9. `debf56f` Spunta la passata 06 in PIANO.md;
-  10. `e57885e` Riscrive docs/ULTIMO-RITORNO.md per la passata 06 del lato cliente;
-  11. `89c24ad` Store: le correzioni della revisione (passo 10);
-  12. i commit di questo file aggiornato (`608c7c5` «Aggiorna docs/ULTIMO-RITORNO.md con la revisione della passata 06», poi due correzioni del testo): l'hash finale del ramo è nella risposta finale.
-- Ogni commit compila per quello che si può misurare qui: Prettier e il typecheck parziale sui file del commit; il typecheck vero non gira nel cloud.
-- **PR** verso `redesign/cliente-mobile`, aperta e non unita, con questo file come descrizione: il numero è nella risposta finale (un file non contiene il numero della PR che lo descrive).
+- **`redesign/cliente-06-booster`**, da `a3f71db`. La base è `origin/redesign/cliente-mobile` @ `a9bf1de`. I commit della ripresa, in ordine:
+  1. `00059e3` Booster: nell'ultima settimana di un percorso che finisce non si compra (decisione 14);
+  2. `50cbc46` Booster: anche l'app non vende nell'ultima settimana di un percorso che finisce;
+  3. `d303e03` Store: la card dell'ultima settimana, e Vera fra le persone dei test;
+  4. `4e92b18` Pagamento dei Booster: il rifiuto dell'ultima settimana con la sua frase; il commento del webhook;
+  5. `731a136` Webhook: il commento del 400 dice anche che a ogni tentativo la tipologia si cerca di nuovo (passo 9);
+  6. `a49550f` Spunta la passata 06 in PIANO.md;
+  7. «Riscrive docs/ULTIMO-RITORNO.md per la ripresa della passata 06»: questo file. Il suo hash, che è anche quello finale del ramo, è nella risposta finale.
+- Ogni commit compila: typecheck 0 a ogni passo, lint pulito sui file toccati.
+- **PR [#84](https://github.com/wolfwood370-cell/nc-calendar/pull/84)** verso `redesign/cliente-mobile`: aperta e **non unita**, con questo file come descrizione (`gh pr edit 84 --body-file docs/ULTIMO-RITORNO.md`).
 
-## 3 · MANIFESTO
+## 3 · MANIFESTO della ripresa
 
-- **NUOVI:** `supabase/functions/_shared/booster-validity.ts`; `src/lib/booster-validity.test.ts` (45 test); `src/lib/client-store.ts`; `src/lib/client-store.test.ts` (112 test); `src/lib/testing/client-home-seed.ts`, `src/lib/testing/client-store-seed.ts` (ricostruiti, §9); `src/components/client-store-cards.tsx`, `src/components/client-store-sheets.tsx`.
-- **MODIFICATI:** `src/lib/client-book.ts` (`canBuyBooster` e la sua chiamata); `src/lib/client-book.test.ts` (3 casi); `src/lib/client-home.test.ts` (le due righe di Nina); `src/lib/queries.ts` (`ExtraCreditRow` e `useClientExtraCredits` con le colonne dell'acquisto, `useBoosterPacks`); `src/lib/query-keys.ts` (`shopPacks`); `src/hooks/use-client-book-state.ts` (`extrasQ`, `input`); `src/routes/client.store.tsx` (riscritta); `supabase/functions/booster-checkout/index.ts`; `supabase/functions/stripe-webhook/index.ts`; `src/lib/notifications.ts` e `notifications.test.ts` (7 casi); `src/hooks/use-notifications.ts`; `src/components/trainer-notifications-bell.tsx`; `design_handoff_cliente_mobile/PIANO.md` (la riga 06 a `[~]`); `docs/ULTIMO-RITORNO.md` (questo file).
-- **TOLTI** (con `git rm`): `src/components/booster-card.tsx`, `src/components/owned-booster-card.tsx`.
-- **NEL PERIMETRO MA NON TOCCATI:** Home e Prenota (`client.index.tsx`, `client.book.tsx`, `client-home-credits.tsx`, `book-sheets.tsx`, `book-blocked-card.tsx`: C15); gli helper del §9 (`client-credits.ts`, `renewal.ts`, `current-block.ts`, `session-time.ts`, `client-home.ts`, `client-sheet.tsx`, `client-button.tsx`, `edge-function-error.ts`, `booking-notifications`); `src/components/ui/aura-progress-ring.tsx` e `--color-cta-dark` (`styles.css:58-59`), coi loro commenti (la 09); `src/lib/testing/memory-calendar-store.ts`; `useActiveShopTitles`; `client-notifications.ts` (la 08); `supabase/migrations/`; `package.json`, `bun.lock`, `vitest.config.ts`, `tsconfig.json`; `src/routeTree.gen.ts`.
+- **MODIFICATI:**
+  - `supabase/functions/_shared/booster-validity.ts` e `src/lib/booster-validity.test.ts`;
+  - `src/lib/client-book.ts`, `src/lib/client-book.test.ts` e `src/lib/client-home.test.ts` (le tre righe di Giorgio);
+  - `src/lib/client-store.ts`, `src/lib/client-store.test.ts` e `src/lib/testing/client-store-seed.ts` (Vera);
+  - `supabase/functions/booster-checkout/index.ts` e `supabase/functions/stripe-webhook/index.ts` (solo il commento);
+  - `design_handoff_cliente_mobile/PIANO.md` (la riga 06) e `docs/ULTIMO-RITORNO.md`.
+- **NUOVI:** nessuno.
+- **NEL PERIMETRO MA NON TOCCATI:**
+  - la pagina e i componenti dello Store (`client.store.tsx`, `client-store-cards.tsx`, `client-store-sheets.tsx`: §4.3 punto 5);
+  - Home e Prenota (`client.index.tsx`, `client.book.tsx`, `client-home-credits.tsx`, `book-sheets.tsx`, `book-blocked-card.tsx`: C15);
+  - `client-home-seed.ts`, `queries.ts`, `query-keys.ts`, `use-client-book-state.ts`, `notifications.ts` e il suo test, `use-notifications.ts`, `trainer-notifications-bell.tsx`;
+  - gli helper delle passate prima (`client-credits.ts`, `renewal.ts`, `current-block.ts`, `session-time.ts`, `client-home.ts`);
+  - `supabase/migrations/`, `package.json`, `bun.lock`, `src/routeTree.gen.ts`.
+- C6 → nessuna riga.
 
-## 4 · I PEZZI PER LE PASSATE DOPO (07, 08, 09)
+## 4 · I CANCELLI SUL LAVORO DEL CLOUD (passo 1)
 
-**La regola condivisa** (`supabase/functions/_shared/booster-validity.ts`, senza import: `Date` e `Intl`). La importano `src/lib/client-book.ts`, `src/lib/client-store.ts`, `src/lib/testing/client-store-seed.ts`, i due test (percorso relativo senza estensione) e `supabase/functions/booster-checkout/index.ts` (`../_shared/booster-validity.ts`).
-- `BOOSTER_EXTENSION_DAYS = 30`, `BOOSTER_SHORT_BLOCK_DAYS = 7`: solo qui.
-- `boosterValidity({ today, blockEnd, continues }: { today: string; blockEnd: string; continues: boolean }): { until: string; extended: boolean }`: giorni `YYYY-MM-DD` contati come date; proroga se `continues` e 0 ≤ giorni alla fine < 7.
-- `romeDate(at: Date): string`: il giorno di Roma di un istante.
-- `endOfRomeDay(day: string): string`: 23:59:59.999 di quel giorno a Roma, in ISO (ora legale o solare del giorno): è `extra_credits.expires_at`.
-- `boosterPackTitle(pack: { title?: string | null; quantity: number; event_type_title: string }): string`.
-- `BoosterClient = { path_type: string | null; status: string; pack_label: string | null; auto_renew_blocks?: boolean | null }`, `BoosterBlock = { id; start_date; end_date; status?: string | null; sequence_order: number }`, `BoosterPurchase = { blockId; until; extended; expiresAt }`.
-- `boosterPathAllowed(client): boolean` (attivo; fisso senza `pack_label` o abbonamento) e `boosterPurchase(client, blocks, today): BoosterPurchase | null` (la decisione del pagamento: blocchi non annullati per `sequence_order` e, a pari numero, dall'inizio più recente; il primo che contiene oggi; continua se un blocco valido viene dopo o se è un abbonamento col rinnovo).
+Su `a3f71db`, senza toccare niente: **tutti verdi, niente da sistemare, nessun commit.**
+- `bun run typecheck` → 0 errori (uscita 0, 64 s).
+- `bun run lint` → `✖ 14 problems (0 errors, 14 warnings)`. Sono i 15 della base meno quello di `stripe-webhook/index.ts:57`.
+- `bun run test` → `Test Files 61 passed (61)`, `Tests 1173 passed (1173)` (83,5 s, coi worker predefiniti). È il numero che Cowork si aspettava col repo vero.
+- `bun run build` → riuscita: uscita 0, tre fasi `built in` da 52,4 s, 14,4 s e 1 min 2 s.
+- Le prove col fuso, da PowerShell (`scratchpad\fusi.ps1`, i cinque file del §2, una corsa per fuso): con le sonde `0`, `420` e `-120` → `Test Files 5 passed (5)`, `Tests 319 passed (319)` in tutte e tre.
+- C12:
+  - `deno check $X $W` → `error: Could not find a matching package for 'npm:stripe@^14.0.0' in the node_modules directory`. Il repo ha `node_modules` e non ha `stripe`, e non ho scaricato niente.
+  - Quindi il ripiego: `bun build … --target=bun --external 'npm:*'` → `compila`, `compila`.
+  - In più `deno check supabase/functions/_shared/booster-validity.ts` → verde.
 
-**Chi compra** (`src/lib/client-book.ts`): `canBuyBooster(client, hasCurrentBlock: boolean)` = `hasCurrentBlock && boosterPathAllowed(client)`; `getBookState` gli passa `reference !== null && blockTiming(reference, now) === "current"`. `BookState.canBuy` lo seguono da soli «Acquista» della Home, il fondo della card dei crediti e la card «Hai usato tutti i crediti» di Prenota.
+## 5 · I PEZZI PER LE PASSATE DOPO
 
-**Le regole dello Store** (`src/lib/client-store.ts`, puro; il coach è un `BookCoach`):
-- `STORE_LOCK_TITLE`; `StoreLockKind = "concluso" | "libero" | "pacchetto" | "altro"`; `StoreLock = { kind; title; text; whatsapp: { label; href } | null }`; `storeLock(client: BookClient, state: Pick<BookState, "reference" | "canBuy">, coach: BookCoach, now: Date): StoreLock | null`.
-- `StoreValidity = { blockNumber: number | null; until; extended; expiresAt; text; summary }`; `storeValidity(client: BookClient, state: Pick<BookState, "reference" | "next" | "referenceNumber" | "canBuy">, now: Date): StoreValidity | null`.
-- `euro(cents: number): string`.
-- `StorePack = { package_type; currency; amount_cents; quantity; event_type_title; active; title?: string | null; description?: string | null }`; `StoreProduct = { key; eventTypeId; typeName; quantity; amountCents; title; description: string | null; meta; price; per; best; highlighted; color: string | null; bookable }`; `storeProducts(packs: readonly StorePack[], eventTypes: readonly PoolEventType[], coach: BookCoach, typeParam: string | null): StoreProduct[]`; `storeEmpty(coach: BookCoach): string`.
-- `StorePurchase = PoolExtra & { id; created_at; price_paid: number | null; stripe_payment_id: string | null }`; `StoreBoughtRow = { id; label; meta }`; `storeBought(purchases: readonly StorePurchase[], eventTypes: readonly PoolEventType[], state: Pick<BookState, "reference">): StoreBoughtRow[]`.
-- `StoreSummary = { title; price; valid; after; pay }`; `storeSummary(product: StoreProduct, validity: StoreValidity, input: BookStateInput): StoreSummary`.
-- `STORE_POLL_MS = 2000`, `STORE_POLL_FOR_MS = 20000`, `STORE_MATCH_WINDOW_MS = 900000`, `STORE_CANCEL_TOAST`, `STORE_FOOTER`, `STORE_DONE_TITLE`; `findPurchase(purchases, session: string | null, typeId: string | null, now: Date): StorePurchase | null`; `StoreDoneAction = { kind: "book"; eventTypeId } | { kind: "whatsapp"; label; href } | { kind: "none" }`; `StoreOutcome = { kind: "waiting"; text } | { kind: "late"; text } | { kind: "arrived"; purchaseId; text; action }`; `storeOutcome({ purchases, session, typeId, elapsedMs, input, coach }): StoreOutcome`.
-- `STORE_PAY_ERRORS` (5 frasi), `STORE_PAY_GENERIC`, `storePayError(message: string | null | undefined): string`.
-- `StoreSearch = { type?: string; booster?: "success" | "cancel"; session?: string }`, `storeSearch(search: Record<string, unknown>): StoreSearch` (il `validateSearch` di `/client/store`).
+Cambia solo quello che segue; il resto dei pezzi della 06 è com'è nel ritorno del cloud (`git show a3f71db:docs/ULTIMO-RITORNO.md`, §4).
 
-**Le letture:** `useBoosterPacks()` (`src/lib/queries.ts`; chiave `queryKeys.shopPacks` = `["booster_packs", "store"]`; `booster_packs` con `select("*")`, `active` vero e `currency` `eur`; `title` e `description` dalla riga, `null` finché le colonne non ci sono; `staleTime` 5 minuti come gli altri dati di configurazione). `ExtraCreditRow` e `useClientExtraCredits` hanno in più `created_at`, `price_paid` (euro), `stripe_payment_id`. `useClientBookState` restituisce in più `extrasQ` e `input` (il `BookStateInput` di `state`, `null` finché `state` è `null`); `state` è `getBookState(input)`, come prima.
+**Il file condiviso** (`supabase/functions/_shared/booster-validity.ts`, sempre senza import; lo importano gli stessi sei file):
+- `boosterSaleClosed({ today, blockEnd, continues }: { today: string; blockEnd: string; continues: boolean }): boolean`: vero quando `!continues` e alla fine del blocco mancano da 0 a 6 giorni, contati come in `boosterValidity` (una funzione interna sola, `daysLeft`, per tutte e due); con 7 esatti falso; per un blocco finito falso.
+- `type BoosterRefusal = "percorso" | "blocco" | "fine"`; `boosterRefusal(client: BoosterClient, blocks: readonly BoosterBlock[], today: string): BoosterRefusal | null`: il primo che vale fra il percorso (`boosterPathAllowed`), il blocco in corso oggi, l'ultima settimana.
+- `boosterPurchase` (firma e risultato di prima) è `null` esattamente quando `boosterRefusal` non è `null`: tutte e due passano da una decisione interna sola (`decide`), e un test lo controlla sui dieci casi dei rifiuti.
 
-**I componenti dello Store:** `StoreLockCard({ lock: StoreLock; titleRef?: Ref<HTMLHeadingElement> })`, `StoreValidityBox({ text })`, `StoreBoughtCard({ rows: readonly StoreBoughtRow[] })`, `StoreProductCard({ product: StoreProduct; onBuy: () => void })`, `StoreEmptyCard({ text })` in `client-store-cards.tsx`; `StoreSummarySheet({ open; onOpenChange; summary: StoreSummary | null; paying: boolean; onPay: () => void; returnFocus })` e `StoreDoneSheet({ open; onOpenChange; outcome: StoreOutcome | null; returnFocus; onBook: () => void })` in `client-store-sheets.tsx`.
+**Chi compra** (`src/lib/client-book.ts`): `canBuyBooster(client, hasCurrentBlock: boolean, saleClosed: boolean)` = `hasCurrentBlock && !saleClosed && boosterPathAllowed(client)`. `getBookState` gli passa `current` (il riferimento in corso oggi) e `saleClosed` = `current && boosterSaleClosed({ today: toIsoDate(now), blockEnd: reference.end_date.slice(0, 10), continues: next !== null || renewsAutomatically(client) })`. Home e Prenota lo seguono da sole, dai loro file di prima.
 
-**L'avviso al coach:** il payload di `booster.purchased` è `BoosterPurchasedPayload = { client_id; client_name; quantity; session_label; amount?: number; package_type?: string | null }` (`src/hooks/use-notifications.ts`, dove `NotificationType` lo comprende). `NotificationView.kind` ha `"purchase"` e `clientId?: string` solo per quel caso; `isBoosterPurchasedPayload` (in `src/lib/notifications.ts`) vuole `client_id`, `client_name`, `session_label` stringhe e `quantity` intero ≥ 1; `describeNotification` → «Acquisto Booster», «Giulia Bianchi · +3 Sessione PT». La campanella del coach: `Sparkles` e «· Apri il profilo» sul desktop, titolo e testo sul telefono, e il tocco apre `/trainer/clients/$id`.
+**Lo Store** (`src/lib/client-store.ts`):
+- `StoreLockKind = "concluso" | "libero" | "pacchetto" | "fine" | "altro"`;
+- `storeLock(client, state: Pick<BookState, "reference" | "next" | "canBuy">, coach, now)`: prima di «altro», per il blocco di riferimento in corso di un percorso che compra con la vendita chiusa, la card «fine»: «Il tuo percorso finisce ‹oggi | sabato 3 ottobre›, e nell'ultima settimana di un percorso i Booster non si acquistano. Per una sessione in più, o per continuare, scrivi ‹al tuo coach | a Nicolò›.», titolo e WhatsApp come le altre;
+- il «continua» della card e della validità è una funzione interna sola (`pathContinues`: il blocco dopo, o il rinnovo automatico), lo stesso di `getBookState`;
+- `STORE_PAY_ERRORS` ha sei frasi: dopo quella del blocco in corso «Nell'ultima settimana del percorso i Booster non si acquistano: per una sessione in più scrivi al tuo coach.».
 
-**Le funzioni di Stripe:**
-- `booster-checkout`: dopo il controllo di chi compra per chi legge profilo (`path_type, status, pack_label, auto_renew_blocks`) e blocchi (`training_blocks` non eliminati) e decide con `boosterPurchase(…, romeDate(new Date()))`; senza decisione 400 «Al momento non puoi acquistare Booster: serve un blocco in corso.»; un errore di lettura va nel `catch` (500 generico). Pacchetto con `select("*")`; nome su Stripe `Booster: ${boosterPackTitle(pack)}`; `success_url` `/client/store?booster=success&type=<tipologia>&session={CHECKOUT_SESSION_ID}`, `cancel_url` `/client/store?booster=cancel&type=<tipologia>`; metadati come prima, con `expires_at` = `decision.expiresAt`. Le allocazioni non le legge più.
-- `stripe-webhook`: legge anche `profiles.full_name` e `event_types.name`; dopo l'inserimento riuscito di `extra_credits` (non nel doppione) scrive in `notifications` per il coach, in un suo `try`/`catch`: la risposta resta 200.
-- **Cosa aspettano dal giro del server (02/10):** le colonne facoltative `booster_packs.title` e `description` (senza, lo Store e Stripe compongono «N crediti <tipologia>»); `validate_booking_extra_credits` che guarda `expires_at`. E la pubblicazione delle due funzioni al rilascio su `main`.
+**Il pagamento** (`booster-checkout`): `today = romeDate(new Date())` una volta; `boosterRefusal`, e solo senza rifiuto `boosterPurchase`; con `"fine"` il 400 dice la frase dell'ultima settimana, con gli altri rifiuti e senza profilo quella del blocco in corso. Il resto è com'era.
 
-**Vincoli per chi li usa:** il coach è `NO_COACH` finché non c'è `get_my_coach` (una riga, `const COACH = NO_COACH` in `client.store.tsx`); con nome e WhatsApp i testi e i pulsanti compaiono da soli (i test li provano già col coach). La regola dei Booster non si copia: si importa dal file condiviso.
+**Il webhook:** solo il commento del 400 «Event type not resolved»: Stripe ritenta ogni consegna senza 2xx (in produzione fino a tre giorni, in sandbox tre volte in qualche ora) e a ogni tentativo la tipologia si cerca di nuovo.
 
-## 5 · ACCEPTANCE
+**I dati dei test:** `VERA` in `src/lib/testing/client-store-seed.ts` (fisso, solo `ve1` dal 01/09 al 28/09 con 8 PT assegnati e 6 prenotati, niente sessioni né extra), in fondo a `PERSONAS06`, che ha sedici persone.
 
-I controlli del §6 li ho riscritti dal prompt in `scratchpad/controlli.sh` (lo script di Cowork è sul PC) e lanciati alla fine, sul ramo a lavoro committato; accanto il valore misurato sulla base al passo 0 con lo stesso script, uguale in tutto alla colonna «oggi» del prompt.
+**Vincoli per chi li usa:** «oggi» nell'app è il giorno del telefono (`toIsoDate`), nel pagamento quello di Roma (`romeDate`): fuori dal fuso di Roma, vicino a mezzanotte, il confine fra 7 e 6 giorni può cadere in due giorni diversi (misurato, §11). La regola dell'ultima settimana non si copia: si importa `boosterSaleClosed` o si chiama `boosterRefusal`.
 
-- **C0** · i file nuovi ci sono, i due vecchi no → **nessuna riga** (base: 8 «MANCA» e 2 «RESTA»).
-- **C1** · `git grep -n -w -E 'BoosterCard|OwnedBoosterCard|canPurchaseAddons|PACKAGES' -- src | wc -l` → **0** (base 17); `git grep -l -E 'Ricarica crediti|NC Add-on|Acquista Ora|Miglior Valore|Accesso limitato|scadono al termine' -- src ':!*.test.ts'` → **nessun file** (base: `booster-card.tsx`, `client.store.tsx`).
-- **C2** · `cat $P $K $F | grep -c -w <nome>` → tutti almeno 1: `storeSearch=2 storeLock=2 storeValidity=2 storeProducts=2 storeBought=2 storeSummary=3 storeOutcome=4 storePayError=2 storeEmpty=2 STORE_FOOTER=2 STORE_CANCEL_TOAST=2 STORE_DONE_TITLE=2 STORE_POLL_MS=3 useClientBookState=3 useBoosterPacks=3 ClientTabHeader=2 ClientSheet=6 ClientButton=16 BookRetryCard=2 parseEdgeError=2 iconForType=2 typeTint=2` (base: 0 ciascuno, `ClientTabHeader` 2).
-- **C3** · i calcoli fuori dalle regole in pagina e componenti → **0** (base 2); `new Date()` o `Date.now(` in `$L $V` → **0**.
-- **C4** · `blocks.some((b) => b.status === "active")` → **0** (base 1); `boosterPathAllowed` → **3** (l'import, il commento, l'uso; base 0); `git diff --numstat $B...HEAD -- src/lib/client-book.ts` → `7 9`.
-- **C5** · `git grep -l 'booster-validity' -- src supabase/functions | grep -v -x "$V"` → **esattamente** `src/lib/booster-validity.test.ts`, `src/lib/client-book.ts`, `src/lib/client-store.test.ts`, `src/lib/client-store.ts`, `src/lib/testing/client-store-seed.ts`, `supabase/functions/booster-checkout/index.ts` (base: nessuno); `block_allocations|valid_until|diffDays|setDate` in `$X` → **0** (base 10); le costanti fuori da `$V` → **0**.
-- **C6** · il manifesto → **nessuna riga**.
-- **C7** · i cancelli: **non eseguiti: sessione nel cloud.** Al loro posto, nello scratchpad: Prettier 3.8.1 → «All matched files use Prettier code style!» su tutti i file toccati; typecheck parziale (`tsc` 6.0.2 con dichiarazioni minime dei pacchetti assenti) → 0 errori nei file nuovi e cambiati (restano solo errori delle dichiarazioni finte su righe di base: `useAuth`, i callback di Supabase); `bun test` nel banco → ramo **1132 test in 61 file, 1123 verdi**, base 965 in 59 e 956 verdi, gli stessi 9 rossi d'ambiente (§10); i file nuovi e cambiati (`booster-validity`, `client-store`, `client-book`, `client-home`, `notifications`) verdi con `TZ=Europe/Rome`, `TZ=UTC` e `TZ=America/Los_Angeles` (sonde: -120, 0, 420). Attesi da Cowork col repo: 1006 + 167 = **1173 test in 61 file** (45 + 112 + 3 + 7 nuovi), lint 0 errori e 14 avvisi.
-- **C8** · per ognuno dei tre file: colori scritti **0**, `<main`/`fixed`/`confirm(`/`drawer` **0** (base, la pagina: 0 e 2).
-- **C9** · `grep -n -E "^\| 0[56] \|" design_handoff_cliente_mobile/PIANO.md` → la 05 a `[x] |`, la 06 a **`[~] |`** (cloud); `git diff $B...HEAD --stat -- design_handoff_cliente_mobile` → solo `PIANO.md`, una riga.
-- **C10** · i dati del prototipo in pagina, componenti, regole e file condiviso → **nessuna riga**, commenti compresi (base: `client.store.tsx:45`, `:46`, `:53`, `:62`); i nomi scritti a mano in `$X` → **0** (base 1).
-- **C11** · `boosterPurchase|romeDate` in `$X` → **2**; l'import con `.ts` → **1**; `client/store?booster=success&type=` → **1**; `{CHECKOUT_SESSION_ID}` → **1**; `client/store?booster=cancel&type=` → **1**; `client?booster=success` → **0** (base 1); la frase nuova → **1**; `boosterPackTitle` → **2** (base 0 ciascuno salvo dove detto).
-- **C12** · `deno` assente: `bun build $X --target=bun --external 'npm:*' > /dev/null && echo compila` e lo stesso con `$W` → **compila** e **compila** (sulla base lo stesso). `bun build` controlla sintassi e import, non i tipi.
-- **C13** · `"booster.purchased"` in `$W` → **1**; `from("notifications")` → **1**; `new Response(` → **14** (base 14); la riga di `"Failed to insert extra credits"` (**177**) prima di quella di `notifications` (**190**); `booster.purchased` in `notifications.ts` e `use-notifications.ts` → **1** e **1**; nella campanella `Sparkles` → **2**, `Apri il profilo` → **1**, `trainer/clients/$id` → **1** (base 0 ciascuno).
-- **C14** · `useQuery` o `.from("` in pagina e componenti → **0** (base 7); `functions.invoke("booster-checkout"` → **1** (base 1).
-- **C15** · `git diff --stat $B...HEAD --` sui cinque file di Home e Prenota → **nessuna riga**; `git diff -U0 $B...HEAD -- src/lib/client-home.test.ts | grep -E '^[+-][^+-]'` → **esattamente** le quattro righe di Nina (`canBuy: true` → `canBuy: false`, `footer: [BUY, BUY]` → `footer: [ASK, ASK_COACH]`).
-- **C16** · import e simili in `$V` → **0**.
+## 6 · ACCEPTANCE
 
-L'uscita intera dello script è in `scratchpad/esiti/controlli-ramo.txt` (base: `controlli-base.txt`).
+- **C7** · i quattro cancelli, a lavoro committato (`a49550f`):
+  - `bun run typecheck` → 0 errori (uscita 0);
+  - `bun run lint` → `✖ 14 problems (0 errors, 14 warnings)`;
+  - `bun run test` → `Test Files 61 passed (61)`, `Tests 1205 passed (1205)` (114 s): 32 test in più dei 1173 del cloud (22 in `booster-validity`, 4 in `client-book`, 6 in `client-store`), negli stessi 61 file;
+  - `bun run build` → riuscita: uscita 0, tre fasi `built in` da 1 min 36 s, 25,5 s e 1 min 8 s;
+  - da PowerShell, con le sonde `0`, `420` e `-120`, i cinque file del §2 in UTC, `America/Los_Angeles` e Roma → `Test Files 5 passed (5)`, `Tests 351 passed (351)` tutte e tre.
+- **C12** · `deno check $X $W` si ferma su `npm:stripe@^14.0.0` (com'era su `a3f71db`), quindi **`bun build`**: `bun build $X --target=bun --external 'npm:*' > /dev/null && echo compila` e lo stesso con `$W` → `compila`, `compila`. In più:
+  - `deno check` di `_shared/booster-validity.ts` → verde;
+  - la prova di fumo della funzione vera con Deno (§7) → 16 su 16.
+- **C0-C6, C8-C11, C13-C19** · `bash "C:/Coworks/NC App Development/app/controlli-cli-06-ripresa-2026-10-01.sh"` dalla radice del clone, a lavoro committato (`a49550f`; il commit di questo file cambia solo `docs/`, che C6 ammette). Ogni sezione è com'è alla fine. Sotto c'è la colonna «oggi» del passo 0 (su `a3f71db`), dove è diversa. C13: il commento del webhook ha spostato insieme le due righe (177 e 190 → 180 e 193), senza cambiarne l'ordine. C4: `client-book.ts` a +24 −13 (§10).
 
-## 6 · LE PROVE ROSSE
+```
+== C0 · i file nuovi ci sono, i due vecchi no
+(fine C0)
+  [uguale a oggi]
+== C1 · nessuno usa i pezzi e i testi vecchi
+nomi: 0
+testi:
+(fine C1)
+  [uguale a oggi]
+== C2 · la pagina e i due file dei componenti usano le regole
+storeSearch 2
+storeLock 2
+storeValidity 2
+storeProducts 2
+storeBought 2
+storeSummary 3
+storeOutcome 4
+storePayError 2
+storeEmpty 2
+STORE_FOOTER 2
+STORE_CANCEL_TOAST 2
+STORE_DONE_TITLE 2
+STORE_POLL_MS 3
+useClientBookState 3
+useBoosterPacks 3
+ClientTabHeader 2
+ClientSheet 6
+ClientButton 16
+BookRetryCard 2
+parseEdgeError 2
+iconForType 2
+typeTint 2
+  [uguale a oggi]
+== C3 · niente calcoli fuori dalle regole
+pagina e componenti: 0
+regole dello Store senza orologio: 0
+  [uguale a oggi]
+== C4 · chi compra
+regola vecchia: 0
+boosterPathAllowed in client-book.ts: 3 · boosterSaleClosed: 3
+righe cambiate in client-book.ts: 24+ 13-
+  [oggi, su a3f71db:]
+  | regola vecchia: 0
+  | boosterPathAllowed in client-book.ts: 3 · boosterSaleClosed: 0
+  | righe cambiate in client-book.ts: 7+ 9-
+== C5 · una regola in un posto
+chi importa il file condiviso:
+src/lib/booster-validity.test.ts
+src/lib/client-book.ts
+src/lib/client-store.test.ts
+src/lib/client-store.ts
+src/lib/testing/client-store-seed.ts
+supabase/functions/booster-checkout/index.ts
+la validità vecchia nel pagamento: 0
+costanti fuori dal file condiviso: 0
+  [uguale a oggi]
+== C6 · il manifesto
+(fine C6)
+  [uguale a oggi]
+== C8 · niente colori scritti, fixed, main, confirm, drawer
+src/routes/client.store.tsx colori 0 altri 0
+src/components/client-store-cards.tsx colori 0 altri 0
+src/components/client-store-sheets.tsx colori 0 altri 0
+  [uguale a oggi]
+== C9 · PIANO.md
+[x]
+[x]
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+  [oggi, su a3f71db:]
+  | [x]
+  | [~]
+  |  1 file changed, 1 insertion(+), 1 deletion(-)
+== C10 · niente dati finti nel codice
+nomi scritti nel pagamento: 0
+(fine C10)
+  [uguale a oggi]
+== C11 · il pagamento
+regola condivisa 4 · import 1 · senza .ts 0
+ritorno success 1 · session 1 · cancel 1 · vecchio 0
+errore nuovo 1 · titolo 2
+ultima settimana: rifiuto 2 · frase 1
+  [oggi, su a3f71db:]
+  | regola condivisa 2 · import 1 · senza .ts 0
+  | ritorno success 1 · session 1 · cancel 1 · vecchio 0
+  | errore nuovo 1 · titolo 2
+  | ultima settimana: rifiuto 0 · frase 0
+== C13 · l'avviso al coach
+webhook: tipo 1 · notifications 1 · risposte 14
+ordine: la fine dell'inserimento dei crediti alla riga 180, notifications alla riga 193
+campanella: regola 1 · tipo 1 · Sparkles 2 · Apri il profilo 1 · profilo 1
+  [oggi, su a3f71db:]
+  | webhook: tipo 1 · notifications 1 · risposte 14
+  | ordine: la fine dell'inserimento dei crediti alla riga 177, notifications alla riga 190
+  | campanella: regola 1 · tipo 1 · Sparkles 2 · Apri il profilo 1 · profilo 1
+== C14 · lo Store legge solo coi hook
+letture: 0 · pagamento: 1
+  [uguale a oggi]
+== C15 · Home e Prenota non cambiano file
+righe cambiate in client-home.test.ts:
+      1 +          "nessuna",
+      2 +      canBuy: false,
+      2 +      footer: [ASK, ASK_COACH],
+      1 -          "Acquista (pt)",
+      2 -      canBuy: true,
+      2 -      footer: [BUY, BUY],
+(fine C15)
+  [oggi, su a3f71db:]
+  | righe cambiate in client-home.test.ts:
+  |       1 +      canBuy: false,
+  |       1 +      footer: [ASK, ASK_COACH],
+  |       1 -      canBuy: true,
+  |       1 -      footer: [BUY, BUY],
+  | (fine C15)
+== C16 · il file condiviso non importa niente
+import o Deno: 0
+  [uguale a oggi]
+== C17 · la decisione 14 nel file condiviso e nello Store
+file condiviso: 3 · Store: vendita 3 · tipo fine 2 · frase 1
+  [oggi, su a3f71db:]
+  | file condiviso: 0 · Store: vendita 0 · tipo fine 0 · frase 0
+== C18 · il commento del webhook
+non ritenta 0 · risposta 1
+  [oggi, su a3f71db:]
+  | non ritenta 1 · risposta 1
+== C19 · Vera nei dati dei test
+Vera 1
+  [oggi, su a3f71db:]
+  | Vera 0
+```
 
-**Ufficiali: non eseguite: sessione nel cloud.** Nel banco dello scratchpad (copia di `src` e di `_shared`, `bun test` con `vitest` mappato su `bun:test`, una sostituta di `date-fns` e una di `lucide-react` scritte a mano; nessuna installazione), con l'harness `scratchpad/mutate.mjs`: per ogni prova il codice rotto nella copia, i test lanciati a Roma, in UTC e a Los Angeles, il file rimesso com'era. **Tutte rosse nei tre fusi**, e verdi dopo il ripristino (le suite intere passano). Cosa ho rotto e cosa cade (i nomi dei test, uguali nei tre fusi):
+## 7 · LE PROVE ROSSE
 
-- **R1** · la proroga con 7 giorni esatti (`left <= 7`): cadono la riga del 05/10 della tabella e Anna.
-- **R2** · la proroga anche se il percorso finisce: cadono le due righe «non continua» della tabella, «dopo annullato», «abbonamento senza rinnovo», «fisso col rinnovo acceso», Giorgio e Rita.
-- **R3** · senza `left >= 0`: cade la riga del 27/09.
-- **R4** · i 30 giorni contati da oggi: cadono le tre righe con la proroga che non finiscono oggi, «dopo con lo stesso numero», «dopo completato», «abbonamento col rinnovo», l'inverno (7 test), Marta e Bruno.
-- **R5** · la fine del giorno sempre a +2: cadono le sette attese d'ora solare e del giorno del cambio di `endOfRomeDay`.
-- **R6** · la scadenza all'inizio del giorno: cadono tutte le attese di `endOfRomeDay` (10 test con le scadenze del pagamento).
-- **R7** · l'«oggi» con `toISOString().slice(0, 10)`: cadono i tre casi alle 22:00 e alle 23:00 UTC.
-- **R8** · i blocchi annullati contano: «annullato in corso» e «dopo annullato».
-- **R9** · senza il rinnovo automatico: «abbonamento col rinnovo, senza il dopo» e il pagamento di Marta.
-- **R10** · il blocco dopo anche annullato: «dopo annullato».
-- **R11** · il dopo solo per `sequence_order`: «dopo con lo stesso numero».
-- **R12** · `today < end_date`: «finisce oggi», le scadenze e il pagamento di Luca.
-- **R13** · il rinnovo anche per il fisso: «fisso col rinnovo acceso».
-- **R14** · a pari numero l'ordine d'arrivo: «stesso numero, sovrapposti».
-- **R15** · il PT Pack compra: `boosterPathAllowed`, «PT Pack» e Pietro (card, validità, riepiloghi).
-- **R16** · l'archiviato compra: `boosterPathAllowed`, «archiviato» e Carlo.
-- **R17** · `title` ignorato: `boosterPackTitle` e `PACKS_TITLED`.
-- **R18** · sempre «crediti»: `boosterPackTitle` e i riepiloghi delle nove persone che comprano.
-- **R19** · `canBuyBooster` con il solo `reference !== null`: i due casi nuovi di `client-book.test.ts`, Davide e Nina nella Home e nello Store.
-- **R20** · `canBuyBooster` senza `boosterPathAllowed`: i casi di `canBuyBooster` (PT Pack, libero, archiviato), la variante PT Pack di Giulia, Pietro e Carlo.
-- **R21** · il concluso anche per chi deve cominciare: Nina.
-- **R22** · il concluso solo senza `pack_label`: Pietro finito.
-- **R23** · WhatsApp senza il link: le sei card.
-- **R24** · `coachSubject` a metà frase: Elena, Davide, Pietro, Pietro finito e il `meta` del test funzionale.
-- **R25** · la validità senza il rinnovo: Marta (validità e pagamento).
-- **R26** · il riepilogo della proroga senza «30 giorni dopo la fine»: Marta, Luca, Bruno.
-- **R27** · il riquadro della proroga come l'altro: Marta, Luca, Bruno.
-- **R28** · il numero dopo l'acquisto senza i crediti comprati: i riepiloghi delle nove persone.
-- **R29** · il numero ricalcolando Prenota con la riga nuova: Luca (8 e 8).
-- **R30** · sempre «crediti … disponibili»: i riepiloghi con «1 credito … disponibile» (otto persone).
-- **R31** · anche i pacchetti in dollari: i prodotti e i riepiloghi (quattro invece di tre).
-- **R32** · anche i pacchetti spenti: come R31.
-- **R33** · «Più conveniente» a pari prezzo per credito: `PACKS_TIE`.
-- **R34** · «Più conveniente» da solo nella tipologia: il test funzionale e `PACKS_TIE`.
-- **R35** · il prezzo a sessione anche per un credito: `single`, `triage` e `PACKS_TIE`.
-- **R36** · la tipologia di `type` non in testa: l'ordine con `type`.
-- **R37** · la descrizione di soli spazi tenuta: `PACKS_TITLED`.
-- **R38** · senza « · si prenota con …»: il `meta` del test funzionale, col coach e senza.
-- **R39** · sempre i centesimi: `euro`, i prodotti, gli acquisti e i riepiloghi (17 test).
-- **R40** · i crediti del coach fra gli acquisti: Giulia (compare il BIA).
-- **R41** · gli acquisti dei blocchi prima: Giulia (compare il 10/09).
-- **R42** · dal più vecchio: l'ordine di Giulia.
-- **R43** · «· 0 €» senza prezzo: l'acquisto di oggi senza prezzo.
-- **R44** · l'attesa anche a 20 secondi esatti: i due `late`.
-- **R45** · senza `session` non si trova: `findPurchase` per tipologia e «senza sessione ma con la tipologia».
-- **R46** · senza `session` anche di 16 minuti fa: il limite di `findPurchase` e `ARRIVED_OLD` senza sessione.
-- **R47** · con una `session` diversa, l'acquisto della tipologia: «solo la sua riga» e «con una sessione diversa». In più una variante (la sessione ignorata del tutto): cade anche `ARRIVED_OLD` con la sua sessione.
-- **R48** · «Prenota ora» anche per la tipologia del coach: il test funzionale.
-- **R49** · «Ora ne hai» con la sola quantità: tutti gli arrivi.
-- **R50** · «Ora ne hai» con Prenota di adesso, riga dentro: Luca (8) e la lettura che non ha ancora la riga.
-- **R51** · la riga contata due volte: gli arrivi di Giulia (5 e 3) e quello di `zzz`.
-- **R52** · senza `trim`: «  Pacchetto non valido.  ».
-- **R53** · ogni errore com'è: «Nessun percorso attivo…», «Invalid or missing package_type», «Edge Function returned…».
-- **R54** · `type` qualunque: `{ type: "pt" }`.
-- **R55** · `session` qualunque: «cs_test_», «cs_test_a1-b2», l'indirizzo.
-- **R56** · `booster` qualunque: «SUCCESS» e «ok».
-- **R57** · l'id di Stripe col trattino o vuoto: «cs_test_» e «cs_test_a1-b2».
-- **R58** · la quantità della campanella anche come testo: `quantitaTesto`.
-- **R59** · la quantità non intera: `quantitaMezza`.
-- **R60-R62** · non provate: vogliono il browser (§7).
+**Come:** `scratchpad\rosse.mjs` con `mutazioni.json` (generato da `genera-mutazioni.mjs`; ogni ancora è una sostituzione esatta, contata). Per ogni prova:
+- rompe il file;
+- lancia `vitest related <file rotto>` (tutti i test che dipendono da quel file, non solo i cinque) a Roma, in UTC e a Los Angeles. `TZ` è passato da Node a vitest, senza Git Bash in mezzo: la sonda nei worker l'ha visto arrivare;
+- confronta i test caduti con la corsa senza difetto dello stesso insieme;
+- rimette il file e ne controlla l'impronta sha256.
 
-Gli esiti interi, coi conteggi per fuso, sono in `scratchpad/esiti/mut-*.txt`. Oltre alle R, la prova di fumo delle due funzioni (`scratchpad/fn/smoke.test.ts`, Stripe e Supabase finti): sul ramo 18 su 18; sulle funzioni della base cadono 15 casi su 18 (passano solo il pacchetto non valido e l'acquisto per un altro, il doppione, l'inserimento fallito, che non cambiano).
+**Esito: 71 prove su 71 rosse, coi test caduti identici nei tre fusi**, e i file rimessi uguali (albero pulito dopo). **Il verde:** dopo il giro, la suite intera `Test Files 61 passed (61)`, `Tests 1205 passed (1205)`.
 
-## 7 · IL BROWSER
+Coi nomi diversi dal riferimento ho rotto l'equivalente nel codice del ramo. R66 l'ho rotta in due modi: in `canBuyBooster` (R66) e nella chiamata di `getBookState` (R66b). R71 in due: in `getBookState` e nello Store insieme (R71), e nel solo `getBookState` (R71a).
 
-**Non eseguito: sessione nel cloud.** Il server di sviluppo vuole `node_modules` (assente, e da qui il registro di Lovable risponde 403), quindi né il banco di Cowork né Playwright possono aprire la pagina. B1-B16 e R60-R62 restano a Cowork, voce per voce:
+Dove cadono diversamente dal cloud:
+- con la decisione 14 Giorgio e Rita non hanno più validità né riepiloghi: R2 cade solo sulle righe della tabella, non più su Giorgio e Rita;
+- R23 cade su nove card, non più sei: in più Giorgio, Rita e Vera;
+- R28 e R18 su sette riepiloghi, non più nove;
+- R15 e R20 cadono anche su «Prenota: Giulia col PT Pack», un test della 02 che dipende da `client-book.ts` (il cloud non lo poteva lanciare);
+- R5 qui non fa lanciare `endOfRomeDay`, come nel riferimento: dà un'ora in meno. Cadono le attese d'inverno e del giorno del cambio, e le validità con la proroga a novembre (Marta, Luca, Bruno).
 
-- **B1** · Giulia a 390: non eseguita. Nel codice: `ClientTabHeader` «Booster» col sottotitolo, `StoreValidityBox` (`validity.text`), `StoreBoughtCard` se ci sono righe, una `article` per prodotto nell'ordine di `storeProducts`, «Più conveniente» solo con `best`, `STORE_FOOTER` in fondo; «Acquista» con `aria-describedby` sul titolo della card.
-- **B2** · il riepilogo: non eseguita. `StoreSummarySheet` («Riepilogo», titolo e prezzo, `CalendarRange` e `valid`, `Coins` e `after`, «Paga … con Stripe» con `Lock`, «Indietro»); alla chiusura il focus torna a chi l'ha aperto (`ClientSheet`).
-- **B3** · Paga: non eseguita. `booster-checkout` con `{ package_type }` e niente `client_id`; mentre aspetta `aria-disabled` e l'indicatore (mai `disabled`), un secondo tocco esce subito (`payingRef`); `window.location.assign` solo per `https://checkout.stripe.com/…`, altrimenti `STORE_PAY_GENERIC`.
-- **B4** · gli errori: non eseguita. `parseEdgeError` per le risposte non 2xx, `data.error` per le 2xx, poi `storePayError` (le cinque frasi restano, il resto è il generico); il foglio resta aperto e «Paga» torna attivo.
-- **B5** · V12: non eseguita. Con `storeLock` non nullo il foglio si chiude (`open={summaryOpen && !locked}` e l'effetto che rimette `summaryOpen` a falso) e `returnFocus` porta il focus sul titolo della card di chi non compra (`lockTitleRef`).
-- **B6** · il ritorno coi crediti che arrivano: non eseguita. Il foglio si apre col caricamento, il testo in `role="status"` `aria-live="polite"`, una rilettura di `extrasQ` e un giro ogni `STORE_POLL_MS` finché l'esito è `waiting`; con `arrived` il riquadro `CircleCheck` e «Prenota ora» verso `/client/book?eventType=…`; alla chiusura l'indirizzo perde `booster` e `session` (`replace`) e tiene `type`; il focus va sull'`h1`. I tempi delle letture: da misurare.
-- **B7** · il ritorno in ritardo: non eseguita. Dieci giri (20 secondi), poi `late` e l'intervallo si ferma.
-- **B8** · l'annullamento: non eseguita. `toast.info(STORE_CANCEL_TOAST, { id: "booster-cancel" })` una volta (anche col doppio effetto di sviluppo) e `navigate({ replace: true })` senza `booster`.
-- **B9** · le altre persone: non eseguita. I testi di Marta, Luca, Sara, Giorgio e Paola sono gli stessi dei test di `client-store.test.ts` (banco verde); `typeTest` con `?type=` del test funzionale: `highlighted` e il bordo del primario.
-- **B10** · chi non compra: non eseguita. Solo `StoreLockCard`, senza prodotti; senza il link del coach niente pulsante.
-- **B11** · Home e Prenota: non eseguita. Nessun loro file cambia; Nina ha `canBuy` falso (test della Home aggiornati: due righe). `giro05-cowork.mjs` va aggiornato sul fondo dei crediti di Nina.
-- **B12** · la campanella del coach: non eseguita. «Acquisto Booster», «Giulia Bianchi · +3 Sessione PT», `Sparkles` e «· Apri il profilo» sul desktop; sul telefono titolo e testo; il tocco segna letta e apre `/trainer/clients/$id`; una `booking.created` apre ancora il Calendario.
-- **B13** · le misure: non eseguita. Nessun `position: fixed` (C8); un solo pulsante pieno per card e foglio; l'icona della tipologia col colore di `tileIcon` (il primario quando il colore della tipologia non fa 3:1, come nella Home); il bianco di «Più conveniente» su `aura-primary`. Le larghezze a 320 da misurare.
-- **B14** · il focus: non eseguita. Riepilogo: torna all'«Acquista» che l'ha aperto; esito: sull'`h1` (che prende `tabIndex -1`); «Paga» tiene il focus mentre aspetta (`aria-disabled`).
-- **B15** · il resto non cambia: non eseguita (`giro-prenota.mjs`, `giro-sessioni.mjs`, `giro04.mjs`, Profilo e Notifiche, le schermate del coach).
-- **B16** · richieste esterne: non eseguita. Nessuna richiesta fatta da questa sessione verso Supabase, Stripe o Google: le due funzioni le ho provate solo con moduli finti nello scratchpad.
-- **R60-R62**: non provate (vogliono il browser).
+Cosa cade (i nomi accorciati; i nomi interi sono nei file dei test, l'elenco intero in `scratchpad\esiti\rosse-tutte.json`; «Store: X (card, validità, riepiloghi, pagamento=Store)» sono i test di quella persona in `client-store.test.ts`):
 
-## 8 · NON FATTO
+- **R1** · V1 · la proroga con 7 giorni esatti (<=) → cadono validità: 09-28→10-05 continua · Store: Anna (validità) [2 test]
+- **R2** · V2 · la proroga anche se il percorso finisce → cadono validità: 09-28→10-04; 09-28→09-28 [2 test]
+- **R3** · V3 · la proroga anche per un blocco già finito → cadono validità: 09-28→09-27 continua [1 test]
+- **R4** · V4 · i 30 giorni contati da oggi → cadono validità: 09-28→10-04 continua; 12-28→01-03 continua; 02-01→02-05 continua · pagamento: dopo con lo stesso numero; dopo completato; abbonamento col rinnovo, senza il dopo; inverno · Store: Marta (validità), Bruno (validità) [9 test]
+- **R5** · V5 · la fine del giorno sempre con l'ora legale (+2) → cadono endOfRomeDay: 10-25; 10-26; 03-28; 11-03; 01-02 · pagamento: le scadenze; inverno · Store: Marta (validità), Luca (validità), Bruno (validità) [10 test]
+- **R6** · V6 · expires_at all'inizio del giorno → cadono endOfRomeDay: 10-11; 10-24; 10-25; 10-26; 03-28; 03-29; 11-03; 01-02 · pagamento: scadenza dei 7 giorni; le scadenze; inverno · Store: Giulia (validità), Marta (validità), Luca (validità), Sara (validità), Paola (validità), Anna (validità), Bruno (validità) [18 test]
+- **R7** · V7 · l'«oggi» di Roma con la data UTC → cadono romeDate: 2026-10-10T22:00; 2026-10-25T23:00; 2026-03-28T23:00 [3 test]
+- **R8** · D1 · il pagamento conta i blocchi annullati → cadono pagamento: annullato in corso; dopo annullato · rifiuti: l'ultima settimana, col blocco dopo annullato [3 test]
+- **R9** · D2 · il pagamento senza il rinnovo automatico → cadono pagamento: abbonamento col rinnovo, senza il dopo · rifiuti: l'ultima settimana di un abbonamento col rinnovo · Store: Marta (pagamento=Store) [3 test]
+- **R10** · D3 · il blocco dopo anche annullato → cadono pagamento: dopo annullato · rifiuti: l'ultima settimana, col blocco dopo annullato [2 test]
+- **R11** · D4 · il blocco dopo solo per sequence_order → cadono pagamento: dopo con lo stesso numero [1 test]
+- **R12** · D5 · l'ultimo giorno del blocco non più in corso → cadono pagamento: finisce oggi; le scadenze · rifiuti: l'ultimo giorno · Store: Luca (pagamento=Store), Vera (pagamento=Store) [5 test]
+- **R13** · D6 · il rinnovo automatico anche per il fisso → cadono pagamento: fisso col rinnovo acceso [1 test]
+- **R14** · D7 · a pari sequence_order, l'ordine d'arrivo → cadono pagamento: stesso numero, sovrapposti [1 test]
+- **R15** · C2 · il PT Pack compra → cadono booster-validity: boosterPathAllowed (no) · pagamento: PT Pack · rifiuti: PT Pack · client-book: Prenota: Giulia col PT Pack · canBuyBooster: i percorsi · Store: Pietro (card, validità, riepiloghi) [8 test]
+- **R16** · C3 · l'archiviato compra → cadono booster-validity: boosterPathAllowed (no) · pagamento: cliente archiviato · rifiuti: archiviato · canBuyBooster: libero, archiviato, senza blocco · Store: Carlo (card, validità, riepiloghi) [7 test]
+- **R17** · P7 · il titolo sempre composto (la colonna ignorata) → cadono booster-validity: boosterPackTitle · client-store: PACKS_TITLED [2 test]
+- **R18** · P11 · il titolo composto sempre al plurale → cadono booster-validity: boosterPackTitle · client-store: prodotti; PACKS_TITLED; PACKS_TIE · Store: Giulia (riepiloghi), Marta (riepiloghi), Luca (riepiloghi), Sara (riepiloghi), Paola (riepiloghi), Anna (riepiloghi), Bruno (riepiloghi) [11 test]
+- **R19** · C1 · chi compra con un blocco di riferimento qualunque → cadono canBuyBooster: blocco futuro; finito ieri · la Home di Davide · la Home di Nina · Store: Davide (card, validità, riepiloghi, pagamento=Store), Nina (card, validità, riepiloghi, pagamento=Store) [14 test]
+- **R20** · C4 · canBuyBooster senza la regola del percorso → cadono client-book: Prenota: Giulia col PT Pack · canBuyBooster: i percorsi; libero, archiviato, senza blocco · Store: Pietro (card, validità, riepiloghi, pagamento=Store), Carlo (card, validità, riepiloghi, pagamento=Store) [11 test]
+- **R21** · L1 · il concluso anche per chi non ha cominciato → cadono Store: Nina (card) [1 test]
+- **R22** · L2 · il PT Pack finito non è concluso → cadono Store: Pietro finito (card) [1 test]
+- **R23** · L3 · il WhatsApp anche senza il link del coach → cadono Store: Elena (card), Davide (card), Giorgio (card), Nina (card), Pietro (card), Pietro finito (card), Rita (card), Carlo (card), Vera (card) [9 test]
+- **R24** · L4 · «Il tuo coach» maiuscolo a metà frase → cadono client-store: prodotti · Store: Elena (card), Davide (card), Pietro (card), Pietro finito (card) [5 test]
+- **R25** · S1 · l'abbonamento col rinnovo che non continua (solo il blocco dopo) → cadono Store: Marta (validità, pagamento=Store) [2 test]
+- **R26** · S2 · il riepilogo della proroga senza i 30 giorni → cadono Store: Marta (validità), Luca (validità), Bruno (validità) [3 test]
+- **R27** · S3 · il riquadro della proroga uguale a quello senza → cadono Store: Marta (validità), Luca (validità), Bruno (validità) [3 test]
+- **R28** · R1 · il numero dopo l'acquisto senza l'acquisto → cadono Store: Giulia (riepiloghi), Marta (riepiloghi), Luca (riepiloghi), Sara (riepiloghi), Paola (riepiloghi), Anna (riepiloghi), Bruno (riepiloghi) [7 test]
+- **R29** · R2 · il numero dopo l'acquisto con getBookState e la riga nuova → cadono Store: Luca (riepiloghi) [1 test]
+- **R30** · R3 · «crediti … disponibili» anche per uno → cadono Store: Marta (riepiloghi), Luca (riepiloghi), Sara (riepiloghi), Paola (riepiloghi), Anna (riepiloghi), Bruno (riepiloghi) [6 test]
+- **R31** · P1 · i pacchetti in un'altra valuta → cadono client-store: prodotti; prodotti con type; prodotti col coach; due tipologie omonime · Store: Giulia (riepiloghi), Marta (riepiloghi), Luca (riepiloghi), Sara (riepiloghi), Paola (riepiloghi), Anna (riepiloghi), Bruno (riepiloghi) [11 test]
+- **R32** · P2 · i pacchetti non attivi → cadono client-store: prodotti; prodotti con type; prodotti col coach; due tipologie omonime · Store: Giulia (riepiloghi), Marta (riepiloghi), Luca (riepiloghi), Sara (riepiloghi), Paola (riepiloghi), Anna (riepiloghi), Bruno (riepiloghi) [11 test]
+- **R33** · P3 · «Più conveniente» anche a pari prezzo per credito → cadono client-store: PACKS_TIE [1 test]
+- **R34** · P4 · «Più conveniente» anche da solo → cadono client-store: prodotti; PACKS_TIE [2 test]
+- **R35** · P5 · il prezzo per credito anche per un credito solo → cadono client-store: prodotti; PACKS_TIE [2 test]
+- **R36** · P6 · la tipologia di type non in testa → cadono client-store: prodotti con type [1 test]
+- **R37** · P8 · la descrizione di soli spazi tenuta com'è → cadono client-store: PACKS_TITLED [1 test]
+- **R38** · P9 · senza « · si prenota con …» → cadono client-store: prodotti; prodotti col coach [2 test]
+- **R39** · P10 · i centesimi sempre scritti → cadono client-store: euro(4000); euro(9900); prodotti; PACKS_TIE; acquisti di Giulia; acquisto senza prezzo; acquisto di tipologia assente · Store: Giulia (acquisti, riepiloghi), Marta (riepiloghi), Luca (riepiloghi), Sara (riepiloghi), Paola (riepiloghi), Anna (riepiloghi), Bruno (riepiloghi) [15 test]
+- **R40** · B1 · i crediti del coach fra gli acquisti → cadono client-store: acquisti di Giulia; acquisto senza prezzo · Store: Giulia (acquisti) [3 test]
+- **R41** · B2 · gli acquisti dei blocchi prima → cadono client-store: acquisti di Giulia; acquisto senza prezzo · Store: Giulia (acquisti) [3 test]
+- **R42** · B3 · gli acquisti dal più vecchio → cadono client-store: acquisti di Giulia; acquisto senza prezzo · Store: Giulia (acquisti) [3 test]
+- **R43** · B4 · il prezzo anche quando manca → cadono client-store: acquisto senza prezzo [1 test]
+- **R44** · E1 · l'attesa anche a 20 secondi esatti → cadono client-store: esito attesa/ritardo [1 test]
+- **R45** · E2 · senza session l'acquisto non si trova → cadono client-store: findPurchase per tipologia; esito senza sessione [2 test]
+- **R46** · E3 · senza session, anche un acquisto di 16 minuti fa → cadono client-store: findPurchase per tipologia; esito di 16 minuti fa [2 test]
+- **R47** · E4 · con una session diversa, l'acquisto della tipologia → cadono client-store: findPurchase con sessione; esito con sessione diversa [2 test]
+- **R48** · E5 · «Prenota ora» anche per una tipologia del coach → cadono client-store: esito del test funzionale [1 test]
+- **R49** · E6 · «Ora ne hai» con la sola quantità → cadono client-store: esito arrivato; esito senza doppio conto; esito senza sessione; esito di 16 minuti fa; esito del test funzionale; esito di Luca [6 test]
+- **R50** · E7 · «Ora ne hai» col numero di Prenota di adesso, riga dentro → cadono client-store: esito senza doppio conto; esito di Luca [2 test]
+- **R51** · E8 · «Ora ne hai» con la riga contata due volte → cadono client-store: esito arrivato; esito senza sessione; esito di 16 minuti fa; esito del test funzionale; esito di tipologia assente [5 test]
+- **R52** · X1 · l'errore del server senza trim → cadono client-store: storePayError (frasi) [1 test]
+- **R53** · X2 · ogni errore del server mostrato com'è → cadono client-store: storePayError (generico) [1 test]
+- **R54** · Q1 · type qualunque → cadono client-store: storeSearch (altri valori) [1 test]
+- **R55** · Q2 · session qualunque → cadono client-store: storeSearch (altri valori) [1 test]
+- **R56** · Q3 · booster qualunque → cadono client-store: storeSearch (buoni); storeSearch (altri valori) [2 test]
+- **R57** · Q4 · l'id di Stripe col trattino o vuoto → cadono client-store: storeSearch (altri valori) [1 test]
+- **R58** · N1 · la quantità della campanella anche come testo → cadono notifications: campanella quantitaTesto [1 test]
+- **R59** · N2 · la quantità della campanella anche non intera → cadono notifications: campanella quantitaMezza [1 test]
+- **R63** · F1 · la vendita chiusa anche con 7 giorni esatti (<=) → cadono vendita: 09-28→10-05; 12-28→01-04 · pagamento: 7 giorni esatti, senza il blocco dopo; scadenza dei 7 giorni · la Home di Paola · Store: Paola (card, validità, riepiloghi, pagamento=Store) [10 test]
+- **R64** · F2 · la vendita chiusa anche se il percorso continua → cadono vendita: 09-28→10-04 continua; 09-28→09-28 continua · pagamento: dopo con lo stesso numero; dopo completato; abbonamento col rinnovo, senza il dopo; finisce oggi; le scadenze; inverno · rifiuti: l'ultima settimana, col blocco dopo; l'ultima settimana di un abbonamento col rinnovo · client-book: Prenota: Marta · canBuyBooster: l'ultimo giorno col dopo; l'ultimo giorno col rinnovo · la Home di Marta · la Home di Luca · Store: Marta (card, validità, riepiloghi, pagamento=Store), Luca (card, validità, riepiloghi, pagamento=Store), Bruno (card, validità, riepiloghi, pagamento=Store) [29 test]
+- **R65** · F3 · la vendita chiusa anche per un blocco già finito → cadono vendita: 09-28→09-27 [1 test]
+- **R66** · F4 · canBuyBooster che ignora la vendita chiusa → cadono canBuyBooster: vendita chiusa; z1, l'ultimo giorno · la Home di Giorgio · Store: Giorgio (card, validità, riepiloghi, pagamento=Store), Rita (card, validità, riepiloghi, pagamento=Store), Vera (card, validità, riepiloghi, pagamento=Store) [16 test]
+- **R66b** · F4 · getBookState che non passa la vendita chiusa → cadono canBuyBooster: z1, l'ultimo giorno · la Home di Giorgio · Store: Giorgio (card, validità, riepiloghi, pagamento=Store), Rita (card, validità, riepiloghi, pagamento=Store), Vera (card, validità, riepiloghi, pagamento=Store) [15 test]
+- **R67** · F5 · il pagamento vende anche nell'ultima settimana (il caso fine non scatta) → cadono pagamento: dopo annullato; abbonamento senza rinnovo; fisso col rinnovo acceso; l'ultimo giorno, senza il blocco dopo · rifiuti: l'ultima settimana; l'ultimo giorno; l'ultima settimana, col blocco dopo annullato · Store: Giorgio (pagamento=Store), Rita (pagamento=Store), Vera (pagamento=Store) [10 test]
+- **R68** · F6 · il rifiuto dell'ultima settimana col motivo del blocco → cadono rifiuti: l'ultima settimana; l'ultimo giorno; l'ultima settimana, col blocco dopo annullato · Store: Giorgio (pagamento=Store), Rita (pagamento=Store), Vera (pagamento=Store) [6 test]
+- **R69** · F7 · la card dell'ultima settimana persa (diventa altro) → cadono Store: Giorgio (card), Rita (card), Vera (card) [3 test]
+- **R70** · F8 · «oggi» non detto l'ultimo giorno → cadono Store: Vera (card) [1 test]
+- **R71** · F9 · il «continua» dell'app senza il blocco dopo (getBookState e Store) → cadono canBuyBooster: l'ultimo giorno col dopo · la Home di Luca · Store: Luca (card, validità, riepiloghi, pagamento=Store), Bruno (card, validità, riepiloghi, pagamento=Store) [11 test]
+- **R71a** · F9 · il «continua» di getBookState senza il blocco dopo → cadono canBuyBooster: l'ultimo giorno col dopo · la Home di Luca · Store: Luca (card, validità, riepiloghi, pagamento=Store), Bruno (card, validità, riepiloghi, pagamento=Store) [11 test]
+- **R72** · F10 · la frase dell'ultima settimana fuori da STORE_PAY_ERRORS → cadono client-store: storePayError (frasi); storePayError (ultima settimana) [2 test]
 
-- I quattro cancelli con la configurazione del repo (typecheck, lint, test, build) e le prove col fuso da PowerShell: nel cloud senza `node_modules` non girano. Al loro posto, dichiarati come tali: Prettier 3.8.1 globale (stessa configurazione `.prettierrc`) su tutti i file toccati; un typecheck parziale con `tsc` 6.0.2 e dichiarazioni minime di React, router, react-query, date-fns, lucide, sonner e vaul (`scratchpad/tc/`), che non controlla i tipi veri delle librerie; `bun test` nel banco, nei tre fusi.
-- Le prove rosse ufficiali (R1-R59 rifatte nel banco, §6) e R60-R62 (browser).
-- Il giro nel browser B1-B16 (§7).
-- La copia dei due semi di Cowork e la lettura di `atteso-cli-06-2026-10-01.json`: sono sul PC. Ho ricostruito i semi e scritto le attese dal §4 del prompt (§9).
-- `deno check`: `deno` assente; C12 con `bun build` (sintassi e import, non i tipi).
+**Le prove del pagamento**, in più (la funzione vera non ha test nel repo). È una prova di fumo di `booster-checkout` con Deno, in `scratchpad\fumo\`:
+- `deno run --no-config --cached-only --allow-env --allow-read=<cartella delle funzioni>,. --import-map=import_map.json fumo.ts <index.ts>`, **senza permesso di rete**;
+- Stripe e Supabase finti al posto dei pacchetti `npm:`, `Deno.serve` intercettato, l'orologio fermo a lunedì 28/09 10:40 di Roma;
+- 16 casi: Giulia, Paola, Luca e Marta comprano con la scadenza giusta; Giorgio, Rita, Vera e il dopo annullato hanno il 400 «fine»; Nina, Carlo, Pietro, un PT Pack nell'ultima settimana e un profilo che manca hanno il 400 del blocco; più il 500 di una lettura persa, il 401 e il `package_type` che manca.
 
-## 9 · DIVERGENZE
+| Codice | Esito |
+|---|---|
+| ramo | **16 su 16** |
+| `a3f71db` (estratto con `git show`) | **12 su 16**: i quattro casi della decisione 14 vendono e aprono una sessione di Stripe |
+| copia del ramo con `refusal === "fine"` rotto | 12 su 16: i quattro casi rispondono con la frase del blocco |
 
-- **Il cloud** (§2): cancelli, prove rosse e browser non eseguiti; la riga 06 di `PIANO.md` a `[~]`, non a `[x]`.
-- **I semi di `src/lib/testing/`** (§4.9 «copi così come sono»): ricostruiti, perché i file di Cowork sono sul PC. `client-home-seed.ts` è il blocco dei dati di `client-home.test.ts` (le nove persone, gli stessi valori), con `NOW`, `TYPES`, `COACH`, `NOC`, i costruttori e `PERSONAS05`. `client-store-seed.ts` l'ho scritto da §4.9 e dalle attese del §4, che tornano tutte (112 test verdi nei tre fusi). Forme mie: `StorePersona = { name; client; blocks; bookings; extras: StorePurchase[] }`, `PERSONAS06` (array delle quindici), `persona(name)`, `inputOf(p, coach, now = NOW)`, `paid(…)`, `BOOSTER_TITLES`. Dati scelti da me: le sei persone nuove (Rita, Anna e Bruno con 2 PT disponibili nel blocco; Carlo fisso archiviato con il blocco dal 14/09 all'11/10; il PT Pack di Pietro con 3 crediti); gli acquisti di Giulia (10/09 17:05, 19/09 11:20, 25/09 18:30, sessioni `cs_test_giulia10/19/25`, tutti usati) e il credito BIA del coach del 20/09, non usato; i crediti del coach delle persone della 05 con `created_at` 01/09 e senza pagamento; `ARRIVED` a 40 €, `ARRIVED_TEST` a 75 €. Se Cowork rimette i suoi semi, `client-store.test.ts` va adattato alle sue forme (i nomi dei campi e degli helper), non le attese.
-- **`booster-checkout`**: profilo e blocchi in un `Promise.all`; un errore di lettura diventa un `Error` col nome della tabella (resta nel log), poi il 500 generico di oggi.
-- **Il controllo dell'indirizzo di Stripe** (`stripeCheckoutUrl`, `src/routes/client.store.tsx`): oltre all'host `checkout.stripe.com` vuole `https:`, più stretto di quello di oggi.
-- **Dopo «Riprova» riuscito** il focus va sul contenuto della pagina (come nella Home della 05): il prompt non lo chiede, ma senza finirebbe sul `body`.
-- **`storeEmpty`** sta in una card bianca (`StoreEmptyCard`); il prompt dice solo «al loro posto».
-- **`useBoosterPacks`** con `staleTime` di 5 minuti, come `useActiveShopTitles` (il prompt non lo dice).
-- **`storeOutcome` con una tipologia che il coach non ha più**: il numero è ancora quello di Prenota per quell'`event_type_id`, senza la riga arrivata, più la quantità (con `zzz` dà 2, come atteso).
-- **C4**: `client-book.ts` a +7 −9 (sul ramo simulato 6 e 9): la riga d'import in più. In `client-book.test.ts`, oltre ai due casi chiesti, un terzo: il blocco in corso compra, anche l'ultimo giorno.
-- **Il riquadro con `CircleCheck`** del foglio dell'esito c'è solo con `arrived`, come dice il prompt: in attesa e in ritardo il foglio ha titolo, testo e «Chiudi».
-- **Lo script dei controlli**: il mio, riscritto dal §6 (stesse righe di comando), non quello di Cowork.
+**R60-R62 e R73, nel browser** (`scratchpad\banco\rosse-browser.mjs`). Ogni prova rompe il file prima di avviare Vite, gira solo sulle B interessate, rimette il file e ne controlla l'impronta:
 
-## 10 · TROVATI E NON TOCCATI
+| Prova | Cosa ho rotto | Esito |
+|---|---|---|
+| R60 | `client.store.tsx` senza la rilettura degli acquisti durante l'attesa | B6 **rosso**: 9 su 16 (10 alla seconda corsa). 12 s dopo la riga il testo è ancora quello d'attesa; zero letture durante l'attesa; due righe acquistate invece di tre; cadono anche le varianti (b) e (c) |
+| R61 | `canBuyBooster` con la regola di prima della 06, un blocco `active` qualunque | B11 **rosso**: 4 su 9. Nina e Giorgio hanno «Acquista un Booster» nella Home; Giorgio anche «Acquista» sulla PT e nel foglio di Prenota |
+| R62 | il toast dell'annullamento senza togliere `booster` | B8 **rosso**: l'indirizzo tiene `booster=cancel`, e ricaricando il toast torna |
+| R73 | `canBuyBooster` senza la decisione 14 | B10, B11 e B17 **rossi**: 16 su 23. Lo Store di Giorgio mostra i prodotti, la sua Home e Prenota offrono «Acquista», lo Store di Vera vende |
 
-- **Comprare l'ultimo giorno di un percorso che finisce** (trovato dal revisore; regola da decidere, non toccata). Con la regola del prompt l'ultimo giorno del blocco, senza blocco dopo e senza rinnovo, il Booster vale fino a oggi (`boosterValidity`, la riga «2026-09-28, fine 2026-09-28, non continua» della tabella): `expires_at` è oggi alle 23:59:59.999 di Roma. Due conseguenze:
-  - il credito non si prenota: Prenota vuole 24 ore di preavviso, e lo Store dice lo stesso «Le sessioni si prenotano entro quella data»;
-  - se il cliente paga dopo la mezzanotte di Roma (la sessione di Checkout resta aperta 24 ore), `stripe-webhook` risponde 400 per `expires_at` passato (`supabase/functions/stripe-webhook/index.ts:83-91`, il controllo H3), e Stripe ritenta per tre giorni con lo stesso 400: addebito senza crediti e senza avviso al coach. Con la validità di prima (sempre almeno 7 giorni o 30 in più) non succedeva.
-  Il prompt dice che compra chi ha un blocco in corso oggi, l'ultimo giorno compreso (§0 punto 2 e §4.2), e che una regola diversa la decide Nicolò (§9): non l'ho cambiata. Opzioni: (a) l'ultimo giorno di un percorso che finisce non si compra (lo Store mostra la card con un testo suo e il pagamento risponde 400): cambia `boosterPurchase` e `canBuyBooster`; (b) `booster-checkout` passa a Stripe `expires_at` della sessione, al più la fine della validità (Stripe vuole fra 30 minuti e 24 ore), e sotto i 30 minuti rifiuta; (c) il webhook, per una sessione pagata con `expires_at` passato, scrive lo stesso i crediti (con una scadenza corretta) invece del 400. La (a) toglie anche il credito inutilizzabile; la (b) o la (c) chiudono l'addebito senza crediti. Da decidere prima del rilascio delle funzioni.
-- `supabase/functions/stripe-webhook/index.ts:151` (di prima): il commento «400 → Stripe non ritenta» è sbagliato, Stripe ritenta ogni risposta non 2xx. Conta per il punto sopra.
-- Il caso senza `session` del ritorno da Stripe (`findPurchase` per tipologia) guarda `created_at` fino a `input.now`, che si aggiorna ogni 30 secondi (`useNow`): una riga scritta dal webhook dopo il caricamento conta solo al tick dopo, e l'esito può passare da «in ritardo» ad «arrivato». È il contratto di `findPurchase` (fino a `now`) e la pagina non può leggere l'orologio (C3); l'indirizzo di ritorno di Stripe porta sempre la sessione, e lì il limite non c'è.
-- Il cliente archiviato con un blocco nelle date di oggi vede «Al momento non hai un blocco attivo…» (il caso `altro`, come vuole il prompt per Carlo): il testo non dice il vero motivo. Da rivedere con la 09.
-- `src/lib/client-credits.ts:258`: «La scelta sulla validità dei Booster è della passata 06.» Adesso la scelta c'è (il file condiviso), ma il commento resta: il file è fuori dal manifesto. Per la 09.
-- `src/components/client-tab-header.tsx:33`: l'`h1` delle schede non è focalizzabile; lo Store gli dà `tabIndex -1` quando ci torna il focus. Una prop di `ClientTabHeader` sarebbe più pulita (file fuori dal manifesto): per la 09.
-- `src/components/ui/aura-progress-ring.tsx` e `--color-cta-dark` (`src/styles.css:58-59`), che tolte le due card non usa più nessuno: come dice il §5 del prompt, per la 09.
-- `src/lib/testing/memory-calendar-store.ts:225-232` riproduce `validate_booking_extra_credits` senza `expires_at`: da allineare dopo il giro del server.
-- Nel banco, sulla base come sul ramo, 9 rossi d'ambiente: 7 file non si caricano (vogliono `react`, `typescript` o `@tanstack/react-query`), e `isoDateParam > scarta "2026-02-31"` e `URL · lettura > i valori malformati si scartano` cadono perché la mia sostituta di `date-fns` non scarta il 31 febbraio. Non sono del codice.
+Rimessi i file, le stesse B sono verdi nel giro intero.
 
-## 11 · RESTA A NICOLÒ
+In una delle due corse di R60 è caduto anche B6 (a): dopo «Indietro» la pagina aveva un foglio aperto. Alla seconda corsa no. Sul codice del ramo B6 (a) l'ho ripetuta 10 volte (`giro06.mjs solo=B6A ripeti=10`): 10 su 10 verde, con la cronologia di Prenota a 3 voci (l'esito sostituito, non aggiunto). Più le quattro corse di B6.
 
-- **Decidere il caso dell'ultimo giorno di un percorso che finisce** (§10, il primo punto), prima di pubblicare le due funzioni di Stripe.
-- Rilanciare la verifica di Cowork sul PC: cancelli, prove rosse R1-R62, giro nel browser B1-B16, con i semi veri di Cowork al posto dei miei (§9); poi la riga 06 di `PIANO.md` da `[~]` a `[x]`.
-- Il merge della PR nel ramo di integrazione `redesign/cliente-mobile`, dopo la verifica di Cowork.
+## 8 · IL BROWSER
+
+**Il banco** è in `scratchpad\banco\`: la copia di `app\banco-cli-2026-09-30` con `lib-windows.mjs` come `lib.mjs`. In più, solo nella copia:
+- `fake06.mjs`: il finto della 04, più `booster-checkout` comandato dalla prova (stato, corpo, ritardo), `checkout.stripe.com` intercettato e contato a parte, l'ora d'arrivo delle richieste, e `snapshotAtStart` (una lettura vede i dati del momento in cui parte);
+- `dati-cli-06-ripresa-vera.json`, i dati della 06 più Vera;
+- `seed05.mjs` con l'id di Vera;
+- `giro06.mjs` (B1-B17), `cattura06.mjs` (B15), `rosse-browser.mjs`.
+
+Il resto: Playwright della cache di npx, `chromium_headless_shell-1200`, Vite col Supabase finto, ora fissa lunedì 28/09/2026 10:40 a Roma. Le schermate sono in `scratchpad\banco\giro06-finale\`.
+
+**Giro intero sul ramo (`731a136`): 127 su 127.** Per B: B1 9, B2 3, B3 5, B4 7, B5 3, B6 13, B7 3, B8 4, B9 25, B10 12, B11 7, B12 5, B13 20, B14 7, B16 2, B17 2.
+
+- **B1** · Giulia a 390: `h1` e sottotitolo, la validità, «Acquistati in questo blocco» con le due righe, i tre `article` nell'ordine single, pack, triage coi testi delle attese, «Più conveniente» solo su pack. Ogni «Acquista» è descritto dal titolo della sua card; in fondo la nota di Stripe; nessun testo vecchio. Confronto con `06-booster-01-pagina.png`: uguale, salvo i titoli composti (manca la colonna `title`), le descrizioni assenti e i caratteri di ripiego (§5 della 06). `B1-giulia-390.png`.
+- **B2** · i tre riepiloghi hanno titolo, prezzo, validità, «Dopo l'acquisto avrai 4/6/2…» e «Paga … con Stripe», l'unico pulsante pieno. «Indietro» rimette il focus sull'«Acquista». `B2-riepilogo-single-390.png`, uguale a `06-booster-02-riepilogo.png` salvo la riga «simulato».
+- **B3** · mentre aspetta (1,5 s di ritardo del finto) «Paga» è `aria-disabled="true"`, mai `disabled`, con l'indicatore e col focus. Il secondo tocco non fa chiamate: `booster-checkout` una volta, corpo `{"package_type":"single"}`, senza `client_id`. Poi `https://checkout.stripe.com/c/pay/cs_test_banco` (intercettato). Con `https://evil.example/pay` nessuna navigazione e il toast generico.
+- **B4** · sei casi, ognuno col suo toast, il foglio che resta aperto, «Paga» attivo e il focus su «Paga»: il 400 del blocco, **il 400 dell'ultima settimana (la frase com'è)**, il 400 «Invalid…», il 500 vuoto, il 500 non JSON e il 500 del pagamento.
+- **B5** · V12: il finto passa Giulia ad `archived` e un `visibilitychange` fa rileggere il profilo. Il foglio si chiude, resta la card «altro», il focus va sul suo `h2`.
+- **B6** · il ritorno con la riga che arriva:
+  - il foglio parte col testo d'attesa in `role="status"` `aria-live="polite"`. Le letture di `extra_credits` partono a 1,51 s e 3,51 s; la riga è scritta a 3,02 s, l'arrivo è a 3,53 s, e dopo nessuna lettura. Ci sono `CircleCheck` e «Prenota ora» → `/client/book?eventType=<PT>`; «Acquistati» ha tre righe, la prima «+1 Personal Training · lun 28 set · 40 €». «Chiudi» porta a `?type=<PT>` e il focus sull'`h1`; ricaricata, nessun foglio. `B6-arrivato-390.png`, uguale a `06-booster-03-pagamento-completato.png` salvo «Marco» → «Il tuo coach»;
+  - (a) «Prenota ora» porta a Prenota, e da lì Indietro torna a `/client/store?type=<PT>` senza `booster` né `session`, senza foglio;
+  - (b) con le letture lente (3 s) la riga a 3,01 s arriva a 4,56 s, con una lettura sola (1,53→4,54 s) e nessuna annullata;
+  - (c), in più: le letture vedono i dati alla partenza. Una lettura è in volo (1,52→4,54 s, senza la riga), la successiva (5,52→8,53 s) porta la riga, arrivo a 8,54 s; nessuna lettura annullata.
+- **B7** · le letture a 1,52, 3,52 … 19,52 s, dieci in tutto; il ritardo a 19,52 s, poi nessuna lettura. «Chiudi» chiude.
+- **B8** · il toast una volta; l'indirizzo perde `booster` e tiene `type`; ricaricata, nessun toast; la pagina è quella di B1.
+- **B9** · Marta, Luca, Sara e **Paola** (fino a lunedì 5 ottobre, 7 giorni esatti): la validità, i prodotti e i tre riepiloghi di ognuna come nelle attese (Luca 9, 11, 1); nessuna ha acquisti. Giulia con `?type=<test>`: triage in testa col bordo del primario.
+- **B10** · Elena, Davide, Nina e **Giorgio** vedono solo la card, col testo delle attese («Il tuo percorso finisce sabato 3 ottobre, …»): zero pulsanti e link, zero chiamate a `booster-checkout`. `B10-*.png`.
+- **B11** · le Home di Nina e Giorgio finiscono con «Per altri crediti scrivi al tuo coach.» come testo, senza link allo Store né «Acquista». Prenota non ha link allo Store; il foglio della PT esaurita di Giorgio dice «Per altre sessioni scrivi al tuo coach.» senza «Acquista un Booster».
+  - `giro05-cowork.mjs` con le attese aggiornate (in `attese-browser-cli-05-ripresa-06.json`: il fondo dei crediti di Nina e Giorgio, la riga PT di Giorgio) → **154 su 154**;
+  - con le attese originali della 05 → 104 su 107 nei testi, e cadono proprio quelle tre.
+- **B12** · a 1440 «Attività clienti» mostra «Acquisto Booster», «Giulia Bianchi · +3 Sessione PT», `Sparkles` e «· Apri il profilo». Il clic chiama `mark_notification_read` con quell'id e apre `/trainer/clients/<Giulia>`. La `booking.created` apre `/trainer/calendar?date=2026-09-30`. A 390 il foglio «Notifiche» ha titolo e testo, e il tocco apre il profilo.
+- **B13** · a 320 niente scorrimento orizzontale per le nove persone, per Vera e per i due fogli. A 1280 la colonna è di 560. Nessun `fixed`; al più un pulsante pieno per card. I contrasti, misurati sui colori dipinti: l'icona PT 4,55:1, l'icona del test 10,28:1 (il primario), il bianco di «Più conveniente» 11,26:1.
+- **B14** · il focus: con «Indietro», Esc e trascinamento (orologio vero, per vaul) torna sull'«Acquista» che ha aperto; chiuso l'esito va sull'`h1`; mentre «Paga» aspetta resta sul pulsante.
+- **B15** · il resto non cambia:
+  - `giro-prenota.mjs` (02) → **82 su 82**;
+  - `giro-sessioni.mjs` (03) → **78 su 78**, col B7 aggiornato come nella 05 (`aria-disabled`; la copia di `app/` dava 57 e si fermava al clic su «Riprova»);
+  - `giro04.mjs` (04) → **103 su 104**. Il suo B9 è rosso con le differenze giuste nell'ordine della griglia:
+    `KO  B9 · le differenze: … — {"diffs":[{"day":"Mercoledì 30 settembre","plus":["09:00","11:00"],"minus":["11:15"]},{"day":"Lunedì 12 ottobre","plus":[],"minus":["09:00","15:00","18:00","10:00","11:00","16:00","17:00"]}],"giorni":12}`
+    Con gli orari ordinati (`giro04-ordinati.mjs`, due `.sort()`) è verde (§11);
+  - `cattura06.mjs` sulla base `a9bf1de` e sul ramo, con gli stessi dati e la stessa ora:
+    - il Profilo ha le stesse due varianti (811 caratteri ×4 e 837 ×1 su cinque corse, la corsa nota della base);
+    - Notifiche ha lo stesso testo;
+    - `/trainer` a 1440 e a 390 è identico **byte per byte** (`51a6cba2…`, `c1156f28…`).
+- **B16** · zero richieste esterne bloccate e zero funzioni server, in tutti i giri. La pagina di Stripe è intercettata una volta (B3). Le chiamate registrate dal finto: `booster-checkout` POST `{"package_type":"single"}` due volte in B3 e sei in B4, altrimenti mai; `mark_notification_read` due in B12; le letture di `booster_packs` due a pagina (lo Store e i titoli della shell); quelle di `extra_credits` 13 in B6 e 11 in B7.
+- **B17** · nella mia copia, una persona come Vera (fisso, solo il blocco dal 01/09 al 28/09):
+  - lo Store mostra solo la card «Il tuo percorso finisce oggi, e nell'ultima settimana di un percorso i Booster non si acquistano. Per una sessione in più, o per continuare, scrivi al tuo coach.», senza pulsanti;
+  - la Home non ha «Acquista» né link allo Store.
+
+## 9 · NON FATTO
+
+- `deno check` delle due funzioni: si ferma sui pacchetti `npm:` (nel repo `stripe` non c'è, e non ho scaricato niente). C12 l'ho fatto con `bun build`, che controlla sintassi e import, non i tipi. In più c'è la prova di fumo con Deno (§7) e `deno check` del file condiviso.
+- Niente altro del prompt è rimasto indietro.
+
+## 10 · DIVERGENZE
+
+- **Il clone all'avvio** era su `main` (§1, passo 0).
+- **Il file condiviso.** Il ramo simulato aveva `currentBlock` più le due funzioni; qui c'è una decisione interna sola (`decide`). `boosterPurchase` è `null` esattamente quando `boosterRefusal` non lo è, per costruzione. `daysLeft` conta i giorni per `boosterValidity` e per `boosterSaleClosed`. I nomi, le firme e i testi del §4 sono quelli del contratto.
+- **Lo Store** ha `pathContinues`, interna: un «continua» solo per la card e per la validità (il ramo simulato lo scriveva due volte).
+- **C4** · `client-book.ts` è a +24 −13 sulla base: le 20 e 13 del ramo simulato, più quattro righe di commento.
+- **`booster-checkout` senza profilo:** `refusal` è `null` e la frase è quella del blocco in corso, come chiede il §4.4. Il ramo simulato usava `"percorso"`; la risposta è la stessa.
+- **Il commento del webhook** dice anche che a ogni tentativo la tipologia si cerca di nuovo. L'esempio del §4.5, «riceve sempre lo stesso esito», non è sempre vero (§1, passo 9).
+- **I test in più del prompt:**
+  - un test che lega `boosterPurchase` e `boosterRefusal` sui dieci rifiuti;
+  - per ognuna delle sedici persone, la card «fine» insieme al rifiuto «fine» del pagamento;
+  - `storePayError` con la frase nuova, da sola;
+  - la chiamata diretta `canBuyBooster(…, true, true)`.
+- **Il banco** (§8): il B7 di Sessioni aggiornato, le attese della Home della 05 aggiornate, il B9 della 04 confrontato anche in ordine, la variante (c) di B6, B6A ripetuta, e la persona di B17 solo nella mia copia.
+
+## 11 · TROVATI E NON TOCCATI
+
+- **Il file caduto nella suite** (una volta, con la RAM fisica a 0,1 GB): `FAIL src/lib/clock.test.ts > V8 · un'ora sola > useNow è definito una volta, in hooks/use-now.ts`, `Error: Test timed out in 5000ms.` (6485 ms). Il test legge tutti i file di `src`; rilanciato, è verde. Non tocca la 06.
+- **Il fuso dell'«oggi»** (revisore, punto 1; misurato). L'app conta i giorni col fuso del telefono (`toIsoDate(now)`, il contratto del §4.2), il pagamento con quello di Roma. Con un test temporaneo lanciato da PowerShell, il blocco che finisce domenica 04/10:
+  - a New York, domenica 27/09 alle 18:30 (a Roma già lunedì): l'app compra, il pagamento risponde «fine» (la frase arriva nel toast);
+  - a Tokyo, lunedì 28/09 alle 06:00 (a Roma ancora domenica): l'app mostra la card «fine», il pagamento venderebbe;
+  - a Roma d'accordo sempre.
+  Prima c'era lo stesso scarto sulla proroga. Da decidere con la 09: «oggi» di Roma anche nell'app?
+- **Il test «il pagamento decide come lo Store»** (revisore, punto 2) dà al pagamento `toIsoDate(NOW)`, non `romeDate`. Con NOW alle 10:40 il giorno è lo stesso nei tre fusi, quindi non può vedere il punto sopra.
+- **Con la card «fine» sparisce «Acquistati in questo blocco»** (revisore, punto 3; verificato in `client.store.tsx:344-345`). Chi ha comprato prima nello stesso blocco, nell'ultima settimana non vede più i suoi Booster nello Store (Home e Prenota li contano ancora). La pagina, per il §4.3, non doveva cambiare.
+- **La sessione di Stripe dura 24 ore** (revisore, punto 4): `booster-checkout` non passa `expires_at` a Stripe. Un checkout aperto con 7 giorni e pagato il giorno dopo chiude un acquisto nell'ultima settimana, che vale comunque fino a fine blocco (6 giorni). Era l'opzione (b) del cloud.
+- **Due blocchi sovrapposti con lo stesso numero** (revisore, punto 5; dati incoerenti): p1 dal 01/09 al 31/10 e p2 dal 14/09 all'11/10, oggi 05/10. App e pagamento scelgono p2 e danno «fine» («finisce domenica 11 ottobre»), ma p1 va avanti. Sono coerenti fra loro; il testo è falso.
+- **Il B9 di `giro04.mjs`** (Cowork, 01/10) confronta in ordine di ora. La griglia degli orari (`client-slot-groups.tsx`, 02) mette prima i «Consigliati» (09:00, 15:00, 18:00) e poi mattina e pomeriggio: le differenze sono giuste e il controllo è rosso. Basta ordinare `plus` e `minus` prima del confronto.
+- **Il B7 di `giro-sessioni.mjs`** in `app/` si aspetta ancora `disabled`.
+- **Il Profilo della base** ha ancora la sua corsa: a volte compare in più «Sessione PT 3 disponibili» (837 caratteri invece di 811), sulla base e sul ramo.
+
+## 12 · RESTA A NICOLÒ
+
+- Il merge della PR #84 nel ramo di integrazione `redesign/cliente-mobile`, dopo la verifica di Cowork.
 - Il giro del server del 02/10/2026 con la proposta di Cowork (`app/server-cli-06-booster-2026-10-01.sql`: `booster_packs.title` e `description`, `validate_booking_extra_credits` con `expires_at`).
-- Al rilascio su `main`, non prima del giro: la pubblicazione di `booster-checkout` e `stripe-webhook` e un acquisto di prova dal suo account.
+- Al rilascio su `main`, non prima del giro: la pubblicazione di `booster-checkout` e `stripe-webhook`, e un acquisto di prova dal suo account.
+- Le decisioni dei punti del revisore lasciati (§11):
+  - «oggi» di Roma anche nell'app;
+  - gli acquisti del blocco sotto la card «fine»;
+  - la scadenza della sessione di Stripe.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
