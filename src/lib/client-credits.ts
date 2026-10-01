@@ -8,7 +8,8 @@
 //   - getClientPools: una riga per tipologia di un blocco. Il disponibile del
 //     blocco è quello che il server scala, quantity_assigned − quantity_booked
 //     (getBlockCredits); quello degli extra segue la validità del brief (con
-//     crediti e non scaduti), che il server non guarda ancora: vedi sotto.
+//     crediti e non scaduti), che dal giro del server del 02/10/2026 guarda
+//     anche il server: vedi sotto.
 //     Svolte, prenotate e perse si contano dalle sessioni attribuite al blocco
 //     (block_id), mai per data;
 //   - getCreditWindows: i giorni in cui una tipologia si prenota. Ogni credito
@@ -252,10 +253,9 @@ export function getClientPools(input: ClientPoolsInput): ClientPools {
 
   // Gli extra valgono se hanno ancora crediti e non sono scaduti, come dice il
   // brief; senza tipologia non si prenotano (validate_booking_extra_credits la
-  // vuole). Il server la scadenza non la guarda ancora, e scala per primo
-  // l'extra che scade prima (20260827143053_…sql:84-88): uno scaduto con
-  // crediti rimasti verrebbe consumato per primo, e extraAvail non calerebbe.
-  // La scelta sulla validità dei Booster è della passata 06.
+  // vuole). Dal giro del server del 02/10/2026 anche il server scala solo un
+  // extra che vale alla data della sessione (expires_at >= scheduled_at), il
+  // più vicino a scadere: uno scaduto non si consuma più (decisioni 10 e 13).
   for (const e of input.extras ?? []) {
     const left = e.quantity - e.quantity_booked;
     if (!e.event_type_id || left <= 0) continue;

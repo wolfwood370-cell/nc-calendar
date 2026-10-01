@@ -22,7 +22,10 @@
 //   - spostando, reschedule_booking riprende il credito allo stesso modo
 //     (:214-231) e riscrive block_id (:253-255), che validate_client_booking_update
 //     vieta al cliente: con crediti della tipologia in un blocco precedente lo
-//     spostamento fallisce. E la scadenza degli extra non la guarda nessuno.
+//     spostamento fallisce. La scadenza degli extra, dal giro del server del
+//     02/10/2026, la guarda l'inserimento (validate_booking_extra_credits) e non
+//     lo spostamento: reschedule_booking non la guarda, e Sposta per una
+//     sessione senza blocco apre i giorni da oggi a oggi + 14 (getMoveWindow).
 // Le soglie delle 24 ore sono invece già del server: validate_client_booking_update
 // rifiuta lo spostamento di una sessione che inizia prima di now() + 24 ore, e
 // cancel_booking segna tardivo l'annullamento da now() >= inizio − 24 ore. Il

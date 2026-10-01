@@ -361,7 +361,8 @@ export function useClientExtraCredits(clientId?: string) {
     queryKey: ["extra_credits", "client", clientId],
     enabled: !!clientId,
     queryFn: async (): Promise<ExtraCreditRow[]> => {
-      // Nessun filtro sulla scadenza: i crediti non scadono più.
+      // Nessun filtro sulla scadenza: la guardano le regole, sulla data della
+      // sessione (client-credits.ts per il cliente, credit-order.ts per il coach).
       const { data, error } = await supabase
         .from("extra_credits")
         .select(
