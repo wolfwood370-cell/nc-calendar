@@ -1,8 +1,10 @@
 // La regola condivisa dei Booster (passata 06): fino a quando valgono, il
-// giorno di Roma, la fine del giorno a Roma, il titolo del pacchetto e la
-// decisione del pagamento. Le attese sono le stesse a Roma, in UTC e a Los
-// Angeles: la regola non usa il fuso del processo. Il caso che lega il
-// pagamento allo Store, sulle quindici persone, è in client-store.test.ts.
+// giorno di Roma, la fine del giorno a Roma, il titolo del pacchetto, la
+// vendita chiusa nell'ultima settimana di un percorso che finisce (decisione
+// 14), il motivo del rifiuto e la decisione del pagamento. Le attese sono le
+// stesse a Roma, in UTC e a Los Angeles: la regola non usa il fuso del
+// processo. Il caso che lega il pagamento allo Store, sulle sedici persone, è
+// in client-store.test.ts.
 
 import { describe, expect, it } from "vitest";
 import {
@@ -11,11 +13,14 @@ import {
   boosterPackTitle,
   boosterPathAllowed,
   boosterPurchase,
+  boosterRefusal,
+  boosterSaleClosed,
   boosterValidity,
   endOfRomeDay,
   romeDate,
   type BoosterBlock,
   type BoosterClient,
+  type BoosterRefusal,
 } from "../../supabase/functions/_shared/booster-validity";
 
 describe("le costanti", () => {
@@ -46,6 +51,24 @@ describe("boosterValidity", () => {
       expect(boosterValidity({ today, blockEnd, continues })).toEqual({ until, extended });
     },
   );
+});
+
+describe("boosterSaleClosed: l'ultima settimana di un percorso che finisce (decisione 14)", () => {
+  it.each([
+    // 7 giorni esatti: si vende ancora.
+    ["2026-09-28", "2026-10-05", false, false],
+    ["2026-09-28", "2026-10-04", false, true],
+    ["2026-09-28", "2026-10-04", true, false],
+    // L'ultimo giorno.
+    ["2026-09-28", "2026-09-28", false, true],
+    ["2026-09-28", "2026-09-28", true, false],
+    // Un blocco già finito non è l'ultima settimana.
+    ["2026-09-28", "2026-09-27", false, false],
+    ["2026-12-28", "2027-01-03", false, true],
+    ["2026-12-28", "2027-01-04", false, false],
+  ])("oggi %s, fine %s, continua %s → chiusa %s", (today, blockEnd, continues, closed) => {
+    expect(boosterSaleClosed({ today, blockEnd, continues })).toBe(closed);
+  });
 });
 
 describe("romeDate: l'«oggi» del server", () => {
@@ -155,6 +178,8 @@ describe("boosterPurchase", () => {
       ],
       buy("x2", "2026-10-18", false),
     ],
+    // Il blocco dopo annullato non fa continuare il percorso: 6 giorni alla
+    // fine, l'ultima settimana (decisione 14).
     [
       "dopo annullato",
       FIXED,
@@ -162,7 +187,7 @@ describe("boosterPurchase", () => {
         blk("b1", 1, "2026-09-07", "2026-10-04"),
         blk("b2", 2, "2026-10-05", "2026-11-01", "cancelled"),
       ],
-      buy("b1", "2026-10-04", false),
+      null,
     ],
     [
       "dopo con lo stesso numero",
@@ -185,23 +210,33 @@ describe("boosterPurchase", () => {
       [blk("d1", 1, "2026-09-07", "2026-10-04")],
       buy("d1", "2026-11-03", true),
     ],
-    [
-      "abbonamento senza rinnovo",
-      RECURRING,
-      [blk("d1", 1, "2026-09-07", "2026-10-04")],
-      buy("d1", "2026-10-04", false),
-    ],
+    // Senza rinnovo e senza il mese dopo il percorso finisce: l'ultima settimana.
+    ["abbonamento senza rinnovo", RECURRING, [blk("d1", 1, "2026-09-07", "2026-10-04")], null],
+    // Il rinnovo automatico conta solo per l'abbonamento: l'ultima settimana.
     [
       "fisso col rinnovo acceso",
       { ...FIXED, auto_renew_blocks: true },
       [blk("f1", 1, "2026-09-07", "2026-10-04")],
-      buy("f1", "2026-10-04", false),
+      null,
     ],
     [
       "finisce oggi",
       FIXED,
       [blk("g1", 1, "2026-09-01", "2026-09-28"), blk("g2", 2, "2026-09-29", "2026-10-26")],
       buy("g1", "2026-10-28", true),
+    ],
+    [
+      "l'ultimo giorno, senza il blocco dopo",
+      FIXED,
+      [blk("g1", 1, "2026-09-01", "2026-09-28")],
+      null,
+    ],
+    // 7 giorni esatti: si vende ancora, fino alla fine del blocco.
+    [
+      "7 giorni esatti, senza il blocco dopo",
+      FIXED,
+      [blk("s1", 1, "2026-09-07", "2026-10-05")],
+      buy("s1", "2026-10-05", false),
     ],
     [
       "finito ieri",
@@ -238,6 +273,12 @@ describe("boosterPurchase", () => {
     expect(boosterPurchase(client, blocks, TODAY)).toEqual(want);
   });
 
+  it("7 giorni esatti: la scadenza è la fine del blocco, senza proroga", () => {
+    expect(
+      boosterPurchase(FIXED, [blk("s1", 1, "2026-09-07", "2026-10-05")], TODAY)?.expiresAt,
+    ).toBe("2026-10-05T21:59:59.999Z");
+  });
+
   it("le scadenze: l'ultimo istante del giorno a Roma, d'estate e d'inverno", () => {
     expect(
       boosterPurchase(FIXED, [blk("x2", 2, "2026-09-21", "2026-10-18")], TODAY)?.expiresAt,
@@ -270,5 +311,69 @@ describe("boosterPurchase", () => {
     expect(
       boosterPurchase(FIXED, [blk("t1", 1, "2026-09-14T00:00:00", "2026-10-11T00:00:00")], TODAY),
     ).toEqual(buy("t1", "2026-10-11", false));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Il motivo del rifiuto (il 400 di booster-checkout)
+// ---------------------------------------------------------------------------
+
+describe("boosterRefusal", () => {
+  const TODAY = "2026-09-28";
+  const CASES: [string, BoosterClient, BoosterBlock[], BoosterRefusal | null][] = [
+    ["compra", FIXED, [blk("o1", 1, "2026-09-14", "2026-10-11")], null],
+    [
+      "archiviato",
+      { ...FIXED, status: "archived" },
+      [blk("a1", 1, "2026-09-14", "2026-10-11")],
+      "percorso",
+    ],
+    [
+      "PT Pack",
+      { ...FIXED, pack_label: "Pacchetto 3 sessioni" },
+      [blk("k1", 1, "2026-09-14", "2026-10-11")],
+      "percorso",
+    ],
+    ["libero, senza blocchi", { ...FIXED, path_type: "free" }, [], "percorso"],
+    [
+      "solo un blocco che deve iniziare",
+      FIXED,
+      [blk("n1", 1, "2026-10-05", "2026-11-01")],
+      "blocco",
+    ],
+    ["l'ultima settimana", FIXED, [blk("f1", 1, "2026-09-07", "2026-10-04")], "fine"],
+    ["l'ultimo giorno", FIXED, [blk("g1", 1, "2026-09-01", "2026-09-28")], "fine"],
+    [
+      "l'ultima settimana, col blocco dopo",
+      FIXED,
+      [blk("e1", 1, "2026-09-07", "2026-10-04"), blk("e2", 2, "2026-10-05", "2026-11-01")],
+      null,
+    ],
+    [
+      "l'ultima settimana di un abbonamento col rinnovo",
+      { ...RECURRING, auto_renew_blocks: true },
+      [blk("d1", 1, "2026-09-07", "2026-10-04")],
+      null,
+    ],
+    [
+      "l'ultima settimana, col blocco dopo annullato",
+      FIXED,
+      [
+        blk("b1", 1, "2026-09-07", "2026-10-04"),
+        blk("b2", 2, "2026-10-05", "2026-11-01", "cancelled"),
+      ],
+      "fine",
+    ],
+  ];
+
+  it.each(CASES)("%s", (_name, client, blocks, want) => {
+    expect(boosterRefusal(client, blocks, TODAY)).toBe(want);
+  });
+
+  it("il pagamento vende esattamente quando non c'è un motivo per rifiutare", () => {
+    for (const [name, client, blocks] of CASES) {
+      const refused = boosterRefusal(client, blocks, TODAY) !== null;
+      expect([name, boosterPurchase(client, blocks, TODAY) === null]).toEqual([name, refused]);
+    }
   });
 });

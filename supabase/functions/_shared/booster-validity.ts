@@ -1,6 +1,6 @@
 // ----------------------------------------------------------------------------
 // Booster: fino a quando valgono e chi li compra (lato cliente, passata 06,
-// audit S1 e S5; decisioni 10 e 13)
+// audit S1 e S5; decisioni 10, 13 e 14)
 // ----------------------------------------------------------------------------
 // Una regola sola per lo Store e per il pagamento: la data che lo Store mostra
 // prima di pagare è quella che booster-checkout scrive nei metadati di Stripe
@@ -12,6 +12,9 @@
 //     giorni, e quei 30 giorni il cliente li pagherebbe senza poterli usare;
 //   - compra il cliente attivo, con un percorso fisso senza pack_label (il PT
 //     Pack no) o con un abbonamento, e con un blocco in corso oggi;
+//   - nell'ultima settimana di un percorso che finisce (da 0 a 6 giorni alla
+//     fine del blocco, e il percorso non continua) non compra nessuno
+//     (decisione 14): così un Booster vale sempre almeno 7 giorni;
 //   - la scadenza è l'ultimo istante di quel giorno a Roma, così il giorno
 //     letto dall'app è lo stesso a Roma, in UTC e a Los Angeles.
 // Senza import e senza niente che sia solo del server o solo del browser
@@ -41,6 +44,11 @@ function addDays(day: string, days: number): string {
   return new Date(dayMs(day) + days * DAY_MS).toISOString().slice(0, 10);
 }
 
+/** I giorni di calendario da `today` alla fine del blocco: 0 l'ultimo giorno, meno di 0 se è finito. */
+function daysLeft(today: string, blockEnd: string): number {
+  return Math.round((dayMs(blockEnd) - dayMs(today)) / DAY_MS);
+}
+
 /**
  * Fino a quando vale un Booster comprato oggi: la fine del blocco, o 30
  * giorni dopo se alla fine mancano meno di 7 giorni (da 0 a 6, l'ultimo
@@ -57,9 +65,30 @@ export function boosterValidity({
   continues: boolean;
 }): { until: string; extended: boolean } {
   const end = blockEnd.slice(0, 10);
-  const left = Math.round((dayMs(end) - dayMs(today)) / DAY_MS);
+  const left = daysLeft(today, end);
   const extended = continues && left >= 0 && left < BOOSTER_SHORT_BLOCK_DAYS;
   return { until: extended ? addDays(end, BOOSTER_EXTENSION_DAYS) : end, extended };
+}
+
+/**
+ * Decisione 14: nell'ultima settimana di un percorso che finisce il Booster
+ * non si vende. Vero quando il percorso non continua e alla fine del blocco
+ * mancano da 0 a 6 giorni, contati come in boosterValidity: il Booster
+ * varrebbe solo fino alla fine del blocco, e con le 24 ore di preavviso di
+ * Prenota l'ultimo giorno non si prenota più. Con 7 giorni esatti si vende
+ * ancora; un blocco già finito non è l'ultima settimana.
+ */
+export function boosterSaleClosed({
+  today,
+  blockEnd,
+  continues,
+}: {
+  today: string;
+  blockEnd: string;
+  continues: boolean;
+}): boolean {
+  const left = daysLeft(today, blockEnd);
+  return !continues && left >= 0 && left < BOOSTER_SHORT_BLOCK_DAYS;
 }
 
 const ROME_DAY = new Intl.DateTimeFormat("en-US", {
@@ -195,26 +224,67 @@ function bySequence(a: BoosterBlock, b: BoosterBlock): number {
 }
 
 /**
- * La decisione del pagamento, la stessa dello Store: null se il cliente non
- * compra (percorso, stato, nessun blocco in corso oggi); altrimenti il blocco
- * in corso (il primo valido che contiene oggi, nell'ordine di sequence_order
- * e, a pari numero, dall'inizio più recente) e fino a quando vale il Booster.
- * Il percorso continua se un altro blocco valido viene dopo il blocco in
- * corso, oppure se è un abbonamento col rinnovo automatico acceso.
+ * Perché il pagamento non vende: «percorso» (archiviato, libero, PT Pack,
+ * senza percorso), «blocco» (nessun blocco in corso oggi), «fine» (l'ultima
+ * settimana di un percorso che finisce, decisione 14).
+ */
+export type BoosterRefusal = "percorso" | "blocco" | "fine";
+
+type BoosterDecision =
+  | { refusal: BoosterRefusal }
+  | { refusal: null; current: BoosterBlock; continues: boolean };
+
+/**
+ * Una decisione sola per boosterRefusal e boosterPurchase: il blocco in corso
+ * è il primo valido che contiene oggi, nell'ordine di sequence_order e, a
+ * pari numero, dall'inizio più recente; il percorso continua se un altro
+ * blocco valido viene dopo il blocco in corso, oppure se è un abbonamento col
+ * rinnovo automatico acceso.
+ */
+function decide(
+  client: BoosterClient,
+  blocks: readonly BoosterBlock[],
+  today: string,
+): BoosterDecision {
+  if (!boosterPathAllowed(client)) return { refusal: "percorso" };
+  const valid = blocks.filter((b) => b.status !== "cancelled");
+  const current = [...valid]
+    .sort(bySequence)
+    .find((b) => day10(b.start_date) <= today && today <= day10(b.end_date));
+  if (!current) return { refusal: "blocco" };
+  const renews = client.path_type === "recurring" && client.auto_renew_blocks === true;
+  const continues = renews || valid.some((b) => b.id !== current.id && comesAfter(b, current));
+  if (boosterSaleClosed({ today, blockEnd: day10(current.end_date), continues })) {
+    return { refusal: "fine" };
+  }
+  return { refusal: null, current, continues };
+}
+
+/**
+ * Il motivo per cui il pagamento non vende (il primo che vale: il percorso,
+ * il blocco in corso, l'ultima settimana); null se il cliente compra.
+ */
+export function boosterRefusal(
+  client: BoosterClient,
+  blocks: readonly BoosterBlock[],
+  today: string,
+): BoosterRefusal | null {
+  return decide(client, blocks, today).refusal;
+}
+
+/**
+ * La decisione del pagamento, la stessa dello Store: null quando
+ * boosterRefusal non è null; altrimenti il blocco in corso e fino a quando
+ * vale il Booster.
  */
 export function boosterPurchase(
   client: BoosterClient,
   blocks: readonly BoosterBlock[],
   today: string,
 ): BoosterPurchase | null {
-  if (!boosterPathAllowed(client)) return null;
-  const valid = blocks.filter((b) => b.status !== "cancelled");
-  const current = [...valid]
-    .sort(bySequence)
-    .find((b) => day10(b.start_date) <= today && today <= day10(b.end_date));
-  if (!current) return null;
-  const renews = client.path_type === "recurring" && client.auto_renew_blocks === true;
-  const continues = renews || valid.some((b) => b.id !== current.id && comesAfter(b, current));
+  const decision = decide(client, blocks, today);
+  if (decision.refusal !== null) return null;
+  const { current, continues } = decision;
   const { until, extended } = boosterValidity({
     today,
     blockEnd: day10(current.end_date),
