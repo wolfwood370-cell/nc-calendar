@@ -149,9 +149,10 @@ Deno.serve(async (req) => {
           stripe_session: session.id,
         });
         // 400: Stripe ritenta ogni consegna che non riceve un 2xx (in
-        // produzione fino a tre giorni, in sandbox tre volte in qualche ora)
-        // e riceve sempre lo stesso esito. Il pagamento esiste ma il credito
-        // non si assegna senza intervento manuale.
+        // produzione fino a tre giorni, in sandbox tre volte in qualche ora),
+        // e a ogni tentativo la tipologia si cerca di nuovo: finché non si
+        // trova la risposta resta questa. Il pagamento esiste ma il credito
+        // non si assegna senza un intervento manuale.
         return new Response("Event type not resolved", { status: 400 });
       }
 
