@@ -219,11 +219,13 @@ function StorePage() {
   const success = search.booster === "success";
   const sessionParam = search.session ?? null;
   const [done, setDone] = useState<DoneState | null>(null);
+  const [rounds, setRounds] = useState(0);
   useEffect(() => {
-    if (success) setDone({ open: true, session: sessionParam, typeId: typeParam });
+    if (!success) return;
+    setDone({ open: true, session: sessionParam, typeId: typeParam });
+    setRounds(0);
   }, [success, sessionParam, typeParam]);
 
-  const [rounds, setRounds] = useState(0);
   const outcome =
     done && input
       ? storeOutcome({
