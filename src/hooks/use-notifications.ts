@@ -3,7 +3,8 @@
 // ----------------------------------------------------------------------------
 // Bound to the `notifications` table introduced in
 // supabase/migrations/20260524100000_notifications.sql. Writes happen
-// server-side (booking-notifications Edge Function with service role);
+// server-side (booking-notifications Edge Function with service role, and
+// stripe-webhook for the Booster purchases, passata 06);
 // the client only reads its own rows (RLS) and toggles read_at via the
 // mark_notification_read / mark_all_notifications_read RPCs.
 //
@@ -38,7 +39,25 @@ export interface BookingRescheduledPayload {
   session_label: string;
 }
 
-export type NotificationType = "booking.created" | "booking.rescheduled";
+/**
+ * Un cliente ha comprato un Booster (stripe-webhook, passata 06): la
+ * campanella apre il suo profilo.
+ */
+export interface BoosterPurchasedPayload {
+  client_id: string;
+  /** profiles.full_name dopo il trim, al più 200 caratteri, o «Cliente». */
+  client_name: string;
+  /** I crediti comprati, un intero da 1 in su. */
+  quantity: number;
+  /** Il nome della tipologia. */
+  session_label: string;
+  /** Il prezzo pagato, in euro (come extra_credits.price_paid). */
+  amount?: number;
+  /** booster_packs.package_type. */
+  package_type?: string | null;
+}
+
+export type NotificationType = "booking.created" | "booking.rescheduled" | "booster.purchased";
 
 export interface NotificationRow {
   id: string;

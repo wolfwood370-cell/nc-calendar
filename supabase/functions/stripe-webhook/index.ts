@@ -91,10 +91,10 @@ Deno.serve(async (req) => {
         return new Response("Invalid expires_at", { status: 400 });
       }
 
-      // Find the coach for this client
+      // Find the coach for this client (e il nome, per l'avviso al coach)
       const { data: profile } = await adminClient
         .from("profiles")
-        .select("coach_id")
+        .select("coach_id, full_name")
         .eq("id", client_id)
         .single();
 
@@ -110,17 +110,18 @@ Deno.serve(async (req) => {
       // "primo event_type del coach": meglio rifiutare l'evento (Stripe
       // ritenta) che accreditare la tipologia sbagliata.
       const metadataEventTypeId = (metadata as { event_type_id?: string }).event_type_id;
-      let eventType: { id: string } | null = null;
+      let eventType: { id: string; name: string } | null = null;
 
       if (metadataEventTypeId) {
         const { data: byId } = await adminClient
           .from("event_types")
-          .select("id, coach_id")
+          .select("id, coach_id, name")
           .eq("id", metadataEventTypeId)
           .maybeSingle();
         // verifica che l'event_type appartenga al coach del cliente
         if (byId && (byId as { coach_id: string }).coach_id === profile.coach_id) {
-          eventType = { id: (byId as { id: string }).id };
+          const found = byId as { id: string; name: string };
+          eventType = { id: found.id, name: found.name };
         } else {
           console.error("stripe-webhook: metadata event_type_id mismatch", {
             metadata_event_type_id: metadataEventTypeId,
@@ -132,12 +133,12 @@ Deno.serve(async (req) => {
       if (!eventType) {
         const { data: byName } = await adminClient
           .from("event_types")
-          .select("id")
+          .select("id, name")
           .eq("coach_id", profile.coach_id)
           .eq("name", event_type_title)
           .limit(1)
           .maybeSingle();
-        eventType = byName as { id: string } | null;
+        eventType = byName as { id: string; name: string } | null;
       }
 
       if (!eventType) {
@@ -174,6 +175,36 @@ Deno.serve(async (req) => {
         }
         console.error("Failed to insert extra_credits:", insertError);
         return new Response("Failed to insert extra credits", { status: 500 });
+      }
+
+      // Passata 06: l'avviso al coach nella campanella («Acquisto Booster»),
+      // solo dopo un inserimento riuscito (non per un evento doppione). Non
+      // blocca: i crediti sono già scritti, e una risposta non 2xx farebbe
+      // ripetere l'evento a Stripe. Il nome come in booking-notifications.
+      try {
+        const fullName = (profile as { full_name?: string | null }).full_name;
+        const clientName =
+          typeof fullName === "string" && fullName.trim().length > 0
+            ? fullName.trim().slice(0, 200)
+            : "Cliente";
+        const { error: notifyError } = await adminClient.from("notifications").insert({
+          recipient_id: profile.coach_id,
+          type: "booster.purchased",
+          payload: {
+            client_id,
+            client_name: clientName,
+            quantity: parsedQuantity,
+            session_label: eventType.name,
+            amount: session.amount_total ? session.amount_total / 100 : 0,
+            package_type: package_type ?? null,
+          },
+        });
+        if (notifyError) throw notifyError;
+      } catch (notifyErr) {
+        console.error("stripe-webhook: coach notification failed", {
+          stripe_payment_id: session.id,
+          error: notifyErr,
+        });
       }
 
       // LOW-1 (audit 2026-05-26): log strutturato invece di interpolazione
