@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   CreditUnavailableError,
   SessionChangedError,
@@ -288,7 +288,19 @@ describe("removeSession · annulla", () => {
     const A04 = "2026-10-04T21:59:59.999Z";
     const B03 = "2026-11-03T22:59:59.999Z";
     const IL20 = "2026-10-20T07:00:00.000Z";
-    const cancel = async (extras: Array<[id: string, expiresAt: string]>) => {
+    // L'orologio fermo al 1/10, prima di ogni scadenza dei casi: una regola che
+    // guardasse oggi invece della data della sessione cadrebbe anche dopo il 4/10.
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-10-01T08:00:00.000Z"));
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+    const cancel = async (
+      extras: Array<[id: string, expiresAt: string]>,
+      removal: "cancel" | "delete" = "cancel",
+    ) => {
       const db = memoryStore({
         sessions: [session({ block_id: null, scheduled_at: IL20 })],
         extras: extras.map(([id, expires_at]) => ({
@@ -302,7 +314,7 @@ describe("removeSession · annulla", () => {
       });
       const r = await removeSession(db.store, {
         sessionId: "s1",
-        removal: "cancel",
+        removal,
         now: new Date("2026-10-01T08:00:00.000Z"),
       });
       return { r, booked: (id: string) => db.extras.get(id)!.quantity_booked };
@@ -336,6 +348,21 @@ describe("removeSession · annulla", () => {
       expect(r.credit).toBe("none");
       expect(r.refunded).toBeNull();
       expect(booked("A")).toBe(1);
+    });
+
+    it("«Elimina» segue la stessa regola: il credito torna a B, non ad A scaduto", async () => {
+      const { r, booked } = await cancel(
+        [
+          ["A", A04],
+          ["B", B03],
+        ],
+        "delete",
+      );
+      expect(r.deletedAt).not.toBeNull();
+      expect(r.credit).toBe("refunded");
+      expect(r.refunded).toEqual({ kind: "extra", id: "B" });
+      expect(booked("A")).toBe(1);
+      expect(booked("B")).toBe(0);
     });
   });
 

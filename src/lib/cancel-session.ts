@@ -170,8 +170,9 @@ async function tryMoveCredit(store: SessionStore, ref: CreditRef, delta: 1 | -1)
 
 /**
  * Che ne è del credito: restituito, addebitato (`late_cancelled`), nessuno
- * (impegno personale, o nessun credito impegnato da restituire), oppure non
- * restituito per un errore.
+ * (impegno personale, nessun credito impegnato da restituire, o nessun extra
+ * impegnato che valga alla data della sessione), oppure non restituito per un
+ * errore.
  */
 export type CreditOutcome = "refunded" | "charged" | "none" | "failed";
 

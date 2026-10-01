@@ -442,7 +442,8 @@ export function createMemoryCalendar(db: MemDb): MemoryCalendar {
           return { id: b.id };
         });
       } catch (e) {
-        throw new Error(coachWriteError(e as PgError));
+        // L'errore del trigger resta in cause: i test leggono la sua frase.
+        throw new Error(coachWriteError(e as PgError), { cause: e });
       }
     },
     async deleteGoogleEvent(gid) {

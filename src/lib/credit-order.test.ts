@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   extraValidAt,
   pickConsumeAllocation,
@@ -198,6 +198,15 @@ describe("crediti extra: la scadenza", () => {
   const A11 = "2026-10-11T21:59:59.999Z";
   /** Martedì 20/10 alle 9:00 di Roma. */
   const IL20 = "2026-10-20T07:00:00.000Z";
+  // L'orologio fermo al 1/10, prima di ogni scadenza dei casi: una regola che
+  // guardasse oggi invece della data della sessione cadrebbe anche dopo l'11/10.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-01T08:00:00.000Z"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
   const one = (id: string, expires_at: string, quantity_booked = 0): OrderedExtraCredit => ({
     id,
     event_type_id: "pt",

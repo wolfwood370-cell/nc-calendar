@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CreditUnavailableError, SessionChangedError, removeSession } from "@/lib/cancel-session";
 import {
   NO_CREDIT_TO_PUT_BACK,
@@ -293,23 +293,35 @@ describe("«Rimetti in agenda»", () => {
 
   describe("senza blocco: solo un extra che vale alla data della sessione (06b)", () => {
     // Le scadenze come le scrive stripe-webhook, la fine di un giorno di Roma:
-    // A a fine domenica 4/10, B a fine martedì 3/11. La sessione annullata è
-    // di martedì 20/10 alle 9:00, messa così com'è (creata, la prenderebbe il
-    // trigger dell'archivio).
+    // A a fine domenica 4/10, B a fine martedì 3/11. La sessione è di martedì
+    // 20/10 alle 9:00, messa così com'è (creata, la prenderebbe il trigger
+    // dell'archivio): annullata, oppure in programma per Annulla e Scollega.
     const A04 = "2026-10-04T21:59:59.999Z";
     const B03 = "2026-11-03T22:59:59.999Z";
     const IL20 = "2026-10-20T07:00:00.000Z";
-    const veraWith = (extras: Array<[id: string, expiresAt: string]>) => {
+    // L'orologio fermo al 1/10, prima di ogni scadenza dei casi: una regola che
+    // guardasse oggi invece della data della sessione cadrebbe anche dopo il 4/10.
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-10-01T08:00:00.000Z"));
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+    const veraWith = (
+      extras: Array<[id: string, expiresAt: string, booked?: number]>,
+      status: "cancelled" | "scheduled" = "cancelled",
+    ) => {
       const mem = createMemoryProfile({
         types: [TYPES.pt],
         blocks: [],
         allocations: [],
-        extras: extras.map(([id, expires_at]) => ({
+        extras: extras.map(([id, expires_at, booked = 0]) => ({
           id,
           client_id: "vera",
           event_type_id: "pt",
           quantity: 1,
-          quantity_booked: 0,
+          quantity_booked: booked,
           expires_at,
         })),
         bookings: [],
@@ -319,7 +331,7 @@ describe("«Rimetti in agenda»", () => {
         client_id: "vera",
         coach_id: COACH,
         event_type_id: "pt",
-        status: "cancelled",
+        status,
         scheduled_at: IL20,
       });
       return mem;
@@ -344,6 +356,40 @@ describe("«Rimetti in agenda»", () => {
       expect((err as Error).message).toBe(NO_CREDIT_TO_PUT_BACK);
       expect(row(mem, "s").status).toBe("cancelled");
       expect(mem.extraBooked("A")).toBe(0);
+    });
+
+    it("Annulla e poi Rimetti in agenda: il credito torna a B e si riprende da B", async () => {
+      const mem = veraWith(
+        [
+          ["A", A04, 1],
+          ["B", B03, 1],
+        ],
+        "scheduled",
+      );
+      const removed = await removeSession(mem.store, {
+        sessionId: "s",
+        removal: "cancel",
+        now: new Date("2026-10-01T08:00:00.000Z"),
+      });
+      expect(removed.refunded).toEqual({ kind: "extra", id: "B" });
+      expect([mem.extraBooked("A"), mem.extraBooked("B")]).toEqual([1, 0]);
+      const r = await putBackInAgenda(mem.store, "s");
+      expect(r.taken).toEqual({ kind: "extra", id: "B" });
+      expect([mem.extraBooked("A"), mem.extraBooked("B")]).toEqual([1, 1]);
+    });
+
+    it("«Scollega dal profilo»: il credito torna a B, non ad A scaduto", async () => {
+      const mem = veraWith(
+        [
+          ["A", A04, 1],
+          ["B", B03, 1],
+        ],
+        "scheduled",
+      );
+      const r = await unlinkFromClient(mem.store, "s", "vera");
+      expect(r.creditReturned).toBe(true);
+      expect(row(mem, "s").client_id).toBeNull();
+      expect([mem.extraBooked("A"), mem.extraBooked("B")]).toEqual([1, 0]);
     });
   });
 });

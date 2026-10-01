@@ -17,8 +17,11 @@
 // extra_credits della tipologia, per expires_at crescente, e un extra vale
 // solo per una sessione che inizia entro la sua scadenza (extraValidAt): per
 // scalarlo, come validate_booking_extra_credits dal giro del server del
-// 02/10/2026 (decisioni 10 e 13), e per restituirlo, perché la sessione l'ha
-// pagata un extra che valeva alla sua data, e uno scaduto prima non serve più.
+// 02/10/2026 (decisioni 10 e 13); per restituirlo, come lo stesso giro prevede
+// per cancel_booking, perché da quel giro una sessione inserita la paga un
+// extra che vale alla sua data. reschedule_booking la scadenza non la guarda
+// ancora: una sessione spostata oltre quella del suo extra non trova un extra
+// a cui restituire il credito.
 // ----------------------------------------------------------------------------
 
 /** Campi della sessione che decidono quale credito toccare. */
@@ -205,9 +208,10 @@ export function extraValidAt(
 /**
  * Credito extra a cui restituire il credito: stessa tipologia, già impegnato,
  * che vale alla data della sessione (extraValidAt), scadenza più vicina. Dal
- * giro del server del 02/10/2026 una sessione la paga solo un extra che vale
- * alla sua data: restituire il credito a uno scaduto prima lascerebbe usato
- * quello valido, e il cliente perderebbe un credito.
+ * giro del server del 02/10/2026 l'inserimento scala solo un extra che vale
+ * alla data: restituire il credito a uno scaduto prima lascerebbe usato quello
+ * che ha pagato la sessione. null anche per una sessione spostata oltre la
+ * scadenza del suo extra (reschedule_booking non la guarda ancora).
  */
 export function pickRefundExtraCredit(
   eventTypeId: string | null,

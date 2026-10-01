@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   assignEventToClient,
   availableCredits,
@@ -133,7 +133,22 @@ const B03 = "2026-11-03T22:59:59.999Z";
 /** Martedì 20/10 alle 9:00 di Roma. */
 const IL20 = "2026-10-20T07:00:00.000Z";
 
+/**
+ * L'orologio fermo al 1/10, prima di ogni scadenza dei casi: una regola che
+ * guardasse oggi invece della data della sessione cadrebbe anche dopo il 4/10.
+ */
+function fixClockBeforeExpiries() {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-01T08:00:00.000Z"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+}
+
 describe("availableCredits: gli extra che valgono alla data della sessione", () => {
+  fixClockBeforeExpiries();
   const at = (scheduledAt: string) => {
     const c = availableCredits({
       blocks: [],
@@ -363,6 +378,7 @@ describe("assignEventToClient", () => {
   });
 
   describe("cliente senza blocchi: solo un extra che vale alla data dell'evento (06b)", () => {
+    fixClockBeforeExpiries();
     const extra = (id: string, expires_at: string) => ({
       id,
       client_id: "sara",

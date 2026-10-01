@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { removeSession } from "@/lib/cancel-session";
 import { notOnGoogle } from "@/lib/calendar-events";
 import {
@@ -315,10 +315,26 @@ const B03 = "2026-11-03T22:59:59.999Z";
 const A11 = "2026-10-11T21:59:59.999Z";
 const IL20 = "2026-10-20T07:00:00.000Z";
 const NEW_EXTRA_REFUSAL = "Il credito extra non vale per questa data: scade prima della sessione.";
+const OUT_OF_CREDIT =
+  "Credito esaurito per questa tipologia di sessione. Acquista un Booster per continuare.";
 const NOT_SAVED =
   "Il cliente non ha più crediti per questa tipologia: la sessione non è stata salvata.";
 
 type VeraExtra = [id: string, expiresAt: string];
+
+/**
+ * L'orologio fermo al 1/10, prima di ogni scadenza dei casi: una regola che
+ * guardasse oggi invece della data della sessione cadrebbe anche dopo l'11/10.
+ */
+function fixClockBeforeExpiries() {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-01T08:00:00.000Z"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+}
 
 function vera(extras: VeraExtra[]) {
   return createMemoryCalendar({
@@ -340,10 +356,14 @@ function vera(extras: VeraExtra[]) {
 const usedOf = (mem: MemoryCalendar) =>
   Object.fromEntries(mem.db.extras.map((x) => [x.id, x.quantity_booked]));
 
-/** Una PT di un'ora per Vera, inserita come la scrive il dialog: l'esito e i crediti usati. */
+/**
+ * Una PT di un'ora per Vera, inserita come la scrive il dialog: l'esito (col
+ * messaggio per il coach), i crediti usati e, se rifiutata, la frase del trigger.
+ */
 async function insertPt(when: string, extras: VeraExtra[]) {
   const mem = vera(extras);
   let outcome: string;
+  let trigger: string | undefined;
   try {
     await mem.store.insertSession({
       coach_id: COACH,
@@ -362,13 +382,21 @@ async function insertPt(when: string, extras: VeraExtra[]) {
     outcome = "prenotata";
   } catch (e) {
     outcome = `rifiutata: ${(e as Error).message}`;
+    trigger = ((e as Error).cause as Error | undefined)?.message;
   }
-  return { outcome, used: usedOf(mem) };
+  return { outcome, used: usedOf(mem), trigger };
 }
 
 describe("archivio · il credito extra paga solo una sessione entro la sua scadenza (06b)", () => {
+  fixClockBeforeExpiries();
   const booked = (used: Record<string, number>) => ({ outcome: "prenotata", used });
-  const refused = (used: Record<string, number>) => ({ outcome: `rifiutata: ${NOT_SAVED}`, used });
+  // Per il coach le due frasi del trigger sono lo stesso messaggio: la frase
+  // si legge a parte, così si vede quale delle due ha detto l'archivio.
+  const refused = (used: Record<string, number>, trigger: string) => ({
+    outcome: `rifiutata: ${NOT_SAVED}`,
+    used,
+    trigger,
+  });
 
   it("1 · dentro la scadenza", async () => {
     expect(await insertPt("2026-10-10T07:00:00.000Z", [["A", A11]])).toEqual(booked({ A: 1 }));
@@ -383,11 +411,15 @@ describe("archivio · il credito extra paga solo una sessione entro la sua scade
   });
 
   it("3 · la mezzanotte dopo: rifiutata, niente scalato", async () => {
-    expect(await insertPt("2026-10-11T22:00:00.000Z", [["A", A11]])).toEqual(refused({ A: 0 }));
+    expect(await insertPt("2026-10-11T22:00:00.000Z", [["A", A11]])).toEqual(
+      refused({ A: 0 }, NEW_EXTRA_REFUSAL),
+    );
   });
 
   it("4 · dopo la scadenza: rifiutata, niente scalato", async () => {
-    expect(await insertPt("2026-10-12T07:00:00.000Z", [["A", A11]])).toEqual(refused({ A: 0 }));
+    expect(await insertPt("2026-10-12T07:00:00.000Z", [["A", A11]])).toEqual(
+      refused({ A: 0 }, NEW_EXTRA_REFUSAL),
+    );
   });
 
   it("5 · A scaduto per quella data, B valido: scala B", async () => {
@@ -400,7 +432,7 @@ describe("archivio · il credito extra paga solo una sessione entro la sua scade
   });
 
   it("6 · nessun extra: rifiutata", async () => {
-    expect(await insertPt("2026-10-10T07:00:00.000Z", [])).toEqual(refused({}));
+    expect(await insertPt("2026-10-10T07:00:00.000Z", [])).toEqual(refused({}, OUT_OF_CREDIT));
   });
 
   it("7 · un extra del coach (2100) vale sempre", async () => {
@@ -415,6 +447,7 @@ describe("archivio · il credito extra paga solo una sessione entro la sua scade
 });
 
 describe("creazione · il credito previsto coincide con quello che prende l'archivio (06b)", () => {
+  fixClockBeforeExpiries();
   it("A scaduto per quella data, B valido: previsto B, creata con B", async () => {
     const mem = vera([
       ["A", A04],
