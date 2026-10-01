@@ -49,7 +49,7 @@
   9. `debf56f` Spunta la passata 06 in PIANO.md;
   10. `e57885e` Riscrive docs/ULTIMO-RITORNO.md per la passata 06 del lato cliente;
   11. `89c24ad` Store: le correzioni della revisione (passo 10);
-  12. il commit di questo file aggiornato («Aggiorna docs/ULTIMO-RITORNO.md con la revisione della passata 06»): il suo hash, quello finale del ramo, è nella risposta finale.
+  12. i commit di questo file aggiornato (`608c7c5` «Aggiorna docs/ULTIMO-RITORNO.md con la revisione della passata 06», poi due correzioni del testo): l'hash finale del ramo è nella risposta finale.
 - Ogni commit compila per quello che si può misurare qui: Prettier e il typecheck parziale sui file del commit; il typecheck vero non gira nel cloud.
 - **PR** verso `redesign/cliente-mobile`, aperta e non unita, con questo file come descrizione: il numero è nella risposta finale (un file non contiene il numero della PR che lo descrive).
 
