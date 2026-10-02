@@ -614,8 +614,10 @@ export interface BookingErrorLike {
 /**
  * L'errore dell'inserimento, nel foglio. 23P01: il vincolo di sovrapposizione
  * del coach. P0001 dei crediti: i messaggi di validate_booking_block_allocation
- * e validate_booking_extra_credits cominciano tutti con «Credito». Ogni altro
- * errore col suo messaggio, anche un P0001 che non parla di crediti.
+ * e validate_booking_extra_credits cominciano con «Credito», salvo quello
+ * dell'extra che scade prima della sessione (dal giro del server del
+ * 02/10/2026), che dice già cosa succede e resta com'è. Ogni altro errore col
+ * suo messaggio, anche un P0001 che non parla di crediti.
  */
 export function bookingErrorMessage(
   err: BookingErrorLike | null | undefined,

@@ -10,7 +10,8 @@
 //     (settimana contata dall'inizio del blocco passato) e può spostare
 //     block_id sul blocco del credito; senza credito rifiuta;
 //   - validate_booking_extra_credits (:71-95): senza block_id prende un
-//     credito extra della tipologia; senza credito rifiuta.
+//     credito extra della tipologia, dal giro del server del 02/10/2026 solo
+//     uno che vale alla data della sessione; senza credito rifiuta.
 // La riga ha la forma di quella del cliente (use-book-confirm.ts:179-194):
 // block_id del blocco che contiene la data quando lì il trigger troverà un
 // credito, altrimenti vuoto per un credito extra. Prima di salvare il dialog
@@ -97,7 +98,7 @@ export interface CreditPlanInput {
  *   1. se un blocco contiene la data, quello che validate_booking_block_allocation
  *      sceglierebbe fra tutti i blocchi del cliente;
  *   2. altrimenti, o se nei blocchi non c'è capienza, un credito extra della
- *      tipologia (validate_booking_extra_credits);
+ *      tipologia che vale alla data (validate_booking_extra_credits);
  *   3. null: nessun credito, il server rifiuterebbe.
  */
 export function planSessionCredit(input: CreditPlanInput): CreditPlan | null {
@@ -115,7 +116,7 @@ export function planSessionCredit(input: CreditPlanInput): CreditPlan | null {
     );
     if (allocation) return { source: "block", refBlockId: ref.id, allocation };
   }
-  const credit = pickConsumeExtraCredit(input.eventTypeId, input.extras);
+  const credit = pickConsumeExtraCredit(input.eventTypeId, input.extras, input.scheduledAt);
   return credit ? { source: "extra", credit } : null;
 }
 

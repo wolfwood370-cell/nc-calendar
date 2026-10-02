@@ -12,7 +12,8 @@
 //   - l'evento Google si cancella sempre; `deleted_at` resta vuoto, così la
 //     sessione resta nello storico come «Annullata»;
 //   - il credito torna all'allocazione che sceglierebbe il server
-//     (credit-order.ts); senza blocco, agli extra_credits;
+//     (credit-order.ts); senza blocco, a un extra_credits che vale alla data
+//     della sessione (pickRefundExtraCredit), mai a uno scaduto prima;
 //   - «Ripristina» rimette tutto com'era: stato, credito sulla stessa
 //     allocazione, evento Google ricreato con il nuovo id sulla sessione.
 // «Elimina» (sessioni inserite per errore) usa lo stesso percorso con
@@ -154,6 +155,7 @@ export async function findCreditToReturn(
   const e = pickRefundExtraCredit(
     s.event_type_id,
     await store.listExtraCredits(s.client_id, s.event_type_id),
+    s.scheduled_at,
   );
   return e ? { kind: "extra", id: e.id } : null;
 }
@@ -168,8 +170,9 @@ async function tryMoveCredit(store: SessionStore, ref: CreditRef, delta: 1 | -1)
 
 /**
  * Che ne è del credito: restituito, addebitato (`late_cancelled`), nessuno
- * (impegno personale, o nessun credito impegnato da restituire), oppure non
- * restituito per un errore.
+ * (impegno personale, nessun credito impegnato da restituire, o nessun extra
+ * impegnato che valga alla data della sessione), oppure non restituito per un
+ * errore.
  */
 export type CreditOutcome = "refunded" | "charged" | "none" | "failed";
 

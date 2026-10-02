@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   assignEventToClient,
+  availableCredits,
   blockForDate,
   countAvailableCredits,
   eventTitle,
@@ -101,8 +102,8 @@ describe("countAvailableCredits", () => {
       ],
     }));
     const extras = [
-      { event_type_id: "pt", quantity: 3, quantity_booked: 1 },
-      { event_type_id: "bia", quantity: 2, quantity_booked: 0 },
+      { event_type_id: "pt", quantity: 3, quantity_booked: 1, expires_at: "2100-01-01T00:00:00Z" },
+      { event_type_id: "bia", quantity: 2, quantity_booked: 0, expires_at: "2100-01-01T00:00:00Z" },
     ];
     expect(
       countAvailableCredits({
@@ -121,6 +122,54 @@ describe("countAvailableCredits", () => {
         type: types[0]!,
       }),
     ).toBe(2);
+  });
+});
+
+// La scadenza degli extra (06b): le scadenze come le scrive stripe-webhook, la
+// fine di un giorno di Roma. A ha un credito e scade a fine domenica 4/10, B
+// ne ha due e scade a fine martedì 3/11 (dopo il cambio dell'ora).
+const A04 = "2026-10-04T21:59:59.999Z";
+const B03 = "2026-11-03T22:59:59.999Z";
+/** Martedì 20/10 alle 9:00 di Roma. */
+const IL20 = "2026-10-20T07:00:00.000Z";
+
+/**
+ * L'orologio fermo al 1/10, prima di ogni scadenza dei casi: una regola che
+ * guardasse oggi invece della data della sessione cadrebbe anche dopo il 4/10.
+ */
+function fixClockBeforeExpiries() {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-01T08:00:00.000Z"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+}
+
+describe("availableCredits: gli extra che valgono alla data della sessione", () => {
+  fixClockBeforeExpiries();
+  const at = (scheduledAt: string) => {
+    const c = availableCredits({
+      blocks: [],
+      extras: [
+        { event_type_id: "pt", quantity: 1, quantity_booked: 0, expires_at: A04 },
+        { event_type_id: "pt", quantity: 2, quantity_booked: 0, expires_at: B03 },
+      ],
+      scheduledAt,
+      type: types[0]!,
+    });
+    return [c.fromBlock, c.fromExtras, c.blockNumber];
+  };
+
+  it("prima della scadenza di A, e all'istante della scadenza, A e B", () => {
+    expect(at("2026-10-02T07:00:00.000Z")).toEqual([0, 3, null]);
+    expect(at(A04)).toEqual([0, 3, null]);
+  });
+
+  it("un millisecondo dopo A solo B; dopo la scadenza di B nessuno", () => {
+    expect(at("2026-10-04T22:00:00.000Z")).toEqual([0, 2, null]);
+    expect(at("2026-11-04T07:00:00.000Z")).toEqual([0, 0, null]);
   });
 });
 
@@ -157,6 +206,8 @@ describe("isAssignable", () => {
 
 function memoryAssignStore(init: {
   event: AssignableEvent;
+  /** I blocchi del cliente; senza, b2 e b3. */
+  blocks?: typeof blocks;
   allocations?: OrderedAllocation[];
   extras?: Array<OrderedExtraCredit & { client_id: string }>;
 }) {
@@ -180,7 +231,7 @@ function memoryAssignStore(init: {
       return true;
     },
     async listClientBlocks() {
-      return blocks;
+      return init.blocks ?? blocks;
     },
     async listAllocations(blockId) {
       return [...allocations.values()].filter((a) => a.block_id === blockId);
@@ -324,6 +375,51 @@ describe("assignEventToClient", () => {
     await undoAssign(db.store, r);
     expect(db.ev).toMatchObject({ client_id: null, event_type_id: null, block_id: null });
     expect(db.allocations.get("pt-sett-3")!.quantity_booked).toBe(0);
+  });
+
+  describe("cliente senza blocchi: solo un extra che vale alla data dell'evento (06b)", () => {
+    fixClockBeforeExpiries();
+    const extra = (id: string, expires_at: string) => ({
+      id,
+      client_id: "sara",
+      event_type_id: "pt",
+      quantity: 1,
+      quantity_booked: 0,
+      expires_at,
+    });
+    const assign = (store: AssignStore) =>
+      assignEventToClient(store, {
+        eventId: "e1",
+        clientId: "sara",
+        type: types[0]!,
+        useCredit: true,
+      });
+
+    it("A scaduto per quella data, B valido: scala B", async () => {
+      const db = memoryAssignStore({
+        event: event({ scheduled_at: IL20 }),
+        blocks: [],
+        extras: [extra("A", A04), extra("B", B03)],
+      });
+      const r = await assign(db.store);
+      expect(r.credit).toEqual({ kind: "extra", id: "B" });
+      expect(db.ev.client_id).toBe("sara");
+      expect(db.extras.get("A")!.quantity_booked).toBe(0);
+      expect(db.extras.get("B")!.quantity_booked).toBe(1);
+    });
+
+    it("il solo A, scaduto per quella data: non assegna e non scala", async () => {
+      const db = memoryAssignStore({
+        event: event({ scheduled_at: IL20 }),
+        blocks: [],
+        extras: [extra("A", A04)],
+      });
+      const err = await assign(db.store).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(CreditUnavailableError);
+      expect((err as Error).message).toBe("Il cliente non ha più crediti per questa tipologia.");
+      expect(db.ev.client_id).toBeNull();
+      expect(db.extras.get("A")!.quantity_booked).toBe(0);
+    });
   });
 });
 

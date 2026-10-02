@@ -19,6 +19,7 @@ import {
   type SessionStore,
 } from "@/lib/cancel-session";
 import {
+  extraValidAt,
   pickConsumeAllocation,
   pickConsumeExtraCredit,
   romeDate,
@@ -182,7 +183,9 @@ interface AvailableCreditsArgs {
       >
     >;
   }>;
-  extras: ReadonlyArray<Pick<OrderedExtraCredit, "event_type_id" | "quantity" | "quantity_booked">>;
+  extras: ReadonlyArray<
+    Pick<OrderedExtraCredit, "event_type_id" | "quantity" | "quantity_booked" | "expires_at">
+  >;
   scheduledAt: string;
   type: AssignType;
 }
@@ -191,7 +194,7 @@ interface AvailableCreditsArgs {
 export interface AvailableCredits {
   /** Residuo della tipologia nel blocco che contiene la data della sessione. */
   fromBlock: number;
-  /** Crediti extra della tipologia. */
+  /** Crediti extra della tipologia che valgono alla data della sessione. */
   fromExtras: number;
   /** Posizione di quel blocco nel percorso (1 = il primo); null senza blocco per la data. */
   blockNumber: number | null;
@@ -200,7 +203,10 @@ export interface AvailableCredits {
 /**
  * Crediti che il cliente può usare per questa sessione, divisi per origine:
  * residuo del blocco che contiene la data (stesso gruppo di allocazioni che
- * il server considererebbe) e extra della tipologia (V6, passata 10).
+ * il server considererebbe) e extra della tipologia che valgono alla data
+ * (extraValidAt, come quando si scala: V6, passata 10). Un extra scaduto prima
+ * della sessione non si conta: «Scala un credito» prometterebbe un credito che
+ * al salvataggio non c'è.
  */
 export function availableCredits(args: AvailableCreditsArgs): AvailableCredits {
   const block = blockForDate(args.blocks, args.scheduledAt);
@@ -208,7 +214,7 @@ export function availableCredits(args: AvailableCreditsArgs): AvailableCredits {
     .filter((a) => inPool(a, args.type))
     .reduce((n, a) => n + Math.max(0, a.quantity_assigned - a.quantity_booked), 0);
   const fromExtras = args.extras
-    .filter((e) => e.event_type_id === args.type.id)
+    .filter((e) => e.event_type_id === args.type.id && extraValidAt(e, args.scheduledAt))
     .reduce((n, e) => n + Math.max(0, e.quantity - e.quantity_booked), 0);
   const ordered = [...args.blocks].sort(
     (a, b) => (a.sequence_order ?? 0) - (b.sequence_order ?? 0),
@@ -338,7 +344,11 @@ async function findCreditToTake(
     );
     if (a) return { ref: { kind: "allocation", id: a.id }, blockId: block.id };
   }
-  const x = pickConsumeExtraCredit(type.id, await store.listExtraCredits(clientId, type.id));
+  const x = pickConsumeExtraCredit(
+    type.id,
+    await store.listExtraCredits(clientId, type.id),
+    e.scheduled_at,
+  );
   return x ? { ref: { kind: "extra", id: x.id }, blockId: null } : null;
 }
 

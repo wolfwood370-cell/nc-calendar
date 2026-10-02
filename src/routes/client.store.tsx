@@ -3,7 +3,8 @@
 // ----------------------------------------------------------------------------
 // Prima di pagare il cliente sa quanti crediti compra, per quale tipologia e
 // fino a quando valgono; dopo il pagamento vede l'esito. Chi non compra vede
-// solo il perché. Ogni testo, numero e condizione viene da client-store.ts,
+// solo il perché, e nell'ultima settimana di un percorso anche gli acquisti
+// del blocco. Ogni testo, numero e condizione viene da client-store.ts,
 // sopra lo stato dei crediti di Prenota; la data dei Booster è quella del
 // file condiviso con booster-checkout. La pagina non legge niente da sé: lo
 // stato dei crediti e gli acquisti da useClientBookState, i pacchetti da
@@ -48,6 +49,7 @@ import {
   STORE_FOOTER,
   STORE_POLL_MS,
   storeBought,
+  storeBoughtVisible,
   storeEmpty,
   storeLock,
   storeOutcome,
@@ -342,12 +344,17 @@ function StorePage() {
       />
     );
   } else if (lock) {
-    content = <StoreLockCard lock={lock} titleRef={lockTitleRef} />;
+    content = (
+      <>
+        <StoreLockCard lock={lock} titleRef={lockTitleRef} />
+        {storeBoughtVisible(lock, bought) && <StoreBoughtCard rows={bought} />}
+      </>
+    );
   } else {
     content = (
       <>
         {validity && <StoreValidityBox text={validity.text} />}
-        {bought.length > 0 && <StoreBoughtCard rows={bought} />}
+        {storeBoughtVisible(null, bought) && <StoreBoughtCard rows={bought} />}
         {products.length > 0 ? (
           products.map((p) => (
             <StoreProductCard key={p.key} product={p} onBuy={() => openSummary(p.key)} />

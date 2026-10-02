@@ -715,6 +715,13 @@ describe("bookingErrorMessage", () => {
     );
   });
 
+  it("l'extra che scade prima della sessione (dal giro del server del 02/10): la sua frase, com'è", () => {
+    // Il cliente ha crediti, ma non per quella data: la frase lo dice già.
+    expect(
+      msg("P0001", "Il credito extra non vale per questa data: scade prima della sessione."),
+    ).toBe("Il credito extra non vale per questa data: scade prima della sessione.");
+  });
+
   it("senza errore o senza messaggio", () => {
     expect(bookingErrorMessage(null, "Sessione PT")).toBe("Prenotazione non riuscita: riprova.");
     expect(msg("XX000", null)).toBe("Prenotazione non riuscita: riprova.");

@@ -18,6 +18,7 @@ import {
   euro,
   findPurchase,
   storeBought,
+  storeBoughtVisible,
   storeEmpty,
   storeLock,
   storeOutcome,
@@ -501,6 +502,92 @@ describe("storeBought", () => {
 
   it("senza blocco di riferimento nessuna riga", () => {
     expect(storeBought(GIULIA06.extras, TYPES, { reference: null })).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Con quale card restano gli acquisti (06b)
+// ---------------------------------------------------------------------------
+
+describe("storeBoughtVisible", () => {
+  /** Come la pagina: la card, le righe e se la lista si vede. */
+  const page = (p: StorePersona) => {
+    const state = stateOf(p);
+    const lock = storeLock(p.client, state, NOC, NOW);
+    const bought = storeBought(p.extras, TYPES, state);
+    return {
+      lock: lock?.kind ?? null,
+      bought: bought.map((r) => [r.label, r.meta]),
+      visible: storeBoughtVisible(lock, bought),
+    };
+  };
+
+  it("delle sedici persone solo Giulia ha la lista, con le sue due righe", () => {
+    expect(PERSONAS06.filter((p) => page(p).visible).map((p) => p.name)).toEqual(["Giulia"]);
+    expect(page(GIULIA06)).toEqual({
+      lock: null,
+      bought: [
+        ["+3 Personal Training", "ven 25 set · 99 €"],
+        ["+1 Personal Training", "sab 19 set · 40 €"],
+      ],
+      visible: true,
+    });
+  });
+
+  it("Giorgio, Rita e Vera: la card dell'ultima settimana, nessun acquisto, niente lista", () => {
+    for (const name of ["Giorgio", "Rita", "Vera"]) {
+      expect(page(persona(name))).toEqual({ lock: "fine", bought: [], visible: false });
+    }
+  });
+
+  it("l'ultima settimana con un Booster comprato nel blocco: la lista sotto la card", () => {
+    const giorgio = persona("Giorgio");
+    const bought = paid(
+      "r-buy-25",
+      "pt",
+      1,
+      0,
+      at(2026, 9, 25, 18, 30),
+      40,
+      "cs_test_giorgio25",
+      "2026-10-03",
+    );
+    expect(page({ ...giorgio, extras: [...giorgio.extras, bought] })).toEqual({
+      lock: "fine",
+      bought: [["+1 Personal Training", "ven 25 set · 40 €"]],
+      visible: true,
+    });
+  });
+
+  it("il percorso concluso con un Booster comprato nell'ultimo blocco: solo la card", () => {
+    const davide = persona("Davide");
+    const bought = paid(
+      "d-buy-20",
+      "pt",
+      1,
+      1,
+      at(2026, 8, 20, 10, 0),
+      40,
+      "cs_test_davide20",
+      "2026-09-06",
+    );
+    expect(page({ ...davide, extras: [...davide.extras, bought] })).toEqual({
+      lock: "concluso",
+      bought: [["+1 Personal Training", "gio 20 ago · 40 €"]],
+      visible: false,
+    });
+  });
+
+  it("senza righe mai; con le righe senza card e sotto «fine», non sotto le altre card", () => {
+    const rows = storeBought(GIULIA06.extras, TYPES, stateOf(GIULIA06));
+    expect(rows).toHaveLength(2);
+    expect(storeBoughtVisible(null, [])).toBe(false);
+    expect(storeBoughtVisible({ kind: "fine" }, [])).toBe(false);
+    expect(storeBoughtVisible(null, rows)).toBe(true);
+    expect(storeBoughtVisible({ kind: "fine" }, rows)).toBe(true);
+    for (const kind of ["concluso", "libero", "pacchetto", "altro"] as const) {
+      expect(storeBoughtVisible({ kind }, rows)).toBe(false);
+    }
   });
 });
 

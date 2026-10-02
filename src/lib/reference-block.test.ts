@@ -129,7 +129,14 @@ describe("la data della sessione: il blocco che la contiene", () => {
     const at = (scheduledAt: string) =>
       availableCredits({
         blocks: WITH_ALLOCS,
-        extras: [{ event_type_id: "pt", quantity: 3, quantity_booked: 2 }],
+        extras: [
+          {
+            event_type_id: "pt",
+            quantity: 3,
+            quantity_booked: 2,
+            expires_at: "2100-01-01T00:00:00Z",
+          },
+        ],
         scheduledAt,
         type: PT_TYPE,
       });
