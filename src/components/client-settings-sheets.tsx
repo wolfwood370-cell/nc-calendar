@@ -7,7 +7,10 @@
 //     sotto di loro e non in un toast (passwordCheck e passwordSaveError di
 //     client-settings.ts). Salvare con la regola non rispettata segna il
 //     tentativo e non chiama niente; l'errore del server resta sotto il primo
-//     campo e il foglio resta aperto; chiudendo il foglio i campi si svuotano;
+//     campo e il foglio resta aperto; chiudendo il foglio i campi si svuotano,
+//     e una risposta del server arrivata dopo la chiusura si ignora. Dopo un
+//     «Salva» che non passa il focus va sul primo campo in errore, che ha
+//     aria-describedby verso il suo testo;
 //   - GoogleLinkSheet: «Collega Google», il giro di oggi spiegato (si esce e
 //     si rientra con Google usando la stessa email, decisione 11 del
 //     30/09/2026): «Esci e collega Google» chiude il foglio ed esce.
@@ -17,7 +20,7 @@
 // la batterebbe.
 // ----------------------------------------------------------------------------
 
-import { useState, type SubmitEvent } from "react";
+import { useRef, useState, type SubmitEvent } from "react";
 import { ClientButton } from "@/components/client-button";
 import { ClientSheet } from "@/components/client-sheet";
 import { googleLinkText, passwordCheck } from "@/lib/client-settings";
@@ -45,11 +48,16 @@ export function PasswordSheet({ open, onOpenChange, onSave }: PasswordSheetProps
   const [tried, setTried] = useState(false);
   const [saving, setSaving] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  const firstRef = useRef<HTMLInputElement>(null);
+  const secondRef = useRef<HTMLInputElement>(null);
+  // Cambia a ogni chiusura: un salvataggio partito prima non scrive più nel foglio.
+  const run = useRef(0);
   const check = passwordCheck(first, second, tried);
   // Sotto il primo campo: l'errore del server, altrimenti la regola (in rosso se non rispettata).
   const firstError = serverError ?? (check.firstInvalid ? check.firstHint : null);
 
   const reset = () => {
+    run.current += 1;
     setFirst("");
     setSecond("");
     setTried(false);
@@ -66,12 +74,23 @@ export function PasswordSheet({ open, onOpenChange, onSave }: PasswordSheetProps
     if (saving) return;
     setTried(true);
     setServerError(null);
-    if (!check.canSave) return;
+    // La regola col tentativo segnato: senza salvare, il focus va sul primo campo in errore.
+    const next = passwordCheck(first, second, true);
+    if (!next.canSave) {
+      (next.firstInvalid ? firstRef : secondRef).current?.focus();
+      return;
+    }
+    const mine = run.current;
     setSaving(true);
     const error = await onSave(first);
+    if (mine !== run.current) return;
     setSaving(false);
-    if (error) setServerError(error);
-    else change(false);
+    if (error) {
+      setServerError(error);
+      firstRef.current?.focus();
+    } else {
+      change(false);
+    }
   };
 
   return (
@@ -82,6 +101,7 @@ export function PasswordSheet({ open, onOpenChange, onSave }: PasswordSheetProps
             Nuova password
           </label>
           <input
+            ref={firstRef}
             id="profilo-password-1"
             type="password"
             autoComplete="new-password"
@@ -106,6 +126,7 @@ export function PasswordSheet({ open, onOpenChange, onSave }: PasswordSheetProps
             Ripeti la password
           </label>
           <input
+            ref={secondRef}
             id="profilo-password-2"
             type="password"
             autoComplete="new-password"

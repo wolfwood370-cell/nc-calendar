@@ -348,10 +348,13 @@ function ClientSettings() {
                 {push && <span className={ROW_SUB}>{push.text}</span>}
               </div>
               {push?.control === "switch" && (
+                // Mentre lavora è aria-disabled e non disabled, come «Riprova» di
+                // BookRetryCard: resta nell'albero e tiene il focus (a un pulsante
+                // disabled il browser lo toglie); il tocco si ignora in togglePush.
                 <ClientSwitch
                   aria-labelledby="profilo-push"
+                  aria-disabled={pushBusy || undefined}
                   checked={push.checked}
-                  disabled={pushBusy}
                   onCheckedChange={(v) => void togglePush(v)}
                 />
               )}

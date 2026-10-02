@@ -6,8 +6,10 @@
 // Radix, quindi role="switch" e aria-checked; il nome accessibile lo dà chi lo
 // usa (aria-labelledby verso l'etichetta della riga). L'area di tocco è di
 // almeno 44 px (README, T2) anche se la pista è alta 32: un ::before
-// invisibile sopra e sotto. Il focus visibile è la regola globale di
-// styles.css. components/ui/switch.tsx resta com'è: lo usa il lato coach.
+// invisibile sopra e sotto. Mentre lavora chi lo usa lo segna aria-disabled
+// (non disabled: terrebbe il focus lontano), e qui ha lo stesso aspetto
+// spento. Il focus visibile è la regola globale di styles.css.
+// components/ui/switch.tsx resta com'è: lo usa il lato coach.
 // ----------------------------------------------------------------------------
 
 import * as SwitchPrimitives from "@radix-ui/react-switch";
@@ -25,7 +27,7 @@ export const ClientSwitch = forwardRef<
         "relative inline-flex h-8 w-[52px] shrink-0 cursor-pointer items-center rounded-full p-[3px] transition-colors",
         "before:absolute before:inset-x-0 before:-top-1.5 before:-bottom-1.5 before:content-['']",
         "data-[state=checked]:bg-primary-container data-[state=unchecked]:bg-outline-variant",
-        "disabled:cursor-not-allowed disabled:opacity-50",
+        "disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-50",
         className,
       )}
       {...props}
