@@ -17,8 +17,9 @@
 // Ogni stato, soglia, data e testo viene da client-session-detail.ts. Dopo
 // un'azione si resta sulla sessione: Annulla e Sposta chiudono il foglio,
 // rileggono il dettaglio e lasciano un toast con «Ripristina» per 8 secondi.
-// Il coach è BookCoach: oggi NO_COACH, finché get_my_coach (02/10/2026) non
-// ne dà nome e WhatsApp; i testi dicono «il tuo coach».
+// Il coach viene da useMyCoach (get_my_coach): finché non arriva, o senza
+// nome, i testi dicono «il tuo coach», e la riga «con …» e i pulsanti
+// WhatsApp non ci sono.
 // ----------------------------------------------------------------------------
 
 import { Link } from "@tanstack/react-router";
@@ -44,9 +45,10 @@ import { useClientBookState } from "@/hooks/use-client-book-state";
 import { useClientShell } from "@/hooks/use-client-shell";
 import { useConfirmAttendance } from "@/hooks/use-confirm-attendance";
 import { useMoveUndo } from "@/hooks/use-move-undo";
+import { useMyCoach } from "@/hooks/use-my-coach";
 import { useRestoreBooking } from "@/hooks/use-restore-booking";
 import { useClientFeedback } from "@/hooks/use-session-feedback";
-import { NO_COACH, typeTint, withCoachLine, writeOnWhatsApp } from "@/lib/client-book";
+import { typeTint, withCoachLine, writeOnWhatsApp } from "@/lib/client-book";
 import {
   LOCKED_TITLE,
   absentHint,
@@ -76,12 +78,6 @@ import { cn } from "@/lib/utils";
 /** La sessione del dettaglio, col coach, il cliente e la sua tipologia (null senza). */
 export type ClientBookingDetail = MoveBooking & { event_type: DetailEventType | null };
 
-// Il coach nei testi. Il cliente oggi non legge il profilo del coach (nessuna
-// policy di profiles glielo dà): nome e WhatsApp arriveranno da get_my_coach,
-// con le migrazioni del 02/10/2026, come in Prenota. Fino ad allora i testi
-// dicono «il tuo coach», e la riga «con …» e i pulsanti WhatsApp non ci sono.
-const COACH = NO_COACH;
-
 const CARD = "rounded-[24px] border border-outline-variant/35 bg-white";
 
 function DetailRow({ icon: Icon, children }: { icon: LucideIcon; children: ReactNode }) {
@@ -100,7 +96,9 @@ export interface ClientBookingDetailViewProps {
 export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProps) {
   const { now } = useClientShell();
   const qc = useQueryClient();
-  const { meId, profile, state } = useClientBookState(now, COACH);
+  // Il coach dei testi (get_my_coach), come in Prenota: senza nome «il tuo coach».
+  const { coach } = useMyCoach();
+  const { meId, profile, state } = useClientBookState(now, coach);
   const feedbackQ = useClientFeedback(meId);
   const confirmAttendance = useConfirmAttendance();
   const restore = useRestoreBooking();
@@ -130,8 +128,8 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
   const StatusIcon = status.icon;
   const TypeIcon = iconForType(name);
   const color = eventType?.color ?? null;
-  const coachLine = withCoachLine(COACH);
-  const absent = absentHint(COACH);
+  const coachLine = withCoachLine(coach);
+  const absent = absentHint(coach);
   const note = booking.trainer_notes?.trim() || null;
   const description = eventType?.description?.trim() || null;
   // La colonna note arriva col 02/10: la riga di select("*") la porta solo da lì.
@@ -142,7 +140,7 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
   const refreshDetail = () => {
     void qc.invalidateQueries({ queryKey: detailKey });
   };
-  const moveUndo = useMoveUndo(COACH, refreshDetail);
+  const moveUndo = useMoveUndo(coach, refreshDetail);
 
   // «Conferma presenza» sparisce con la rilettura: il focus va sul titolo.
   const onConfirmAttendance = () => {
@@ -273,7 +271,7 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
                 Conferma presenza
               </ClientButton>
               <p className="text-center text-[13px] leading-[1.45] text-on-surface-variant">
-                {confirmCaption(COACH)}
+                {confirmCaption(coach)}
               </p>
             </div>
           )}
@@ -303,13 +301,13 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
                 {LOCKED_TITLE}
               </p>
               <p className="text-sm leading-normal text-on-surface-variant">
-                {lockedText(name, COACH)}
+                {lockedText(name, coach)}
               </p>
-              {COACH.whatsapp && (
+              {coach.whatsapp && (
                 <ClientButton asChild variant="secondary" fullWidth className="bg-white font-bold">
-                  <a href={COACH.whatsapp} target="_blank" rel="noopener noreferrer">
+                  <a href={coach.whatsapp} target="_blank" rel="noopener noreferrer">
                     <MessageCircle className="size-4" aria-hidden />
-                    {writeOnWhatsApp(COACH)}
+                    {writeOnWhatsApp(coach)}
                   </a>
                 </ClientButton>
               )}
@@ -363,7 +361,7 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
           rating={feedback?.rating ?? null}
           note={savedNote}
           editable={rating.editable}
-          coach={COACH}
+          coach={coach}
           layout="detail"
         />
       )}
@@ -372,7 +370,7 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
         <section className={cn(CARD, "flex flex-col gap-3.5 p-4")}>
           {note && (
             <div className="flex flex-col gap-1">
-              <h3 className="text-sm font-bold">{coachNoteTitle(COACH)}</h3>
+              <h3 className="text-sm font-bold">{coachNoteTitle(coach)}</h3>
               <p className="text-[15px] leading-normal whitespace-pre-wrap text-on-surface-variant">
                 {note}
               </p>
@@ -398,7 +396,7 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
         onOpenChange={closeSheet}
         booking={booking}
         name={name}
-        coach={COACH}
+        coach={coach}
         clientName={profile?.full_name ?? null}
         onMoved={onMoved}
       />

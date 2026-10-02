@@ -13,8 +13,9 @@
 //     mese locale (le passate);
 //   - la riga (sessionRow): tipologia, giorno, orario, chip, colori, voto e
 //     nome accessibile;
-//   - la presenza (attendanceSummary): getAttendance sulle stesse sessioni che
-//     conta il coach, importate da Google comprese;
+//   - la presenza (clientAttendance, e il suo testo attendanceSummary):
+//     getAttendance sulle stesse sessioni che conta il coach, importate da
+//     Google comprese; il Profilo (07) legge la stessa clientAttendance;
 //   - l'etichetta della scheda e il testo della card vuota, coi crediti che
 //     Prenota mostra (upcomingEmpty, sopra lo stato di useClientBookState).
 // Puro: niente hook, niente rete, niente Sentry; l'ora entra come parametro.
@@ -22,7 +23,7 @@
 
 import { differenceInCalendarWeeks, format, startOfWeek } from "date-fns";
 import { it } from "date-fns/locale/it";
-import { ATTENDANCE_WEEKS, getAttendance } from "@/lib/attendance";
+import { ATTENDANCE_WEEKS, getAttendance, type Attendance } from "@/lib/attendance";
 import { typeColor, typeTint, type BookState } from "@/lib/client-book";
 import {
   CLIENT_STATUS_TONE,
@@ -339,23 +340,36 @@ export function ratingsById(
 // ----------------------------------------------------------------------------
 
 /**
+ * La presenza del cliente: getAttendance sulle sessioni con deleted_at vuoto,
+ * importate da Google comprese, le stesse del Profilo del coach e della lista
+ * Clienti (il cliente ha un coach solo). L'annullata tardi di cancel_booking,
+ * che ha deleted_at, si vede nell'elenco ma qui non conta, come per il coach.
+ * La leggono Sessioni (attendanceSummary) e il Profilo del cliente (passata
+ * 07): il filtro sta in un posto solo, così le due pagine dicono lo stesso
+ * numero. null senza sessioni concluse nel periodo.
+ */
+export function clientAttendance(
+  bookings: readonly Pick<SessionBooking, "status" | "scheduled_at" | "deleted_at">[],
+  now: Date,
+): Attendance | null {
+  return getAttendance(
+    bookings.filter((b) => !b.deleted_at),
+    now,
+  );
+}
+
+/**
  * «Presenza 75% nelle ultime 8 settimane» · «6 sessioni svolte · 1 assenza ·
  * 1 annullata tardi» (le annullate tardi solo se ce ne sono); null senza
- * sessioni concluse nel periodo. getAttendance sulle sessioni con deleted_at
- * vuoto, importate da Google comprese: le stesse del Profilo del coach e della
- * lista Clienti (il cliente ha un coach solo). L'annullata tardi di
- * cancel_booking, che ha deleted_at, si vede nell'elenco ma qui non conta,
- * come per il coach. Le annullate tardi stanno al denominatore di
- * getAttendance: senza dirle, i numeri sotto la percentuale non tornano.
+ * sessioni concluse nel periodo (clientAttendance). Le annullate tardi stanno
+ * al denominatore di getAttendance: senza dirle, i numeri sotto la percentuale
+ * non tornano.
  */
 export function attendanceSummary(
   bookings: readonly Pick<SessionBooking, "status" | "scheduled_at" | "deleted_at">[],
   now: Date,
 ): { title: string; sub: string } | null {
-  const att = getAttendance(
-    bookings.filter((b) => !b.deleted_at),
-    now,
-  );
+  const att = clientAttendance(bookings, now);
   if (!att) return null;
   const parts = [
     att.completed === 1 ? "1 sessione svolta" : `${att.completed} sessioni svolte`,

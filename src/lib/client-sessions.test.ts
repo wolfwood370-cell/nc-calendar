@@ -8,6 +8,7 @@ import type { ClientBlock, PoolBooking, PoolEventType } from "@/lib/client-credi
 import { sessionsSubtitle } from "@/lib/client-shell";
 import {
   attendanceSummary,
+  clientAttendance,
   isVisibleSession,
   parseSessionsTab,
   pastGroups,
@@ -422,6 +423,21 @@ describe("attendanceSummary", () => {
     expect(attendanceSummary(two, NOW)?.sub).toBe(
       "1 sessione svolta · 2 assenze · 2 annullate tardi",
     );
+  });
+});
+
+describe("clientAttendance · la presenza di Sessioni e del Profilo", () => {
+  it("getAttendance sulle sessioni con deleted_at vuoto: la stessa di attendanceSummary", () => {
+    const att = clientAttendance(GIULIA, NOW);
+    expect(att).toEqual({ percent: 75, completed: 6, noShow: 1, lateCancelled: 1 });
+    expect(attendanceSummary(GIULIA, NOW)?.title).toBe(
+      `Presenza ${att?.percent}% nelle ultime 8 settimane`,
+    );
+  });
+
+  it("null senza sessioni concluse nel periodo", () => {
+    expect(clientAttendance([], NOW)).toBeNull();
+    expect(clientAttendance([s("solo", "pt", at(2026, 10, 1, 9), "scheduled")], NOW)).toBeNull();
   });
 });
 
