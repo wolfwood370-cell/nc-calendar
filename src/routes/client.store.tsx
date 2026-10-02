@@ -21,8 +21,8 @@
 //     20 secondi (i giri li conta la pagina, il limite lo dice storeOutcome);
 //     alla chiusura l'indirizzo perde booster e session e tiene type.
 // Con booster=cancel il toast una volta, e l'indirizzo perde booster subito.
-// Il coach è NO_COACH finché non c'è get_my_coach (02/10/2026), come nelle
-// altre pagine: i testi dicono «il tuo coach», niente WhatsApp.
+// Il coach viene da useMyCoach (get_my_coach), come nelle altre pagine: finché
+// non arriva, o senza nome, i testi dicono «il tuo coach», niente WhatsApp.
 // ----------------------------------------------------------------------------
 
 import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
@@ -41,8 +41,8 @@ import { ClientTabHeader } from "@/components/client-tab-header";
 import { AuraSkeleton } from "@/components/ui/aura-skeleton";
 import { useClientBookState } from "@/hooks/use-client-book-state";
 import { useClientShell } from "@/hooks/use-client-shell";
+import { useMyCoach } from "@/hooks/use-my-coach";
 import { supabase } from "@/integrations/supabase/client";
-import { NO_COACH } from "@/lib/client-book";
 import { clientPageTitle } from "@/lib/client-shell";
 import {
   STORE_CANCEL_TOAST,
@@ -84,10 +84,6 @@ export const Route = createFileRoute("/client/store")({
   component: StorePage,
 });
 
-// Il coach nei testi: il cliente oggi non legge il profilo del coach. Nome e
-// WhatsApp arriveranno da get_my_coach, con le migrazioni del 02/10/2026.
-const COACH = NO_COACH;
-
 const NO_PACKS: StorePack[] = [];
 const NO_PURCHASES: StorePurchase[] = [];
 const NO_EVENT_TYPES: EventTypeRow[] = [];
@@ -124,11 +120,14 @@ interface DoneState {
 
 function StorePage() {
   const { now } = useClientShell();
+  // Il coach dei testi (get_my_coach): senza nome «il tuo coach». È un valore
+  // del componente, non più una costante: entra nelle dipendenze dei useMemo.
+  const { coach } = useMyCoach();
   const navigate = useNavigate();
   const router = useRouter();
   const search = Route.useSearch();
   const { client, eventTypesQ, extrasQ, loading, failed, state, input, retry, retrying } =
-    useClientBookState(now, COACH);
+    useClientBookState(now, coach);
   const packsQ = useBoosterPacks();
   const pageRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -139,16 +138,16 @@ function StorePage() {
   const purchases = extrasQ.data ?? NO_PURCHASES;
 
   const lock = useMemo(
-    () => (state && client ? storeLock(client, state, COACH, now) : null),
-    [client, state, now],
+    () => (state && client ? storeLock(client, state, coach, now) : null),
+    [client, state, coach, now],
   );
   const validity = useMemo(
     () => (state && client ? storeValidity(client, state, now) : null),
     [client, state, now],
   );
   const products = useMemo(
-    () => storeProducts(packsQ.data ?? NO_PACKS, eventTypes, COACH, typeParam),
-    [packsQ.data, eventTypes, typeParam],
+    () => storeProducts(packsQ.data ?? NO_PACKS, eventTypes, coach, typeParam),
+    [packsQ.data, eventTypes, coach, typeParam],
   );
   const bought = state ? storeBought(purchases, eventTypes, state) : [];
 
@@ -262,10 +261,10 @@ function StorePage() {
             typeId: done.typeId,
             elapsedMs: rounds * STORE_POLL_MS,
             input,
-            coach: COACH,
+            coach,
           })
         : null,
-    [done, input, purchases, rounds],
+    [done, input, purchases, rounds, coach],
   );
 
   // Finché i crediti non arrivano: una rilettura degli acquisti e un giro ogni
@@ -360,7 +359,7 @@ function StorePage() {
             <StoreProductCard key={p.key} product={p} onBuy={() => openSummary(p.key)} />
           ))
         ) : (
-          <StoreEmptyCard text={storeEmpty(COACH)} />
+          <StoreEmptyCard text={storeEmpty(coach)} />
         )}
         <p className="text-center text-[13px] leading-normal text-on-surface-variant">
           {STORE_FOOTER}

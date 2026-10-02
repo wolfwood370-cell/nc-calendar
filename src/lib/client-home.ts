@@ -21,10 +21,10 @@
 //     del blocco della riga e il fondo (Booster o il coach);
 //   - la valutazione, i progressi BIA, le sezioni e la chiave della card
 //     d'installazione.
-// Il coach è un BookCoach, oggi NO_COACH: senza nome i testi dicono «il tuo
-// coach», e senza WhatsApp niente link a vuoto. Puro: niente hook, niente
-// rete, niente orologio (il tempo entra come parametro, sempre l'ultimo),
-// niente Sentry, niente toast.
+// Il coach è un BookCoach (useMyCoach nella pagina, da get_my_coach): senza
+// nome i testi dicono «il tuo coach», e senza WhatsApp niente link a vuoto.
+// Puro: niente hook, niente rete, niente orologio (il tempo entra come
+// parametro, sempre l'ultimo), niente Sentry, niente toast.
 // ----------------------------------------------------------------------------
 
 import { addHours, differenceInCalendarDays, format, parseISO } from "date-fns";

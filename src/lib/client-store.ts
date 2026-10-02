@@ -20,8 +20,8 @@
 //     webhook scrive la riga;
 //   - storePayError: gli errori del pagamento, detti per persone;
 //   - storeSearch: i parametri dell'indirizzo (type, booster, session).
-// Il coach è un parametro, oggi NO_COACH: senza nome i testi dicono «il tuo
-// coach», e senza link nessun pulsante WhatsApp.
+// Il coach è un parametro (useMyCoach nella pagina, da get_my_coach): senza
+// nome i testi dicono «il tuo coach», e senza link nessun pulsante WhatsApp.
 // Puro: niente hook, niente rete, niente orologio (l'ora entra come
 // parametro), niente Sentry, niente toast.
 // ----------------------------------------------------------------------------
