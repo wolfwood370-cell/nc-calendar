@@ -1,49 +1,92 @@
+// ----------------------------------------------------------------------------
+// Profilo (lato cliente, passata 07, audit R1-R5, H6, N5, O4 e V6)
+// ----------------------------------------------------------------------------
+// Dall'alto: l'identità del cliente, la card «Il tuo coach», «Il tuo
+// percorso», «Notifiche», «Account» ed «Esci». Nessuna statistica della Home
+// (R5): il percorso dice gli stessi numeri e le stesse date della Home, e la
+// presenza è quella di Sessioni. Ogni riga e ogni testo viene da
+// client-settings.ts; la pagina non fa conti suoi: nessuna data, nessun
+// conteggio, nessuna lunghezza di password. Il coach da useMyCoach
+// (get_my_coach); il profilo, i blocchi, le sessioni e lo stato dei crediti
+// da useClientBookState, lo stesso di Home, Prenota e Sessioni.
+// Gli stati del percorso, nell'ordine: il caricamento (lo scheletro); una
+// lettura persa (la card con «Riprova»); le righe. Notifiche, account ed
+// «Esci» non aspettano le letture: col percorso perso si cambia la password e
+// si esce.
+// Lo stato delle notifiche sul telefono (le API del browser, il service
+// worker, l'iscrizione) si legge una volta al montaggio; l'installazione da
+// usePwaInstall. «Ho installato l'app» nel foglio d'installazione può togliere
+// il pulsante che l'ha aperto («Come fare» delle notifiche): il focus torna
+// sul titolo «Account».
+// Il collegamento a Google resta il giro di oggi (decisione 11 del
+// 30/09/2026): si esce e si rientra con «Continua con Google» usando la
+// stessa email; niente linkIdentity, niente «Scollega».
+// ----------------------------------------------------------------------------
+
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
 import {
-  Bell,
-  Calendar,
+  CalendarCheck,
   ChevronRight,
+  Download,
+  KeyRound,
   LogOut,
   Mail,
-  Link as LinkIcon,
-  CheckCircle,
-  Loader2,
-  Lock,
+  MessageCircle,
+  Phone,
   Sparkles,
+  type LucideIcon,
 } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useAuth } from "@/lib/auth";
-import { supabase } from "@/integrations/supabase/client";
-import {
-  isPushSupported,
-  isPushReady,
-  subscribeToPush,
-  getCurrentPushSubscription,
-} from "@/lib/push";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { SettingsRow, SettingsDivider } from "@/components/settings-row";
-import { useClientBlocks, useClientBookings, useCoachEventTypes } from "@/lib/queries";
-import { findCurrentBlock } from "@/lib/current-block";
-import { sessionLabel } from "@/lib/mock-data";
+import { BookRetryCard } from "@/components/book-blocked-card";
+import { ClientButton } from "@/components/client-button";
+import { ClientInstallSheet } from "@/components/client-install-sheet";
+import { GoogleLinkSheet, PasswordSheet } from "@/components/client-settings-sheets";
+import { ClientSwitch } from "@/components/client-switch";
 import { ClientTabHeader } from "@/components/client-tab-header";
+import { AuraSkeleton } from "@/components/ui/aura-skeleton";
+import { useClientBookState } from "@/hooks/use-client-book-state";
+import { useClientShell } from "@/hooks/use-client-shell";
+import { useMyCoach } from "@/hooks/use-my-coach";
+import { usePwaInstall } from "@/hooks/use-pwa";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
+import { clientAttendance } from "@/lib/client-sessions";
+import {
+  PASSWORD_SAVED_TOAST,
+  PUSH_DENIED_TOAST,
+  PUSH_ERROR_TOAST,
+  PUSH_OFF_TOAST,
+  PUSH_ON_TOAST,
+  calendarInviteText,
+  coachCard,
+  googleLinkToast,
+  googleLinked,
+  googleRow,
+  installRow,
+  passwordSaveError,
+  profileIdentity,
+  profilePathRows,
+  pushRow,
+  type CoachLinkKind,
+} from "@/lib/client-settings";
 import { clientPageTitle } from "@/lib/client-shell";
+import {
+  getCurrentPushSubscription,
+  isPushReady,
+  isPushSupported,
+  subscribeToPush,
+} from "@/lib/push";
+
+const DESCRIPTION = "I tuoi dati, il tuo coach, il percorso, le notifiche e l'account.";
 
 export const Route = createFileRoute("/client/settings")({
   head: () => ({
     meta: [
       { title: clientPageTitle("Profilo") },
-      {
-        name: "description",
-        content: "Gestisci i tuoi dati personali, le notifiche e le preferenze dell'account.",
-      },
+      { name: "description", content: DESCRIPTION },
       { property: "og:title", content: clientPageTitle("Profilo") },
-      {
-        property: "og:description",
-        content: "Gestisci i tuoi dati personali, le notifiche e le preferenze dell'account.",
-      },
+      { property: "og:description", content: DESCRIPTION },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -51,116 +94,87 @@ export const Route = createFileRoute("/client/settings")({
   component: ClientSettings,
 });
 
-interface ProfileRow {
-  full_name: string | null;
-  email: string | null;
-  email_notifications: boolean;
-  avatar_url?: string | null;
-  coach_id?: string | null;
-  path_type?: string;
-}
+// Le card a elenco della Home (client-home-next.tsx), con le righe separate
+// da una linea #f2f3f8 (surface-container-low).
+const LIST_CARD = "overflow-hidden rounded-[24px] border border-outline-variant/35 bg-white";
+const ROW_SEP = "border-t border-surface-container-low first:border-t-0";
+// Righe di almeno 52 px, padding 10 e 16.
+const ROW = "flex min-h-[52px] items-center gap-3 px-4 py-2.5";
+// I titoli di sezione in Manrope 14/700, come la Home: la regola base di
+// styles.css mette Sora e -0.02em su ogni h2.
+const SECTION_TITLE = "px-1 font-sans text-sm font-bold tracking-normal text-on-surface-variant";
+const ROW_TITLE = "text-[15px] font-bold";
+const ROW_SUB = "text-[13px] leading-[1.4] text-on-surface-variant";
 
-function getInitials(name?: string | null, email?: string | null): string {
-  const src = (name || email || "?").trim();
-  const parts = src.split(/\s+/);
-  const a = parts[0]?.[0] ?? "";
-  const b = parts[1]?.[0] ?? "";
-  if (a && b) return (a + b).toUpperCase();
-  return src.slice(0, 2).toUpperCase();
+const LINK_ICON: Record<CoachLinkKind, LucideIcon> = {
+  whatsapp: MessageCircle,
+  tel: Phone,
+  mail: Mail,
+};
+
+/** Quello che il browser dice delle push, letto una volta al montaggio. */
+interface PushDevice {
+  supported: boolean;
+  ready: boolean;
+  enabled: boolean;
 }
 
 function ClientSettings() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const { now } = useClientShell();
+  const { coach, row: coachRow } = useMyCoach();
+  const {
+    profile,
+    profileArrived,
+    client,
+    blocksQ,
+    bookingsQ,
+    loading,
+    failed,
+    state,
+    retry,
+    retrying,
+  } = useClientBookState(now, coach);
+  const { installed, markedInstalled } = usePwaInstall();
 
-  const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState<ProfileRow | null>(null);
-  const [emailEnabled, setEmailEnabled] = useState(true);
-  const [savingEmail, setSavingEmail] = useState(false);
-
-  const [pushSupported, setPushSupported] = useState(false);
-  const [pushReady, setPushReady] = useState(false);
-  const [pushEnabled, setPushEnabled] = useState(false);
+  const [device, setDevice] = useState<PushDevice | null>(null);
   const [pushBusy, setPushBusy] = useState(false);
-
-  const [googleLinked, setGoogleLinked] = useState(false);
-  const [googleLinking, setGoogleLinking] = useState(false);
-
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [updatingPassword, setUpdatingPassword] = useState(false);
+  const [sheet, setSheet] = useState<"password" | "google" | "install" | null>(null);
+  const accountRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
-    setPushSupported(isPushSupported());
-    void isPushReady().then(setPushReady);
-    void getCurrentPushSubscription().then((s) => setPushEnabled(!!s));
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-    (async () => {
-      try {
-        const { data } = await supabase
-          .from("profiles")
-          .select("full_name, email, email_notifications, coach_id, path_type")
-          .eq("id", user.id)
-          .maybeSingle();
-        if (data) {
-          const row = data as unknown as ProfileRow;
-          setProfile(row);
-          setEmailEnabled(row.email_notifications ?? true);
-        }
-        const { data: u } = await supabase.auth.getUser();
-        const providers = (u.user?.app_metadata?.providers as string[] | undefined) ?? [];
-        const idents = (u.user?.identities ?? []).map((i) => i.provider);
-        setGoogleLinked(providers.includes("google") || idents.includes("google"));
-      } catch (e) {
-        console.error("client.settings: caricamento profilo fallito", e);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [user]);
+    let alive = true;
+    const supported = isPushSupported();
+    void Promise.all([isPushReady(), getCurrentPushSubscription().catch(() => null)]).then(
+      ([ready, sub]) => {
+        if (alive) setDevice({ supported, ready, enabled: sub !== null });
+      },
+    );
+    return () => {
+      alive = false;
+    };
+  }, []);
 
-  const toggleEmail = async (next: boolean) => {
-    if (!user) return;
-    setSavingEmail(true);
-    setEmailEnabled(next);
-    const { error } = await supabase
-      .from("profiles")
-      .update({ email_notifications: next })
-      .eq("id", user.id);
-    setSavingEmail(false);
-    if (error) {
-      setEmailEnabled(!next);
-      toast.error("Errore nel salvataggio", { description: error.message });
-    } else {
-      toast.success(next ? "Email di conferma attivate" : "Email di conferma disattivate");
-    }
-  };
+  const identity = profileIdentity(profile, user?.email);
+  const card = coachCard(coachRow);
+  const rows =
+    state && client && blocksQ.data && bookingsQ.data
+      ? profilePathRows(client, blocksQ.data, clientAttendance(bookingsQ.data, now), now)
+      : null;
+  const push = device ? pushRow({ ...device, installed, markedInstalled }) : null;
+  const invite = calendarInviteText(profile?.email);
+  const google = googleRow(googleLinked(user));
+  const install = installRow(installed, markedInstalled);
 
   const togglePush = async (next: boolean) => {
-    if (!user) return;
-    if (!pushSupported) {
-      toast.error("Notifiche non supportate", {
-        description: "Il tuo dispositivo o browser non supporta le notifiche push.",
-      });
-      return;
-    }
-    if (!pushReady) {
-      toast.warning("Non disponibili in anteprima", {
-        description: "Le notifiche push funzionano solo sull'app installata o sul sito pubblicato.",
-      });
-      return;
-    }
+    if (!user || pushBusy) return;
     setPushBusy(true);
     try {
       if (next) {
         await subscribeToPush(user.id);
-        setPushEnabled(true);
-        toast.success("Notifiche attivate", {
-          description: "Riceverai avvisi sul telefono per le tue prenotazioni.",
-        });
+        setDevice((d) => (d ? { ...d, enabled: true } : d));
+        toast.success(PUSH_ON_TOAST);
       } else {
         const sub = await getCurrentPushSubscription();
         if (sub) {
@@ -171,403 +185,268 @@ function ClientSettings() {
             .eq("profile_id", user.id)
             .eq("endpoint", sub.endpoint);
         }
-        setPushEnabled(false);
-        toast.success("Notifiche disattivate");
+        setDevice((d) => (d ? { ...d, enabled: false } : d));
+        toast.success(PUSH_OFF_TOAST);
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Riprova";
-      if (msg.toLowerCase().includes("permesso")) {
-        toast.warning("Permesso negato", {
-          description: "Abilita le notifiche dalle impostazioni del browser.",
-        });
-      } else {
-        toast.error("Operazione fallita", { description: msg });
-      }
+      const message = err instanceof Error ? err.message.toLowerCase() : "";
+      if (message.includes("permesso")) toast.warning(PUSH_DENIED_TOAST);
+      else toast.error(PUSH_ERROR_TOAST);
     } finally {
       setPushBusy(false);
     }
   };
 
-  const handleLogout = async () => {
+  // Il foglio della password: null se è andata, altrimenti l'errore da dire sotto il campo.
+  const savePassword = async (password: string): Promise<string | null> => {
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) return passwordSaveError(error);
+    toast.success(PASSWORD_SAVED_TOAST);
+    return null;
+  };
+
+  const linkGoogle = async () => {
+    setSheet(null);
+    toast.info(googleLinkToast(identity.email));
     await signOut();
-    navigate({ to: "/auth" });
+    void navigate({ to: "/auth" });
   };
 
-  const handleSignOutToLinkGoogle = async () => {
-    if (googleLinked || googleLinking) return;
-    setGoogleLinking(true);
-    toast.info("Accedi con Google usando la stessa email", {
-      description: email || "Il tuo account verrà collegato automaticamente.",
-    });
+  const logout = async () => {
     await signOut();
-    navigate({ to: "/auth" });
+    void navigate({ to: "/auth" });
   };
 
-  const handleUpdatePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newPassword.length < 8) {
-      toast.error("La password deve contenere almeno 8 caratteri.");
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      toast.error("Le password non coincidono.");
-      return;
-    }
-    setUpdatingPassword(true);
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
-    setUpdatingPassword(false);
-    if (error) {
-      toast.error("Aggiornamento non riuscito", { description: error.message });
-      return;
-    }
-    toast.success("Password aggiornata con successo.");
-    setNewPassword("");
-    setConfirmPassword("");
-  };
-
-  const fullName = profile?.full_name ?? user?.email ?? "Cliente";
-  const email = profile?.email ?? user?.email ?? "";
-
-  // ---- Design handoff: statistiche, badge percorso e sessioni residue ----
-  const blocksQ = useClientBlocks(user?.id);
-  const bookingsQ = useClientBookings(user?.id);
-  const eventTypesQ = useCoachEventTypes(profile?.coach_id ?? undefined);
-
-  const stats = useMemo(() => {
-    const done = (bookingsQ.data ?? []).filter((b) => b.status === "completed").length;
-    const booked = (bookingsQ.data ?? []).filter(
-      (b) => b.status === "scheduled" && new Date(b.scheduled_at).getTime() > Date.now(),
-    ).length;
-    return { done, booked };
-  }, [bookingsQ.data]);
-
-  // Blocco che contiene "oggi" (per pool residui e scadenza percorso).
-  const activeBlock = useMemo(() => findCurrentBlock(blocksQ.data ?? []), [blocksQ.data]);
-
-  const pathEndLabel = useMemo(() => {
-    const ends = (blocksQ.data ?? []).map((b) => new Date(b.end_date).getTime());
-    if (ends.length === 0) return null;
-    const last = new Date(Math.max(...ends));
-    if (last.getTime() < Date.now()) return null;
-    return last.toLocaleDateString("it-IT", { day: "numeric", month: "long" });
-  }, [blocksQ.data]);
-
-  // Pool residui del blocco corrente, aggregati per tipologia.
-  const pools = useMemo(() => {
-    if (!activeBlock) return [];
-    const ets = eventTypesQ.data ?? [];
-    const map = new Map<string, { name: string; used: number; total: number }>();
-    for (const a of activeBlock.allocations) {
-      const key = a.event_type_id ?? a.session_type;
-      const et = a.event_type_id ? ets.find((e) => e.id === a.event_type_id) : null;
-      const cur = map.get(key) ?? {
-        name: et?.name ?? sessionLabel(a.session_type),
-        used: 0,
-        total: 0,
-      };
-      cur.total += a.quantity_assigned;
-      cur.used += a.quantity_booked;
-      map.set(key, cur);
-    }
-    return [...map.values()].sort((a, b) => b.total - a.total);
-  }, [activeBlock, eventTypesQ.data]);
-
-  const currentBlockSeq = activeBlock?.sequence_order ?? null;
+  let path: ReactNode;
+  if (loading) {
+    path = <AuraSkeleton className="h-[220px] rounded-[24px]" aria-busy="true" />;
+  } else if (failed || !rows) {
+    path = (
+      <BookRetryCard
+        title="Il percorso non si è caricato"
+        text="Non siamo riusciti a leggere il tuo percorso. Riprova tra poco."
+        onRetry={retry}
+        retrying={retrying}
+      />
+    );
+  } else {
+    path = (
+      <div className={LIST_CARD}>
+        {rows.map((r) => (
+          <div key={r.label} className={`${ROW} justify-between ${ROW_SEP}`}>
+            <span className="text-[15px] text-on-surface-variant">{r.label}</span>
+            <span className="text-right text-[15px] font-bold tabular-nums">{r.value}</span>
+          </div>
+        ))}
+        {state?.canBuy && (
+          <Link to="/client/store" className={`${ROW} text-aura-primary ${ROW_SEP}`}>
+            <Sparkles className="size-[18px]" aria-hidden />
+            <span className="flex-1 text-[15px] font-bold">Booster</span>
+            <ChevronRight className="size-[18px] text-outline" aria-hidden />
+          </Link>
+        )}
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-md mx-auto bg-surface min-h-screen">
+    <div>
       <ClientTabHeader title="Profilo" />
-
-      <main className="px-margin-mobile pt-6 pb-[120px] flex flex-col gap-6">
-        {/* Hero identità: sezione trasparente centrata (avatar 88px, una iniziale) */}
-        <section className="flex flex-col items-center gap-3 text-center">
-          {loading ? (
-            <>
-              <Skeleton className="size-[88px] rounded-full" />
-              <div className="flex flex-col items-center gap-2">
-                <Skeleton className="h-6 w-40" />
-                <Skeleton className="h-4 w-52" />
-              </div>
-            </>
-          ) : (
-            <>
-              <Avatar className="size-[88px] border-[3px] border-white shadow-[0_8px_30px_rgba(0,0,0,0.1)]">
-                {profile?.avatar_url ? (
-                  <AvatarImage src={profile.avatar_url} alt={fullName} />
-                ) : null}
-                <AvatarFallback className="bg-primary-container text-on-primary-container font-display text-4xl font-bold">
-                  {getInitials(profile?.full_name, email).charAt(0)}
-                </AvatarFallback>
-              </Avatar>
-              <div className="min-w-0 max-w-full">
-                <h2 className="font-display text-[22px] font-bold text-on-surface truncate">
-                  {fullName}
-                </h2>
-                <p className="mt-1 text-sm text-outline truncate">{email}</p>
-              </div>
-              {/* Design handoff: badge stato percorso (pill navy con pallino verde) */}
-              {profile?.path_type === "recurring" ? (
-                <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-aura-primary/8 text-aura-primary text-[13px] font-semibold">
-                  <span className="size-[7px] rounded-full bg-success-strong" aria-hidden />
-                  Abbonamento attivo
-                </span>
-              ) : pathEndLabel ? (
-                <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-aura-primary/8 text-aura-primary text-[13px] font-semibold">
-                  <span className="size-[7px] rounded-full bg-success-strong" aria-hidden />
-                  Percorso attivo · scade {pathEndLabel}
-                </span>
-              ) : null}
-            </>
-          )}
-        </section>
-
-        {/* Design handoff: riga statistiche — 3 card separate */}
-        {!loading && (
-          <section className="grid grid-cols-3 gap-3">
-            <div className="bg-surface-container-lowest rounded-[20px] shadow-soft-card border border-outline-variant/30 px-2 py-4 text-center">
-              <span className="block font-display text-2xl font-bold text-aura-primary tabular-nums">
-                {stats.done}
-              </span>
-              <span className="block mt-1 text-[11px] text-outline">sessioni fatte</span>
-            </div>
-            <div className="bg-surface-container-lowest rounded-[20px] shadow-soft-card border border-outline-variant/30 px-2 py-4 text-center">
-              <span className="block font-display text-2xl font-bold text-aura-primary tabular-nums">
-                {currentBlockSeq != null ? `Blocco ${currentBlockSeq}` : "—"}
-              </span>
-              <span className="block mt-1 text-[11px] text-outline">in corso</span>
-            </div>
-            <div className="bg-surface-container-lowest rounded-[20px] shadow-soft-card border border-outline-variant/30 px-2 py-4 text-center">
-              <span className="block font-display text-2xl font-bold text-aura-primary tabular-nums">
-                {stats.booked}
-              </span>
-              <span className="block mt-1 text-[11px] text-outline">prenotate</span>
+      <div className="flex flex-col gap-5 px-4 pt-1 pb-8">
+        {profileArrived ? (
+          <section className="flex items-center gap-3.5">
+            <span
+              aria-hidden
+              className="grid size-16 shrink-0 place-items-center rounded-full bg-primary-container font-display text-2xl font-bold text-white"
+            >
+              {identity.initials}
+            </span>
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <p className="truncate text-xl font-bold">{identity.name}</p>
+              {identity.email && (
+                <p className="truncate text-sm text-on-surface-variant">{identity.email}</p>
+              )}
+              {identity.phone && (
+                <p className="text-sm text-on-surface-variant tabular-nums">{identity.phone}</p>
+              )}
             </div>
           </section>
-        )}
-
-        {/* Design handoff: sessioni residue per pool con barre */}
-        {!loading && pools.length > 0 && (
-          <section className="bg-surface-container-lowest rounded-[1.5rem] shadow-soft-card border border-outline-variant/30 p-5 flex flex-col gap-3">
-            <h3 className="text-base font-bold text-on-surface m-0">Le tue sessioni residue</h3>
-            {pools.map((p) => {
-              const left = Math.max(0, p.total - p.used);
-              // Barra = quota residua: piena quando tutte disponibili, si svuota con l'uso.
-              const pct = p.total > 0 ? Math.round((left / p.total) * 100) : 0;
-              return (
-                <div key={p.name} className="flex flex-col gap-1.5">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-sm font-semibold text-on-surface">{p.name}</span>
-                    <span
-                      className={`text-[13px] font-bold tabular-nums ${left > 0 ? "text-aura-primary" : "text-outline"}`}
-                    >
-                      {left} disponibili
-                    </span>
-                  </div>
-                  <div className="w-full h-2 rounded-full bg-surface-container overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-aura-primary transition-[width] duration-500"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </section>
-        )}
-
-        {/* Design handoff: menu — Acquista Booster */}
-        <section className="bg-surface-container-lowest rounded-[1.5rem] shadow-soft-card border border-outline-variant/30 overflow-hidden">
-          <Link
-            to="/client/store"
-            className="flex items-center gap-3.5 px-5 py-4 active:bg-surface-container-low transition-colors"
-          >
-            <span className="size-9 rounded-[10px] bg-aura-primary/6 text-aura-primary grid place-items-center shrink-0">
-              <Sparkles className="size-[18px]" aria-hidden />
-            </span>
-            <span className="flex-1 min-w-0">
-              <span className="block text-sm font-semibold text-on-surface">Acquista Booster</span>
-              <span className="block mt-0.5 text-xs text-outline">Sessioni e test aggiuntivi</span>
-            </span>
-            <ChevronRight className="size-[18px] text-outline-variant" aria-hidden />
-          </Link>
-        </section>
-
-        {/* Notifiche */}
-        <section>
-          <h3 className="text-sm font-semibold text-on-surface-variant uppercase tracking-wider mb-stack-sm ml-2">
-            Notifiche
-          </h3>
-          <div className="bg-surface-container-lowest rounded-[1.5rem] shadow-soft-card border border-outline-variant/30 overflow-hidden">
-            <SettingsRow
-              icon={<Bell className="size-[18px]" />}
-              title="Notifiche Push"
-              subtitle={
-                !pushSupported
-                  ? "Non supportate su questo dispositivo"
-                  : !pushReady
-                    ? "Disponibili solo sull'app installata o sul sito pubblicato"
-                    : pushEnabled
-                      ? "Attive — riceverai avvisi sul telefono"
-                      : "Ricevi avvisi sul telefono"
-              }
-              control={
-                pushBusy ? (
-                  <Loader2 className="size-5 animate-spin text-on-surface-variant" />
-                ) : (
-                  <Switch
-                    checked={pushEnabled}
-                    disabled={!pushSupported || !pushReady || pushBusy}
-                    onCheckedChange={togglePush}
-                  />
-                )
-              }
-            />
-            <SettingsDivider />
-            <SettingsRow
-              icon={<Mail className="size-[18px]" />}
-              title="Email di conferma"
-              subtitle="Ricevi email per ogni prenotazione"
-              control={
-                <Switch
-                  checked={emailEnabled}
-                  disabled={savingEmail || loading}
-                  onCheckedChange={toggleEmail}
-                />
-              }
-            />
+        ) : (
+          <div className="flex items-center gap-3.5" aria-busy="true">
+            <AuraSkeleton className="size-16 shrink-0 rounded-full" />
+            <div className="flex flex-1 flex-col gap-2">
+              <AuraSkeleton className="h-5 w-2/3 rounded-full" />
+              <AuraSkeleton className="h-4 w-1/2 rounded-full" />
+            </div>
           </div>
+        )}
+
+        {card && (
+          <section
+            aria-labelledby="profilo-coach"
+            className="flex flex-col gap-3.5 rounded-[24px] border border-outline-variant/35 bg-white px-[18px] py-4 shadow-soft-card"
+          >
+            <div className="flex items-center gap-3">
+              <span
+                aria-hidden
+                className="grid size-11 shrink-0 place-items-center rounded-full bg-primary-fixed text-[15px] font-bold text-aura-primary"
+              >
+                {card.initials}
+              </span>
+              <div className="flex min-w-0 flex-col">
+                <span
+                  id="profilo-coach"
+                  className="text-[13px] font-semibold text-on-surface-variant"
+                >
+                  Il tuo coach
+                </span>
+                <span className="truncate text-[17px] font-bold">{card.name}</span>
+              </div>
+            </div>
+            {card.links.length > 0 && (
+              // Tante colonne quanti sono i collegamenti: col coach di oggi
+              // «Email» a tutta larghezza. Sotto i 360 px le icone si
+              // nascondono: a 320 «WhatsApp» con l'icona non ci sta.
+              <div
+                className="grid gap-2"
+                style={{ gridTemplateColumns: `repeat(${card.links.length}, minmax(0, 1fr))` }}
+              >
+                {card.links.map((l) => {
+                  const Icon = LINK_ICON[l.kind];
+                  return (
+                    <a
+                      key={l.kind}
+                      href={l.href}
+                      {...(l.kind === "whatsapp"
+                        ? { target: "_blank", rel: "noopener noreferrer" }
+                        : {})}
+                      className="flex h-12 items-center justify-center gap-1.5 rounded-[14px] bg-primary-container/8 text-sm font-bold text-aura-primary"
+                    >
+                      <Icon className="size-4 shrink-0 max-[360px]:hidden" aria-hidden />
+                      {l.label}
+                    </a>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
+
+        <section className="flex flex-col gap-2">
+          <h2 className={SECTION_TITLE}>Il tuo percorso</h2>
+          {path}
         </section>
 
-        {/* Integrazioni */}
-        <section>
-          <h3 className="text-sm font-semibold text-on-surface-variant uppercase tracking-wider mb-stack-sm ml-2">
-            Integrazioni
-          </h3>
-          <div className="bg-surface-container-lowest rounded-[1.5rem] shadow-soft-card border border-outline-variant/30 overflow-hidden">
-            {googleLinked ? (
-              <div className="w-full flex items-center gap-3.5 px-5 py-4">
-                <span className="size-9 rounded-[10px] bg-aura-primary/6 text-aura-primary grid place-items-center shrink-0">
-                  <Calendar className="size-[18px]" />
+        <section className="flex flex-col gap-2">
+          <h2 className={SECTION_TITLE}>Notifiche</h2>
+          <div className={LIST_CARD}>
+            <div className={`flex items-center gap-3 px-4 py-3.5 ${ROW_SEP}`}>
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span id="profilo-push" className={ROW_TITLE}>
+                  Notifiche sul telefono
                 </span>
-                <span className="flex-1 min-w-0">
-                  <span className="block text-sm font-semibold text-on-surface">
-                    Account Google collegato
-                  </span>
-                  <span className="block mt-0.5 text-xs text-outline">
-                    Puoi accedere anche con Google
-                  </span>
-                </span>
-                <CheckCircle className="size-5 text-emerald-600" />
+                {push && <span className={ROW_SUB}>{push.text}</span>}
               </div>
-            ) : (
-              <div className="px-5 py-4 flex flex-col gap-3">
-                <div className="flex items-center gap-3.5">
-                  <span className="size-9 rounded-[10px] bg-aura-primary/6 text-aura-primary grid place-items-center shrink-0">
-                    <Calendar className="size-[18px]" />
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-on-surface">Collega Account Google</p>
-                    <p className="mt-0.5 text-xs text-outline">
-                      Per collegarlo, esci e accedi con Google usando la stessa email
-                      {email ? ` (${email})` : ""}. Il tuo account verrà collegato automaticamente,
-                      mantenendo prenotazioni e dati.
-                    </p>
-                  </div>
+              {push?.control === "switch" && (
+                <ClientSwitch
+                  aria-labelledby="profilo-push"
+                  checked={push.checked}
+                  disabled={pushBusy}
+                  onCheckedChange={(v) => void togglePush(v)}
+                />
+              )}
+              {push?.control === "come-fare" && (
+                <ClientButton variant="tonal" onClick={() => setSheet("install")}>
+                  Come fare
+                </ClientButton>
+              )}
+            </div>
+            {invite && (
+              <div className={`flex gap-3 px-4 py-3.5 ${ROW_SEP}`}>
+                <CalendarCheck
+                  className="mt-0.5 size-[18px] shrink-0 text-primary-container"
+                  aria-hidden
+                />
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <span className={ROW_TITLE}>Inviti del calendario</span>
+                  <span className={ROW_SUB}>{invite}</span>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleSignOutToLinkGoogle}
-                  disabled={googleLinking || loading}
-                  className="w-full bg-primary-container/10 text-on-surface font-medium text-sm py-3 rounded-full hover:bg-primary-container/20 transition active:scale-95 flex items-center justify-center gap-2 disabled:opacity-60"
-                >
-                  {googleLinking ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <LinkIcon className="size-4" />
-                  )}
-                  Esci e collega Google
-                </button>
               </div>
             )}
           </div>
         </section>
 
-        {/* Sicurezza */}
-        <section>
-          <h3 className="text-sm font-semibold text-on-surface-variant uppercase tracking-wider mb-stack-sm ml-2">
-            Sicurezza
-          </h3>
-          <div className="bg-surface-container-lowest rounded-[1.5rem] shadow-soft-card border border-outline-variant/30 overflow-hidden">
-            <form onSubmit={handleUpdatePassword} className="px-5 py-4 flex flex-col gap-4">
-              <div className="flex items-center gap-3.5">
-                <span className="size-9 rounded-[10px] bg-aura-primary/6 text-aura-primary grid place-items-center shrink-0">
-                  <Lock className="size-[18px]" />
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-on-surface">Cambia password</p>
-                  <p className="mt-0.5 text-xs text-outline">
-                    Aggiorna la password fornita dal coach.
-                  </p>
-                </div>
+        <section className="flex flex-col gap-2">
+          <h2 ref={accountRef} tabIndex={-1} className={SECTION_TITLE}>
+            Account
+          </h2>
+          <div className={LIST_CARD}>
+            <div className={`flex items-center gap-3 px-4 py-3.5 ${ROW_SEP}`}>
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className={ROW_TITLE}>Accesso con Google</span>
+                <span className={ROW_SUB}>{google.text}</span>
               </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium text-on-surface" htmlFor="new-password">
-                  Nuova Password
-                </label>
-                <input
-                  id="new-password"
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  minLength={8}
-                  required
-                  autoComplete="new-password"
-                  className="w-full rounded-2xl border border-outline-variant/60 bg-surface-container-lowest px-4 py-3 text-base text-on-surface focus:outline-none focus:ring-2 focus:ring-primary-container"
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium text-on-surface" htmlFor="confirm-password">
-                  Conferma Nuova Password
-                </label>
-                <input
-                  id="confirm-password"
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  minLength={6}
-                  required
-                  autoComplete="new-password"
-                  className="w-full rounded-2xl border border-outline-variant/60 bg-surface-container-lowest px-4 py-3 text-base text-on-surface focus:outline-none focus:ring-2 focus:ring-primary-container"
-                />
-              </div>
+              {google.link && (
+                <ClientButton variant="tonal" onClick={() => setSheet("google")}>
+                  Collega
+                </ClientButton>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setSheet("password")}
+              className={`${ROW} w-full text-left ${ROW_SEP}`}
+            >
+              <KeyRound className="size-[18px] text-primary-container" aria-hidden />
+              <span className={`flex-1 ${ROW_TITLE}`}>Cambia password</span>
+              <ChevronRight className="size-[18px] text-outline" aria-hidden />
+            </button>
+            {install.opens ? (
               <button
-                type="submit"
-                disabled={updatingPassword}
-                className="w-full bg-aura-primary text-white font-semibold text-sm py-3 rounded-full hover:opacity-90 transition active:scale-95 flex items-center justify-center gap-2 disabled:opacity-60"
+                type="button"
+                onClick={() => setSheet("install")}
+                className={`${ROW} w-full text-left ${ROW_SEP}`}
               >
-                {updatingPassword ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <Lock className="size-4" />
-                )}
-                Aggiorna Password
+                <Download className="size-[18px] text-primary-container" aria-hidden />
+                <span className={`flex-1 ${ROW_TITLE}`}>{install.label}</span>
+                <ChevronRight className="size-[18px] text-outline" aria-hidden />
               </button>
-            </form>
+            ) : (
+              <div className={`${ROW} ${ROW_SEP}`}>
+                <Download className="size-[18px] text-primary-container" aria-hidden />
+                <span className={`flex-1 ${ROW_TITLE}`}>{install.label}</span>
+              </div>
+            )}
           </div>
         </section>
 
-        {/* Logout */}
-        <section>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="w-full bg-transparent border border-outline-variant text-on-error-container font-semibold text-base py-4 rounded-full hover:bg-error-container/30 transition active:scale-95 flex items-center justify-center gap-2"
-          >
-            <LogOut className="size-5" />
-            Esci dall'account
-          </button>
-        </section>
-      </main>
+        <button
+          type="button"
+          onClick={() => void logout()}
+          className="flex h-[52px] w-full items-center justify-center gap-2 rounded-full border border-outline-variant text-base font-bold text-danger-text"
+        >
+          <LogOut className="size-[18px]" aria-hidden />
+          Esci
+        </button>
+      </div>
+
+      <PasswordSheet
+        open={sheet === "password"}
+        onOpenChange={(open) => setSheet(open ? "password" : null)}
+        onSave={savePassword}
+      />
+      <GoogleLinkSheet
+        open={sheet === "google"}
+        onOpenChange={(open) => setSheet(open ? "google" : null)}
+        email={identity.email}
+        onConfirm={() => void linkGoogle()}
+      />
+      <ClientInstallSheet
+        open={sheet === "install"}
+        onOpenChange={(open) => setSheet(open ? "install" : null)}
+        from="profilo"
+        returnFocus={() => accountRef.current}
+      />
     </div>
   );
 }
