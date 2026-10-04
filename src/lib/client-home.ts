@@ -27,7 +27,7 @@
 // parametro, sempre l'ultimo), niente Sentry, niente toast.
 // ----------------------------------------------------------------------------
 
-import { addHours, differenceInCalendarDays, format, parseISO } from "date-fns";
+import { addHours, differenceInCalendarDays, format, parseISO, subDays } from "date-fns";
 import { it } from "date-fns/locale/it";
 import { CLIENT_MIN_NOTICE_HOURS, CLIENT_RESCHEDULE_CUTOFF_HOURS } from "@/lib/booking-rules";
 import {
@@ -360,18 +360,22 @@ export function creditsHeader(
 }
 
 /**
- * «3 crediti da prenotare entro domenica 4 ottobre.» quando tutto insieme:
- * il cliente non è libero, il blocco di riferimento è in corso, alla sua
- * fine mancano al più 7 giorni di calendario, gli resta un giorno
- * prenotabile (la fine non è prima del giorno di oggi + 24 ore) e ha crediti
- * suoi. Gli extra non contano: non scadono col blocco. Nessuna frase sul
- * blocco dopo (V2).
+ * Le parti dell'avviso dei crediti da prenotare, quando tutto insieme: il
+ * cliente non è libero, il blocco di riferimento è in corso, alla sua fine
+ * mancano al più 7 giorni di calendario, gli resta un giorno prenotabile (la
+ * fine non è prima del giorno di oggi + 24 ore) e ha crediti suoi. Gli extra
+ * non contano: non scadono col blocco. Nessuna frase sul blocco dopo (V2).
+ * Il blocco, quanti crediti suoi restano, l'ultimo giorno (YYYY-MM-DD) e da
+ * quando l'avviso vale: 7 giorni di calendario prima della fine, a mezzanotte
+ * locale (sottrarre 7 × 24 ore sbaglierebbe l'ora a cavallo del cambio d'ora).
+ * Le usa anche la voce «Crediti da usare» delle notifiche (passata 08): la
+ * Home e la campanella dicono lo stesso numero.
  */
-export function creditsWarning(
+export function creditsWarningParts(
   client: Pick<RenewalClient, "path_type">,
   state: Pick<BookState, "reference" | "options">,
   now: Date,
-): string | null {
+): { blockId: string; left: number; end: string; from: Date } | null {
   const ref = state.reference;
   if (client.path_type === "free" || !ref || blockTiming(ref, now) !== "current") return null;
   const end = ref.end_date.slice(0, 10);
@@ -379,7 +383,22 @@ export function creditsWarning(
   if (end < toIsoDate(addHours(now, CLIENT_MIN_NOTICE_HOURS))) return null;
   const left = state.options.reduce((sum, o) => sum + (o.referencePool?.blockAvail ?? 0), 0);
   if (left <= 0) return null;
-  return `${plural(left, "credito", "crediti")} da prenotare entro ${dayText(end)}.`;
+  return { blockId: ref.id, left, end, from: subDays(parseISO(end), WARNING_DAYS) };
+}
+
+/** «3 crediti da prenotare entro domenica 4 ottobre», senza il punto. */
+export function creditsWarningText(parts: { left: number; end: string }): string {
+  return `${plural(parts.left, "credito", "crediti")} da prenotare entro ${dayText(parts.end)}`;
+}
+
+/** «3 crediti da prenotare entro domenica 4 ottobre.»: la frase di creditsWarningParts, o null. */
+export function creditsWarning(
+  client: Pick<RenewalClient, "path_type">,
+  state: Pick<BookState, "reference" | "options">,
+  now: Date,
+): string | null {
+  const parts = creditsWarningParts(client, state, now);
+  return parts ? `${creditsWarningText(parts)}.` : null;
 }
 
 /** L'azione della riga: Prenota, «Come si prenota», «Acquista»; mai «Completo» (H10). */
