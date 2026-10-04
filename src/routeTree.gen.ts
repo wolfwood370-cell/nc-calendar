@@ -18,6 +18,8 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as TrainerRouteImport } from './routes/trainer'
 import { Route as ClientIndexRouteImport } from './routes/client.index'
 import { Route as ClientBookRouteImport } from './routes/client.book'
+import { Route as ClientNotificationsRouteImport } from './routes/client.notifications'
+import { Route as ClientSessionsRouteImport } from './routes/client.sessions'
 import { Route as ClientSettingsRouteImport } from './routes/client.settings'
 import { Route as ClientStoreRouteImport } from './routes/client.store'
 import { Route as TrainerIndexRouteImport } from './routes/trainer.index'
@@ -72,6 +74,16 @@ const ClientIndexRoute = ClientIndexRouteImport.update({
 const ClientBookRoute = ClientBookRouteImport.update({
   id: '/book',
   path: '/book',
+  getParentRoute: () => ClientRoute,
+} as any)
+const ClientNotificationsRoute = ClientNotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => ClientRoute,
+} as any)
+const ClientSessionsRoute = ClientSessionsRouteImport.update({
+  id: '/sessions',
+  path: '/sessions',
   getParentRoute: () => ClientRoute,
 } as any)
 const ClientSettingsRoute = ClientSettingsRouteImport.update({
@@ -134,6 +146,8 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/trainer': typeof TrainerRouteWithChildren
   '/client/book': typeof ClientBookRoute
+  '/client/notifications': typeof ClientNotificationsRoute
+  '/client/sessions': typeof ClientSessionsRoute
   '/client/settings': typeof ClientSettingsRoute
   '/client/store': typeof ClientStoreRoute
   '/trainer/availability': typeof TrainerAvailabilityRoute
@@ -153,6 +167,8 @@ export interface FileRoutesByTo {
   '/forgot-password': typeof ForgotPasswordRoute
   '/reset-password': typeof ResetPasswordRoute
   '/client/book': typeof ClientBookRoute
+  '/client/notifications': typeof ClientNotificationsRoute
+  '/client/sessions': typeof ClientSessionsRoute
   '/client/settings': typeof ClientSettingsRoute
   '/client/store': typeof ClientStoreRoute
   '/trainer/availability': typeof TrainerAvailabilityRoute
@@ -175,6 +191,8 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/trainer': typeof TrainerRouteWithChildren
   '/client/book': typeof ClientBookRoute
+  '/client/notifications': typeof ClientNotificationsRoute
+  '/client/sessions': typeof ClientSessionsRoute
   '/client/settings': typeof ClientSettingsRoute
   '/client/store': typeof ClientStoreRoute
   '/trainer/availability': typeof TrainerAvailabilityRoute
@@ -198,6 +216,8 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/trainer'
     | '/client/book'
+    | '/client/notifications'
+    | '/client/sessions'
     | '/client/settings'
     | '/client/store'
     | '/trainer/availability'
@@ -217,6 +237,8 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/reset-password'
     | '/client/book'
+    | '/client/notifications'
+    | '/client/sessions'
     | '/client/settings'
     | '/client/store'
     | '/trainer/availability'
@@ -238,6 +260,8 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/trainer'
     | '/client/book'
+    | '/client/notifications'
+    | '/client/sessions'
     | '/client/settings'
     | '/client/store'
     | '/trainer/availability'
@@ -326,6 +350,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClientBookRouteImport
       parentRoute: typeof ClientRoute
     }
+    '/client/notifications': {
+      id: '/client/notifications'
+      path: '/notifications'
+      fullPath: '/client/notifications'
+      preLoaderRoute: typeof ClientNotificationsRouteImport
+      parentRoute: typeof ClientRoute
+    }
+    '/client/sessions': {
+      id: '/client/sessions'
+      path: '/sessions'
+      fullPath: '/client/sessions'
+      preLoaderRoute: typeof ClientSessionsRouteImport
+      parentRoute: typeof ClientRoute
+    }
     '/client/settings': {
       id: '/client/settings'
       path: '/settings'
@@ -401,6 +439,8 @@ declare module '@tanstack/react-router' {
 
 interface ClientRouteChildren {
   ClientBookRoute: typeof ClientBookRoute
+  ClientNotificationsRoute: typeof ClientNotificationsRoute
+  ClientSessionsRoute: typeof ClientSessionsRoute
   ClientSettingsRoute: typeof ClientSettingsRoute
   ClientStoreRoute: typeof ClientStoreRoute
   ClientIndexRoute: typeof ClientIndexRoute
@@ -409,6 +449,8 @@ interface ClientRouteChildren {
 
 const ClientRouteChildren: ClientRouteChildren = {
   ClientBookRoute: ClientBookRoute,
+  ClientNotificationsRoute: ClientNotificationsRoute,
+  ClientSessionsRoute: ClientSessionsRoute,
   ClientSettingsRoute: ClientSettingsRoute,
   ClientStoreRoute: ClientStoreRoute,
   ClientIndexRoute: ClientIndexRoute,

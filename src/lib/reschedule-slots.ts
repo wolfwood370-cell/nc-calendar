@@ -5,10 +5,11 @@
 // ed escludendo il booking corrente che stiamo riprogrammando.
 // ----------------------------------------------------------------------------
 
+import { CLIENT_RESCHEDULE_WINDOW_DAYS } from "@/lib/booking-rules";
 import type { AvailabilityRow, AvailabilityExceptionRow } from "@/lib/queries";
 
-/** Numero giorni futuri mostrati nel picker reschedule. */
-export const RESCHEDULE_WINDOW_DAYS = 14;
+/** Numero giorni futuri mostrati nel picker reschedule: quelli del cliente (booking-rules.ts). */
+export const RESCHEDULE_WINDOW_DAYS = CLIENT_RESCHEDULE_WINDOW_DAYS;
 /** Passo della griglia slot in minuti (allineamento canonico). */
 export const SLOT_STEP_MIN = 30;
 

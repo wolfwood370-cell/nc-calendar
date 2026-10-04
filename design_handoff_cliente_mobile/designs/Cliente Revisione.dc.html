@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&amp;family=Manrope:wght@400;500;600;700&amp;display=swap">
+<script src="./nc-icons.js"></script>
+<script src="./nc-store.js"></script>
+<script src="./nc-client.js"></script>
+<style>
+*,::before,::after{box-sizing:border-box;margin:0;padding:0;border:0 solid;}
+body{margin:0;font-family:Manrope,ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:#191c1f;}
+button{font:inherit;color:inherit;background:transparent;cursor:pointer;}
+ul{list-style:none;}
+a{color:#003e62;text-decoration:none;}
+a:hover{color:#005685;text-decoration:underline;}
+:focus-visible{outline:2px solid #005685;outline-offset:2px;}
+</style>
+</helmet>
+<aside aria-label="Note di revisione" style="width:100%; display:flex; flex-direction:column; gap:14px; font-family:Manrope, sans-serif; color:#191c1f;">
+  <section style="background:#ffffff; border-radius:24px; padding:20px; box-shadow:0 4px 20px rgba(0,86,133,0.05); display:flex; flex-direction:column; gap:12px;">
+    <p style="font-size:12px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:#717880;">Prototipo cliente · mobile</p>
+    <h2 style="font-family:Sora, sans-serif; font-size:22px; line-height:1.2; font-weight:700; letter-spacing:-0.01em;">{{ title }}</h2>
+    <p style="font-size:13px; line-height:1.5; color:#41474f;">Correzioni applicate in questa schermata. Il codice apre il punto dell'audit.</p>
+    <ul style="display:flex; flex-direction:column; gap:10px;">
+      <sc-for list="{{ notes }}" as="n" hint-placeholder-count="5">
+        <li style="display:flex; align-items:flex-start; gap:10px; font-size:13px; line-height:1.45; color:#191c1f;">
+          <a href="{{ n.href }}" style="flex-shrink:0; height:22px; min-width:36px; padding:0 7px; border-radius:9999px; background:{{ n.bg }}; color:{{ n.fg }}; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; text-decoration:none;">{{ n.code }}</a>
+          <span style="text-wrap:pretty;">{{ n.text }}</span>
+        </li>
+      </sc-for>
+    </ul>
+    <a href="Audit%20Cliente%20Mobile.dc.html" style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:700;">Leggi l'audit completo<nc-icon name="ArrowRight" style="width:14px; height:14px;"></nc-icon></a>
+  </section>
+  <section style="background:#ffffff; border-radius:24px; padding:20px; box-shadow:0 4px 20px rgba(0,86,133,0.05); display:flex; flex-direction:column; gap:14px;">
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <p style="font-size:13px; font-weight:700;">Cliente di prova</p>
+      <div role="radiogroup" aria-label="Cliente di prova" style="display:flex; flex-direction:column; gap:6px;">
+        <sc-for list="{{ personas }}" as="p" hint-placeholder-count="4">
+          <button role="radio" aria-checked="{{ p.checked }}" tabindex="{{ p.tab }}" onClick="{{ p.pick }}" style="display:flex; align-items:center; gap:10px; min-height:44px; padding:6px 10px; border-radius:14px; text-align:left; background:{{ p.bg }}; border:1px solid {{ p.border }};">
+            <span style="width:30px; height:30px; border-radius:9999px; background:{{ p.avBg }}; color:{{ p.avFg }}; display:grid; place-items:center; font-size:12px; font-weight:700; flex-shrink:0;">{{ p.ini }}</span>
+            <span style="display:flex; flex-direction:column; gap:1px; min-width:0;"><span style="font-size:13px; font-weight:700;">{{ p.label }}</span><span style="font-size:12px; color:#41474f;">{{ p.sub }}</span></span>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <p style="font-size:13px; font-weight:700;">Ora simulata <span style="font-weight:500; color:#717880;">· condivisa con il lato coach</span></p>
+      <div role="radiogroup" aria-label="Ora simulata" style="display:flex; flex-wrap:wrap; gap:6px;">
+        <sc-for list="{{ clocks }}" as="k" hint-placeholder-count="5">
+          <button role="radio" aria-checked="{{ k.checked }}" tabindex="{{ k.tab }}" onClick="{{ k.pick }}" style="height:34px; padding:0 12px; border-radius:9999px; font-size:13px; font-weight:600; font-variant-numeric:tabular-nums; background:{{ k.bg }}; color:{{ k.fg }}; border:1px solid {{ k.border }};">{{ k.label }}</button>
+        </sc-for>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:8px; padding-top:12px; border-top:1px solid #f2f3f8; font-size:13px;">
+      <a href="Coach%20Calendario.dc.html" target="_blank" rel="noopener" style="display:flex; align-items:center; gap:8px; font-weight:700;"><nc-icon name="ExternalLink" style="width:14px; height:14px;"></nc-icon>Apri il calendario del coach</a>
+      <p style="font-size:12px; line-height:1.5; color:#41474f;">Stessi dati: prenotazioni, spostamenti, annullamenti e acquisti compaiono al coach; ciò che il coach cambia arriva nelle notifiche del cliente.</p>
+      <button onClick="{{ reset }}" style="align-self:flex-start; font-size:13px; font-weight:700; color:#003e62;">Ripristina i dati di esempio</button>
+    </div>
+  </section>
+</aside>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:340,&quot;height&quot;:900},&quot;screen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;home&quot;,&quot;prenota&quot;,&quot;sessioni&quot;,&quot;sessione&quot;,&quot;booster&quot;,&quot;profilo&quot;,&quot;notifiche&quot;],&quot;default&quot;:&quot;home&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  componentDidMount() {
+    const hook = () => { this.unsub = window.NCStore.subscribe(() => this.forceUpdate()); this.forceUpdate(); };
+    const wait = () => (window.NCClient && window.NCClient.ready() ? hook() : (this.t = setTimeout(wait, 30)));
+    wait();
+  }
+  componentWillUnmount() { this.unsub && this.unsub(); clearTimeout(this.t); }
+  renderVals() {
+    const screen = this.props.screen ?? "home";
+    const SEV = { alta: ["#ffdad6", "#ba1a1a"], media: ["#ffdcc2", "#7c4302"], bassa: ["#eceef2", "#41474f"], dec: ["rgba(0,86,133,0.1)", "#003e62"] };
+    const LV = { N1: "alta", H1: "alta", B1: "alta", S1: "alta", N2: "media", N3: "media", N4: "media", H2: "media", H3: "media", H4: "media", H6: "media", H7: "media", H8: "media", B2: "media", B3: "media", B4: "media", D1: "media", D2: "media", S2: "media", S3: "media", S4: "media", R1: "media", T1: "media", T2: "media" };
+    const N = {
+      home: ["Home", [
+        ["H2", "La prossima sessione è in cima, con le sue azioni."],
+        ["H1", "Un solo numero: disponibili = assegnati − svolte − prenotate − perse."],
+        ["H3", "Una card crediti al posto di segmenti, legenda, tabella e riepilogo."],
+        ["H4", "«Conferma presenza» è l'unico pulsante pieno e compare solo quando serve."],
+        ["N1", "«Vedi tutte» porta alle altre sessioni prenotate."],
+        ["H5", "Tempo relativo («tra 3 giorni»); minuti solo nell'ultima ora."],
+        ["H6", "Il contatto del coach dove un messaggio rimanda a lui."],
+        ["H7", "Senza percorso o a percorso concluso: nessun invito allo Store."],
+        ["H10", "«Esauriti» con l'azione possibile, al posto di «Completo»."],
+        ["H9", "Valutazione modificabile prima dell'invio, con nota facoltativa."],
+        ["N5", "Installazione proposta con una card che si chiude."],
+        ["N2", "Barra in basso con etichette: Home, Prenota, Sessioni, Booster, Profilo."],
+      ]],
+      prenota: ["Prenota", [
+        ["B1", "Solo i giorni coperti dai crediti; oltre, quando si apre il blocco successivo."],
+        ["O1", "Una regola: da 24 ore a 14 giorni prima, uguale per prenotare e spostare."],
+        ["B3", "Giorni con il numero di orari liberi; il primo utile è già scelto."],
+        ["B5", "Tutte le tipologie, con durata e crediti; esaurite e non prenotabili spiegate."],
+        ["B6", "Orari consigliati in testa alla giornata, con il motivo."],
+        ["B4", "Riepilogo prima di confermare, con crediti residui e scadenza per annullare gratis."],
+        ["N4", "La barra d'azione compare solo dopo aver scelto l'orario."],
+        ["B7", "Nessun dettaglio tecnico: una frase e il contatto del coach."],
+      ]],
+      sessioni: ["Sessioni", [
+        ["N1", "Tutte le sessioni prenotate, apribili e gestibili."],
+        ["T5", "Le sessioni passate non ancora registrate sono «In verifica»."],
+        ["T1", "Stati con i nomi del lato coach: Svolta, Assente, Annullata, Annullata tardi."],
+        ["H9", "Valutazione anche dallo storico."],
+      ]],
+      sessione: ["Dettaglio sessione", [
+        ["D3", "Data, orario, durata, coach e luogo insieme; una sola azione principale."],
+        ["D1", "Dopo l'annullamento si resta qui con «Ripristina»; sotto le 24 ore c'è il contatto del coach."],
+        ["D2", "Nessun «Aggiungi a Google Calendar»: l'invito è già arrivato."],
+        ["B2", "«Sposta» usa lo stesso selettore di Prenota."],
+        ["O3", "Conferma della presenza solo quando serve, con cosa vede il coach."],
+        ["D4", "La nota del coach compare solo se c'è."],
+        ["D5", "«Indietro» torna alla schermata di provenienza."],
+      ]],
+      booster: ["Booster", [
+        ["S1", "Una regola di validità, scritta prima di pagare."],
+        ["S2", "Quantità nel titolo, durata dalla tipologia."],
+        ["S3", "Esito del pagamento con i crediti aggiornati."],
+        ["S4", "Si acquista per tipologia: niente ricarica che compra altro."],
+        ["S5", "Chi non può acquistare vede la spiegazione e il contatto."],
+        ["O2", "Scheda con etichetta; si arriva anche da Home, Prenota e Profilo."],
+      ]],
+      profilo: ["Profilo", [
+        ["H6", "Contatti del coach: WhatsApp, telefono, email."],
+        ["R1", "Tolto l'interruttore email senza effetto; spiegato da dove arrivano gli inviti."],
+        ["R2", "Se l'app non è installata, le notifiche lo dicono e spiegano come fare."],
+        ["R3", "Password in una finestra, con errori sotto il campo."],
+        ["R4", "Google si collega da qui, senza uscire."],
+        ["R5", "Nessuna statistica ripetuta: i crediti restano in Home."],
+        ["N5", "«Installa l'app» sempre disponibile."],
+      ]],
+      notifiche: ["Notifiche", [
+        ["H8", "Anche le azioni del coach: spostamenti, annullamenti, assenze, crediti, BIA."],
+        ["H8", "Aprire una notifica segna letta solo quella."],
+      ]],
+    };
+    const cur = N[screen] || N.home;
+    const notes = cur[1].map(([code, text]) => {
+      const lv = code[0] === "O" ? "dec" : LV[code] || "bassa";
+      return { code, text, href: "Audit%20Cliente%20Mobile.dc.html#" + code, bg: SEV[lv][0], fg: SEV[lv][1] };
+    });
+    const C = window.NCClient, S = window.NCStore, ready = !!(C && C.ready());
+    const me = ready ? C.meId() : "giulia-bianchi";
+    const personas = (C ? C.personas : []).map((p) => {
+      const on = p.id === me;
+      return { label: p.label, sub: p.sub, ini: p.label.split(" ").map((w) => w[0]).join(""), checked: on ? "true" : "false", tab: on ? 0 : -1,
+        bg: on ? "rgba(0,86,133,0.06)" : "#ffffff", border: on ? "#005685" : "#e1e2e7", avBg: on ? "#005685" : "#eceef2", avFg: on ? "#ffffff" : "#41474f",
+        pick: () => ready && C.setMe(p.id) };
+    });
+    const clock = ready ? S.getClock() : "10:40";
+    const clocks = ["reale", "08:15", "10:40", "13:10", "19:10"].map((v) => {
+      const on = v === clock;
+      return { label: v === "reale" ? "Ora reale" : v, checked: on ? "true" : "false", tab: on ? 0 : -1, bg: on ? "#003e62" : "#ffffff", fg: on ? "#ffffff" : "#191c1f", border: on ? "#003e62" : "#e1e2e7", pick: () => ready && S.setClock(v) };
+    });
+    return { title: cur[0], notes, personas, clocks,
+      reset: () => { if (!ready) return; S.reset(); S.showToast({ msg: "Dati di esempio ripristinati.", tone: "info" }); } };
+  }
+}
+</script>
+</body>
+</html>

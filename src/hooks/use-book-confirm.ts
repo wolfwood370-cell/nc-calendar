@@ -1,306 +1,224 @@
 // ----------------------------------------------------------------------------
-// use-book-confirm — orchestrazione "Conferma prenotazione" client-side
+// use-book-confirm — la prenotazione del cliente (lato cliente, passata 02)
 // ----------------------------------------------------------------------------
-// Estratto da client.book.tsx (commit 2026-05-24). Il flusso `confirm`
-// vive isolato da BookFlow perché incapsula 5 responsabilità diverse:
-//
-//   1. Validazione input (meId, coachId, selectedISO, selectedPoolKey, pool match)
-//   2. Risoluzione credito (block allocation prima, extra credit fallback)
-//   3. INSERT booking (overlap + credit consumption enforced via DB triggers)
-//   4. Side-effects fire-and-forget: syncCalendar, email, booking-notifications, sendPush
-//   5. Toast successo + invalidazione query + navigate → /client
-//
-// Il hook gestisce internamente `confirmingRef` (sincrono, double-tap
-// guard) + `confirming` boolean (per il render del bottone CTA) così il
-// parent non deve esporre quello stato.
+// Estratto da client.book.tsx il 24/05/2026, riscritto nella passata 02.
+// confirm() inserisce la sessione e restituisce l'esito: riepilogo, esito ed
+// errori li mostra il foglio di Prenota, e la pagina resta dov'è.
+//   1. Prima di scrivere: cliente, coach, tipologia, orario, la finestra del
+//      giorno scelto e le 24 ore di preavviso, con l'ora del momento: il foglio
+//      può essere rimasto aperto, e all'inserimento il server il preavviso non
+//      lo guarda (enforce_client_booking_rules guarda solo la tipologia).
+//   2. L'inserimento paga col credito del giorno scelto: block_id è il blocco
+//      della finestra (window.blockId) se la pagano i crediti di un blocco,
+//      nullo se la paga un extra. Ogni credito vale nel suo blocco, e le date
+//      del blocco dopo si prenotano coi suoi (decisioni di Nicolò del
+//      28/09/2026). Sovrapposizione e crediti li controlla il server (23P01,
+//      P0001). Oggi validate_booking_block_allocation sceglie comunque fra
+//      tutti i blocchi del cliente, anche finiti, e riscrive block_id
+//      (20260827143053_4c03121c-…sql:35-61): lo corregge il server il
+//      02/10/2026, e l'app non lo compensa.
+//   3. Chi prenota entro 48 ore risulta già confermato (O3), e il riepilogo lo
+//      promette; il server non lo fa ancora (la migrazione O3 è del
+//      02/10/2026). Quindi, dopo l'inserimento, confirm_booking_attendance, e
+//      se ne aspetta la risposta; un errore va solo in console e la sessione
+//      resta «Da confermare». Con la migrazione O3 diventa una chiamata che non
+//      fa niente, e si toglie. Il server rifiuta ogni modifica del cliente a una
+//      sessione che inizia prima di now() + 24 ore (20260607191854_…sql:15):
+//      un orario preso a pochi secondi dalla soglia fa fallire la conferma, e
+//      vale il ripiego.
+//   4. Gli effetti di contorno, senza aspettarli: l'evento di Google Calendar
+//      (gcalCreateEvent, lato server; l'invito arriva all'email del cliente),
+//      l'avviso al coach (booking-notifications), la push al cliente.
+//   5. Dopo, riuscita o no, invalidateBookingScope: dopo un 23P01 l'orario
+//      deve sparire, dopo un P0001 i crediti devono essere quelli del server.
+// Il doppio tocco lo ferma confirmingRef: il secondo tocco riceve la stessa
+// promessa del primo, e la scrittura resta una.
 // ----------------------------------------------------------------------------
 
 import { useRef, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import type { CreditWindow } from "@/lib/booking-rules";
+import { NOTICE_GONE, bookingErrorMessage, confirmsOnBooking, noticeOk } from "@/lib/client-book";
 import { gcalCreateEvent } from "@/lib/gcal.functions";
-import { generateGoogleCalendarLink } from "@/lib/calendar";
-
+import type { SessionType } from "@/lib/mock-data";
 import { sendPush } from "@/lib/push";
 import { invalidateBookingScope } from "@/lib/query-keys";
-import { sessionLabel, type SessionType } from "@/lib/mock-data";
-import {
-  findAllocationForWeek,
-  findExtraCredit,
-  type ExtraCreditRow,
-} from "@/lib/booking-allocation";
-import type { EventTypeRow, AllocationRow } from "@/lib/queries";
 
-/** Subset structural del Pool richiesto da useBookConfirm. */
-export interface PoolForConfirm {
-  key: string;
-  type: SessionType;
+/** La tipologia scelta, coi campi che servono all'inserimento e agli effetti di contorno. */
+export interface BookConfirmType {
   eventTypeId: string | null;
-  source: "block" | "extra";
-}
-
-/** Subset structural del block (training_blocks) richiesto da useBookConfirm. */
-export interface BlockForConfirm {
-  id: string;
-  start_date: string;
-  allocations: AllocationRow[];
+  sessionType: SessionType;
+  name: string;
+  durationMin: number;
+  location: "physical" | "online" | null;
+  color: string | null;
+  description: string | null;
 }
 
 export interface UseBookConfirmInput {
   meId: string | undefined;
-  meName: string;
-  meEmail: string;
-  mePhone: string | null;
   coachId: string | null | undefined;
-  coachName: string;
-  emailNotificationsEnabled: boolean;
-  selectedISO: string | null;
-  selectedPoolKey: string | null;
-  pools: readonly PoolForConfirm[];
-  block: BlockForConfirm | null | undefined;
-  customTypes: readonly EventTypeRow[];
-  extraCredits: readonly ExtraCreditRow[] | null | undefined;
+  /** Nome e telefono del cliente, per l'avviso al coach. */
+  meName: string;
+  mePhone: string | null;
+  type: BookConfirmType | null;
+  /** L'orario scelto, ISO. */
+  iso: string | null;
+  /** La finestra dei crediti del giorno scelto (ClientSlotDay.window). */
+  window: CreditWindow | null;
 }
 
+export type BookConfirmResult =
+  | { ok: true; bookingId: string }
+  | { ok: false; error: string; code: string | null };
+
 export interface UseBookConfirmReturn {
-  /** Funzione async che orchestra l'INSERT + tutti i side-effect. Safe da chiamare più volte (double-tap guard interno). */
-  confirm: () => Promise<void>;
-  /** True mentre confirm() è in volo. Usalo per disabilitare il bottone CTA. */
+  /** Inserisce e restituisce l'esito; con un tocco in volo restituisce quello. */
+  confirm: () => Promise<BookConfirmResult>;
+  /** Vero mentre confirm() è in volo: il pulsante resta disattivato. */
   confirming: boolean;
 }
 
+/**
+ * Gli effetti di contorno di una prenotazione riuscita, senza aspettarli e
+ * senza che un loro errore arrivi al foglio: l'evento sul calendario della
+ * piattaforma (lato server: se online chiede la stanza di Meet, sendUpdates=all
+ * manda l'invito al cliente; colore e descrizione della tipologia, GCAL-FIX
+ * dell'08/06/2026), l'avviso al coach, la push al cliente.
+ */
+function announce(b: {
+  bookingId: string;
+  meId: string;
+  coachId: string;
+  meName: string;
+  mePhone: string | null;
+  type: BookConfirmType;
+  iso: string;
+  endISO: string;
+}) {
+  const isOnline = b.type.location === "online";
+  void (async () => {
+    try {
+      const { toGoogleColorId } = await import("@/lib/gcal-colors");
+      await gcalCreateEvent({
+        data: {
+          bookingId: b.bookingId,
+          summary: `${b.type.name} — ${b.meName}`,
+          description: b.type.description ?? undefined,
+          startISO: b.iso,
+          endISO: b.endISO,
+          requestMeet: isOnline,
+          isOnline,
+          colorId: toGoogleColorId(b.type.color),
+        },
+      });
+    } catch (e) {
+      console.error("gcalCreateEvent failed", e);
+    }
+  })();
+  try {
+    void supabase.functions
+      .invoke("booking-notifications", {
+        body: {
+          coach_id: b.coachId,
+          client_name: b.meName,
+          client_phone: b.mePhone,
+          scheduled_at: b.iso,
+          session_label: b.type.name,
+          meeting_link: null,
+        },
+      })
+      .catch((e) => console.error("booking-notifications failed", e));
+    sendPush({
+      profileId: b.meId,
+      title: "Prenotazione confermata",
+      body: `${b.type.name} — ${new Date(b.iso).toLocaleString("it-IT", { dateStyle: "medium", timeStyle: "short" })}`,
+      url: "/client",
+    });
+  } catch (e) {
+    console.error("booking-notifications / send-push failed", e);
+  }
+}
+
 export function useBookConfirm(input: UseBookConfirmInput): UseBookConfirmReturn {
-  const navigate = useNavigate();
   const qc = useQueryClient();
-  const confirmingRef = useRef(false);
+  const confirmingRef = useRef<Promise<BookConfirmResult> | null>(null);
   const [confirming, setConfirming] = useState(false);
 
-  const {
-    meId,
-    meName,
-    mePhone,
-    coachId,
-    selectedISO,
-    selectedPoolKey,
-    pools,
-    block,
-    customTypes,
-    extraCredits,
-  } = input;
+  const book = async (): Promise<BookConfirmResult> => {
+    const { meId, coachId, meName, mePhone, type, iso, window } = input;
+    if (!meId || !coachId || !type || !iso || !window) {
+      return { ok: false, error: bookingErrorMessage(null, type?.name ?? ""), code: null };
+    }
+    if (!noticeOk(iso, new Date())) return { ok: false, error: NOTICE_GONE, code: null };
 
-  const confirm = async () => {
-    // L2: synchronous double-tap guard, runs before React schedules the
-    // disabled-button re-render.
-    if (confirmingRef.current) return;
-
-    if (!meId) {
-      toast.error("Sessione non valida", {
-        description: "Effettua di nuovo l'accesso e riprova.",
-      });
-      return;
-    }
-    if (!coachId) {
-      toast.error("Coach non assegnato. Contatta il tuo coach.");
-      return;
-    }
-    if (!selectedISO || !selectedPoolKey) {
-      toast.error("Seleziona data e orario.");
-      return;
-    }
-    const pool = pools.find((p) => p.key === selectedPoolKey);
-    if (!pool) {
-      toast.error("Tipologia non disponibile.");
-      return;
-    }
-
-    confirmingRef.current = true;
-    setConfirming(true);
+    const endISO = new Date(new Date(iso).getTime() + type.durationMin * 60_000).toISOString();
+    const refresh = () => invalidateBookingScope(qc, { coachId, clientId: meId });
+    let bookingId: string | null;
     try {
-      // L1 (FULL_APP_AUDIT.md): the previous body wrapped this single-slot
-      // flow in `for (const [iso, pick] of [[selectedISO, ...]])` as
-      // scaffolding for a future multi-slot booking UI. That UI never
-      // shipped, so the loop, the `localUsed` tracker and the singular/
-      // plural toast machinery were all dead code masking the real shape
-      // of the action. Unrolled to a straight-line single booking; the
-      // multi-slot version, when needed, can be a fresh implementation
-      // built around a real mutation rather than this hollow loop.
-      const iso = selectedISO;
-      const type: SessionType = pool.type;
-      const eventType = pool.eventTypeId
-        ? (customTypes.find((e) => e.id === pool.eventTypeId) ?? null)
-        : null;
-      const displayLabel = eventType?.name ?? sessionLabel(type);
-
-      // Resolve credit source: 1) block allocation, 2) extra credit fallback.
-      let allocId: string | null = null;
-      let extraId: string | null = null;
-      if (pool.source === "block") {
-        const a = findAllocationForWeek(block, type, eventType?.id ?? null, iso);
-        if (a) {
-          allocId = a.id;
-        } else {
-          const ec = findExtraCredit(extraCredits, eventType?.id ?? null);
-          if (ec) extraId = ec.id;
-        }
-      } else {
-        const ec = findExtraCredit(extraCredits, eventType?.id ?? null);
-        if (ec) extraId = ec.id;
-      }
-
-      if (!allocId && !extraId) {
-        toast.error(`Credito esaurito per ${displayLabel}.`, {
-          description: "Acquista un Booster per continuare a prenotare.",
-          action: {
-            label: "Vai allo Store",
-            onClick: () => navigate({ to: "/client/store" }),
-          },
-        });
-        return;
-      }
-
-      const isOnline = eventType?.location_type === "online";
-
-      // INSERT booking. Overlap and credit consumption are enforced
-      // server-side:
-      //   - bookings_no_overlap_per_coach (exclusion constraint, SQLSTATE 23P01)
-      //   - trg_booking_validate_block_allocation (P0001 on exhausted block)
-      //   - trg_booking_validate_extra_credits   (P0001 on exhausted credit)
-      // The previous client-side SELECT-then-INSERT conflict check was removed
-      // because it has a wide race window between SELECT and INSERT.
-      //
-      // meeting_link starts NULL for online sessions: sync-calendar will
-      // create a real Google Meet room and write the URL back. The fall-
-      // back mock link generator is kept around for offline-mode demos
-      // but the production path always waits for the real Meet URL.
-      const { data: insertedBooking, error: bErr } = await supabase
+      const { data, error } = await supabase
         .from("bookings")
         .insert({
           client_id: meId,
           coach_id: coachId,
-          block_id: allocId ? (block?.id ?? null) : null,
-          session_type: type,
-          event_type_id: eventType?.id ?? null,
+          block_id: window.source === "block" ? window.blockId : null,
+          session_type: type.sessionType,
+          event_type_id: type.eventTypeId,
           scheduled_at: iso,
-          // end_at is required by the schema; the
-          // a_trg_set_booking_duration_defaults trigger recomputes it
-          // server-side from duration_min + buffer_min, so this client
-          // value is just a placeholder to satisfy the NOT NULL constraint.
-          end_at: new Date(
-            new Date(iso).getTime() + (eventType?.duration ?? 60) * 60_000,
-          ).toISOString(),
+          // Richiesto dallo schema; il trigger a_trg_set_booking_duration_defaults
+          // lo ricalcola da durata e margine.
+          end_at: endISO,
           status: "scheduled",
+          // Le sessioni online: il link di Meet lo scrive sync-calendar.
           meeting_link: null,
         })
         .select("id")
         .single();
-      if (bErr) {
-        if (bErr.code === "23P01") {
-          toast.error("Slot già occupato", {
-            description:
-              "Un altro utente ha appena prenotato questo orario. Ricarica la pagina e scegli un altro slot.",
-          });
-        } else if (bErr.code === "P0001") {
-          toast.error("Prenotazione non possibile", { description: bErr.message });
-        } else {
-          toast.error("Errore prenotazione", { description: bErr.message });
-        }
-        return;
+      bookingId = (data as { id: string } | null)?.id ?? null;
+      if (error || !bookingId) {
+        refresh();
+        return {
+          ok: false,
+          error: bookingErrorMessage(error, type.name),
+          code: error?.code ?? null,
+        };
       }
-      const bookingId = (insertedBooking as { id: string } | null)?.id ?? null;
-
-      // Credit deduction is handled atomically by the DB triggers above.
-      const calendarUrl = generateGoogleCalendarLink(
-        { scheduled_at: iso },
-        eventType
-          ? {
-              name: eventType.name,
-              duration: eventType.duration,
-              location_type: eventType.location_type,
-              location_address: eventType.location_address,
-            }
-          : { name: displayLabel },
-        meName,
-      );
-
-      // notifications (fire and forget). gcalCreateEvent runs server-side:
-      //   - crea l'evento sul calendario della piattaforma (Lovable Connector)
-      //   - se online, chiede a Google una Meet room (conferenceData +
-      //     conferenceDataVersion=1) e scrive l'URL su bookings.meeting_link
-      //   - scrive google_event_id sulla riga booking così update/cancel
-      //     futuri sanno quale evento Google riferire
-      //   - sendUpdates=all → il cliente riceve email di invito
-      // S-AUTHZ: gcalCreateEvent ora richiede un bookingId (l'attendee email è
-      // derivata server-side dal cliente del booking). Se l'INSERT non ha reso
-      // l'id, saltiamo la creazione evento invece di chiamarla a vuoto.
-      if (bookingId) {
-        // GCAL-FIX (2026-06-08): mappiamo il color HEX salvato in event_types
-        // (palette Google Calendar) al colorId numerico 1-11 che Google
-        // accetta, così l'evento creato in GCal mantiene lo stesso colore
-        // della tipologia configurata in "Tipologie evento". Inoltre passiamo
-        // anche `description` per preservare la descrizione configurata.
-        const { toGoogleColorId } = await import("@/lib/gcal-colors");
-        void gcalCreateEvent({
-          data: {
-            bookingId,
-            summary: `${displayLabel} — ${meName}`,
-            description: eventType?.description ?? undefined,
-            startISO: iso,
-            endISO: new Date(
-              new Date(iso).getTime() + (eventType?.duration ?? 60) * 60_000,
-            ).toISOString(),
-            requestMeet: isOnline,
-            isOnline,
-            colorId: toGoogleColorId(eventType?.color),
-          },
-        }).catch((e) => console.error("gcalCreateEvent failed", e));
-      } else {
-        console.error("gcalCreateEvent skipped: booking insert returned no id");
-      }
-      // Email di conferma al cliente: NON inviata dalla piattaforma.
-      // L'invito Google Calendar (sendUpdates=all) recapita già la mail al cliente.
-
-      void supabase.functions
-        .invoke("booking-notifications", {
-          body: {
-            coach_id: coachId,
-            client_name: meName,
-            client_phone: mePhone,
-            scheduled_at: iso,
-            session_label: displayLabel,
-            meeting_link: null,
-          },
-        })
-        .catch((e) => console.error("booking-notifications failed", e));
-
-      sendPush({
-        profileId: meId,
-        title: "Prenotazione confermata",
-        body: `${displayLabel} — ${new Date(iso).toLocaleString("it-IT", { dateStyle: "medium", timeStyle: "short" })}`,
-        url: "/client",
-      });
-
-      const usedExtra = !!extraId;
-      const meetNote =
-        " I link videochiamata sono generati automaticamente per le sessioni online.";
-      toast.success("Sessione prenotata", {
-        description: usedExtra ? `Scalata da credito omaggio/extra.` : meetNote.trim(),
-
-        action: calendarUrl
-          ? {
-              label: "Aggiungi al Calendario",
-              onClick: () => window.open(calendarUrl, "_blank", "noopener,noreferrer"),
-            }
-          : undefined,
-      });
-
-      invalidateBookingScope(qc, { coachId, clientId: meId });
-      navigate({ to: "/client" });
-    } finally {
-      confirmingRef.current = false;
-      setConfirming(false);
+    } catch (e) {
+      refresh();
+      return {
+        ok: false,
+        error: bookingErrorMessage(e instanceof Error ? e : null, type.name),
+        code: null,
+      };
     }
+
+    // Da qui la sessione c'è: niente di quello che segue la trasforma in un
+    // errore (un errore rimanderebbe a riprovare, e la prenotazione raddoppierebbe).
+    announce({ bookingId, meId, coachId, meName, mePhone, type, iso, endISO });
+    if (confirmsOnBooking(iso, new Date())) {
+      try {
+        const res = await supabase.rpc("confirm_booking_attendance", { p_booking_id: bookingId });
+        if (res.error || res.data === false) {
+          console.error("confirm_booking_attendance failed", res.error ?? "non aggiornata");
+        }
+      } catch (e) {
+        console.error("confirm_booking_attendance failed", e);
+      }
+    }
+    refresh();
+    return { ok: true, bookingId };
+  };
+
+  const confirm = () => {
+    if (confirmingRef.current) return confirmingRef.current;
+    setConfirming(true);
+    const pending = book().finally(() => {
+      confirmingRef.current = null;
+      setConfirming(false);
+    });
+    confirmingRef.current = pending;
+    return pending;
   };
 
   return { confirm, confirming };

@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&amp;family=Manrope:wght@400;500;600;700&amp;display=swap">
+<script src="./nc-icons.js"></script>
+<script src="./nc-store.js"></script>
+<script src="./nc-client.js"></script>
+<title>Home · NC Calendar</title>
+<style>
+*,::before,::after{box-sizing:border-box;margin:0;padding:0;border:0 solid;}
+body{margin:0;background:#e7e8ec;font-family:Manrope,ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:#191c1f;}
+button,input,textarea{font:inherit;color:inherit;background:transparent;}
+button{cursor:pointer;}
+button:disabled{cursor:default;}
+ul,ol{list-style:none;}
+a{color:#003e62;text-decoration:none;}
+a:hover{color:#005685;}
+textarea::placeholder{color:#717880;}
+:focus-visible{outline:2px solid #005685;outline-offset:2px;}
+</style>
+</helmet>
+<div style="min-height:100vh; background:linear-gradient(135deg,#eceef2,#dde1e8); display:flex; flex-wrap:wrap; justify-content:center; align-items:flex-start; gap:32px; padding:24px 20px 40px;">
+  <div style="width:{{ boxW }}; height:{{ boxH }}; flex-shrink:0;">
+    <div style="width:402px; height:874px; transform:{{ scaleT }}; transform-origin:top left;">
+      <x-import component-from-global-scope="IOSDevice" from="./nc-ios-frame.js" time="{{ clock }}" hint-size="402px,874px">
+        <div data-screen-label="Home" style="position:absolute; inset:0; z-index:1; display:flex; flex-direction:column; background:#f8f9fe; color:#191c1f; font-family:Manrope, sans-serif; overflow:hidden;">
+          <div style="flex:1; min-height:0; overflow-y:auto; scrollbar-width:none;">
+            <header style="position:sticky; top:0; z-index:5; padding:60px 20px 12px; background:rgba(248,249,254,0.92); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); display:flex; align-items:flex-end; justify-content:space-between; gap:12px;">
+              <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:4px;">
+                <h1 style="font-family:Sora, sans-serif; font-size:28px; line-height:1.15; font-weight:700; letter-spacing:-0.02em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Ciao {{ first }}</h1>
+                <p style="font-size:14px; color:#41474f;">{{ today }}</p>
+              </div>
+              <button onClick="{{ openNotifs }}" aria-label="{{ bellLabel }}" style="position:relative; width:44px; height:44px; border-radius:9999px; background:#ffffff; border:1px solid rgba(193,199,208,0.6); display:grid; place-items:center; color:#41474f; flex-shrink:0;">
+                <nc-icon name="Bell" style="width:20px; height:20px;"></nc-icon>
+                <sc-if value="{{ unread }}" hint-placeholder-val="{{ false }}"><span style="position:absolute; top:-3px; right:-3px; min-width:20px; height:20px; padding:0 5px; border-radius:9999px; background:#e53935; color:#ffffff; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; border:2px solid #f8f9fe;">{{ unreadLabel }}</span></sc-if>
+              </button>
+            </header>
+            <main style="padding:4px 16px 24px; display:flex; flex-direction:column; gap:16px;">
+
+              <sc-if value="{{ ended }}" hint-placeholder-val="{{ false }}">
+                <section style="background:#ffffff; border-radius:24px; border:1px solid rgba(193,199,208,0.35); box-shadow:0 8px 30px rgba(0,0,0,0.04); padding:20px; display:flex; flex-direction:column; gap:14px;">
+                  <span style="width:48px; height:48px; border-radius:14px; background:rgba(0,86,133,0.1); color:#005685; display:grid; place-items:center;"><nc-icon name="Award" style="width:24px; height:24px;"></nc-icon></span>
+                  <div style="display:flex; flex-direction:column; gap:6px;">
+                    <h2 style="font-size:17px; font-weight:700;">Il tuo percorso è concluso</h2>
+                    <p style="font-size:15px; line-height:1.5; color:#41474f; text-wrap:pretty;">{{ endedText }}</p>
+                  </div>
+                  <a href="{{ waHref }}" target="_blank" rel="noopener" style="height:52px; border-radius:9999px; background:#005685; color:#ffffff; font-size:16px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px;"><nc-icon name="MessageCircle" style="width:18px; height:18px;"></nc-icon><span>Scrivi a {{ coachFirst }} su WhatsApp</span></a>
+                  <a href="{{ telHref }}" style="height:48px; border-radius:9999px; border:1px solid #c1c7d0; color:#003e62; font-size:15px; font-weight:600; display:flex; align-items:center; justify-content:center; gap:8px;"><nc-icon name="Phone" style="width:16px; height:16px;"></nc-icon><span>Chiama {{ coachPhone }}</span></a>
+                </section>
+              </sc-if>
+
+              <sc-if value="{{ hasNext }}" hint-placeholder-val="{{ true }}">
+                <section aria-label="Prossima sessione" style="background:#ffffff; border-radius:24px; border:1px solid rgba(193,199,208,0.35); box-shadow:0 8px 30px rgba(0,0,0,0.04); padding:18px; display:flex; flex-direction:column; gap:14px;">
+                  <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                    <h2 style="font-size:14px; font-weight:700; color:#41474f;">Prossima sessione</h2>
+                    <span style="font-size:12px; font-weight:700; padding:4px 10px; border-radius:9999px; background:{{ nChipBg }}; color:{{ nChipFg }};">{{ nChip }}</span>
+                  </div>
+                  <button onClick="{{ openNext }}" style="display:flex; align-items:flex-start; gap:14px; text-align:left;">
+                    <span style="width:52px; height:52px; border-radius:16px; background:{{ nTint }}; color:{{ nColor }}; display:grid; place-items:center; flex-shrink:0;"><nc-icon name="{{ nIcon }}" style="width:26px; height:26px;"></nc-icon></span>
+                    <span style="min-width:0; display:flex; flex-direction:column; gap:4px;">
+                      <span style="font-family:Sora, sans-serif; font-size:22px; line-height:1.2; font-weight:700; letter-spacing:-0.01em;">{{ nDay }}</span>
+                      <span style="font-size:16px; font-weight:700; font-variant-numeric:tabular-nums;">{{ nRange }} <span style="font-weight:500; color:#41474f;">· {{ nUntil }}</span></span>
+                      <span style="font-size:14px; color:#41474f;">{{ nType }} · {{ nDur }}</span>
+                      <span style="display:flex; align-items:flex-start; gap:6px; font-size:14px; line-height:1.4; color:#41474f;"><nc-icon name="{{ nPlaceIcon }}" style="width:16px; height:16px; margin-top:2px;"></nc-icon>{{ nPlace }}</span>
+                    </span>
+                  </button>
+                  <sc-if value="{{ nConfirm }}" hint-placeholder-val="{{ false }}">
+                    <button onClick="{{ confirmNext }}" style="height:52px; border-radius:9999px; background:#005685; color:#ffffff; font-size:16px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px;" style-active="background:#003e62;"><nc-icon name="CircleCheck" style="width:18px; height:18px;"></nc-icon>Conferma presenza</button>
+                  </sc-if>
+                  <sc-if value="{{ nJoin }}" hint-placeholder-val="{{ false }}">
+                    <a href="https://meet.google.com/" target="_blank" rel="noopener" style="height:52px; border-radius:9999px; background:#005685; color:#ffffff; font-size:16px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px;"><nc-icon name="Video" style="width:18px; height:18px;"></nc-icon>Entra nella videochiamata</a>
+                  </sc-if>
+                  <sc-if value="{{ nCanMove }}" hint-placeholder-val="{{ true }}">
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                      <button onClick="{{ openMove }}" style="height:48px; border-radius:9999px; border:1px solid #c1c7d0; color:#003e62; font-size:15px; font-weight:600; display:flex; align-items:center; justify-content:center; gap:6px;"><nc-icon name="Repeat" style="width:16px; height:16px;"></nc-icon>Sposta</button>
+                      <button onClick="{{ openNext }}" style="height:48px; border-radius:9999px; border:1px solid #c1c7d0; color:#003e62; font-size:15px; font-weight:600;">Dettagli</button>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ nLocked }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex; flex-direction:column; gap:8px;">
+                      <button onClick="{{ openNext }}" style="height:48px; border-radius:9999px; border:1px solid #c1c7d0; color:#003e62; font-size:15px; font-weight:600;">Dettagli</button>
+                      <p style="font-size:13px; line-height:1.45; color:#41474f;">{{ nLockedText }} <a href="{{ waHref }}" target="_blank" rel="noopener" style="font-weight:700; color:#005685;">Scrivi a {{ coachFirst }}</a></p>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ moreOn }}" hint-placeholder-val="{{ true }}">
+                    <button onClick="{{ openSessions }}" style="min-height:44px; padding-top:12px; border-top:1px solid #f2f3f8; display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:14px; font-weight:600; color:#003e62; text-align:left;"><span style="color:#41474f; font-weight:500;">{{ moreLabel }}</span><span style="display:flex; align-items:center; gap:2px; flex-shrink:0;">Vedi tutte<nc-icon name="ChevronRight" style="width:16px; height:16px;"></nc-icon></span></button>
+                  </sc-if>
+                </section>
+              </sc-if>
+
+              <sc-if value="{{ noNext }}" hint-placeholder-val="{{ false }}">
+                <section style="background:#ffffff; border-radius:24px; border:1px solid rgba(193,199,208,0.35); box-shadow:0 8px 30px rgba(0,0,0,0.04); padding:18px; display:flex; flex-direction:column; gap:12px;">
+                  <h2 style="font-size:14px; font-weight:700; color:#41474f;">Prossima sessione</h2>
+                  <p style="font-size:17px; font-weight:700;">Nessuna sessione in programma</p>
+                  <p style="font-size:15px; line-height:1.5; color:#41474f;">{{ freeText }}</p>
+                  <sc-if value="{{ canBookAny }}" hint-placeholder-val="{{ true }}">
+                    <button onClick="{{ goBook }}" style="height:52px; border-radius:9999px; background:#005685; color:#ffffff; font-size:16px; font-weight:700;">Prenota una sessione</button>
+                  </sc-if>
+                </section>
+              </sc-if>
+
+              <sc-if value="{{ showCredits }}" hint-placeholder-val="{{ true }}">
+                <section aria-label="I tuoi crediti" style="background:#ffffff; border-radius:24px; border:1px solid rgba(193,199,208,0.35); box-shadow:0 8px 30px rgba(0,0,0,0.04); padding:18px; display:flex; flex-direction:column; gap:12px;">
+                  <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+                    <div style="min-width:0; display:flex; flex-direction:column; gap:3px;">
+                      <h2 style="font-size:17px; font-weight:700;">I tuoi crediti</h2>
+                      <p style="font-size:13px; line-height:1.4; color:#41474f;">{{ blkSub }}</p>
+                    </div>
+                    <span style="flex-shrink:0; font-size:12px; font-weight:700; padding:4px 10px; border-radius:9999px; background:#eceef2; color:#41474f;">{{ blkLabel }}</span>
+                  </div>
+                  <sc-if value="{{ showSteps }}" hint-placeholder-val="{{ true }}">
+                    <div role="img" aria-label="{{ stepsAria }}" style="display:flex; gap:4px;">
+                      <sc-for list="{{ steps }}" as="s" hint-placeholder-count="6"><span style="flex:1; height:6px; border-radius:9999px; background:{{ s.bg }};"></span></sc-for>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ useWarn }}" hint-placeholder-val="{{ false }}">
+                    <p style="display:flex; gap:8px; font-size:13px; line-height:1.45; color:#9a3412; background:#fff7ed; border-radius:12px; padding:10px 12px;"><nc-icon name="Hourglass" style="width:16px; height:16px; margin-top:1px;"></nc-icon>{{ useWarnText }}</p>
+                  </sc-if>
+                  <div style="display:flex; flex-direction:column;">
+                    <sc-for list="{{ pools }}" as="p" hint-placeholder-count="3">
+                      <div style="display:flex; flex-direction:column; gap:8px; padding:12px 0; border-top:1px solid {{ p.sep }};">
+                        <div style="display:flex; align-items:center; gap:12px;">
+                          <span style="width:40px; height:40px; border-radius:12px; background:{{ p.tint }}; color:{{ p.color }}; display:grid; place-items:center; flex-shrink:0;"><nc-icon name="{{ p.icon }}" style="width:20px; height:20px;"></nc-icon></span>
+                          <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px;">
+                            <span style="font-size:15px; font-weight:700;">{{ p.name }}</span>
+                            <span style="font-size:14px; font-weight:700; color:{{ p.availFg }};">{{ p.availLabel }}</span>
+                          </span>
+                          <sc-if value="{{ p.btn }}" hint-placeholder-val="{{ true }}">
+                            <button onClick="{{ p.act }}" style="flex-shrink:0; height:44px; padding:0 16px; border-radius:9999px; font-size:14px; font-weight:700; background:{{ p.btnBg }}; color:{{ p.btnFg }}; border:1px solid {{ p.btnBorder }};">{{ p.btnLabel }}</button>
+                          </sc-if>
+                        </div>
+                        <div role="img" aria-label="{{ p.aria }}" style="display:flex; height:8px; border-radius:9999px; overflow:hidden; background:#eceef2;">
+                          <span style="width:{{ p.wDone }}; background:#003e62;"></span>
+                          <span style="width:{{ p.wBooked }}; background:#94ccff;"></span>
+                          <span style="width:{{ p.wLost }}; background:#f59e0b;"></span>
+                        </div>
+                        <p style="font-size:13px; color:#41474f;">{{ p.detail }}</p>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div aria-hidden="true" style="display:flex; flex-wrap:wrap; gap:6px 14px; font-size:12px; color:#41474f;">
+                    <span style="display:flex; align-items:center; gap:6px;"><span style="width:10px; height:10px; border-radius:3px; background:#003e62;"></span>Svolte</span>
+                    <span style="display:flex; align-items:center; gap:6px;"><span style="width:10px; height:10px; border-radius:3px; background:#94ccff;"></span>Prenotate</span>
+                    <sc-if value="{{ anyLost }}" hint-placeholder-val="{{ false }}"><span style="display:flex; align-items:center; gap:6px;"><span style="width:10px; height:10px; border-radius:3px; background:#f59e0b;"></span>Perse (assenze e annullate tardi)</span></sc-if>
+                  </div>
+                  <sc-if value="{{ buyOn }}" hint-placeholder-val="{{ true }}">
+                    <button onClick="{{ goBooster }}" style="min-height:44px; padding-top:10px; border-top:1px solid #f2f3f8; display:flex; align-items:center; justify-content:space-between; font-size:14px; font-weight:700; color:#003e62;"><span style="display:flex; align-items:center; gap:8px;"><nc-icon name="Sparkles" style="width:16px; height:16px;"></nc-icon>Acquista un Booster</span><nc-icon name="ChevronRight" style="width:16px; height:16px;"></nc-icon></button>
+                  </sc-if>
+                  <sc-if value="{{ askOn }}" hint-placeholder-val="{{ false }}">
+                    <a href="{{ waHref }}" target="_blank" rel="noopener" style="min-height:44px; padding-top:10px; border-top:1px solid #f2f3f8; display:flex; align-items:center; justify-content:space-between; font-size:14px; font-weight:700; color:#003e62;"><span style="display:flex; align-items:center; gap:8px;"><nc-icon name="MessageCircle" style="width:16px; height:16px;"></nc-icon><span>Per altri crediti scrivi a {{ coachFirst }}</span></span><nc-icon name="ChevronRight" style="width:16px; height:16px;"></nc-icon></a>
+                  </sc-if>
+                </section>
+              </sc-if>
+
+              <sc-if value="{{ fbOn }}" hint-placeholder-val="{{ false }}">
+                <section aria-label="Valuta la sessione" style="background:#ffffff; border-radius:24px; border:1px solid rgba(193,199,208,0.35); box-shadow:0 8px 30px rgba(0,0,0,0.04); padding:18px; display:flex; flex-direction:column; gap:12px;">
+                  <div style="display:flex; flex-direction:column; gap:4px;">
+                    <h2 style="font-size:17px; font-weight:700;">Com'è andata?</h2>
+                    <p style="font-size:14px; line-height:1.45; color:#41474f;">{{ fbSub }}</p>
+                  </div>
+                  <div role="radiogroup" aria-label="Valutazione da 1 a 5" style="display:flex; justify-content:center; gap:4px;">
+                    <sc-for list="{{ stars }}" as="s" hint-placeholder-count="5">
+                      <button role="radio" aria-checked="{{ s.checked }}" aria-label="{{ s.aria }}" onClick="{{ s.pick }}" style="width:48px; height:48px; display:grid; place-items:center;">
+                        <svg width="32" height="32" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17.3 6.2 21l1.6-6.6L2.4 9.6l6.8-.5L12 3l2.8 6.1 6.8.5-5.4 4.8 1.6 6.6z" fill="{{ s.fill }}" stroke="{{ s.stroke }}" stroke-width="1.5" stroke-linejoin="round"></path></svg>
+                      </button>
+                    </sc-for>
+                  </div>
+                  <sc-if value="{{ fbPicked }}" hint-placeholder-val="{{ false }}">
+                    <textarea value="{{ fbNote }}" onChange="{{ onFbNote }}" rows="2" aria-label="Nota per il coach, facoltativa" placeholder="Vuoi aggiungere qualcosa? (facoltativo)" style="width:100%; border-radius:14px; border:1px solid #c1c7d0; padding:12px 14px; font-size:15px; line-height:1.4; resize:none; background:#ffffff;"></textarea>
+                    <button onClick="{{ sendFb }}" style="height:52px; border-radius:9999px; background:#005685; color:#ffffff; font-size:16px; font-weight:700;">Invia valutazione</button>
+                  </sc-if>
+                </section>
+              </sc-if>
+
+              <sc-if value="{{ biaOn }}" hint-placeholder-val="{{ true }}">
+                <section aria-label="I tuoi progressi" style="background:#ffffff; border-radius:24px; border:1px solid rgba(193,199,208,0.35); box-shadow:0 8px 30px rgba(0,0,0,0.04); padding:18px; display:flex; flex-direction:column; gap:14px;">
+                  <h2 style="font-size:17px; font-weight:700;">I tuoi progressi</h2>
+                  <div role="radiogroup" aria-label="Misura" style="display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:4px; padding:4px; border-radius:9999px; background:#f2f3f8;">
+                    <sc-for list="{{ metrics }}" as="m" hint-placeholder-count="3">
+                      <button role="radio" aria-checked="{{ m.checked }}" tabindex="{{ m.tab }}" onClick="{{ m.pick }}" style="height:44px; border-radius:9999px; font-size:14px; font-weight:700; background:{{ m.bg }}; color:{{ m.fg }}; box-shadow:{{ m.shadow }};">{{ m.label }}</button>
+                    </sc-for>
+                  </div>
+                  <div style="display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;">
+                    <span style="font-family:Sora, sans-serif; font-size:30px; font-weight:700; font-variant-numeric:tabular-nums;">{{ mValue }}</span>
+                    <span style="font-size:14px; color:#41474f;">{{ mDelta }}</span>
+                  </div>
+                  <svg viewBox="0 0 320 100" style="width:100%; height:96px; overflow:visible;" role="img" aria-label="{{ mAria }}">
+                    <line x1="0" y1="92" x2="320" y2="92" stroke="#eceef2" stroke-width="1"></line>
+                    <polyline points="{{ mPoints }}" fill="none" stroke="#005685" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"></polyline>
+                    <circle cx="{{ mLastX }}" cy="{{ mLastY }}" r="4.5" fill="#ffffff" stroke="#005685" stroke-width="2.5"></circle>
+                  </svg>
+                  <div style="display:flex; justify-content:space-between; gap:8px; font-size:12px; color:#41474f;"><span>{{ mFirst }}</span><span>{{ mLast }}</span></div>
+                  <p style="font-size:13px; color:#41474f;">Misurazioni BIA registrate da {{ coachFirst }}.</p>
+                </section>
+              </sc-if>
+
+              <sc-if value="{{ installOn }}" hint-placeholder-val="{{ false }}">
+                <section style="background:#ffffff; border-radius:24px; border:1px solid rgba(193,199,208,0.35); padding:16px 18px; display:flex; gap:14px; align-items:flex-start;">
+                  <span style="width:40px; height:40px; border-radius:12px; background:rgba(0,86,133,0.1); color:#005685; display:grid; place-items:center; flex-shrink:0;"><nc-icon name="Download" style="width:20px; height:20px;"></nc-icon></span>
+                  <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:4px;">
+                    <p style="font-size:15px; font-weight:700;">Installa NC Calendar</p>
+                    <p style="font-size:13px; line-height:1.45; color:#41474f;">Apri l'app dalla schermata Home e ricevi le notifiche sulle sessioni.</p>
+                    <div style="display:flex; gap:8px; margin-top:6px;">
+                      <button onClick="{{ openInstall }}" style="height:44px; padding:0 16px; border-radius:9999px; background:rgba(0,86,133,0.1); color:#003e62; font-size:14px; font-weight:700;">Come installarla</button>
+                      <button onClick="{{ hideInstall }}" style="height:44px; padding:0 12px; border-radius:9999px; color:#41474f; font-size:14px; font-weight:600;">Non ora</button>
+                    </div>
+                  </div>
+                </section>
+              </sc-if>
+            </main>
+          </div>
+          <dc-import name="Cliente Tab Bar" active="home" hint-size="100%,94px" style="flex-shrink:0; width:100%;"></dc-import>
+
+          <sc-if value="{{ moveOn }}" hint-placeholder-val="{{ false }}">
+            <dc-import name="Cliente Sposta" booking-id="{{ moveId }}" on-close="{{ closeMove }}" on-done="{{ moved }}" hint-size="100%,100%" style="position:absolute; inset:0; z-index:30;"></dc-import>
+          </sc-if>
+
+          <sc-if value="{{ infoOn }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute; inset:0; z-index:30; display:flex; flex-direction:column; justify-content:flex-end;">
+              <div onClick="{{ closeSheet }}" style="position:absolute; inset:0; background:rgba(0,20,35,0.42);"></div>
+              <div role="dialog" aria-modal="true" aria-label="{{ infoTitle }}" style="position:relative; background:#ffffff; border-radius:28px 28px 0 0; padding:10px 20px 40px; display:flex; flex-direction:column; gap:14px;">
+                <span style="align-self:center; width:40px; height:5px; border-radius:9999px; background:#c1c7d0;"></span>
+                <h2 style="font-family:Sora, sans-serif; font-size:22px; font-weight:700;">{{ infoTitle }}</h2>
+                <p style="font-size:15px; line-height:1.5; color:#41474f;">{{ infoText }}</p>
+                <a href="{{ waHref }}" target="_blank" rel="noopener" style="height:52px; border-radius:9999px; background:#005685; color:#ffffff; font-size:16px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px;"><nc-icon name="MessageCircle" style="width:18px; height:18px;"></nc-icon><span>Scrivi a {{ coachFirst }} su WhatsApp</span></a>
+                <button onClick="{{ closeSheet }}" style="height:44px; border-radius:9999px; font-size:15px; font-weight:600; color:#003e62;">Chiudi</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ installSheet }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute; inset:0; z-index:30; display:flex; flex-direction:column; justify-content:flex-end;">
+              <div onClick="{{ closeSheet }}" style="position:absolute; inset:0; background:rgba(0,20,35,0.42);"></div>
+              <div role="dialog" aria-modal="true" aria-label="Installa NC Calendar" style="position:relative; background:#ffffff; border-radius:28px 28px 0 0; padding:10px 20px 40px; display:flex; flex-direction:column; gap:16px;">
+                <span style="align-self:center; width:40px; height:5px; border-radius:9999px; background:#c1c7d0;"></span>
+                <h2 style="font-family:Sora, sans-serif; font-size:22px; font-weight:700;">Installa NC Calendar</h2>
+                <ol style="display:flex; flex-direction:column; gap:12px;">
+                  <li style="display:flex; align-items:center; gap:12px; font-size:15px; line-height:1.4;"><span style="width:32px; height:32px; border-radius:9999px; background:#005685; color:#ffffff; font-size:14px; font-weight:700; display:grid; place-items:center; flex-shrink:0;">1</span>In Safari tocca Condividi <nc-icon name="Upload" style="width:18px; height:18px; color:#005685;"></nc-icon></li>
+                  <li style="display:flex; align-items:center; gap:12px; font-size:15px; line-height:1.4;"><span style="width:32px; height:32px; border-radius:9999px; background:#005685; color:#ffffff; font-size:14px; font-weight:700; display:grid; place-items:center; flex-shrink:0;">2</span>Scegli «Aggiungi alla schermata Home»</li>
+                  <li style="display:flex; align-items:center; gap:12px; font-size:15px; line-height:1.4;"><span style="width:32px; height:32px; border-radius:9999px; background:#005685; color:#ffffff; font-size:14px; font-weight:700; display:grid; place-items:center; flex-shrink:0;">3</span>Apri NC Calendar dall'icona e attiva le notifiche dal Profilo</li>
+                </ol>
+                <p style="font-size:13px; line-height:1.5; color:#41474f;">Su Android: menu del browser, poi «Installa app».</p>
+                <button onClick="{{ markInstalled }}" style="height:52px; border-radius:9999px; background:#005685; color:#ffffff; font-size:16px; font-weight:700;">Ho installato l'app</button>
+                <button onClick="{{ closeSheet }}" style="height:44px; border-radius:9999px; font-size:15px; font-weight:600; color:#003e62;">Chiudi</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ toastOn }}" hint-placeholder-val="{{ false }}">
+            <div role="status" aria-live="polite" style="position:absolute; left:12px; right:12px; bottom:106px; z-index:40; display:flex; align-items:center; gap:12px; background:#191c1f; color:#ffffff; border-radius:16px; padding:8px 8px 8px 16px; box-shadow:0 12px 32px rgba(0,0,0,0.25);">
+              <nc-icon name="{{ toastIcon }}" style="width:18px; height:18px; color:{{ toastColor }};"></nc-icon>
+              <span style="flex:1; font-size:14px; line-height:1.35; padding:8px 0;">{{ toastMsg }}</span>
+              <sc-if value="{{ toastUndo }}" hint-placeholder-val="{{ false }}"><button onClick="{{ undoToast }}" style="height:44px; padding:0 12px; border-radius:12px; color:#91cbff; font-size:14px; font-weight:700;">Ripristina</button></sc-if>
+            </div>
+          </sc-if>
+        </div>
+      </x-import>
+    </div>
+  </div>
+  <sc-if value="{{ panel }}" hint-placeholder-val="{{ true }}">
+    <div style="width:340px; max-width:100%;"><dc-import name="Cliente Revisione" screen="home" hint-size="340px,760px" style="width:100%;"></dc-import></div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;reviewPanel&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Prototipo&quot;},&quot;clock&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;reale&quot;,&quot;08:15&quot;,&quot;10:40&quot;,&quot;13:10&quot;,&quot;19:10&quot;],&quot;default&quot;:&quot;10:40&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototipo&quot;}}">
+class Component extends DCLogic {
+  state = { fit: null, sheet: null, info: null, moveId: null, fbFor: null, rating: 0, note: "", metric: "weight" };
+  componentDidMount() {
+    this.fitNow = () => this.setState({ fit: window.NCClient ? window.NCClient.fit() : null });
+    window.addEventListener("resize", this.fitNow);
+    const hook = () => { this.unsub = window.NCStore.subscribe(() => this.forceUpdate()); if (this.props.clock) window.NCStore.setClock(this.props.clock); this.fitNow(); };
+    const wait = () => (window.NCClient && window.NCClient.ready() ? hook() : (this.t = setTimeout(wait, 30)));
+    wait();
+    this.iv = setInterval(() => this.forceUpdate(), 30000);
+    this.onKey = (e) => { if (e.key === "Escape") this.setState({ sheet: null, moveId: null }); };
+    document.addEventListener("keydown", this.onKey);
+  }
+  componentDidUpdate(prev) { if (window.NCStore && this.props.clock && prev.clock !== this.props.clock) window.NCStore.setClock(this.props.clock); }
+  componentWillUnmount() { this.unsub && this.unsub(); clearTimeout(this.t); clearInterval(this.iv); window.removeEventListener("resize", this.fitNow); document.removeEventListener("keydown", this.onKey); }
+
+  renderVals() {
+    const C = window.NCClient, S = window.NCStore;
+    const f = this.state.fit || { w: "402px", h: "874px", t: "none" };
+    const out = { boxW: f.w, boxH: f.h, scaleT: f.t, panel: this.props.reviewPanel ?? true, pools: [], steps: [], stars: [], metrics: [], hasNext: false, noNext: false, ended: false, showCredits: false };
+    if (!C || !C.ready()) return out;
+    const c = C.me(), co = C.coach(), blk = C.block(c), pools = C.pools(c), up = C.upcoming(c), next = up[0] || null;
+    const now = S.now(), unread = C.unread();
+    const close = () => this.setState({ sheet: null, info: null });
+    Object.assign(out, {
+      clock: C.clockLabel(), first: C.first(c), today: C.dayLong(new Date()),
+      unread: unread > 0, unreadLabel: String(unread), bellLabel: unread ? "Notifiche, " + unread + " non lette" : "Notifiche",
+      openNotifs: () => C.push("notifiche"),
+      coachFirst: co.first, coachPhone: co.phone, waHref: co.wa, telHref: co.tel,
+      ended: blk.ended, showCredits: !blk.ended && pools.length > 0,
+      endedText: blk.ended ? "L'ultimo blocco si è chiuso " + C.dayLong(blk.end).toLowerCase() + ". Per ripartire scrivi a " + co.first + ": ti proporrà il prossimo percorso." : "",
+      closeSheet: close,
+    });
+
+    if (next) {
+      const t = S.type(next.typeId), stt = C.status(next), mins = (new Date(next.start).getTime() - now) / 60000;
+      const live = stt.key === "now" || (mins > 0 && mins <= 60);
+      Object.assign(out, {
+        hasNext: true, nDay: C.dayRel(next.start), nRange: C.range(next), nUntil: stt.key === "now" ? "in corso" : C.until(next),
+        nType: t.name, nDur: t.duration + " min", nIcon: t.icon, nColor: t.color, nTint: C.tint(t.color),
+        nPlace: C.place(t), nPlaceIcon: t.location === "online" ? "Video" : "MapPin",
+        nChip: stt.label, nChipBg: stt.bg, nChipFg: stt.fg,
+        nConfirm: stt.key === "toconfirm", nJoin: live && t.location === "online",
+        nCanMove: C.canMove(next), nLocked: !C.canMove(next),
+        nLockedText: stt.key === "now" ? "La sessione è in corso." : "Mancano meno di 24 ore: non si può più spostare.",
+        confirmNext: () => { C.confirm(next.id); S.showToast({ msg: "Presenza confermata: " + co.first + " la vede nel suo calendario.", tone: "ok" }); },
+        openNext: () => C.push("sessione", { id: next.id }),
+        openMove: () => this.setState({ moveId: next.id }),
+        moreOn: up.length > 1, moreLabel: up.length === 2 ? "Hai un'altra sessione prenotata" : "Hai altre " + (up.length - 1) + " sessioni prenotate",
+        openSessions: () => C.go("sessioni"),
+      });
+    } else if (!blk.ended) {
+      const ff = C.firstFree(c);
+      Object.assign(out, {
+        noNext: true, canBookAny: !!ff,
+        freeText: ff ? "Primo orario libero: " + C.dayLong(ff.start).toLowerCase() + " alle " + C.hm(ff.start) + ", " + ff.name + "." : pools.some((p) => p.avail > 0) ? "Nessun orario libero nei prossimi giorni: scrivi a " + co.first + " per trovarne uno." : "Non hai crediti da prenotare in questo momento.",
+        goBook: () => C.go("prenota", ff ? { type: ff.typeId } : null),
+      });
+    }
+
+    const av = C.available(c);
+    out.blkLabel = blk.free ? "Cliente libero" : blk.recurring ? "Blocco " + blk.n : "Blocco " + blk.n + " di " + blk.of;
+    out.blkSub = blk.free ? "Crediti senza scadenza" : blk.recurring ? "Abbonamento mensile · " + blk.sub.charAt(0).toLowerCase() + blk.sub.slice(1) : blk.sub;
+    out.showSteps = !blk.free && !blk.recurring && blk.of > 1;
+    out.stepsAria = "Percorso: blocco " + blk.n + " di " + blk.of;
+    out.steps = out.showSteps ? Array.from({ length: blk.of }, (_, i) => ({ bg: i + 1 < blk.n ? "#003e62" : i + 1 === blk.n ? "#94ccff" : "#e1e2e7" })) : [];
+    out.useWarn = !blk.free && !blk.ended && av > 0 && blk.daysLeft <= 7;
+    out.useWarnText = C.plural(av, "credito", "crediti") + " da prenotare entro " + (blk.endLabel || "") + ".";
+    out.buyOn = C.canBuy(c);
+    out.anyLost = pools.some((p) => p.lost > 0);
+    out.askOn = !out.buyOn && !blk.ended;
+    out.goBooster = () => C.go("booster");
+    out.pools = pools.map((p, i) => {
+      const tot = Math.max(1, p.total), pct = (n) => ((n / tot) * 100).toFixed(1) + "%";
+      let b = null;
+      if (p.avail > 0 && p.bookable) b = ["Prenota", () => C.go("prenota", { type: p.typeId }), "#005685", "#ffffff", "#005685"];
+      else if (p.avail > 0) b = ["Come si prenota", () => this.setState({ sheet: "info", info: { title: p.name, text: (p.message || "Questa sessione si prenota direttamente con " + co.first + ".") + " Hai " + C.plural(p.avail, "credito disponibile", "crediti disponibili") + "." } }), "#ffffff", "#003e62", "#c1c7d0"];
+      else if (out.buyOn) b = ["Acquista", () => C.go("booster", { type: p.typeId }), "#ffffff", "#003e62", "#c1c7d0"];
+      const bits = [p.done ? C.plural(p.done, "svolta", "svolte") : null, p.booked ? C.plural(p.booked, "prenotata", "prenotate") : null, p.lost ? C.plural(p.lost, "persa", "perse") : null].filter(Boolean);
+      return {
+        name: p.name, icon: p.icon, color: p.color, tint: C.tint(p.color), sep: i ? "#f2f3f8" : "transparent",
+        availLabel: p.avail > 0 ? C.plural(p.avail, "disponibile", "disponibili") : "Esauriti", availFg: p.avail > 0 ? "#047857" : "#c2410c",
+        btn: !!b, btnLabel: b ? b[0] : "", act: b ? b[1] : null, btnBg: b ? b[2] : "", btnFg: b ? b[3] : "", btnBorder: b ? b[4] : "",
+        wDone: pct(p.done), wBooked: pct(p.booked), wLost: pct(p.lost),
+        detail: bits.length ? bits.join(" · ") + " · " + p.total + " in totale" : "Non ancora usati · " + p.total + " in totale",
+        aria: p.name + ": " + (bits.length ? bits.join(", ") + ", " : "") + C.plural(p.avail, "disponibile", "disponibili") + " su " + p.total,
+      };
+    });
+
+    const pf = blk.ended ? null : C.pendingFeedback(c);
+    if (pf) {
+      const t = S.type(pf.typeId), rating = this.state.fbFor === pf.id ? this.state.rating : 0;
+      Object.assign(out, {
+        fbOn: true, fbSub: t.name + " di " + C.dayLong(pf.start).toLowerCase() + ". La valutazione arriva a " + co.first + ".",
+        fbPicked: rating > 0, fbNote: this.state.fbFor === pf.id ? this.state.note : "",
+        stars: [1, 2, 3, 4, 5].map((i) => ({ checked: i === rating ? "true" : "false", aria: i + (i === 1 ? " stella" : " stelle"), fill: i <= rating ? "#d97706" : "none", stroke: i <= rating ? "#b45309" : "#717880", pick: () => this.setState({ fbFor: pf.id, rating: i }) })),
+        onFbNote: (e) => this.setState({ note: e.target.value }),
+        sendFb: () => { C.setFeedback(pf.id, rating, this.state.note); this.setState({ fbFor: null, rating: 0, note: "" }); S.showToast({ msg: "Grazie: " + co.first + " vedrà la tua valutazione.", tone: "ok" }); },
+      });
+    }
+
+    const bia = c.bia || [];
+    if (bia.length >= 2) {
+      const key = this.state.metric, M = { weight: ["Peso", " kg"], muscle: ["Massa magra", " kg"], fat: ["Grasso", "%"] };
+      const vals = bia.map((m) => m[key]), mn = Math.min.apply(null, vals), mx = Math.max.apply(null, vals), rg = mx - mn || 1;
+      const pts = vals.map((v, i) => [10 + (i / (vals.length - 1)) * 300, 84 - ((v - mn) / rg) * 70]);
+      const fmt = (v) => v.toFixed(1).replace(".", ",");
+      const d = vals[vals.length - 1] - vals[0];
+      const dLab = (d > 0 ? "+" : d < 0 ? "−" : "") + fmt(Math.abs(d)) + M[key][1] + " dal " + C.dayShort(S.parseDate(bia[0].date)).replace(/^\w+ /, "");
+      Object.assign(out, {
+        biaOn: true, mValue: fmt(vals[vals.length - 1]) + M[key][1], mDelta: dLab,
+        mPoints: pts.map((p) => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" "), mLastX: pts[pts.length - 1][0].toFixed(1), mLastY: pts[pts.length - 1][1].toFixed(1),
+        mFirst: C.dayShort(S.parseDate(bia[0].date)), mLast: C.dayShort(S.parseDate(bia[bia.length - 1].date)),
+        mAria: M[key][0] + ": da " + fmt(vals[0]) + " a " + fmt(vals[vals.length - 1]) + M[key][1] + " in " + bia.length + " misurazioni",
+        metrics: Object.keys(M).map((k) => ({ label: M[k][0], checked: k === key ? "true" : "false", tab: k === key ? 0 : -1, bg: k === key ? "#ffffff" : "transparent", fg: k === key ? "#003e62" : "#41474f", shadow: k === key ? "0 2px 8px rgba(0,0,0,0.08)" : "none", pick: () => this.setState({ metric: k }) })),
+      });
+    } else out.biaOn = false;
+
+    out.installOn = !C.pref("installed", false) && !C.pref("installHidden", false);
+    out.openInstall = () => this.setState({ sheet: "install" });
+    out.hideInstall = () => { C.setPref("installHidden", true); S.showToast({ msg: "Puoi installarla quando vuoi dal Profilo.", tone: "info" }); };
+    out.markInstalled = () => { C.setPref("installed", true); close(); S.showToast({ msg: "App installata: attiva le notifiche dal Profilo.", tone: "ok" }); };
+    out.installSheet = this.state.sheet === "install";
+    out.infoOn = this.state.sheet === "info" && !!this.state.info;
+    out.infoTitle = this.state.info ? this.state.info.title : "";
+    out.infoText = this.state.info ? this.state.info.text : "";
+
+    out.moveOn = !!this.state.moveId; out.moveId = this.state.moveId;
+    out.closeMove = () => this.setState({ moveId: null });
+    out.moved = (r) => { this.setState({ moveId: null }); S.showToast({ msg: "Spostata a " + C.dayShort(r.start) + " alle " + C.hm(r.start) + ". " + co.first + " riceve un avviso.", undo: r.undo, tone: "ok" }); };
+
+    const tst = S.getToast(), TONE = { ok: ["CircleCheck", "#6ee7b7"], warn: ["TriangleAlert", "#fdba74"], info: ["Info", "#91cbff"] }, tone = tst ? TONE[tst.tone] || TONE.ok : TONE.ok;
+    Object.assign(out, { toastOn: !!tst, toastMsg: tst ? tst.msg : "", toastUndo: !!(tst && tst.undo), toastIcon: tone[0], toastColor: tone[1], undoToast: () => S.undoToast() });
+    return out;
+  }
+}
+</script>
+</body>
+</html>

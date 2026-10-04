@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&amp;family=Manrope:wght@400;500;600;700&amp;display=swap">
+<script src="./nc-icons.js"></script>
+<script src="./nc-store.js"></script>
+<script src="./nc-client.js"></script>
+<style>
+*,::before,::after{box-sizing:border-box;margin:0;padding:0;border:0 solid;}
+body{margin:0;font-family:Manrope,ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
+a{color:inherit;text-decoration:none;}
+a:hover{color:inherit;}
+:focus-visible{outline:2px solid #005685;outline-offset:2px;}
+</style>
+</helmet>
+<nav aria-label="Navigazione principale" style="display:flex; align-items:flex-start; justify-content:space-around; gap:2px; padding:6px 6px 30px; background:rgba(255,255,255,0.94); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border-top:1px solid rgba(193,199,208,0.45); font-family:Manrope, sans-serif;">
+  <a href="Cliente%20Home.dc.html" aria-current="{{ homeCur }}" style="flex:1; height:58px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; color:{{ homeFg }};">
+    <span style="width:56px; height:32px; border-radius:9999px; display:grid; place-items:center; background:{{ homeBg }};"><nc-icon name="Home" style="width:22px; height:22px;"></nc-icon></span>
+    <span style="font-size:12px; font-weight:{{ homeW }};">Home</span>
+  </a>
+  <a href="Cliente%20Prenota.dc.html" aria-current="{{ prenotaCur }}" style="flex:1; height:58px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; color:{{ prenotaFg }};">
+    <span style="width:56px; height:32px; border-radius:9999px; display:grid; place-items:center; background:{{ prenotaBg }};"><nc-icon name="CalendarPlus" style="width:22px; height:22px;"></nc-icon></span>
+    <span style="font-size:12px; font-weight:{{ prenotaW }};">Prenota</span>
+  </a>
+  <a href="Cliente%20Sessioni.dc.html" aria-current="{{ sessioniCur }}" aria-label="{{ sessioniAria }}" style="flex:1; height:58px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; color:{{ sessioniFg }};">
+    <span style="position:relative; width:56px; height:32px; border-radius:9999px; display:grid; place-items:center; background:{{ sessioniBg }};"><nc-icon name="CalendarDays" style="width:22px; height:22px;"></nc-icon>
+      <sc-if value="{{ toConfirm }}" hint-placeholder-val="{{ false }}"><span style="position:absolute; top:-2px; right:8px; min-width:18px; height:18px; padding:0 5px; border-radius:9999px; background:#c2410c; color:#ffffff; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; border:2px solid #ffffff;">{{ toConfirmLabel }}</span></sc-if>
+    </span>
+    <span style="font-size:12px; font-weight:{{ sessioniW }};">Sessioni</span>
+  </a>
+  <a href="Cliente%20Booster.dc.html" aria-current="{{ boosterCur }}" style="flex:1; height:58px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; color:{{ boosterFg }};">
+    <span style="width:56px; height:32px; border-radius:9999px; display:grid; place-items:center; background:{{ boosterBg }};"><nc-icon name="Sparkles" style="width:22px; height:22px;"></nc-icon></span>
+    <span style="font-size:12px; font-weight:{{ boosterW }};">Booster</span>
+  </a>
+  <a href="Cliente%20Profilo.dc.html" aria-current="{{ profiloCur }}" style="flex:1; height:58px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; color:{{ profiloFg }};">
+    <span style="width:56px; height:32px; border-radius:9999px; display:grid; place-items:center; background:{{ profiloBg }};"><nc-icon name="User" style="width:22px; height:22px;"></nc-icon></span>
+    <span style="font-size:12px; font-weight:{{ profiloW }};">Profilo</span>
+  </a>
+</nav>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:402,&quot;height&quot;:100},&quot;active&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;home&quot;,&quot;prenota&quot;,&quot;sessioni&quot;,&quot;booster&quot;,&quot;profilo&quot;],&quot;default&quot;:&quot;home&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  componentDidMount() {
+    const hook = () => { this.unsub = window.NCStore.subscribe(() => this.forceUpdate()); this.forceUpdate(); };
+    const wait = () => (window.NCClient && window.NCClient.ready() ? hook() : (this.t = setTimeout(wait, 30)));
+    wait();
+  }
+  componentWillUnmount() { this.unsub && this.unsub(); clearTimeout(this.t); }
+  renderVals() {
+    const active = this.props.active ?? "home";
+    const C = window.NCClient;
+    let n = 0;
+    if (C && C.ready()) n = C.upcoming().filter((b) => C.status(b).key === "toconfirm").length;
+    const out = { toConfirm: n > 0, toConfirmLabel: String(n), sessioniAria: n ? "Sessioni, " + n + " da confermare" : "Sessioni" };
+    ["home", "prenota", "sessioni", "booster", "profilo"].forEach((k) => {
+      const on = k === active;
+      out[k + "Cur"] = on ? "page" : "false";
+      out[k + "Fg"] = on ? "#003e62" : "#41474f";
+      out[k + "Bg"] = on ? "rgba(0,86,133,0.12)" : "transparent";
+      out[k + "W"] = on ? 700 : 600;
+    });
+    return out;
+  }
+}
+</script>
+</body>
+</html>

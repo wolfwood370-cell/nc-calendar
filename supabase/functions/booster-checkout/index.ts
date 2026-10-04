@@ -1,5 +1,11 @@
 import Stripe from "npm:stripe@^14.0.0";
 import { requireAuth, assertUuid } from "../_shared/auth.ts";
+import {
+  boosterPackTitle,
+  boosterPurchase,
+  boosterRefusal,
+  romeDate,
+} from "../_shared/booster-validity.ts";
 import { jsonResponse } from "../_shared/cors.ts";
 import { checkRateLimit } from "../_shared/rate-limit.ts";
 
@@ -97,6 +103,47 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Passata 06: chi compra e fino a quando valgono i crediti, con la regola
+    // dello Store (_shared/booster-validity.ts, la stessa che la pagina
+    // mostra prima di pagare): cliente attivo, percorso fisso senza
+    // pack_label o abbonamento, e un blocco in corso oggi a Roma. La
+    // scadenza è l'ultimo istante a Roma della fine del blocco, o di 30
+    // giorni dopo se il blocco sta per finire e il percorso continua.
+    // Nell'ultima settimana di un percorso che finisce non si vende
+    // (decisione 14): il 400 lo dice con la sua frase, che lo Store mostra
+    // com'è; ogni altro rifiuto, e un profilo che non c'è, con quella del
+    // blocco in corso.
+    const [{ data: buyer, error: buyerErr }, { data: blocks, error: blocksErr }] =
+      await Promise.all([
+        admin
+          .from("profiles")
+          .select("path_type, status, pack_label, auto_renew_blocks")
+          .eq("id", targetClientId)
+          .maybeSingle(),
+        admin
+          .from("training_blocks")
+          .select("id, start_date, end_date, status, sequence_order")
+          .eq("client_id", targetClientId)
+          .is("deleted_at", null),
+      ]);
+    if (buyerErr) throw new Error(`profiles: ${buyerErr.message}`);
+    if (blocksErr) throw new Error(`training_blocks: ${blocksErr.message}`);
+    const today = romeDate(new Date());
+    const refusal = buyer ? boosterRefusal(buyer, blocks ?? [], today) : null;
+    const decision = buyer && !refusal ? boosterPurchase(buyer, blocks ?? [], today) : null;
+    if (!decision) {
+      return jsonResponse(
+        {
+          error:
+            refusal === "fine"
+              ? "Nell'ultima settimana del percorso i Booster non si acquistano: per una sessione in più scrivi al tuo coach."
+              : "Al momento non puoi acquistare Booster: serve un blocco in corso.",
+        },
+        400,
+        req,
+      );
+    }
+
     // M7 (FULL_APP_AUDIT.md): pricing lives in the booster_packs table now.
     // The request can carry an optional `currency` parameter so a future
     // non-EUR market is a data change rather than a code change. Default
@@ -113,9 +160,10 @@ Deno.serve(async (req) => {
     }
     const requestedCurrency = requestedCurrencyRaw;
 
+    // select("*"): col giro del server arriva anche title, il nome su Stripe.
     const { data: pack, error: packErr } = await admin
       .from("booster_packs")
-      .select("amount_cents, currency, quantity, event_type_title")
+      .select("*")
       .eq("package_type", package_type)
       .eq("currency", requestedCurrency)
       .eq("active", true)
@@ -172,45 +220,6 @@ Deno.serve(async (req) => {
     }
     const eventTypeId = resolvedType.id as string;
 
-    // Fetch active block_allocation valid_until via inner join
-    const { data: allocation, error: allocError } = await admin
-      .from("block_allocations")
-      .select(
-        `
-        valid_until,
-        training_blocks!inner (
-          client_id,
-          deleted_at
-        )
-      `,
-      )
-      .eq("training_blocks.client_id", targetClientId)
-      .is("training_blocks.deleted_at", null)
-      .gte("valid_until", new Date().toISOString())
-      .order("valid_until", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (allocError || !allocation || !allocation.valid_until) {
-      return jsonResponse(
-        {
-          error:
-            "Nessun percorso attivo trovato. Devi avere un abbonamento in corso per acquistare i Booster.",
-        },
-        400,
-        req,
-      );
-    }
-
-    const expiresAt = new Date(allocation.valid_until);
-    const now = new Date();
-    const diffTime = expiresAt.getTime() - now.getTime();
-    const diffDays = diffTime / (1000 * 60 * 60 * 24);
-
-    if (diffDays < 7) {
-      expiresAt.setDate(expiresAt.getDate() + 30);
-    }
-
     // H1 (FULL_APP_AUDIT.md): the previous logic trusted the request's
     // Origin/Referer header to build success_url and cancel_url. An
     // attacker could pass Origin: https://attacker.com and end up with a
@@ -235,7 +244,9 @@ Deno.serve(async (req) => {
           price_data: {
             currency,
             product_data: {
-              name: `Booster: ${package_type === "pack" ? "Pack 3 Sessioni" : package_type === "single" ? "Singola Sessione" : "Triage"}`,
+              // Il titolo del pacchetto, come nello Store: è anche quello
+              // che il cliente legge nella ricevuta.
+              name: `Booster: ${boosterPackTitle(pack)}`,
             },
             unit_amount: amount_cents,
           },
@@ -243,15 +254,18 @@ Deno.serve(async (req) => {
         },
       ],
       mode: "payment",
-      success_url: `${origin}/client?booster=success`,
-      cancel_url: `${origin}/client/store?booster=cancel`,
+      // Il ritorno allo Store, con la tipologia; il segnaposto della sessione
+      // (scritto così, senza $) lo sostituisce Stripe con il suo id, che lo
+      // Store cerca fra gli acquisti mentre aspetta il webhook.
+      success_url: `${origin}/client/store?booster=success&type=${eventTypeId}&session={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/client/store?booster=cancel&type=${eventTypeId}`,
       metadata: {
         client_id: targetClientId,
         package_type,
         quantity: quantity.toString(),
         event_type_title,
         event_type_id: eventTypeId,
-        expires_at: expiresAt.toISOString(),
+        expires_at: decision.expiresAt,
       },
     });
 

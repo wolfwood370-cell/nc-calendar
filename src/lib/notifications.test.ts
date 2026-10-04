@@ -77,6 +77,52 @@ describe("describeNotification", () => {
   });
 });
 
+// L'acquisto di un Booster (passata 06): la riga «Acquisto Booster», che apre
+// il profilo del cliente; ogni altro payload, o lo stesso con un altro tipo,
+// resta la riga neutra di sempre.
+describe("describeNotification · acquisto di un Booster", () => {
+  const CLIENT_ID = "9c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f";
+  const PAYLOAD = {
+    client_id: CLIENT_ID,
+    client_name: "Giulia Bianchi",
+    quantity: 3,
+    session_label: "Sessione PT",
+    amount: 99,
+    package_type: "pack",
+  };
+  const NEUTRAL = {
+    kind: "other",
+    title: "Notifica",
+    body: "",
+    when: null,
+    date: null,
+    bookingId: null,
+  };
+
+  it("il payload giusto → «Acquisto Booster», col cliente da aprire", () => {
+    expect(describeNotification({ type: "booster.purchased", payload: PAYLOAD })).toEqual({
+      kind: "purchase",
+      title: "Acquisto Booster",
+      body: "Giulia Bianchi · +3 Sessione PT",
+      when: null,
+      date: null,
+      bookingId: null,
+      clientId: CLIENT_ID,
+    });
+  });
+
+  it.each<[string, string, Record<string, unknown>]>([
+    ["tipoDiverso", "booking.created", PAYLOAD],
+    ["quantitaTesto", "booster.purchased", { ...PAYLOAD, quantity: "3" }],
+    ["quantitaZero", "booster.purchased", { ...PAYLOAD, quantity: 0 }],
+    ["quantitaMezza", "booster.purchased", { ...PAYLOAD, quantity: 1.5 }],
+    ["senzaCliente", "booster.purchased", { ...PAYLOAD, client_id: undefined }],
+    ["nomeNumero", "booster.purchased", { ...PAYLOAD, client_name: 42 }],
+  ])("%s → riga neutra", (_name, type, payload) => {
+    expect(describeNotification({ type, payload })).toEqual(NEUTRAL);
+  });
+});
+
 describe("formatAgo", () => {
   const NOW = new Date(2026, 8, 25, 10, 40);
   const minutesAgo = (m: number) => new Date(NOW.getTime() - m * 60_000).toISOString();

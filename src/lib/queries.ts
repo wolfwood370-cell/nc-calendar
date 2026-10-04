@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { SessionType, BookingStatus } from "@/lib/mock-data";
+import type { StorePack } from "@/lib/client-store";
 import { invalidateBookingScope, queryKeys } from "@/lib/query-keys";
 import { gcalDeleteEvent, gcalUpdateEvent } from "@/lib/gcal.functions";
 
@@ -75,6 +76,11 @@ export interface ExtraCreditRow {
   quantity: number;
   quantity_booked: number;
   expires_at: string;
+  // L'acquisto (Store, passata 06): price_paid in euro; stripe_payment_id è la
+  // sessione di Stripe, null per i crediti dati dal coach.
+  created_at: string;
+  price_paid: number | null;
+  stripe_payment_id: string | null;
 }
 
 export interface BlockRow {
@@ -279,6 +285,35 @@ export function useClientBookings(clientId?: string) {
   });
 }
 
+// Le sessioni del cliente per contare i crediti (Prenota, passata 02): come
+// useClientBookings, più le annullate tardi con deleted_at. cancel_booking lo
+// scrive anche su di loro, e senza quelle getClientPools direbbe tornato un
+// credito che il server ha tenuto. La policy «Client read own bookings» non
+// filtra deleted_at. La chiave comincia come quella di useClientBookings, così
+// invalidateBookingScope (confronto per prefisso) la rinfresca, ma non è
+// uguale: la cornice monta useClientBookings su ogni pagina del cliente, e due
+// letture diverse sotto la stessa chiave si sovrascriverebbero nella cache.
+async function selectClientBookingsForCredits(clientId: string): Promise<BookingRow[]> {
+  return loadBookingsWithFallback((cols) =>
+    supabase
+      .from("bookings")
+      .select(cols)
+      .eq("client_id", clientId)
+      .or("deleted_at.is.null,status.eq.late_cancelled")
+      .order("scheduled_at", { ascending: false })
+      .limit(BOOKINGS_FETCH_LIMIT),
+  );
+}
+
+export function useClientBookingsForCredits(clientId?: string) {
+  return useQuery({
+    queryKey: ["bookings", "client", clientId, "credits"],
+    enabled: !!clientId,
+    staleTime: 30_000,
+    queryFn: () => selectClientBookingsForCredits(clientId!),
+  });
+}
+
 async function loadBlocks(filter: { coach_id?: string; client_id?: string }): Promise<BlockRow[]> {
   let q = supabase
     .from("training_blocks")
@@ -326,10 +361,13 @@ export function useClientExtraCredits(clientId?: string) {
     queryKey: ["extra_credits", "client", clientId],
     enabled: !!clientId,
     queryFn: async (): Promise<ExtraCreditRow[]> => {
-      // Nessun filtro sulla scadenza: i crediti non scadono più.
+      // Nessun filtro sulla scadenza: la guardano le regole, sulla data della
+      // sessione (client-credits.ts per il cliente, credit-order.ts per il coach).
       const { data, error } = await supabase
         .from("extra_credits")
-        .select("id, client_id, event_type_id, quantity, quantity_booked, expires_at")
+        .select(
+          "id, client_id, event_type_id, quantity, quantity_booked, expires_at, created_at, price_paid, stripe_payment_id",
+        )
         .eq("client_id", clientId!);
       if (error) throw error;
       return (data ?? []) as ExtraCreditRow[];
@@ -435,6 +473,39 @@ export function useActiveShopTitles() {
     queryKey: queryKeys.shopTitles,
     staleTime: STALE_CONFIG,
     queryFn: fetchActiveShopTitles,
+  });
+}
+
+/**
+ * I pacchetti dello Store (passata 06): booster_packs attivi, in euro. Con
+ * select("*"), così title e description arrivano appena il giro del server
+ * aggiunge le colonne; prima valgono null. Policy «Read active booster packs».
+ */
+export function useBoosterPacks() {
+  return useQuery({
+    queryKey: queryKeys.shopPacks,
+    staleTime: STALE_CONFIG,
+    queryFn: async (): Promise<StorePack[]> => {
+      const { data, error } = await supabase
+        .from("booster_packs")
+        .select("*")
+        .eq("active", true)
+        .eq("currency", "eur");
+      if (error) throw new Error(error.message);
+      return (data ?? []).map((row) => {
+        const texts = row as { title?: string | null; description?: string | null };
+        return {
+          package_type: row.package_type,
+          currency: row.currency,
+          amount_cents: row.amount_cents,
+          quantity: row.quantity,
+          event_type_title: row.event_type_title,
+          active: row.active,
+          title: texts.title ?? null,
+          description: texts.description ?? null,
+        };
+      });
+    },
   });
 }
 

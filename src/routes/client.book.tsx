@@ -1,55 +1,73 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState, useEffect } from "react";
-import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Loader2, Info } from "lucide-react";
-import { sessionLabel, type SessionType } from "@/lib/mock-data";
-import {
-  useClientBlocks,
-  useClientBookings,
-  useClientExtraCredits,
-  useCoachAvailability,
-  useCoachAvailabilityExceptions,
-  useCoachEventTypes,
-  useCoachOptimizationEnabled,
-  type EventTypeRow,
-} from "@/lib/queries";
-// generateMockMeetLink was deprecated: the real Google Meet URL is now
-// minted server-side by sync-calendar (conferenceData + booking_id) and
-// written onto bookings.meeting_link via service-role UPDATE.
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/lib/auth";
-import { useCurrentBlock } from "@/hooks/use-current-block";
-import { clientReferenceBlock } from "@/lib/renewal";
-import { useQuery } from "@tanstack/react-query";
-import { format, startOfMonth, addDays, startOfDay, parseISO } from "date-fns";
-import { it } from "date-fns/locale";
-import { EmptyStateCard } from "@/components/empty-state-card";
-import { generateSlots, type BlockedRange } from "@/lib/booking-slots";
-import { CLIENT_BOOKING_HORIZON_DAYS, CLIENT_MIN_NOTICE_HOURS } from "@/lib/booking-rules";
-import { BookCalendarGrid } from "@/components/book-calendar-grid";
-import { BookSlotsGrid } from "@/components/book-slots-grid";
-import { BookPoolPicker } from "@/components/book-pool-picker";
-import { allocKey } from "@/lib/booking-allocation";
-import { useBookConfirm } from "@/hooks/use-book-confirm";
+// ----------------------------------------------------------------------------
+// Prenota (lato cliente, passata 02, audit B1, B3-B7, N4, O1, V15 e D2)
+// ----------------------------------------------------------------------------
+// Una schermata sola: «Cosa vuoi prenotare?» con tutte le tipologie del
+// cliente, «Quando?» con la fila dei giorni che i crediti coprono e la regola
+// sotto, gli orari del giorno a gruppi; la barra d'azione con un orario
+// scelto, il riepilogo prima di confermare e l'esito dopo, nello stesso foglio.
+// Ogni numero e ogni testo viene da client-book.ts (sopra gli helper della 00);
+// i giorni da getClientSlotDays, la regola da bookingRulesText. La pagina non
+// genera orari e non conta crediti suoi.
+// Gli stati, nell'ordine: caricamento; una lettura dei crediti fallita (mai la
+// card dei crediti per una lettura fallita); la card di getBookState quando
+// non si prenota; la prenotazione. I fogli stanno fuori da quei rami: dopo
+// l'ultimo credito la rilettura può mettere la card al posto della
+// prenotazione, e l'esito resta aperto finché il cliente non lo chiude.
+// ----------------------------------------------------------------------------
 
-// Deep-link search params per la pagina prenotazione.
-// `eventType` (UUID di event_types.id) viene passato dal client dashboard
-// quando il cliente clicca "Prenota" su una specifica tipologia di sessione
-// del breakdown. Il BookPoolPicker pre-seleziona automaticamente il pool
-// corrispondente al primo mount (vedi useEffect più sotto).
-// Validator type-safe: zod-like inline, fallback graceful se param mancante
-// o stringa non-UUID (ignorato senza errori). N3: enforce UUID v4 shape per
-// evitare che valori arbitrari entrino in query/lookup downstream.
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Info, MessageCircle } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { BookActionBar } from "@/components/book-action-bar";
+import { BookBlockedCard, BookRetryCard } from "@/components/book-blocked-card";
+import { BookConfirmSheet, BookHowSheet, type BookDone } from "@/components/book-sheets";
+import { BookTypePicker } from "@/components/book-type-picker";
+import { ClientButton } from "@/components/client-button";
+import { ClientDayStrip } from "@/components/client-day-strip";
+import { ClientSlotGroups } from "@/components/client-slot-groups";
+import { ClientTabHeader } from "@/components/client-tab-header";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useBookConfirm, type BookConfirmType } from "@/hooks/use-book-confirm";
+import { useClientBookState } from "@/hooks/use-client-book-state";
+import { useClientShell } from "@/hooks/use-client-shell";
+import { useCoachSlotInputs } from "@/hooks/use-coach-slot-inputs";
+import { useAuth } from "@/lib/auth";
+import { bookingRulesText, type CreditWindow } from "@/lib/booking-rules";
+import {
+  NO_COACH,
+  barType,
+  barWhen,
+  creditLine,
+  doneText,
+  howToBook,
+  initialOption,
+  noSlotsText,
+  placeLine,
+  rulesBlock,
+  summaryRule,
+  whenLine,
+  withCoachLine,
+  writeOnWhatsApp,
+  writeToCoach,
+  type BookOption,
+} from "@/lib/client-book";
+import { bookSubtitle, clientPageTitle } from "@/lib/client-shell";
+import { getClientSlotDays } from "@/lib/client-slots";
+import { renewsAutomatically } from "@/lib/renewal";
+import { formatLongDay } from "@/lib/session-time";
+
+// `eventType` (event_types.id) sceglie la tipologia all'apertura, se è
+// prenotabile (la Home ci arriva così). Solo un UUID: altro si ignora.
 const BOOK_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const Route = createFileRoute("/client/book")({
   head: () => ({
     meta: [
-      { title: "Prenota una sessione | NC Training Systems" },
+      { title: clientPageTitle("Prenota") },
       {
         name: "description",
         content: "Scegli data, orario e tipologia per prenotare la tua prossima sessione.",
       },
-      { property: "og:title", content: "Prenota una sessione | NC Training Systems" },
+      { property: "og:title", content: clientPageTitle("Prenota") },
       {
         property: "og:description",
         content: "Scegli data, orario e tipologia per prenotare la tua prossima sessione.",
@@ -65,610 +83,440 @@ export const Route = createFileRoute("/client/book")({
   },
 });
 
+// Il coach nei testi. Il cliente oggi non legge il profilo del coach (nessuna
+// policy di profiles glielo dà, e nel backup il coach non ha il telefono):
+// nome e WhatsApp arriveranno da get_my_coach, con le migrazioni del 02/10/2026.
+// Fino ad allora i testi dicono «il tuo coach» e i pulsanti WhatsApp non ci sono.
+const COACH = NO_COACH;
+
+const NO_OPTIONS: BookOption[] = [];
+
+/**
+ * L'orario scelto, con la tipologia, il suo giorno e la finestra dei crediti
+ * di quel giorno quando è stato scelto (la finestra vera si rilegge dai giorni).
+ */
+interface ChosenSlot {
+  key: string;
+  iso: string;
+  time: string;
+  end: string;
+  day: string;
+  window: CreditWindow;
+}
+
 function BookFlow() {
   const { user } = useAuth();
-  const meId = user?.id;
+  const { now } = useClientShell();
   const navigate = useNavigate();
-  const blocksQ = useClientBlocks(meId);
-  const bookingsQ = useClientBookings(meId);
-  const extraCreditsQ = useClientExtraCredits(meId);
+  const eventTypeParam = Route.useSearch({ select: (s) => s.eventType });
 
-  const profileQ = useQuery({
-    queryKey: ["profile", meId],
-    enabled: !!meId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, full_name, email, phone, coach_id, email_notifications, path_type")
-        .eq("id", meId!)
-        .maybeSingle();
-      if (error) throw error;
-      return data as {
-        id: string;
-        full_name: string | null;
-        email: string | null;
-        phone: string | null;
-        coach_id: string | null;
-        email_notifications: boolean;
-        path_type: string | null;
-      } | null;
-    },
-  });
+  // Lo stato dei crediti e le sue letture: lo stesso hook di Sessioni.
+  const {
+    meId,
+    coachId,
+    profile,
+    client,
+    blocksQ,
+    eventTypesQ,
+    loading,
+    failed,
+    state,
+    retry,
+    retrying,
+  } = useClientBookState(now, COACH);
+  // Gli orari del coach e le loro letture: lo stesso hook di Sposta.
+  const {
+    availabilityQ,
+    exceptionsQ,
+    optimizationQ,
+    busy,
+    slotsFailed,
+    slotsReady,
+    retrySlots,
+    retryingSlots,
+  } = useCoachSlotInputs(coachId, now);
 
-  // Single-pick state for the new Aura booking flow
-  const [selectedPoolKey, setSelectedPoolKey] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [selectedISO, setSelectedISO] = useState<string | null>(null);
-  const [calendarMonth, setCalendarMonth] = useState<Date>(startOfMonth(new Date()));
+  const options = state?.options ?? NO_OPTIONS;
 
-  // ensure_client_block_state RPC closes the last block as soon as today
-  // passes its end_date (the 7-day grace only sets inGracePeriod), and
-  // auto-creates the next one when profiles.auto_renew_blocks is true.
-  // On the first load for a client whose previous block expired,
-  // this hook is what physically materializes the new block in the DB.
-  // Prenota ne aspetta il caricamento prima di scegliere il pool
-  // (poolsSettled, sotto), ma il suo currentBlockId non sceglie il blocco.
-  const currentBlockQ = useCurrentBlock(meId);
-  // Blocco in corso, gemello di client.index.tsx, per tutti i percorsi
-  // abbonamento compreso: la regola a date di clientReferenceBlock. L'RPC
-  // restituisce l'ultimo blocco per sequence_order finché oggi non ne supera
-  // la fine: con i mesi dopo già creati gli orari partirebbero dall'inizio
-  // dell'ultimo, e sul percorso fisso pescava un blocco lontano (per Marco
-  // Golinelli Blocco 6 di Agosto invece di Blocco 3 di Maggio, 0 slot).
-  const block = useMemo(() => clientReferenceBlock(blocksQ.data ?? []), [blocksQ.data]);
-  const coachIdForAvail = profileQ.data?.coach_id ?? null;
-  const availQ = useCoachAvailability(coachIdForAvail);
-  const exceptionsQ = useCoachAvailabilityExceptions(coachIdForAvail);
-  const eventTypesQ = useCoachEventTypes(coachIdForAvail);
-  const optimizationQ = useCoachOptimizationEnabled(coachIdForAvail);
-  const coachProfileQ = useQuery({
-    queryKey: ["coach-profile", coachIdForAvail],
-    enabled: !!coachIdForAvail,
-    queryFn: async () => {
-      // MED-B3: narrowing esplicito invece di `coachIdForAvail!`. `enabled`
-      // previene già la chiamata quando è null, ma il guard rende il tipo
-      // safe senza non-null assertion.
-      if (!coachIdForAvail) return null;
-      const { data } = await supabase
-        .from("profiles")
-        .select("full_name, email")
-        .eq("id", coachIdForAvail)
-        .maybeSingle();
-      return data;
-    },
-  });
+  // ---- Le scelte --------------------------------------------------------
+  const [typeKey, setTypeKey] = useState<string | null>(null);
+  const [dayIso, setDayIso] = useState<string | null>(null);
+  const [slot, setSlot] = useState<ChosenSlot | null>(null);
+  const [sheet, setSheet] = useState<"confirm" | "how" | null>(null);
+  const [howKey, setHowKey] = useState<string | null>(null);
+  const [done, setDone] = useState<BookDone | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // A3: regole di prenotazione del coach (min_notice_hours, booking_horizon_days).
-  // Lette qui per allineare gli slot mostrati al cliente con il trigger
-  // server-side `enforce_client_booking_rules`. Default 24h / 60gg se manca
-  // la riga trainer_settings.
-  const _trainerSettingsQ = useQuery({
-    queryKey: ["coach-booking-rules", coachIdForAvail],
-    enabled: !!coachIdForAvail,
-    queryFn: async () => {
-      if (!coachIdForAvail) return null;
-      const { data } = await supabase
-        .from("trainer_settings")
-        .select("min_notice_hours, booking_horizon_days")
-        .eq("coach_id", coachIdForAvail)
-        .maybeSingle();
-      return data;
-    },
-  });
-  // Limiti di prenotazione rimossi (richiesta 2026-08-27): nessun preavviso
-  // minimo e orizzonte ampio. Restano solo disponibilità e sovrapposizioni.
-  const minNoticeHours = CLIENT_MIN_NOTICE_HOURS;
-  const horizonDays = CLIENT_BOOKING_HORIZON_DAYS;
-
-  // Tipologie evento personalizzate del coach (fallback alle 3 default se vuoto).
-  const customTypes: EventTypeRow[] = eventTypesQ.data ?? [];
-
-  // Durata candidata per testare collisioni nello slot generator: minimo (durata + buffer)
-  // tra le tipologie configurate, default 60.
-  const candidateMinutes = useMemo(() => {
-    if (customTypes.length === 0) return 60;
-    return Math.min(...customTypes.map((e) => (e.duration ?? 60) + (e.buffer_minutes ?? 0)));
-  }, [customTypes]);
-
-  // Busy times del coach (tutti i clienti, anonimizzato via SECURITY DEFINER).
-  // M4: key on stable primitives (id + dates) rather than the parent block
-  // object's fields. block.id is the immutable handle; the dates are
-  // included so a block whose dates were edited still keys to a new query.
-  const coachBusyQ = useQuery({
-    queryKey: [
-      "coach-busy",
-      coachIdForAvail,
-      block?.id ?? null,
-      block?.start_date ?? null,
-      block?.end_date ?? null,
-    ],
-    enabled: !!coachIdForAvail,
-    queryFn: async () => {
-      // MED-B3: stesso pattern del profilo coach sopra — narrowing
-      // esplicito invece di `coachIdForAvail!`.
-      if (!coachIdForAvail) return [];
-      const today = startOfDay(new Date());
-      // Finestra: da max(oggi, inizio blocco) fino alla fine dell'orizzonte
-      // di prenotazione, così le busy ranges del coach coprono TUTTI gli
-      // slot visibili (altrimenti oltre la finestra gli slot occupati
-      // apparirebbero liberi e l'insert fallirebbe solo al Conferma).
-      const from = block
-        ? new Date(Math.max(today.getTime(), new Date(block.start_date).getTime()))
-        : today;
-      const to = addDays(today, horizonDays + 1);
-      to.setHours(23, 59, 59, 999);
-      const { data, error } = await supabase.rpc("get_coach_busy", {
-        p_coach_id: coachIdForAvail,
-        p_from: from.toISOString(),
-        p_to: to.toISOString(),
+  const writeEventType = useCallback(
+    (o: BookOption | null) => {
+      void navigate({
+        to: "/client/book",
+        search: o?.eventTypeId ? { eventType: o.eventTypeId } : {},
+        replace: true,
+        resetScroll: false,
       });
-      if (error) throw error;
-      return (data ?? []) as {
-        scheduled_at: string;
-        event_type_id: string | null;
-        duration: number;
-        buffer_minutes: number;
-      }[];
     },
-  });
+    [navigate],
+  );
 
-  // Range bloccati = [scheduled_at, scheduled_at + duration + buffer] del coach (tutti i clienti).
-  const blockedRanges = useMemo(() => {
-    const ranges: BlockedRange[] = [];
-    for (const b of coachBusyQ.data ?? []) {
-      const start = new Date(b.scheduled_at).getTime();
-      const end = start + ((b.duration ?? 60) + (b.buffer_minutes ?? 0)) * 60_000;
-      ranges.push({ start, end });
-    }
-    return ranges;
-  }, [coachBusyQ.data]);
+  // All'apertura la tipologia di eventType, se è prenotabile; poi quella scelta.
+  const initialKey = state ? (initialOption(options, eventTypeParam)?.key ?? null) : null;
+  const optionKey = typeKey ?? initialKey;
+  const option = options.find((o) => o.key === optionKey) ?? null;
+  const bookable = option?.state === "prenotabile" ? option : null;
 
-  // Finestra di prenotazione SEMPRE [max(oggi, inizio blocco), oggi+14gg]
-  // = settimana corrente + 2 successive. Il backend
-  // (validate_booking_block_allocation) accetta finché esiste un'allocation
-  // con valid_until >= data della sessione; i giorni senza credito danno
-  // errore al click (gestito in use-book-confirm), come nel flusso di create
-  // esistente. Niente più logica isLastWeek.
-  const slots = useMemo(() => {
-    const today = startOfDay(new Date());
-    const start = block
-      ? new Date(Math.max(today.getTime(), new Date(block.start_date).getTime()))
-      : today;
-    // Nessun cap: finestra ampia, il backend non impone più orizzonti.
-    const horizonCap = horizonDays;
-    const end = addDays(today, horizonCap);
-    end.setHours(23, 59, 59, 999);
-    return generateSlots(
-      horizonCap + 1,
-      blockedRanges,
-      availQ.data ?? [],
-      exceptionsQ.data ?? [],
-      candidateMinutes,
-      start,
-      end,
-      { enabled: optimizationQ.data ?? true },
-      minNoticeHours,
-    );
+  useEffect(() => {
+    if (typeKey === null && initialKey !== null) setTypeKey(initialKey);
+  }, [typeKey, initialKey]);
+
+  // La tipologia scelta non è più prenotabile (ne ha usato l'ultimo credito, o
+  // una rilettura): la scelta passa alla prima prenotabile. Col riepilogo o
+  // l'esito aperti, alla loro chiusura: un errore resta nel foglio col suo orario.
+  useEffect(() => {
+    if (!state || sheet === "confirm" || typeKey === null) return;
+    if (option?.state === "prenotabile") return;
+    const next = initialOption(options);
+    setTypeKey(next?.key ?? null);
+    setDayIso(null);
+    setSlot(null);
+    writeEventType(next);
+  }, [state, sheet, typeKey, option, options, writeEventType]);
+
+  const chooseType = (o: BookOption) => {
+    setTypeKey(o.key);
+    setDayIso(null);
+    setSlot(null);
+    writeEventType(o);
+  };
+  const explain = (o: BookOption) => {
+    setHowKey(o.key);
+    setSheet("how");
+  };
+
+  // ---- Giorni e orari ---------------------------------------------------
+  const slotDays = useMemo(() => {
+    if (!bookable || !slotsReady || slotsFailed) return null;
+    return getClientSlotDays({
+      now,
+      durationMin: bookable.durationMin,
+      bufferMin: bookable.bufferMin,
+      availability: availabilityQ.data ?? [],
+      exceptions: exceptionsQ.data ?? [],
+      busy,
+      windows: bookable.windows,
+      optimization: optimizationQ.data ?? true,
+    });
   }, [
-    block,
-    blockedRanges,
-    availQ.data,
+    bookable,
+    slotsReady,
+    slotsFailed,
+    now,
+    availabilityQ.data,
     exceptionsQ.data,
+    busy,
     optimizationQ.data,
-    candidateMinutes,
-    minNoticeHours,
-    horizonDays,
   ]);
+  // Il giorno è il primo con orari, e resta finché ne ha: quello mostrato si
+  // ricorda, così un giorno prima che si libera non gli passa davanti.
+  const days = slotDays?.days ?? [];
+  const day =
+    days.find((d) => d.isoDate === dayIso && d.slots.length > 0) ??
+    days.find((d) => d.slots.length > 0) ??
+    null;
+  const shownDay = day?.isoDate ?? null;
+  useEffect(() => {
+    if (shownDay !== null && shownDay !== dayIso) setDayIso(shownDay);
+  }, [shownDay, dayIso]);
 
-  // Pools list (one entry per credit pool: block allocation OR extra credit pack).
-  interface Pool {
-    key: string;
-    label: string;
-    type: SessionType;
-    eventTypeId: string | null;
-    remaining: number;
-    color?: string | null;
-    validUntil: Date | null;
-    source: "block" | "extra";
-  }
-  const pools = useMemo<Pool[]>(() => {
-    const poolsMap = new Map<string, Pool>();
-    // 1) Block allocations (fixed paths)
-    if (block) {
-      for (const a of block.allocations) {
-        const k = `block:${allocKey(a.event_type_id, a.session_type)}`;
-        const remaining = a.quantity_assigned - a.quantity_booked;
-        // L6: parseISO treats a date-only string as local midnight, which
-        // formats consistently across timezones ("20 maggio" everywhere) and
-        // compares correctly against the calendar's midnight-anchored `day`
-        // iterator at line ~823. The previous `\`${valid_until}T23:59:59\``
-        // expression parsed in the browser's local TZ, shifting credit
-        // expiry by up to ±12h for travelling users.
-        const allocExp = a.valid_until ? parseISO(a.valid_until) : null;
-        if (poolsMap.has(k)) {
-          const cur = poolsMap.get(k)!;
-          cur.remaining += remaining;
-          if (allocExp && (!cur.validUntil || allocExp > cur.validUntil)) cur.validUntil = allocExp;
-        } else {
-          const et = a.event_type_id ? customTypes.find((e) => e.id === a.event_type_id) : null;
-          poolsMap.set(k, {
-            key: k,
-            label: et?.name ?? sessionLabel(a.session_type),
-            type: a.session_type as SessionType,
-            eventTypeId: a.event_type_id ?? null,
-            remaining,
-            color: et?.color ?? null,
-            validUntil: allocExp,
-            source: "block",
-          });
+  // L'orario scelto si toglie quando non c'è più fra gli orari, a foglio chiuso.
+  const slotListed =
+    slot !== null && slot.key === bookable?.key && !!day?.slots.some((s) => s.iso === slot.iso);
+  const confirmOpen = sheet === "confirm" && done === null;
+  useEffect(() => {
+    if (slot && !slotListed && !confirmOpen) setSlot(null);
+  }, [slot, slotListed, confirmOpen]);
+  const barSlot = slot && (slotListed || confirmOpen) ? slot : null;
+
+  const pickDay = (isoDate: string) => {
+    if (isoDate === day?.isoDate) return;
+    setDayIso(isoDate);
+    setSlot(null);
+  };
+  const pickSlot = (iso: string) => {
+    const s = day?.slots.find((x) => x.iso === iso);
+    if (!bookable || !day?.window || !s) return;
+    setSlot({
+      key: bookable.key,
+      iso: s.iso,
+      time: s.time,
+      end: s.end,
+      day: day.isoDate,
+      window: day.window,
+    });
+  };
+  // Il credito si prende dalla finestra di adesso del giorno scelto: dopo una
+  // rilettura può essere cambiata (un Booster, crediti aggiunti al blocco).
+  const slotWindow =
+    slot === null
+      ? null
+      : ((slot.key === bookable?.key
+          ? days.find((d) => d.isoDate === slot.day)?.window
+          : undefined) ?? slot.window);
+
+  const rule =
+    bookable && state && client
+      ? bookingRulesText({
+          now,
+          pathType: client.path_type,
+          renews: renewsAutomatically(client),
+          reference: rulesBlock(state.reference, state.referenceNumber),
+          next: rulesBlock(state.next, state.nextNumber),
+          windows: bookable.windows,
+        })
+      : "";
+
+  // ---- Riepilogo e prenotazione ----------------------------------------
+  const slotOption = slot ? (options.find((o) => o.key === slot.key) ?? null) : null;
+  const summary =
+    slot && slotOption && slotWindow && state
+      ? {
+          name: slotOption.name,
+          color: slotOption.color,
+          durationMin: slotOption.durationMin,
+          online: slotOption.location === "online",
+          when: whenLine(slot),
+          coach: withCoachLine(COACH),
+          place: placeLine(slotOption),
+          credit: creditLine(slotOption, slotWindow, state),
+          rule: summaryRule(slot.iso, now),
         }
+      : null;
+  const confirmType: BookConfirmType | null = slotOption
+    ? {
+        eventTypeId: slotOption.eventTypeId,
+        sessionType: slotOption.sessionType,
+        name: slotOption.name,
+        durationMin: slotOption.durationMin,
+        location: slotOption.location,
+        color: slotOption.color,
+        description:
+          eventTypesQ.data?.find((t) => t.id === slotOption.eventTypeId)?.description ?? null,
       }
-    }
-    // 2) Extra credits (booster packs / free-client initial credits)
-    for (const ec of extraCreditsQ.data ?? []) {
-      const remaining = ec.quantity - ec.quantity_booked;
-      if (remaining <= 0) continue;
-      const et = customTypes.find((e) => e.id === ec.event_type_id);
-      const k = `extra:${ec.event_type_id}`;
-      const exp = new Date(ec.expires_at);
-      if (poolsMap.has(k)) {
-        const cur = poolsMap.get(k)!;
-        cur.remaining += remaining;
-        if (!cur.validUntil || exp > cur.validUntil) cur.validUntil = exp;
-      } else {
-        poolsMap.set(k, {
-          key: k,
-          label: et?.name ?? "Sessione Extra",
-          type: (et?.base_type ?? "PT Session") as SessionType,
-          eventTypeId: ec.event_type_id,
-          remaining,
-          color: et?.color ?? null,
-          validUntil: exp,
-          source: "extra",
-        });
-      }
-    }
-    return Array.from(poolsMap.values()).filter((p) => p.remaining > 0);
-  }, [block, customTypes, extraCreditsQ.data]);
-
-  // Deep-link: il client dashboard può navigare qui con ?eventType=<uuid>
-  // per pre-selezionare il pool corrispondente alla tipologia cliccata
-  // ("Prenota" su Sessione PT → preseleziona pool PT). Se il param manca o
-  // non matcha alcun pool disponibile (es. tipologia esaurita), fallback
-  // al primo pool con residuo > 0 (comportamento legacy).
-  const deepLinkEventType = Route.useSearch({ select: (s) => s.eventType });
-  // I pool si popolano in più fasi (blocchi, stato dell'RPC e crediti extra). Il
-  // fallback a pools[0] deve scattare SOLO quando questi dati sono "settled",
-  // altrimenti bloccherebbe la selezione sul primo pool prima che arrivi quello
-  // della tipologia deep-linkata (bug "PT prenota consulenza").
-  const poolsSettled = !blocksQ.isLoading && !extraCreditsQ.isLoading && !currentBlockQ.isLoading;
-  useEffect(() => {
-    if (selectedPoolKey) return;
-    if (pools.length === 0) return;
-    if (deepLinkEventType) {
-      const match = pools.find((p) => p.eventTypeId === deepLinkEventType);
-      if (match) {
-        setSelectedPoolKey(match.key);
-        return;
-      }
-      // Deep-link specificato ma il suo pool non è (ancora) tra i pool. Se i
-      // dati non sono ancora settled -> ASPETTA (l'effetto ri-parte quando
-      // `pools` cambia e seleziona la tipologia giusta appena compare). Se sono
-      // settled e il pool non esiste (es. il cliente NON ha crediti di quella
-      // tipologia) -> ripieghiamo sul primo pool disponibile, così "Conferma"
-      // resta utilizzabile invece di restare bloccato senza selezione.
-      if (!poolsSettled) return;
-    }
-    const first = pools[0];
-    if (first) setSelectedPoolKey(first.key);
-  }, [selectedPoolKey, pools, deepLinkEventType, poolsSettled]);
-
-  // ===== Aura UI helpers (must run before any early return to satisfy hooks rules) =====
-  const todayStart = startOfDay(new Date());
-  const daysWithSlots = useMemo(() => {
-    const set = new Set<string>();
-    for (const s of slots) set.add(format(s.date, "yyyy-MM-dd"));
-    return set;
-  }, [slots]);
-
-  const slotsForSelectedDay = useMemo(() => {
-    if (!selectedDate) return [];
-    const key = format(selectedDate, "yyyy-MM-dd");
-    return slots.filter((s) => format(s.date, "yyyy-MM-dd") === key);
-  }, [slots, selectedDate]);
-
-  // Auto-navigate calendar al primo mese con slot disponibili. Una-tantum,
-  // così se l'utente naviga manualmente non viene riportato indietro.
-  // Necessario quando il blocco corrente parte in un mese futuro (es. il
-  // mese di oggi non ha alcuno slot): senza questo, il calendario mostrerebbe
-  // Maggio tutto grigio e l'utente non capirebbe che deve cliccare ">".
-  const [hasInitedCalendar, setHasInitedCalendar] = useState(false);
-  useEffect(() => {
-    if (hasInitedCalendar) return;
-    const first = slots[0];
-    if (!first) return;
-    let earliest = first.date;
-    for (const s of slots) if (s.date < earliest) earliest = s.date;
-    const firstMonth = startOfMonth(earliest);
-    if (firstMonth.getTime() > calendarMonth.getTime()) {
-      setCalendarMonth(firstMonth);
-    }
-    setHasInitedCalendar(true);
-  }, [slots, hasInitedCalendar, calendarMonth]);
-
-  // ===== Derivazioni profile + useBookConfirm DEVONO stare prima degli
-  // early-return per non violare le rules of hooks (React error #310).
-  // Durante isLoading profileQ.data è undefined ma i fallback ?? sono
-  // safe; useBookConfirm gestisce internamente meId/coachId undefined. ====
-  const profile = profileQ.data;
-  const meName = profile?.full_name ?? user?.email ?? "Cliente";
-  const meEmail = profile?.email ?? user?.email ?? "";
-  const mePhone = profile?.phone ?? null;
-  const coachId = profile?.coach_id;
-  const coachName = coachProfileQ.data?.full_name ?? coachProfileQ.data?.email ?? "il tuo Coach";
-  const emailNotificationsEnabled = profile?.email_notifications ?? true;
-
+    : null;
   const { confirm, confirming } = useBookConfirm({
     meId,
-    meName,
-    meEmail,
-    mePhone,
     coachId,
-    coachName,
-    emailNotificationsEnabled,
-    selectedISO,
-    selectedPoolKey,
-    pools,
-    block,
-    customTypes,
-    extraCredits: extraCreditsQ.data,
+    meName: profile?.full_name ?? user?.email ?? "Cliente",
+    mePhone: profile?.phone ?? null,
+    type: confirmType,
+    iso: slot?.iso ?? null,
+    window: slotWindow,
   });
+  // Un riepilogo rimasto senza contenuto si chiude: aperto e vuoto si
+  // riaprirebbe da solo alla prossima scelta.
+  const hasSummary = summary !== null;
+  useEffect(() => {
+    if (sheet === "confirm" && done === null && !hasSummary) setSheet(null);
+  }, [sheet, done, hasSummary]);
 
-  const selectedSlot = selectedISO ? (slots.find((s) => s.iso === selectedISO) ?? null) : null;
-  const selectedPool = pools.find((p) => p.key === selectedPoolKey) ?? null;
-  const selectedEventType = selectedPool?.eventTypeId
-    ? (customTypes.find((e) => e.id === selectedPool.eventTypeId) ?? null)
-    : null;
-  const poolBlocked = selectedEventType ? selectedEventType.client_bookable === false : false;
-  const poolBlockedMessage =
-    selectedEventType?.unavailable_message?.trim() ||
-    "Per prenotare questa sessione è necessario passare in reception.";
-  // Nessun limite di scadenza sui pool: i crediti (blocco o extra) non
-  // scadono più, quindi il calendario non grigia i giorni per scadenza.
-  const selectedPoolValidUntil = useMemo<Date | null>(() => null, []);
+  const openConfirm = () => {
+    setDone(null);
+    setError(null);
+    setSheet("confirm");
+  };
+  const onConfirm = async () => {
+    if (!slot || !slotOption) return;
+    setError(null);
+    const result = await confirm();
+    if (result.ok) {
+      setDone({
+        bookingId: result.bookingId,
+        text: doneText(slotOption.name, slot.iso, COACH, profile?.email ?? null),
+      });
+      setSlot(null);
+    } else {
+      setError(result.error);
+    }
+    // Chiuso con Esc o trascinando mentre confermava: l'esito (o l'errore) si vede lo stesso.
+    setSheet("confirm");
+  };
 
-  // Data di inizio del blocco successivo (se esiste): la mostriamo sotto il
-  // calendario per spiegare quando si "apriranno" le prossime prenotazioni,
-  // così il cliente capisce che il limite temporale visibile non è un bug
-  // ma il design del path fixed (1 blocco alla volta).
-  const nextBlockStartDate = useMemo(() => {
-    if (!block) return null;
-    const all = blocksQ.data ?? [];
-    const next = all.find((b) => b.sequence_order === block.sequence_order + 1);
-    return next ? new Date(next.start_date) : null;
-  }, [block, blocksQ.data]);
+  // Chiuso l'esito il focus torna nel contenuto: «Continua» non c'è più.
+  const slotsTitleRef = useRef<HTMLHeadingElement>(null);
+  const typesTitleRef = useRef<HTMLHeadingElement>(null);
+  const cardTitleRef = useRef<HTMLHeadingElement>(null);
+  const returnFocus = useCallback(
+    () => slotsTitleRef.current ?? typesTitleRef.current ?? cardTitleRef.current,
+    [],
+  );
 
-  if (blocksQ.isLoading || bookingsQ.isLoading || availQ.isLoading || extraCreditsQ.isLoading) {
-    // M6: skeleton mirrors the actual booking layout to reserve space and
-    // prevent the layout shift (CLS) that the previous two generic rectangles
-    // caused when real content rendered.
-    return (
-      <div className="bg-surface min-h-screen pb-32">
-        <header className="flex justify-between items-center w-full px-margin-mobile py-stack-md max-w-3xl mx-auto">
-          <Skeleton className="h-9 w-9 rounded-full" />
-          <Skeleton className="h-7 w-32" />
-          <Skeleton className="h-9 w-9 rounded-full" />
-        </header>
-        <div className="px-margin-mobile max-w-3xl mx-auto space-y-stack-lg">
-          {/* Pool selector skeleton */}
-          <div className="grid grid-cols-2 gap-3">
-            <Skeleton className="h-24 rounded-[24px]" />
-            <Skeleton className="h-24 rounded-[24px]" />
-          </div>
-          {/* Calendar skeleton */}
-          <div className="space-y-3">
-            <Skeleton className="h-6 w-40" />
-            <Skeleton className="h-72 w-full rounded-[24px]" />
-          </div>
-          {/* Time slots skeleton */}
-          <div className="space-y-3">
-            <Skeleton className="h-6 w-48" />
-            <div className="grid grid-cols-3 gap-4">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton key={i} className="h-14 rounded-2xl" />
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
+  const howOption = howKey ? (options.find((o) => o.key === howKey) ?? null) : null;
+  const how = howOption && state ? howToBook(howOption, state, COACH) : null;
+
+  // ---- La pagina --------------------------------------------------------
+  const subtitle =
+    !loading && !failed && client && blocksQ.data
+      ? bookSubtitle(client.path_type, blocksQ.data, now)
+      : null;
+
+  let content: ReactNode;
+  if (loading) {
+    content = <BookSkeleton />;
+  } else if (failed || !state) {
+    content = (
+      <BookRetryCard
+        title="Prenota non si è caricata"
+        text="Non siamo riusciti a leggere i tuoi crediti. Riprova tra poco."
+        onRetry={retry}
+        retrying={retrying}
+        titleRef={cardTitleRef}
+      />
     );
-  }
-  // No active block AND no extra credits → empty state with link to Store.
-  if (!block && pools.length === 0) {
-    return (
-      <div className="bg-surface min-h-screen px-margin-mobile py-8 max-w-3xl mx-auto">
-        <EmptyStateCard
-          title="Pronto a salire di livello?"
-          description="Non hai un percorso attivo né sessioni extra. Acquista un NC Add-on o un Booster per sbloccare nuove prenotazioni."
-          ctaLabel="Vai allo Store"
-          ctaTo="/client/store"
+  } else if (state.blocked) {
+    content = (
+      <BookBlockedCard
+        blocked={state.blocked}
+        whatsapp={COACH.whatsapp}
+        whatsappLabel={writeToCoach(COACH)}
+        titleRef={cardTitleRef}
+      />
+    );
+  } else {
+    content = (
+      <>
+        <BookTypePicker
+          options={options}
+          selectedKey={bookable?.key ?? null}
+          onSelect={chooseType}
+          onExplain={explain}
+          titleRef={typesTitleRef}
         />
-      </div>
+        {bookable &&
+          (slotsFailed ? (
+            <BookRetryCard
+              title="Orari non aggiornati"
+              text="Non siamo riusciti a leggere gli orari liberi. Riprova tra poco."
+              onRetry={retrySlots}
+              retrying={retryingSlots}
+            />
+          ) : !slotDays ? (
+            <SlotsSkeleton />
+          ) : (
+            <>
+              <section className="flex flex-col gap-2.5">
+                <h2 className="text-[17px] font-bold">Quando?</h2>
+                <ClientDayStrip
+                  // Una fila nuova per tipologia: riparte dal giorno scelto
+                  // anche se è lo stesso di prima, e la fila era scorsa altrove.
+                  key={bookable.key}
+                  days={slotDays.days}
+                  selectedIso={day?.isoDate ?? null}
+                  onSelect={pickDay}
+                />
+                <p className="flex gap-2 text-[13px] leading-normal text-on-surface-variant">
+                  <Info className="mt-px size-4 shrink-0 text-primary-container" aria-hidden />
+                  <span>{rule}</span>
+                </p>
+              </section>
+              <section className="flex flex-col gap-3">
+                <h2 ref={slotsTitleRef} tabIndex={-1} className="text-[17px] font-bold">
+                  {day ? formatLongDay(day.date) : "Orari"}
+                </h2>
+                {day ? (
+                  <ClientSlotGroups
+                    day={day}
+                    selectedIso={barSlot?.iso ?? null}
+                    onSelect={pickSlot}
+                  />
+                ) : (
+                  <div className="flex flex-col gap-2.5 rounded-[18px] border border-surface-variant bg-white px-4 py-3.5">
+                    <p className="text-[15px] leading-normal text-on-surface-variant">
+                      {noSlotsText(bookable.name, slotDays.until, COACH)}
+                    </p>
+                    {COACH.whatsapp && (
+                      <ClientButton asChild variant="tonal" size="lg" className="self-start">
+                        <a href={COACH.whatsapp} target="_blank" rel="noopener noreferrer">
+                          <MessageCircle className="size-4" aria-hidden />
+                          {writeToCoach(COACH)}
+                        </a>
+                      </ClientButton>
+                    )}
+                  </div>
+                )}
+              </section>
+            </>
+          ))}
+      </>
     );
   }
+
+  const barOption = barSlot ? (options.find((o) => o.key === barSlot.key) ?? null) : null;
 
   return (
-    <div className="bg-surface min-h-screen pb-32">
-      {/* Top App Bar */}
-      {/* Velo semitrasparente color surface + blur 6px come da mock */}
-      <header className="flex justify-between items-center w-full px-margin-mobile py-stack-md max-w-3xl mx-auto bg-surface/60 z-40 sticky top-0 backdrop-blur-[6px]">
-        <button
-          onClick={() => navigate({ to: "/client" })}
-          aria-label="Indietro"
-          className="w-10 h-10 flex items-center justify-center rounded-full bg-surface-container-lowest/50 backdrop-blur-md border border-outline-variant/30 text-primary-container active:scale-95 transition-transform"
-        >
-          <ArrowLeft className="size-5" />
-        </button>
-        <h1 className="font-display font-bold text-2xl text-on-surface text-center absolute left-1/2 -translate-x-1/2 whitespace-nowrap">
-          Nuova Prenotazione
-        </h1>
-        <div className="w-10 h-10" />
-      </header>
+    // Una colonna alta almeno quanto lo schermo, meno lo spazio che il layout
+    // tiene sotto il contenuto (e da md l'header e il margine sopra): la barra
+    // d'azione, ultima, ci si attacca in fondo (book-action-bar.tsx).
+    <div className="flex min-h-[calc(100dvh_-_65px_-_max(6px,env(safe-area-inset-bottom))_-_24px)] flex-col md:min-h-[calc(100dvh_-_105px_-_env(safe-area-inset-bottom))]">
+      <ClientTabHeader title="Prenota" subtitle={subtitle} />
+      <div className="flex flex-col gap-5 px-4 pt-1 pb-6">{content}</div>
+      {barSlot && barOption && (
+        <BookActionBar type={barType(barOption)} when={barWhen(barSlot)} onContinue={openConfirm} />
+      )}
+      <BookConfirmSheet
+        open={sheet === "confirm"}
+        onOpenChange={(open) => {
+          if (!open) setSheet(null);
+        }}
+        summary={summary}
+        done={done}
+        error={error}
+        confirming={confirming}
+        onConfirm={() => void onConfirm()}
+        returnFocus={returnFocus}
+      />
+      <BookHowSheet
+        open={sheet === "how"}
+        onOpenChange={(open) => {
+          if (!open) setSheet(null);
+        }}
+        how={how}
+        eventTypeId={howOption?.eventTypeId ?? null}
+        whatsappLabel={writeOnWhatsApp(COACH)}
+      />
+    </div>
+  );
+}
 
-      <main className="max-w-3xl mx-auto px-margin-mobile flex flex-col gap-stack-lg mt-stack-md">
-        {/* Selection Type */}
-        <BookPoolPicker
-          pools={pools}
-          selectedPoolKey={selectedPoolKey}
-          onSelectPoolKey={setSelectedPoolKey}
-        />
+/** Il caricamento: tre righe di tipologia, la fila dei giorni, una griglia di orari. */
+function BookSkeleton() {
+  return (
+    <div className="flex flex-col gap-5" aria-busy="true">
+      <div className="flex flex-col gap-2.5">
+        <Skeleton className="h-6 w-48" />
+        {[0, 1, 2].map((i) => (
+          <Skeleton key={i} className="h-16 rounded-[18px]" />
+        ))}
+      </div>
+      <SlotsSkeleton />
+    </div>
+  );
+}
 
-        {poolBlocked && (
-          <div className="bg-aura-primary/5 border border-aura-primary/30 rounded-[24px] px-5 py-4 shadow-[0_8px_30px_rgba(0,0,0,0.04)]">
-            <div className="flex items-start gap-3">
-              <div className="size-9 rounded-full bg-aura-primary/10 flex items-center justify-center shrink-0">
-                <Info className="size-4 text-aura-primary" aria-hidden />
-              </div>
-              <div className="flex-1 min-w-0 flex flex-col gap-1">
-                <p className="text-sm font-semibold text-on-surface">
-                  Prenotazione non disponibile dall'app
-                </p>
-                <p className="text-xs text-on-surface-variant leading-relaxed whitespace-pre-line">
-                  {poolBlockedMessage}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Audit client-side (2026-09-21): se il caricamento delle occupazioni
-        del coach fallisce, gli slot mostrati NON sono affidabili. Prima l'errore
-        era silenzioso e il cliente se ne accorgeva solo al Conferma. */}
-        {coachBusyQ.isError && (
-          <div className="bg-error-container/40 border border-error/30 rounded-[24px] px-5 py-4">
-            <div className="flex items-start gap-3">
-              <div className="size-9 rounded-full bg-error/10 flex items-center justify-center shrink-0">
-                <Info className="size-4 text-error" aria-hidden />
-              </div>
-              <div className="flex-1 min-w-0 flex flex-col gap-2">
-                <p className="text-sm font-semibold text-on-surface">
-                  Disponibilità non aggiornata
-                </p>
-                <p className="text-xs text-on-surface-variant leading-relaxed">
-                  Non siamo riusciti a caricare gli impegni del coach: alcuni orari mostrati
-                  potrebbero essere già occupati. Riprova prima di prenotare.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => void coachBusyQ.refetch()}
-                  className="self-start text-xs font-semibold text-primary-container underline underline-offset-2"
-                >
-                  Riprova
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Date Selector Card */}
-        {!poolBlocked && (
-          <>
-            <BookCalendarGrid
-              calendarMonth={calendarMonth}
-              onMonthChange={setCalendarMonth}
-              selectedDate={selectedDate}
-              onSelectDate={(day) => {
-                setSelectedDate(day);
-                setSelectedISO(null);
-              }}
-              daysWithSlots={daysWithSlots}
-              todayStart={todayStart}
-              selectedPoolValidUntil={selectedPoolValidUntil}
-              selectedPoolSource={selectedPool?.source ?? null}
-              nextBlockStartDate={nextBlockStartDate}
-            />
-
-            {/* No-slots fallback DIAGNOSTICO: stile aura, info-card pulita.
-            Identifica la causa specifica per cui slots è vuoto. */}
-            {selectedPoolKey && slots.length === 0 && (
-              <div className="bg-surface-container-lowest border border-outline-variant/40 rounded-[24px] px-5 py-4 shadow-[0_8px_30px_rgba(0,0,0,0.04)]">
-                <div className="flex items-start gap-3">
-                  <div className="size-9 rounded-full bg-aura-primary/10 flex items-center justify-center shrink-0">
-                    <Info className="size-4 text-aura-primary" aria-hidden />
-                  </div>
-                  <div className="flex-1 min-w-0 flex flex-col gap-1">
-                    <p className="text-sm font-semibold text-on-surface">
-                      Nessuno slot disponibile per questa tipologia
-                    </p>
-                    <p className="text-xs text-on-surface-variant leading-relaxed">
-                      {!coachId
-                        ? "Non hai ancora un coach assegnato. Contatta il supporto."
-                        : (eventTypesQ.data ?? []).length === 0
-                          ? `${coachName} non ha configurato le tipologie di sessione.`
-                          : (availQ.data ?? []).length === 0
-                            ? `${coachName} non ha configurato gli orari di disponibilità settimanali.`
-                            : block && new Date(block.end_date).getTime() < Date.now()
-                              ? "Il blocco corrente è terminato. Contatta il coach per rinnovare."
-                              : `Tutti gli slot del blocco sono già occupati o esclusi. Contatta ${coachName}.`}
-                    </p>
-                  </div>
-                </div>
-                <details className="mt-3 pl-12 text-[11px] text-on-surface-variant">
-                  <summary className="cursor-pointer font-semibold select-none hover:text-on-surface transition-colors">
-                    Dettagli tecnici
-                  </summary>
-                  <ul className="mt-2 space-y-1 list-disc list-inside tabular-nums">
-                    <li>Fasce disponibilità coach: {(availQ.data ?? []).length}</li>
-                    <li>Eccezioni disponibilità: {(exceptionsQ.data ?? []).length}</li>
-                    <li>Tipologie evento: {(eventTypesQ.data ?? []).length}</li>
-                    <li>Eventi che bloccano slot (coach busy): {(coachBusyQ.data ?? []).length}</li>
-                    <li>Durata minima testata: {candidateMinutes} min</li>
-                    {block && (
-                      <>
-                        <li>Blocco selezionato: #{block.sequence_order}</li>
-                        <li>Inizio blocco: {block.start_date}</li>
-                        <li>Fine blocco: {block.end_date}</li>
-                      </>
-                    )}
-                  </ul>
-                </details>
-              </div>
-            )}
-
-            {/* Available Times */}
-            <BookSlotsGrid
-              selectedDate={selectedDate}
-              slotsForSelectedDay={slotsForSelectedDay}
-              selectedISO={selectedISO}
-              onSelectISO={setSelectedISO}
-            />
-          </>
-        )}
-      </main>
-
-      {/* Bottom Action Bar — MED-E1 (audit 2026-05-26): mobile bottom anchor
-          rispetta la bottom nav (88px) + l'eventuale safe-area-inset-bottom
-          dei dispositivi con notch (iPhone X+). Senza l'inset, su iPhone
-          notched la barra si sovrapponeva alla home indicator nascondendo
-          parzialmente il bottone Conferma. Desktop (md+) resta ancorato a 0
-          perché non c'è bottom nav. */}
-      <div className="fixed bottom-[calc(88px+env(safe-area-inset-bottom,0px))] md:bottom-0 left-0 w-full z-50 bg-white/90 backdrop-blur-xl border-t border-white/20 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] px-margin-mobile py-4 pb-4 md:pb-8 flex justify-between items-center md:px-margin-desktop">
-        <div className="flex flex-col">
-          <span className="text-sm text-outline">Selezionato:</span>
-          <span className="font-display font-semibold text-xl text-primary-container">
-            {selectedSlot
-              ? `${format(selectedSlot.date, "d MMM", { locale: it })}, ${format(selectedSlot.date, "HH:mm")}`
-              : "—"}
-          </span>
+function SlotsSkeleton() {
+  return (
+    <div className="flex flex-col gap-5" aria-busy="true">
+      <div className="flex flex-col gap-2.5">
+        <Skeleton className="h-6 w-24" />
+        <div className="flex gap-2 overflow-hidden">
+          {Array.from({ length: 6 }, (_, i) => (
+            <Skeleton key={i} className="h-20 w-[60px] shrink-0 rounded-[18px]" />
+          ))}
         </div>
-        <button
-          onClick={confirm}
-          disabled={!selectedISO || !selectedPoolKey || confirming || poolBlocked}
-          className="bg-primary-container text-on-primary rounded-full px-8 py-4 text-sm font-semibold shadow-md active:scale-95 transition-transform hover:bg-primary disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
-        >
-          {confirming && <Loader2 className="size-4 animate-spin" />}
-          Conferma
-        </button>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        {Array.from({ length: 6 }, (_, i) => (
+          <Skeleton key={i} className="h-12 rounded-[14px]" />
+        ))}
       </div>
     </div>
   );

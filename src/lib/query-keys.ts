@@ -31,6 +31,8 @@ export const queryKeys = {
   },
   // Titoli dei pacchetti attivi del negozio (pagina Tipologie, passata 07).
   shopTitles: ["booster_packs", "active_titles"] as const,
+  // I pacchetti dello Store del cliente (pagina Booster, passata 06).
+  shopPacks: ["booster_packs", "store"] as const,
   clients: {
     root: ["clients"] as const,
     coach: (coachId: string | null | undefined) => ["clients", coachId] as const,

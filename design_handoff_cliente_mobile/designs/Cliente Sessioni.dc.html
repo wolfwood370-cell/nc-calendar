@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&amp;family=Manrope:wght@400;500;600;700&amp;display=swap">
+<script src="./nc-icons.js"></script>
+<script src="./nc-store.js"></script>
+<script src="./nc-client.js"></script>
+<title>Sessioni · NC Calendar</title>
+<style>
+*,::before,::after{box-sizing:border-box;margin:0;padding:0;border:0 solid;}
+body{margin:0;background:#e7e8ec;font-family:Manrope,ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:#191c1f;}
+button{font:inherit;color:inherit;background:transparent;cursor:pointer;}
+ul,ol{list-style:none;}
+a{color:#003e62;text-decoration:none;}
+a:hover{color:#005685;}
+:focus-visible{outline:2px solid #005685;outline-offset:2px;}
+</style>
+</helmet>
+<div style="min-height:100vh; background:linear-gradient(135deg,#eceef2,#dde1e8); display:flex; flex-wrap:wrap; justify-content:center; align-items:flex-start; gap:32px; padding:24px 20px 40px;">
+  <div style="width:{{ boxW }}; height:{{ boxH }}; flex-shrink:0;">
+    <div style="width:402px; height:874px; transform:{{ scaleT }}; transform-origin:top left;">
+      <x-import component-from-global-scope="IOSDevice" from="./nc-ios-frame.js" time="{{ clock }}" hint-size="402px,874px">
+        <div data-screen-label="Sessioni" style="position:absolute; inset:0; z-index:1; display:flex; flex-direction:column; background:#f8f9fe; color:#191c1f; font-family:Manrope, sans-serif; overflow:hidden;">
+          <div style="flex:1; min-height:0; overflow-y:auto; scrollbar-width:none;">
+            <header style="position:sticky; top:0; z-index:5; padding:60px 20px 12px; background:rgba(248,249,254,0.92); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); display:flex; flex-direction:column; gap:14px;">
+              <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:12px;">
+                <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:4px;">
+                  <h1 style="font-family:Sora, sans-serif; font-size:28px; line-height:1.15; font-weight:700; letter-spacing:-0.02em;">Sessioni</h1>
+                  <p style="font-size:14px; color:#41474f;">{{ headSub }}</p>
+                </div>
+                <button onClick="{{ openNotifs }}" aria-label="{{ bellLabel }}" style="position:relative; width:44px; height:44px; border-radius:9999px; background:#ffffff; border:1px solid rgba(193,199,208,0.6); display:grid; place-items:center; color:#41474f; flex-shrink:0;">
+                  <nc-icon name="Bell" style="width:20px; height:20px;"></nc-icon>
+                  <sc-if value="{{ unread }}" hint-placeholder-val="{{ false }}"><span style="position:absolute; top:-3px; right:-3px; min-width:20px; height:20px; padding:0 5px; border-radius:9999px; background:#e53935; color:#ffffff; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; border:2px solid #f8f9fe;">{{ unreadLabel }}</span></sc-if>
+                </button>
+              </div>
+              <div role="tablist" aria-label="Sessioni" style="display:grid; grid-template-columns:1fr 1fr; gap:4px; padding:4px; border-radius:9999px; background:#eceef2;">
+                <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="2">
+                  <button role="tab" aria-selected="{{ t.selected }}" tabindex="{{ t.tab }}" onClick="{{ t.pick }}" style="height:44px; border-radius:9999px; font-size:14px; font-weight:700; background:{{ t.bg }}; color:{{ t.fg }}; box-shadow:{{ t.shadow }};">{{ t.label }}</button>
+                </sc-for>
+              </div>
+            </header>
+            <main style="padding:8px 16px 24px; display:flex; flex-direction:column; gap:20px;">
+              <sc-if value="{{ summaryOn }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex; align-items:center; gap:12px; padding:14px 16px; border-radius:18px; background:#ffffff; border:1px solid rgba(193,199,208,0.35);">
+                  <span style="width:40px; height:40px; border-radius:12px; background:#ecfdf5; color:#047857; display:grid; place-items:center; flex-shrink:0;"><nc-icon name="TrendingUp" style="width:20px; height:20px;"></nc-icon></span>
+                  <div style="display:flex; flex-direction:column; gap:2px;"><span style="font-size:15px; font-weight:700;">{{ summaryTitle }}</span><span style="font-size:13px; color:#41474f;">{{ summarySub }}</span></div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ emptyOn }}" hint-placeholder-val="{{ false }}">
+                <section style="background:#ffffff; border-radius:24px; border:1px solid rgba(193,199,208,0.35); padding:20px; display:flex; flex-direction:column; gap:12px;">
+                  <p style="font-size:17px; font-weight:700;">{{ emptyTitle }}</p>
+                  <p style="font-size:15px; line-height:1.5; color:#41474f;">{{ emptyText }}</p>
+                  <sc-if value="{{ emptyBook }}" hint-placeholder-val="{{ false }}"><button onClick="{{ goBook }}" style="height:52px; border-radius:9999px; background:#005685; color:#ffffff; font-size:16px; font-weight:700;">Prenota una sessione</button></sc-if>
+                </section>
+              </sc-if>
+              <sc-for list="{{ groups }}" as="g" hint-placeholder-count="2">
+                <section style="display:flex; flex-direction:column; gap:8px;">
+                  <h2 style="font-size:14px; font-weight:700; color:#41474f; padding:0 4px;">{{ g.label }}</h2>
+                  <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="3">
+                    <button onClick="{{ r.open }}" aria-label="{{ r.aria }}" style="display:flex; align-items:center; gap:12px; min-height:72px; padding:10px 12px 10px 10px; border-radius:18px; background:#ffffff; border:1px solid rgba(193,199,208,0.35); text-align:left;">
+                      <span style="width:50px; height:52px; flex-shrink:0; border-radius:14px; background:{{ r.tileBg }}; color:{{ r.tileFg }}; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+                        <span style="font-size:12px; font-weight:600;">{{ r.dow }}</span>
+                        <span style="font-family:Sora, sans-serif; font-size:20px; line-height:1.1; font-weight:700; font-variant-numeric:tabular-nums;">{{ r.num }}</span>
+                      </span>
+                      <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:3px;">
+                        <span style="font-size:15px; font-weight:700; font-variant-numeric:tabular-nums;">{{ r.range }}</span>
+                        <span style="font-size:13px; color:#41474f; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ r.type }}</span>
+                        <sc-if value="{{ r.rated }}" hint-placeholder-val="{{ false }}">
+                          <span style="display:flex; align-items:center; gap:4px; font-size:12px; font-weight:600; color:#41474f;"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17.3 6.2 21l1.6-6.6L2.4 9.6l6.8-.5L12 3l2.8 6.1 6.8.5-5.4 4.8 1.6 6.6z" fill="#d97706"></path></svg>{{ r.rating }}</span>
+                        </sc-if>
+                      </span>
+                      <span style="flex-shrink:0; font-size:12px; font-weight:700; padding:4px 10px; border-radius:9999px; background:{{ r.chipBg }}; color:{{ r.chipFg }};">{{ r.chip }}</span>
+                      <nc-icon name="ChevronRight" style="width:16px; height:16px; color:#717880;"></nc-icon>
+                    </button>
+                  </sc-for>
+                </section>
+              </sc-for>
+            </main>
+          </div>
+          <dc-import name="Cliente Tab Bar" active="sessioni" hint-size="100%,94px" style="flex-shrink:0; width:100%;"></dc-import>
+          <sc-if value="{{ toastOn }}" hint-placeholder-val="{{ false }}">
+            <div role="status" aria-live="polite" style="position:absolute; left:12px; right:12px; bottom:106px; z-index:40; display:flex; align-items:center; gap:12px; background:#191c1f; color:#ffffff; border-radius:16px; padding:8px 8px 8px 16px; box-shadow:0 12px 32px rgba(0,0,0,0.25);">
+              <nc-icon name="{{ toastIcon }}" style="width:18px; height:18px; color:{{ toastColor }};"></nc-icon>
+              <span style="flex:1; font-size:14px; line-height:1.35; padding:8px 0;">{{ toastMsg }}</span>
+              <sc-if value="{{ toastUndo }}" hint-placeholder-val="{{ false }}"><button onClick="{{ undoToast }}" style="height:44px; padding:0 12px; border-radius:12px; color:#91cbff; font-size:14px; font-weight:700;">Ripristina</button></sc-if>
+            </div>
+          </sc-if>
+        </div>
+      </x-import>
+    </div>
+  </div>
+  <sc-if value="{{ panel }}" hint-placeholder-val="{{ true }}">
+    <div style="width:340px; max-width:100%;"><dc-import name="Cliente Revisione" screen="sessioni" hint-size="340px,760px" style="width:100%;"></dc-import></div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;reviewPanel&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Prototipo&quot;},&quot;clock&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;reale&quot;,&quot;08:15&quot;,&quot;10:40&quot;,&quot;13:10&quot;,&quot;19:10&quot;],&quot;default&quot;:&quot;10:40&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototipo&quot;}}">
+class Component extends DCLogic {
+  state = { fit: null, tab: null };
+  componentDidMount() {
+    this.fitNow = () => this.setState({ fit: window.NCClient ? window.NCClient.fit() : null });
+    window.addEventListener("resize", this.fitNow);
+    const hook = () => { this.unsub = window.NCStore.subscribe(() => this.forceUpdate()); if (this.props.clock) window.NCStore.setClock(this.props.clock); this.fitNow(); };
+    const wait = () => (window.NCClient && window.NCClient.ready() ? hook() : (this.t = setTimeout(wait, 30)));
+    wait();
+    this.iv = setInterval(() => this.forceUpdate(), 30000);
+  }
+  componentDidUpdate(prev) { if (window.NCStore && this.props.clock && prev.clock !== this.props.clock) window.NCStore.setClock(this.props.clock); }
+  componentWillUnmount() { this.unsub && this.unsub(); clearTimeout(this.t); clearInterval(this.iv); window.removeEventListener("resize", this.fitNow); }
+
+  renderVals() {
+    const C = window.NCClient, S = window.NCStore;
+    const f = this.state.fit || { w: "402px", h: "874px", t: "none" };
+    const out = { boxW: f.w, boxH: f.h, scaleT: f.t, panel: this.props.reviewPanel ?? true, tabs: [], groups: [], emptyOn: false, summaryOn: false };
+    if (!C || !C.ready()) return out;
+    const c = C.me(), unread = C.unread(), up = C.upcoming(c), hist = C.history(c);
+    const tab = this.state.tab || (C.param("tab") === "passate" ? "passate" : "prossime");
+    const setTab = (k) => { try { const u = new URL(location.href); u.searchParams.set("tab", k); history.replaceState(null, "", u.toString()); } catch (e) {} this.setState({ tab: k }); };
+    Object.assign(out, {
+      clock: C.clockLabel(), unread: unread > 0, unreadLabel: String(unread), bellLabel: unread ? "Notifiche, " + unread + " non lette" : "Notifiche",
+      openNotifs: () => C.push("notifiche"),
+      headSub: up.length ? C.plural(up.length, "sessione in programma", "sessioni in programma") : "Nessuna sessione in programma",
+      tabs: [["prossime", "In programma · " + up.length], ["passate", "Passate"]].map(([k, l]) => ({ label: l, selected: k === tab ? "true" : "false", tab: k === tab ? 0 : -1, bg: k === tab ? "#ffffff" : "transparent", fg: k === tab ? "#003e62" : "#41474f", shadow: k === tab ? "0 2px 8px rgba(0,0,0,0.08)" : "none", pick: () => setTab(k) })),
+      goBook: () => C.go("prenota"),
+    });
+    const row = (b) => {
+      const t = S.type(b.typeId) || { name: "Sessione" }, st = C.status(b), d = new Date(b.start), fb = C.feedbackOf(b.id);
+      const faded = st.key === "cancelled" || st.key === "late";
+      const toRate = C.canRate(b) && !fb;
+      return {
+        dow: C.dayShort(d).split(" ")[0], num: d.getDate(), range: C.range(b), type: t.name + (t.location === "online" ? " · online" : ""),
+        chip: toRate ? "Da valutare" : st.label, chipBg: toRate ? "#fef3c7" : st.bg, chipFg: toRate ? "#92400e" : st.fg,
+        tileBg: faded ? "#f2f3f8" : C.tint(t.color || "#003e62"), tileFg: faded ? "#717880" : t.color || "#003e62",
+        rated: !!fb, rating: fb ? fb.rating + " su 5" : "",
+        aria: C.dayLong(d) + ", " + C.range(b) + ", " + t.name + ", " + (toRate ? "da valutare" : st.label.toLowerCase()),
+        open: () => C.push("sessione", { id: b.id }),
+      };
+    };
+    if (tab === "prossime") {
+      const mon = S.mondayOf(new Date()).getTime(), W = 7 * 86400000, groups = [];
+      up.forEach((b) => {
+        const k = Math.floor((S.mondayOf(b.start).getTime() - mon) / W);
+        const label = k <= 0 ? "Questa settimana" : k === 1 ? "Settimana prossima" : "Dal " + C.dayLong(S.mondayOf(b.start)).toLowerCase();
+        let g = groups.find((x) => x.label === label); if (!g) groups.push((g = { label, rows: [] }));
+        g.rows.push(row(b));
+      });
+      out.groups = groups;
+      if (!up.length) Object.assign(out, { emptyOn: true, emptyTitle: "Nessuna sessione in programma", emptyText: C.available(c) > 0 ? "Hai " + C.plural(C.available(c), "credito disponibile", "crediti disponibili") + ": scegli giorno e orario." : "Non hai crediti da prenotare in questo momento.", emptyBook: C.available(c) > 0 });
+    } else {
+      const groups = [];
+      hist.forEach((b) => {
+        const d = new Date(b.start), label = C.cap(["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"][d.getMonth()]) + " " + d.getFullYear();
+        let g = groups.find((x) => x.label === label); if (!g) groups.push((g = { label, rows: [] }));
+        g.rows.push(row(b));
+      });
+      out.groups = groups;
+      const att = S.attendance(c.id), lim = S.now() - 56 * 86400000;
+      const recent = hist.filter((b) => !b.orphan && new Date(b.start).getTime() >= lim && new Date(b.start).getTime() <= S.now());
+      const done = recent.filter((b) => b.status === "completed").length, abs = recent.filter((b) => b.status === "no_show").length;
+      Object.assign(out, {
+        summaryOn: att != null, summaryTitle: "Presenza " + att + "% nelle ultime 8 settimane",
+        summarySub: C.plural(done, "sessione svolta", "sessioni svolte") + " · " + C.plural(abs, "assenza", "assenze"),
+      });
+      if (!hist.length) Object.assign(out, { emptyOn: true, emptyTitle: "Nessuna sessione passata", emptyText: "Qui trovi le sessioni svolte, le assenze e quelle annullate.", emptyBook: false });
+    }
+    const tst = S.getToast(), TONE = { ok: ["CircleCheck", "#6ee7b7"], warn: ["TriangleAlert", "#fdba74"], info: ["Info", "#91cbff"] }, tone = tst ? TONE[tst.tone] || TONE.ok : TONE.ok;
+    Object.assign(out, { toastOn: !!tst, toastMsg: tst ? tst.msg : "", toastUndo: !!(tst && tst.undo), toastIcon: tone[0], toastColor: tone[1], undoToast: () => S.undoToast() });
+    return out;
+  }
+}
+</script>
+</body>
+</html>

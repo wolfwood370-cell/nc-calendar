@@ -1,57 +1,63 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import {
-  Plus,
-  Check,
-  CheckCircle2,
-  CalendarCheck,
-  Calendar,
-  CircleCheckBig,
-  Clock,
-  Dumbbell,
-} from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import { useAuth } from "@/lib/auth";
-import { supabase } from "@/integrations/supabase/client";
-import {
-  useClientBlocks,
-  useClientBookings,
-  useCoachEventTypes,
-  useClientExtraCredits,
-} from "@/lib/queries";
-import { useCurrentBlock } from "@/hooks/use-current-block";
-import { formatCreditsAgreed } from "@/lib/credits";
-import { clientReferenceBlock } from "@/lib/renewal";
-import { sessionLabel } from "@/lib/mock-data";
-import { cn } from "@/lib/utils";
-import { AuraCardSkeleton, AuraLineSkeleton } from "@/components/ui/aura-skeleton";
-import { EmptyStateCard } from "@/components/empty-state-card";
-import { ClientLiveBookingCard } from "@/components/client-live-booking-card";
-import { ClientSessionTimeline } from "@/components/client-session-timeline";
-import {
-  ClientSessionsBreakdown,
-  type SessionTypeBreakdownRow,
-} from "@/components/client-sessions-breakdown";
+// ----------------------------------------------------------------------------
+// Home (lato cliente, passata 05, audit H1-H7, H9, H10, N1, N5, V1, V2, V8,
+// V9, V10)
+// ----------------------------------------------------------------------------
+// In quest'ordine: il percorso concluso, la prossima sessione (o nessuna), i
+// crediti, la valutazione, i progressi, l'installazione. Ogni testo, stato,
+// numero e condizione viene da client-home.ts, sopra lo stato dei crediti di
+// Prenota: il numero della Home è quello di Prenota (H1). La pagina non legge
+// niente da sé: profilo, blocchi, sessioni con le annullate tardi, tipologie
+// e crediti da useClientBookState, le valutazioni da useClientFeedback, le
+// misurazioni da useBiaMeasurements.
+// Gli stati, nell'ordine: il caricamento (lo scheletro); una lettura persa (la
+// card con «Riprova», che resta mentre rilegge); le sezioni di homeSections.
+// Progressi e installazione non dipendono dalla lettura dei crediti.
+// Il focus non finisce mai sul body: dopo «Conferma presenza» e dopo lo
+// spostamento sul titolo della prossima sessione; dopo «Invia valutazione»
+// sul titolo della valutazione, che resta sulla sessione appena valutata
+// (shownId) invece di sparire alla rilettura; dopo «Non ora» e «Ho installato
+// l'app» sull'ultimo titolo prima della card d'installazione, altrimenti sul
+// contenuto; dopo «Riprova» riuscito sul primo titolo.
+// Il coach è NO_COACH finché non c'è get_my_coach (02/10/2026), come in
+// Prenota e nel dettaglio: i testi dicono «il tuo coach», niente WhatsApp.
+// ----------------------------------------------------------------------------
+
+import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { BookRetryCard } from "@/components/book-blocked-card";
+import { HomeCreditsCard } from "@/components/client-home-credits";
+import { HomeInstallCard } from "@/components/client-home-install";
+import { HomeConcludedCard, HomeNextCard, HomeNoNextCard } from "@/components/client-home-next";
+import { HomeProgressCard } from "@/components/client-home-progress";
+import { ClientSessionRating } from "@/components/client-session-rating";
+import { ClientTabHeader } from "@/components/client-tab-header";
+import { AuraSkeleton } from "@/components/ui/aura-skeleton";
 import { useBiaMeasurements } from "@/hooks/use-bia";
+import { useClientBookState } from "@/hooks/use-client-book-state";
+import { useClientShell } from "@/hooks/use-client-shell";
 import { useClientFeedback } from "@/hooks/use-session-feedback";
-import { ClientBiaProgress } from "@/components/client-bia-progress";
+import { NO_COACH } from "@/lib/client-book";
 import {
-  ClientNotificationsBell,
-  type ClientNotificationItem,
-} from "@/components/client-notifications-bell";
-import { ClientReminderBanner } from "@/components/client-reminder-banner";
-import { ClientFeedbackCard } from "@/components/client-feedback-card";
+  homeGreeting,
+  homeNext,
+  homeRating,
+  homeSections,
+  ratingSubtitle,
+} from "@/lib/client-home";
+import { sessionName } from "@/lib/client-sessions";
+import { clientPageTitle, homeSubtitle } from "@/lib/client-shell";
+import type { BlockRow, BookingRow, EventTypeRow } from "@/lib/queries";
 
 export const Route = createFileRoute("/client/")({
   head: () => ({
     meta: [
-      { title: "Area personale | NC Training Systems" },
+      { title: clientPageTitle("Home") },
       {
         name: "description",
         content:
           "Le tue sessioni, i crediti disponibili e i prossimi appuntamenti in un colpo d'occhio.",
       },
-      { property: "og:title", content: "Area personale | NC Training Systems" },
+      { property: "og:title", content: clientPageTitle("Home") },
       {
         property: "og:description",
         content:
@@ -64,875 +70,173 @@ export const Route = createFileRoute("/client/")({
   component: ClientHome,
 });
 
+// Il coach nei testi: il cliente oggi non legge il profilo del coach. Nome e
+// WhatsApp arriveranno da get_my_coach, con le migrazioni del 02/10/2026.
+const COACH = NO_COACH;
+
+const NO_BOOKINGS: BookingRow[] = [];
+const NO_BLOCKS: BlockRow[] = [];
+const NO_EVENT_TYPES: EventTypeRow[] = [];
+
 function ClientHome() {
-  const { user } = useAuth();
-  const navigate = useNavigate();
-  const meId = user?.id;
+  const { now } = useClientShell();
+  const {
+    meId,
+    coachId,
+    profile,
+    client,
+    blocksQ,
+    bookingsQ,
+    eventTypesQ,
+    loading,
+    failed,
+    state,
+    retry,
+    retrying,
+  } = useClientBookState(now, COACH);
+  const feedbackQ = useClientFeedback(meId);
+  const biaQ = useBiaMeasurements(meId);
+  const contentRef = useRef<HTMLDivElement>(null);
+  // La sessione della valutazione mostrata: resta dopo «Invia valutazione».
+  const [shownId, setShownId] = useState<string | null>(null);
 
-  const profileQ = useQuery({
-    queryKey: ["profile", meId],
-    enabled: !!meId,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("id, full_name, email, coach_id, path_type, auto_renew_blocks")
-        .eq("id", meId!)
-        .maybeSingle();
-      return data;
-    },
-  });
+  const blocks = blocksQ.data ?? NO_BLOCKS;
+  const bookings = bookingsQ.data ?? NO_BOOKINGS;
+  const eventTypes = eventTypesQ.data ?? NO_EVENT_TYPES;
+  const typeOf = (b: BookingRow) => eventTypes.find((t) => t.id === b.event_type_id) ?? null;
 
-  const fullName = profileQ.data?.full_name ?? user?.email ?? "Cliente";
-  const firstName = fullName.split(" ")[0] ?? fullName;
-  const coachId = profileQ.data?.coach_id ?? null;
-  // path_type discriminates the counter semantics: "recurring" → only the
-  // current 4-week block is counted (resets every block); "fixed" (or
-  // anything else) → aggregate across the whole path (e.g. 4/24 progress
-  // toward a fixed-term goal).
-  const isRecurring = (profileQ.data?.path_type ?? "fixed") === "recurring";
-
-  const blocksQ = useClientBlocks(meId);
-  const bookingsQ = useClientBookings(meId);
-  const eventTypesQ = useCoachEventTypes(coachId);
-  const extraCreditsQ = useClientExtraCredits(meId);
-  // This RPC closes the last block as soon as today passes its end_date
-  // (the grace only sets inGracePeriod) and auto-creates the next one when
-  // auto_renew_blocks=true. The hook is called
-  // unconditionally for shape stability; here only its state is read, for
-  // the grace banner of recurring clients (graceBanner). Il suo
-  // currentBlockId non sceglie il blocco: resta l'ultimo per sequence_order
-  // finché oggi non ne supera la fine, anche se non è ancora iniziato.
-  const currentBlockQ = useCurrentBlock(meId);
-
-  // Block "corrente" per il rendering hero, per tutti i percorsi abbonamento
-  // compreso (gemello di client.book.tsx): clientReferenceBlock, cioè il
-  // blocco valido la cui finestra [start_date, end_date] contiene oggi;
-  // altrimenti il primo che deve iniziare; altrimenti l'ultimo (percorso
-  // finito).
-  //
-  // MED-C3 (audit 2026-05-26): il useMemo non lista `Date.now()` nei deps
-  // per scelta — la data corrente è usata SOLO come discriminante per
-  // categorizzare "passato/attuale/futuro", non come valore renderizzato.
-  // Il risultato cambia significativamente solo a midnight cross. React
-  // Query rifresca `blocksQ.data` periodicamente, garantendo che il
-  // useMemo recompute a ogni refetch con il `Date.now()` aggiornato.
-  // Pattern accettato per il caso "data-as-condition", da NON replicare
-  // dove il timestamp finisce direttamente in props/render output.
-  const resolvedCurrentBlock = useMemo(
-    () => clientReferenceBlock(blocksQ.data ?? []),
-    [blocksQ.data],
+  const next = useMemo(() => homeNext(bookings, now), [bookings, now]);
+  const rating = useMemo(
+    () => homeRating(bookings, feedbackQ.data, shownId, now),
+    [bookings, feedbackQ.data, shownId, now],
+  );
+  const ratedId = rating?.booking.id ?? null;
+  useEffect(() => {
+    if (ratedId !== null && ratedId !== shownId) setShownId(ratedId);
+  }, [ratedId, shownId]);
+  const sections = useMemo(
+    () =>
+      state ? homeSections({ state, hasNext: next.next !== null, hasRating: rating !== null }) : [],
+    [state, next.next, rating],
   );
 
-  // Stats intero percorso (cumulativo dall'inizio). Total include:
-  //   - allocations di tutti i blocchi non-deleted
-  //   - extra credits acquistati (booster pack)
-  // Completed = tutti i bookings status=completed storici, no scoping.
-  // Per recurring clients (path infinito), `total` cresce ad ogni nuovo
-  // blocco creato → la card path-wide ha senso comunque ma il "percent"
-  // non rappresenta una "fine" → la nascondiamo per recurring (sotto).
-  const pathStats = useMemo(() => {
-    const allBlocks = blocksQ.data ?? [];
-    const blocksTotal = allBlocks.reduce(
-      (s, b) => s + b.allocations.reduce((sa, a) => sa + a.quantity_assigned, 0),
-      0,
+  // Dove va il focus quando la card d'installazione sparisce: l'ultimo titolo
+  // prima di lei, altrimenti il contenuto.
+  const beforeInstall = () => {
+    const root = contentRef.current;
+    if (!root) return null;
+    const titles = Array.from(root.querySelectorAll<HTMLElement>("h2")).filter(
+      (h) => !h.closest("[data-home-install]"),
     );
-    const extraTotal = (extraCreditsQ.data ?? []).reduce((s, ec) => s + ec.quantity, 0);
-    const total = blocksTotal + extraTotal;
-    const completed = (bookingsQ.data ?? []).filter((b) => b.status === "completed").length;
-    const remaining = Math.max(0, total - completed);
-    const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
-    return { completed, total, remaining, percent };
-  }, [blocksQ.data, bookingsQ.data, extraCreditsQ.data]);
+    return titles[titles.length - 1] ?? root;
+  };
 
-  // "BLOCCO N DI M" badge: per fixed mostra M = totale blocchi del path,
-  // per recurring mostra solo "BLOCCO N" (path è infinito, M non ha senso).
-  const blockProgress = useMemo(() => {
-    if (!resolvedCurrentBlock) return null;
-    const allBlocks = blocksQ.data ?? [];
-    return {
-      index: resolvedCurrentBlock.sequence_order,
-      total: allBlocks.length,
-    };
-  }, [resolvedCurrentBlock, blocksQ.data]);
-
-  // Segment visual: 1 slot per ogni sessione assegnata del blocco corrente,
-  // marcato come 'completed' (verde primary), 'booked' (azzurro
-  // primary-fixed-dim) o 'open' (grigio tratteggiato). I booked riportano
-  // la propria data (dd/MM). Ordine fisso: completed → booked → open
-  // così la "rampa" cresce sempre da sinistra a destra.
-  const currentBlockSlots = useMemo(() => {
-    if (!resolvedCurrentBlock)
-      return [] as Array<{ state: "completed" | "booked" | "open"; date?: Date }>;
-    const total = resolvedCurrentBlock.allocations.reduce((s, a) => s + a.quantity_assigned, 0);
-    if (total === 0) return [];
-    const startMs = new Date(resolvedCurrentBlock.start_date).getTime();
-    const endMs = new Date(resolvedCurrentBlock.end_date).getTime() + 24 * 60 * 60 * 1000 - 1;
-    const inBlock = (bookingsQ.data ?? []).filter((b) => {
-      const t = new Date(b.scheduled_at).getTime();
-      return t >= startMs && t <= endMs;
-    });
-    const completedCount = inBlock.filter((b) => b.status === "completed").length;
-    const scheduledList = inBlock
-      .filter((b) => b.status === "scheduled")
-      .sort((a, b) => +new Date(a.scheduled_at) - +new Date(b.scheduled_at));
-    const slots: Array<{ state: "completed" | "booked" | "open"; date?: Date }> = [];
-    for (let i = 0; i < completedCount && slots.length < total; i++) {
-      slots.push({ state: "completed" });
-    }
-    for (let i = 0; i < scheduledList.length && slots.length < total; i++) {
-      const item = scheduledList[i];
-      if (!item) break;
-      slots.push({ state: "booked", date: new Date(item.scheduled_at) });
-    }
-    while (slots.length < total) slots.push({ state: "open" });
-    return slots;
-  }, [resolvedCurrentBlock, bookingsQ.data]);
-
-  // Breakdown numerico del blocco (derivato dagli slot per coerenza UI).
-  const currentBlockBreakdown = useMemo(() => {
-    let completed = 0;
-    let booked = 0;
-    let open = 0;
-    for (const s of currentBlockSlots) {
-      if (s.state === "completed") completed++;
-      else if (s.state === "booked") booked++;
-      else open++;
-    }
-    return { completed, booked, open };
-  }, [currentBlockSlots]);
-
-  // Breakdown per tipologia di sessione del blocco corrente. Sostituisce
-  // il vecchio KPI single-counter con un layout granulare a 3 colonne
-  // (icona+nome | progress bar | badge+CTA). Aggrega le allocations per
-  // event_type_id (o session_type fallback) + cross-referencia i bookings
-  // dentro la finestra del blocco per popolare completed/booked.
-  const currentBlockTypeBreakdown = useMemo<SessionTypeBreakdownRow[]>(() => {
-    if (!resolvedCurrentBlock) return [];
-    const ets = eventTypesQ.data ?? [];
-    const map = new Map<string, SessionTypeBreakdownRow>();
-
-    // 1. Inizializza dalle allocations (sourcetruth per total per type).
-    //    `remaining` = somma di (quantity_assigned - quantity_booked) — STESSA
-    //    fonte di /client/book pools, così il bottone Prenota e il pool sono
-    //    sempre coerenti (no drift dashboard↔booking).
-    for (const a of resolvedCurrentBlock.allocations) {
-      const key = a.event_type_id ?? a.session_type;
-      const et = a.event_type_id ? ets.find((e) => e.id === a.event_type_id) : null;
-      const cur = map.get(key) ?? {
-        key,
-        eventTypeId: a.event_type_id ?? null,
-        name: et?.name ?? sessionLabel(a.session_type),
-        completed: 0,
-        booked: 0,
-        total: 0,
-        remaining: 0,
-      };
-      cur.total += a.quantity_assigned;
-      cur.remaining += a.quantity_assigned - a.quantity_booked;
-      map.set(key, cur);
-    }
-
-    // 2. Cross-referencia bookings dentro la finestra del blocco
-    const startMs = new Date(resolvedCurrentBlock.start_date).getTime();
-    const endMs = new Date(resolvedCurrentBlock.end_date).getTime() + 24 * 60 * 60 * 1000 - 1;
-    for (const b of bookingsQ.data ?? []) {
-      const t = new Date(b.scheduled_at).getTime();
-      if (t < startMs || t > endMs) continue;
-      if (b.status !== "completed" && b.status !== "scheduled") continue;
-      const key = b.event_type_id ?? b.session_type;
-      const cur = map.get(key);
-      if (!cur) continue; // booking di un tipo non allocato → ignora
-      if (b.status === "completed") cur.completed += 1;
-      else cur.booked += 1;
-    }
-
-    // 3. Chip "+N" (design handoff): crediti extra attivi per tipologia
-    for (const ec of extraCreditsQ.data ?? []) {
-      if (!ec.event_type_id) continue;
-      const cur = map.get(ec.event_type_id);
-      if (cur) cur.extraCredits = (cur.extraCredits ?? 0) + ec.quantity;
-    }
-
-    // 4. Ordina per total desc così le tipologie con più sessioni stanno in alto
-    return [...map.values()].sort((a, b) => b.total - a.total);
-  }, [resolvedCurrentBlock, eventTypesQ.data, bookingsQ.data, extraCreditsQ.data]);
-
-  // Titoli (event_types.name = booster_packs.event_type_title) per cui esiste
-  // un booster attivo. Usato dal breakdown per offrire "Vai allo Store" quando
-  // i crediti di una tipologia sono esauriti. Query leggera, sempre la stessa
-  // per tutti i clienti → staleTime = 5 min.
-  const boosterTitlesQ = useQuery({
-    queryKey: ["booster_titles_active"],
-    staleTime: 5 * 60 * 1000,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("booster_packs")
-        .select("event_type_title")
-        .eq("active", true);
-      if (error) throw error;
-      return new Set((data ?? []).map((r) => r.event_type_title as string));
-    },
-  });
-
-  // Data di fine blocco corrente formattata it-IT (es. "30 giugno"),
-  // usata nel KPI box "...entro il 30 giugno".
-  const currentBlockEndLabel = useMemo(() => {
-    if (!resolvedCurrentBlock) return null;
-    return new Date(resolvedCurrentBlock.end_date).toLocaleDateString("it-IT", {
-      day: "numeric",
-      month: "long",
-    });
-  }, [resolvedCurrentBlock]);
-
-  // Lista blocchi del percorso, ognuno con stato past/current/future + counts.
-  // Per recurring rimuoviamo i "future" perché il path è infinito (i blocchi
-  // futuri non esistono finché auto_renew non li crea).
-  const pathBlocks = useMemo(() => {
-    const all = (blocksQ.data ?? []).slice().sort((a, b) => a.sequence_order - b.sequence_order);
-    const now = Date.now();
-    const rows = all.map((b) => {
-      const total = b.allocations.reduce((s, a) => s + a.quantity_assigned, 0);
-      const startMs = new Date(b.start_date).getTime();
-      const endMs = new Date(b.end_date).getTime() + 24 * 60 * 60 * 1000 - 1;
-      const completed = (bookingsQ.data ?? []).filter((bk) => {
-        if (bk.status !== "completed") return false;
-        const t = new Date(bk.scheduled_at).getTime();
-        return t >= startMs && t <= endMs;
-      }).length;
-      let state: "past" | "current" | "future" = "future";
-      if (resolvedCurrentBlock && b.id === resolvedCurrentBlock.id) state = "current";
-      else if (endMs < now) state = "past";
-      else if (startMs > now) state = "future";
-      return {
-        id: b.id,
-        sequence: b.sequence_order,
-        name: `Blocco ${b.sequence_order}`,
-        total,
-        completed,
-        state,
-      };
-    });
-    return isRecurring ? rows.filter((r) => r.state !== "future") : rows;
-  }, [blocksQ.data, bookingsQ.data, resolvedCurrentBlock, isRecurring]);
-
-  // "Settimana X/4" label for recurring clients showing how far we are
-  // into the current block (1-indexed, clamped to [1, 4]).
-  const currentWeekLabel = useMemo(() => {
-    if (!isRecurring || !resolvedCurrentBlock) return null;
-    const startMs = new Date(resolvedCurrentBlock.start_date).getTime();
-    const diffDays = Math.floor((Date.now() - startMs) / (24 * 60 * 60 * 1000));
-    const week = Math.min(4, Math.max(1, Math.floor(diffDays / 7) + 1));
-    return `Settimana ${week}/4`;
-  }, [isRecurring, resolvedCurrentBlock]);
-
-  // Grace banner: residuals from previous block, valid for a few more
-  // days. Only relevant when the client is recurring + actually in grace.
-  const graceBanner = useMemo(() => {
-    if (!isRecurring) return null;
-    const state = currentBlockQ.data;
-    if (!state?.inGracePeriod) return null;
-    if ((state.residualsFromPrevious ?? 0) <= 0) return null;
-    return {
-      residuals: state.residualsFromPrevious,
-      until: state.nextRenewalDate,
-    };
-  }, [isRecurring, currentBlockQ.data]);
-
-  const nextBooking = useMemo(() => {
-    const now = Date.now();
-    return (bookingsQ.data ?? [])
-      .filter((b) => b.status === "scheduled" && new Date(b.scheduled_at).getTime() > now)
-      .sort((a, b) => +new Date(a.scheduled_at) - +new Date(b.scheduled_at))[0];
-  }, [bookingsQ.data]);
-
-  const nextEventType = nextBooking?.event_type_id
-    ? (eventTypesQ.data ?? []).find((e) => e.id === nextBooking.event_type_id)
-    : null;
-
-  // ---- Design handoff: dati derivati per campanella, banner e card nuove ----
-  const biaQ = useBiaMeasurements(meId);
-  const feedbackQ = useClientFeedback(meId);
-
-  const nextBookingLabel = nextBooking
-    ? (nextEventType?.name ?? sessionLabel(nextBooking.session_type))
-    : "";
-
-  // Ultima sessione completata di recente (14 giorni) ancora senza feedback.
-  // La finestra evita di chiedere feedback su sessioni storiche al primo
-  // deploy della feature.
-  const pendingFeedback = useMemo(() => {
-    const rated = new Set((feedbackQ.data ?? []).map((f) => f.booking_id));
-    const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000;
-    return (bookingsQ.data ?? [])
-      .filter(
-        (b) =>
-          b.status === "completed" &&
-          !rated.has(b.id) &&
-          new Date(b.scheduled_at).getTime() >= cutoff,
-      )
-      .sort((a, b) => +new Date(b.scheduled_at) - +new Date(a.scheduled_at))[0];
-  }, [bookingsQ.data, feedbackQ.data]);
-
-  const pendingFeedbackLabel = pendingFeedback
-    ? ((eventTypesQ.data ?? []).find((e) => e.id === pendingFeedback.event_type_id)?.name ??
-      sessionLabel(pendingFeedback.session_type))
-    : "";
-
-  // Banner promemoria: prossima sessione entro 48h e non ancora confermata.
-  const reminderBooking = useMemo(() => {
-    if (!nextBooking || nextBooking.client_confirmed_at) return null;
-    const ms = new Date(nextBooking.scheduled_at).getTime() - Date.now();
-    return ms <= 48 * 60 * 60 * 1000 ? nextBooking : null;
-  }, [nextBooking]);
-
-  // Voci campanella, derivate come NC.notifications() del prototipo.
-  const notificationItems = useMemo<ClientNotificationItem[]>(() => {
-    const items: ClientNotificationItem[] = [];
-    if (nextBooking && !nextBooking.client_confirmed_at) {
-      const when = new Date(nextBooking.scheduled_at);
-      items.push({
-        id: `confirm-${nextBooking.id}`,
-        kind: "confirm",
-        title: "Conferma la tua presenza",
-        sub: `${nextBookingLabel} · ${when.toLocaleDateString("it-IT", {
-          weekday: "long",
-          day: "numeric",
-        })} alle ${when.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}`,
-        onClick: () =>
-          navigate({ to: "/client/bookings/$bookingId", params: { bookingId: nextBooking.id } }),
-      });
-    }
-    if (currentBlockBreakdown.open > 0 && currentBlockEndLabel) {
-      items.push({
-        id: `block-open-${resolvedCurrentBlock?.id ?? "n"}-${currentBlockBreakdown.open}`,
-        kind: "block",
-        title: "Sessioni da prenotare",
-        sub: `Hai ${currentBlockBreakdown.open} ${
-          currentBlockBreakdown.open === 1 ? "sessione" : "sessioni"
-        } da prenotare entro il ${currentBlockEndLabel}`,
-        onClick: () => navigate({ to: "/client/book" }),
-      });
-    }
-    const bia = biaQ.data ?? [];
-    const lastBia = bia[bia.length - 1];
-    if (lastBia) {
-      items.push({
-        id: `bia-${lastBia.measured_on}`,
-        kind: "bia",
-        title: "Nuova misurazione BIA",
-        sub: `Peso ${lastBia.weight_kg} kg · massa ${lastBia.muscle_kg} kg`,
-      });
-    }
-    for (const row of currentBlockTypeBreakdown) {
-      if (row.total > 0 && row.remaining <= 0) {
-        items.push({
-          id: `credit-${row.key}`,
-          kind: "credit",
-          title: `Pool ${row.name} esaurito`,
-          sub: "Acquista un Booster per prenotare ancora",
-          onClick: () => navigate({ to: "/client/store" }),
-        });
-      }
-    }
-    if (pendingFeedback) {
-      items.push({
-        id: `fb-${pendingFeedback.id}`,
-        kind: "feedback",
-        title: "Com'è andata?",
-        sub: `Lascia un feedback sulla sessione del ${new Date(
-          pendingFeedback.scheduled_at,
-        ).toLocaleDateString("it-IT", { day: "numeric", month: "short" })}`,
-      });
-    }
-    return items;
-  }, [
-    nextBooking,
-    nextBookingLabel,
-    currentBlockBreakdown,
-    currentBlockEndLabel,
-    resolvedCurrentBlock,
-    biaQ.data,
-    currentBlockTypeBreakdown,
-    pendingFeedback,
-    navigate,
-  ]);
-
-  // Card benvenuto (design handoff): percorso attivo ma nessuna sessione mai
-  // prenotata → gradiente brand con CTA "Prenota la prima sessione".
-  const showWelcome = pathStats.total > 0 && (bookingsQ.data ?? []).length === 0;
-
-  // Card rinnovo (design handoff): percorso fisso, blocco corrente completato
-  // e nessun blocco futuro già pianificato. Nessuna azione automatica: il
-  // rinnovo lo gestisce il coach, la card invita a parlargli.
-  const showRenewal = useMemo(() => {
-    if (isRecurring || currentBlockSlots.length === 0) return false;
-    if (currentBlockBreakdown.completed !== currentBlockSlots.length) return false;
-    return !pathBlocks.some((b) => b.state === "future");
-  }, [isRecurring, currentBlockSlots.length, currentBlockBreakdown.completed, pathBlocks]);
-
-  const isLoading =
-    blocksQ.isLoading || bookingsQ.isLoading || profileQ.isLoading || extraCreditsQ.isLoading;
-
-  // Animazione fill del blocco ATTUALE (prototipo): parte da width 0% e
-  // raggiunge la percentuale reale ~80ms dopo il mount con easing dedicato.
-  const [fillReady, setFillReady] = useState(false);
+  // «Riprova» riuscito: la card lascia il posto allo scheletro e poi alle
+  // sezioni, e il pulsante che aveva il focus sparisce con lei. Il focus va
+  // sul contenuto e, a sezioni pronte, sul primo titolo.
+  const retried = useRef(false);
+  const onRetry = () => {
+    retried.current = true;
+    retry();
+  };
+  const showRetry = !loading && (failed || !state);
   useEffect(() => {
-    const t = window.setTimeout(() => setFillReady(true), 80);
-    return () => window.clearTimeout(t);
-  }, []);
+    const root = contentRef.current;
+    if (!retried.current || showRetry || !root) return;
+    const active = document.activeElement;
+    const lost = !active || active === document.body || active === root;
+    if (loading) {
+      if (lost) root.focus({ preventScroll: true });
+      return;
+    }
+    retried.current = false;
+    if (lost) (root.querySelector<HTMLElement>("h2") ?? root).focus({ preventScroll: true });
+  }, [showRetry, loading]);
+
+  const section = (key: string): ReactNode => {
+    if (!state) return null;
+    if (key === "concluded") {
+      return (
+        <HomeConcludedCard key={key} endDate={state.reference?.end_date ?? ""} coach={COACH} />
+      );
+    }
+    if (key === "next" && next.next) {
+      return (
+        <HomeNextCard
+          key={key}
+          booking={next.next}
+          eventTypes={eventTypes}
+          others={next.others}
+          coach={COACH}
+          clientName={profile?.full_name ?? null}
+        />
+      );
+    }
+    if (key === "no-next") {
+      return <HomeNoNextCard key={key} options={state.options} coachId={coachId} coach={COACH} />;
+    }
+    if (key === "credits" && client) {
+      return (
+        <HomeCreditsCard key={key} client={client} blocks={blocks} state={state} coach={COACH} />
+      );
+    }
+    if (key === "rating" && rating && meId) {
+      const b = rating.booking;
+      return (
+        <ClientSessionRating
+          key={b.id}
+          bookingId={b.id}
+          clientId={meId}
+          rating={rating.rating}
+          note={rating.note}
+          editable
+          coach={COACH}
+          layout="home"
+          subtitle={ratingSubtitle(sessionName(b, typeOf(b)), b, COACH)}
+        />
+      );
+    }
+    return null;
+  };
+
+  let content: ReactNode;
+  if (loading) {
+    content = <HomeSkeleton />;
+  } else if (showRetry) {
+    content = (
+      <BookRetryCard
+        title="La Home non si è caricata"
+        text="Non siamo riusciti a leggere le tue sessioni e i tuoi crediti. Riprova tra poco."
+        onRetry={onRetry}
+        retrying={retrying}
+      />
+    );
+  } else {
+    content = sections.map(section);
+  }
 
   return (
-    <div className="max-w-md mx-auto bg-surface min-h-screen">
-      <header className="bg-surface/80 backdrop-blur-xl sticky top-0 shadow-[0_8px_30px_rgba(0,0,0,0.04)] z-40">
-        <div className="flex justify-between items-center w-full px-margin-mobile py-stack-md">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-full bg-primary-container text-on-primary-container grid place-items-center border-2 border-surface-container-lowest shadow-sm font-semibold">
-              {firstName.charAt(0).toUpperCase()}
-            </div>
-            <h1 className="font-display text-2xl font-bold text-aura-primary tracking-[-0.02em]">
-              Ciao {firstName}
-            </h1>
-          </div>
-          {/* Design handoff: campanella con pannello notifiche derivate
-              (sostituisce quella inerte rimossa dall'audit B12). */}
-          {meId && <ClientNotificationsBell userId={meId} items={notificationItems} />}
-        </div>
-      </header>
-
-      <main className="px-margin-mobile pt-stack-md flex flex-col gap-stack-lg">
-        {/* Design handoff: banner promemoria (sessione ≤48h non confermata) */}
-        {!isLoading && reminderBooking && (
-          <ClientReminderBanner
-            bookingId={reminderBooking.id}
-            clientId={meId}
-            scheduledAt={reminderBooking.scheduled_at}
-            typeLabel={nextBookingLabel}
-          />
-        )}
-
-        {/* Design handoff: card benvenuto (primo accesso, nessuna prenotazione) */}
-        {!isLoading && showWelcome && (
-          <section
-            className="rounded-[28px] p-7 text-white flex flex-col gap-3.5 shadow-[0_8px_30px_rgba(0,62,98,0.2)]"
-            style={{ background: "linear-gradient(135deg,#003e62,#005685)" }}
-          >
-            {/* Icon box del prototipo: 52px, radius 16, dumbbell azzurro */}
-            <div className="w-13 h-13 rounded-2xl bg-white/15 grid place-items-center">
-              <Dumbbell className="size-[26px] text-on-primary-container" aria-hidden />
-            </div>
-            <div>
-              <h2 className="font-display text-[22px] font-bold m-0">Benvenuto, {firstName}!</h2>
-              <p className="text-sm text-white/80 m-0 mt-2 leading-relaxed">
-                Il tuo percorso inizia qui. Prenota la tua prima sessione per cominciare.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => navigate({ to: "/client/book" })}
-              className="self-start bg-on-primary-container text-[#00344f] rounded-full px-6 py-3 text-sm font-bold active:scale-95 transition"
-            >
-              Prenota la prima sessione
-            </button>
-          </section>
-        )}
-
-        {/* Design handoff: card rinnovo (blocco completato, niente blocchi futuri) */}
-        {!isLoading && showRenewal && (
-          <section className="bg-surface-container-lowest border-2 border-on-status-success rounded-[28px] p-7 shadow-[0_8px_30px_rgba(11,128,67,0.12)] flex flex-col gap-3.5">
-            {/* Header row del prototipo: cerchio check verde + eyebrow + titolo */}
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-on-status-success/12 text-on-status-success grid place-items-center shrink-0">
-                <CircleCheckBig className="size-[26px]" strokeWidth={2.5} aria-hidden />
-              </div>
-              <div>
-                <span className="text-xs font-bold text-on-status-success uppercase tracking-[0.05em]">
-                  Blocco {resolvedCurrentBlock?.sequence_order ?? ""} completato
-                </span>
-                <h2 className="font-display text-[20px] font-bold text-on-surface m-0 mt-0.5">
-                  Ottimo lavoro, {currentBlockBreakdown.completed}/{currentBlockSlots.length} fatte
-                </h2>
-              </div>
-            </div>
-            <p className="text-sm text-on-surface-variant m-0 leading-relaxed">
-              Hai completato tutte le sessioni del blocco. Parla con il tuo coach per pianificare il
-              prossimo percorso su misura per i tuoi obiettivi.
-            </p>
-          </section>
-        )}
-
-        {/* Card 1: Blocco corrente — segment visual + KPI + secondary row */}
-        <section className="bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-stack-lg border border-outline-variant/30 relative overflow-hidden">
-          <div className="absolute -top-10 -right-10 w-32 h-32 bg-aura-primary/5 rounded-full blur-3xl pointer-events-none" />
-
-          <div className="flex flex-col gap-6 relative z-10">
-            {/* Header: BLOCCO N DI M + titolo (+ "Settimana X/4" per recurring) */}
-            <div className="flex flex-col gap-1">
-              {blockProgress && (
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
-                    {isRecurring || blockProgress.total === 0
-                      ? `BLOCCO ${blockProgress.index}`
-                      : `BLOCCO ${blockProgress.index} DI ${blockProgress.total}`}
-                  </span>
-                  {currentWeekLabel && (
-                    <span className="text-[11px] font-semibold text-on-surface-variant tabular-nums">
-                      {currentWeekLabel}
-                    </span>
-                  )}
-                </div>
-              )}
-              <h2 className="text-xl font-semibold text-on-surface">
-                {isRecurring ? "Il tuo mese corrente" : "Il tuo blocco corrente"}
-              </h2>
-            </div>
-
-            {graceBanner && (
-              <div className="rounded-[20px] bg-tertiary-container/30 border border-tertiary-container/40 px-4 py-3">
-                <p className="text-xs font-semibold text-on-tertiary-container">
-                  Sessioni del mese precedente: {graceBanner.residuals}
-                </p>
-                {graceBanner.until && (
-                  <p className="text-[11px] text-on-tertiary-container/80 mt-0.5">
-                    Valide fino al{" "}
-                    {new Date(graceBanner.until).toLocaleDateString("it-IT", {
-                      day: "numeric",
-                      month: "long",
-                    })}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {isLoading ? (
-              <div className="flex flex-col gap-6">
-                <AuraLineSkeleton className="h-3 w-full rounded-full" />
-                <AuraCardSkeleton className="h-24 rounded-[20px]" />
-                <div className="grid grid-cols-3 gap-3">
-                  <AuraCardSkeleton className="h-16" />
-                  <AuraCardSkeleton className="h-16" />
-                  <AuraCardSkeleton className="h-16" />
-                </div>
-              </div>
-            ) : currentBlockSlots.length === 0 && pathStats.total === 0 ? (
-              <EmptyStateCard
-                title="Pronto a salire di livello?"
-                description="Non hai ancora un percorso attivo. Scegli un Booster o un NC Add-on per iniziare a prenotare le tue sessioni."
-                ctaLabel="Esplora gli Add-on"
-                ctaTo="/client/store"
-              />
-            ) : currentBlockSlots.length === 0 ? (
-              // Edge: percorso attivo ma blocco corrente vuoto (es. tra due blocchi)
-              <p className="text-sm text-on-surface-variant text-center py-4">
-                Nessuna sessione nel blocco corrente.
-              </p>
-            ) : (
-              <>
-                {/* Segment Visual */}
-                {currentBlockSlots.length <= 24 ? (
-                  <div className="flex flex-col">
-                    <div
-                      className="grid gap-2 items-center mt-6 mb-6"
-                      style={{
-                        gridTemplateColumns: `repeat(${Math.min(
-                          currentBlockSlots.length,
-                          8,
-                        )}, minmax(0, 1fr))`,
-                      }}
-                    >
-                      {currentBlockSlots.map((slot, i) => (
-                        <div key={i} className="relative flex justify-center">
-                          {slot.state === "completed" && (
-                            <Check
-                              className="size-4 text-aura-primary absolute -top-6"
-                              strokeWidth={2.5}
-                              aria-hidden
-                            />
-                          )}
-                          <div
-                            className={cn(
-                              "w-full h-3 rounded-full",
-                              slot.state === "completed" && "bg-aura-primary",
-                              slot.state === "booked" && "bg-primary-fixed-dim",
-                              slot.state === "open" &&
-                                "bg-surface-container-high border border-dashed border-outline-variant",
-                            )}
-                          />
-                          {slot.state === "booked" && slot.date && (
-                            <span className="text-[10px] font-semibold text-on-surface-variant tabular-nums absolute -bottom-5">
-                              {slot.date.toLocaleDateString("it-IT", {
-                                day: "2-digit",
-                                month: "2-digit",
-                              })}
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    {/* Legend */}
-                    <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center mt-2">
-                      <span className="flex items-center gap-1 text-[11px] text-on-surface-variant">
-                        <span className="text-aura-primary leading-none">●</span>
-                        Completate
-                      </span>
-                      <span className="flex items-center gap-1 text-[11px] text-on-surface-variant">
-                        <span className="text-primary-fixed-dim leading-none">●</span>
-                        Prenotate
-                      </span>
-                      <span className="flex items-center gap-1 text-[11px] text-on-surface-variant">
-                        <span className="text-outline-variant leading-none">○</span>
-                        Da prenotare
-                      </span>
-                    </div>
-                  </div>
-                ) : (
-                  // Fallback per blocchi grandi (>24 slot): stacked progress bar
-                  <div className="flex flex-col gap-2">
-                    <div className="w-full h-3 bg-surface-container-high rounded-full overflow-hidden flex">
-                      <div
-                        className="bg-aura-primary h-full"
-                        style={{
-                          width: `${(currentBlockBreakdown.completed / currentBlockSlots.length) * 100}%`,
-                        }}
-                      />
-                      <div
-                        className="bg-primary-fixed-dim h-full"
-                        style={{
-                          width: `${(currentBlockBreakdown.booked / currentBlockSlots.length) * 100}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Breakdown per tipologia di sessione — nested card "Le tue
-                    Sessioni" con grid flat [1fr_auto_auto] + separatori
-                    (vedi ClientSessionsBreakdown). Sostituisce il vecchio
-                    KPI box single-counter con visibilità granulare per
-                    tipologia (PT, BIA, FMS, ...). */}
-                {currentBlockTypeBreakdown.length > 0 && (
-                  <ClientSessionsBreakdown
-                    rows={currentBlockTypeBreakdown}
-                    boosterTitles={boosterTitlesQ.data}
-                  />
-                )}
-
-                {/* Hint scadenza blocco (sostituisce il sub-testo del vecchio
-                    KPI box). Sempre visibile finché c'è almeno una sessione
-                    aperta — il messaggio di completamento è ridondante con
-                    la secondary row sotto + i badge dei pool. */}
-                {currentBlockBreakdown.open > 0 && currentBlockEndLabel && (
-                  <p className="text-xs text-on-surface-variant text-center">
-                    Da prenotare entro il <strong>{currentBlockEndLabel}</strong>.
-                  </p>
-                )}
-                {/* Prototipo: quando non restano sessioni da prenotare ma il
-                    blocco non è ancora tutto completato */}
-                {currentBlockBreakdown.open === 0 &&
-                  currentBlockBreakdown.completed !== currentBlockSlots.length && (
-                    <p className="text-xs text-on-surface-variant text-center">
-                      Blocco completamente prenotato ✓
-                    </p>
-                  )}
-                {currentBlockBreakdown.open === 0 &&
-                  currentBlockBreakdown.completed === currentBlockSlots.length && (
-                    <div className="bg-tertiary-container/20 rounded-[20px] p-4 text-center">
-                      <p className="text-sm font-semibold text-on-tertiary-container">
-                        Blocco completato. Ottimo lavoro!
-                      </p>
-                    </div>
-                  )}
-
-                {/* Secondary Row: 3 colonne */}
-                <div className="grid grid-cols-3 divide-x divide-surface-container-high pt-2">
-                  <div className="flex flex-col items-center gap-1 text-center px-2">
-                    <CheckCircle2 className="size-6 text-aura-primary" aria-hidden />
-                    <span className="text-sm font-semibold text-on-surface tabular-nums">
-                      {currentBlockBreakdown.completed}{" "}
-                      {currentBlockBreakdown.completed === 1 ? "fatta" : "fatte"}
-                    </span>
-                  </div>
-                  <div className="flex flex-col items-center gap-1 text-center px-2">
-                    <CalendarCheck className="size-6 text-primary-fixed-dim" aria-hidden />
-                    <span className="text-sm font-semibold text-on-surface tabular-nums">
-                      {currentBlockBreakdown.booked}{" "}
-                      {currentBlockBreakdown.booked === 1 ? "prenotata" : "prenotate"}
-                    </span>
-                  </div>
-                  <div className="flex flex-col items-center gap-1 text-center px-2">
-                    <Clock className="size-6 text-outline" aria-hidden />
-                    <span className="text-sm font-semibold text-on-surface tabular-nums">
-                      {currentBlockBreakdown.open} da fare
-                    </span>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </section>
-
-        {/* Design handoff: card "I tuoi progressi" (BIA) — dati dal coach */}
-        {!isLoading && pathStats.total > 0 && <ClientBiaProgress clientId={meId} />}
-
-        {/* Card 2: Percorso complessivo — lista blocchi (skip se < 2 blocchi
-            o se l'utente non ha ancora un percorso attivo) */}
-        {!isLoading && pathBlocks.length >= 2 && (
-          <section className="bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-stack-lg border border-outline-variant/30 flex flex-col gap-6">
-            <div className="flex justify-between items-end gap-3">
-              <h3 className="text-xl font-semibold text-on-surface">Il tuo percorso</h3>
-              <span className="text-xs font-semibold text-on-surface-variant tabular-nums shrink-0">
-                {pathStats.completed} di {pathStats.total} sessioni
-              </span>
-            </div>
-            <div className="flex flex-col gap-2">
-              {pathBlocks.map((b) => {
-                if (b.state === "past") {
-                  return (
-                    <div
-                      key={b.id}
-                      className="h-14 rounded-2xl bg-aura-primary flex items-center justify-between px-4 text-on-primary"
-                    >
-                      <span className="text-sm font-semibold">{b.name}</span>
-                      <div className="flex items-center gap-1">
-                        {/* Prototipo: check sempre presente sui blocchi passati */}
-                        <Check className="size-4" strokeWidth={2.5} aria-hidden />
-                        <span className="text-sm font-semibold tabular-nums">
-                          {b.completed}/{b.total}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                }
-                if (b.state === "current") {
-                  const pct = b.total > 0 ? Math.round((b.completed / b.total) * 100) : 0;
-                  return (
-                    <div
-                      key={b.id}
-                      className="h-14 rounded-2xl bg-surface-container-low border-2 border-aura-primary flex items-center justify-between px-4 relative overflow-hidden"
-                    >
-                      <div
-                        className="absolute left-0 top-0 bottom-0 bg-aura-primary/20"
-                        style={{
-                          width: fillReady ? `${pct}%` : "0%",
-                          transition: "width 1s cubic-bezier(0.22,1,0.36,1)",
-                        }}
-                      />
-                      <span className="text-sm font-semibold text-on-surface relative z-10">
-                        {b.name} · {b.completed}/{b.total}
-                      </span>
-                      <span className="bg-aura-primary text-on-primary text-[10px] font-bold px-2 py-1 rounded-md tracking-wider relative z-10">
-                        ATTUALE
-                      </span>
-                    </div>
-                  );
-                }
-                // future
-                return (
-                  <div
-                    key={b.id}
-                    className="h-14 rounded-2xl bg-surface-container-high border border-dashed border-outline-variant flex items-center justify-between px-4"
-                  >
-                    <span className="text-sm text-on-surface-variant">
-                      {b.name} · {b.total > 0 ? `0/${b.total}` : "—"}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="flex justify-center text-center">
-              <span className="text-[13px] text-on-surface-variant">
-                {isRecurring
-                  ? `${pathStats.completed} completate • ${formatCreditsAgreed(pathStats.remaining, null, ["disponibile", "disponibili"])}`
-                  : `${pathStats.completed} completate • ${pathStats.remaining} rimanenti • ${pathStats.percent}% del percorso`}
-              </span>
-            </div>
-          </section>
-        )}
-
-        {/* Prossima Sessione */}
-        <section>
-          <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-2 ml-2">
-            Prossima Sessione
-          </h3>
-          {isLoading ? (
-            <AuraCardSkeleton className="h-32" />
-          ) : nextBooking ? (
-            <ClientLiveBookingCard
-              booking={nextBooking}
-              // H3: prefer the per-booking snapshot so a later coach
-              // edit to event_types.duration can't relabel an already-
-              // booked next session on the client dashboard.
-              durationMin={nextBooking.duration_min ?? nextEventType?.duration ?? 60}
-              label={nextEventType?.name ?? sessionLabel(nextBooking.session_type)}
-              color={nextEventType?.color ?? "#039BE5"}
-              coachId={coachId}
-            />
-          ) : (
-            <div className="bg-surface-container-lowest rounded-[32px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] px-6 py-7 border border-outline-variant/30 flex flex-col items-center gap-3 text-center">
-              {/* Cerchio icona calendario del prototipo (56px, azzurro chiaro) */}
-              <div className="w-14 h-14 rounded-full bg-surface-container-low text-primary-fixed-dim grid place-items-center">
-                <Calendar className="size-7" aria-hidden />
-              </div>
-              <p className="text-[15px] font-semibold text-on-surface m-0">
-                Nessuna sessione in programma
-              </p>
-              <p className="text-[13px] text-outline m-0">Prenota la tua prossima sessione.</p>
-              <button
-                onClick={() => navigate({ to: "/client/book" })}
-                className="mt-1 bg-primary-container text-white font-semibold text-sm py-3 px-7 rounded-full active:scale-95 transition"
-              >
-                Prenota ora
-              </button>
-            </div>
-          )}
-        </section>
-
-        {/* Design handoff: feedback stelle sull'ultima sessione completata */}
-        {!isLoading && pendingFeedback && meId && (
-          <ClientFeedbackCard
-            bookingId={pendingFeedback.id}
-            clientId={meId}
-            typeLabel={pendingFeedbackLabel}
-            dateLabel={new Date(pendingFeedback.scheduled_at).toLocaleDateString("it-IT", {
-              weekday: "short",
-              day: "numeric",
-              month: "short",
-            })}
-          />
-        )}
-
-        {/* Fitness Journey Timeline */}
-        <section className="flex flex-col gap-stack-md">
-          <h3 className="text-xl font-semibold text-on-surface ml-1">Il Tuo Percorso Recente</h3>
-          {isLoading ? (
-            <AuraCardSkeleton className="h-40" />
-          ) : (
-            <ClientSessionTimeline
-              bookings={bookingsQ.data ?? []}
-              eventTypes={eventTypesQ.data ?? []}
-            />
-          )}
-        </section>
-
-        {/* Quick Action */}
-        <section className="flex flex-col gap-stack-md mt-2">
-          <Link
-            to="/client/book"
-            className="w-full bg-primary-container text-white font-semibold text-base py-4 rounded-full shadow-md hover:opacity-90 transition active:scale-95 flex items-center justify-center gap-2"
-          >
-            <Plus className="size-5" />
-            Prenota Nuova Sessione
-          </Link>
-        </section>
-      </main>
+    <div>
+      <ClientTabHeader title={homeGreeting(profile?.full_name)} subtitle={homeSubtitle(now)} />
+      <div
+        ref={contentRef}
+        tabIndex={-1}
+        className="flex flex-col gap-4 px-4 pt-1 pb-6 outline-none"
+      >
+        {content}
+        {biaQ.data && <HomeProgressCard measurements={biaQ.data} coach={COACH} />}
+        {meId && <HomeInstallCard userId={meId} returnFocus={beforeInstall} />}
+      </div>
     </div>
   );
 }
 
-// LiveBookingCard — replaces the previous NextAppointmentCard with a
-// time-aware "live state". When the booking is today and starts within
-// 60 minutes, the card transitions to a premium primary-container
-// background, pulses a live dot next to the time, and surfaces the
-// Join button full-width (when the booking carries a Google Meet URL).
-// Otherwise it renders the regular Aura white card with the date label.
-// In both states a small "Riprogramma" pill opens the RescheduleDrawer
-// inline — no navigation, no desktop AlertDialog detour on mobile.
+/** Il caricamento: due card alte quanto la prossima sessione e i crediti. */
+function HomeSkeleton() {
+  return (
+    <div className="flex flex-col gap-4" aria-busy="true">
+      <AuraSkeleton className="h-[236px] rounded-[24px]" />
+      <AuraSkeleton className="h-[320px] rounded-[24px]" />
+    </div>
+  );
+}

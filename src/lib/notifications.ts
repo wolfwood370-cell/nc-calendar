@@ -5,7 +5,9 @@
 // prima di mostrarlo, così un payload malformato diventa una riga neutra
 // «Notifica» invece di rompere la campanella. describeNotification prepara
 // i testi della riga desktop e il giorno dell'evento da aprire nel Calendario
-// (audit S4). Formati e soglie come in Coach Header.dc.html / nc-store.js.
+// (audit S4), o il cliente di cui aprire il profilo per un acquisto di
+// Booster (passata 06). Formati e soglie come in Coach Header.dc.html /
+// nc-store.js.
 // ----------------------------------------------------------------------------
 
 import { format } from "date-fns";
@@ -13,6 +15,7 @@ import { it } from "date-fns/locale";
 import type {
   BookingCreatedPayload,
   BookingRescheduledPayload,
+  BoosterPurchasedPayload,
   NotificationRow,
 } from "@/hooks/use-notifications";
 import { toIsoDate } from "@/lib/current-block";
@@ -37,8 +40,26 @@ export function isBookingRescheduledPayload(
   );
 }
 
+/**
+ * L'acquisto di un Booster (stripe-webhook): il cliente, il suo nome, la
+ * tipologia e quanti crediti, un intero da 1 in su.
+ */
+export function isBoosterPurchasedPayload(
+  p: Record<string, unknown>,
+): p is Record<string, unknown> & BoosterPurchasedPayload {
+  const quantity = (p as { quantity?: unknown }).quantity;
+  return (
+    typeof (p as { client_id?: unknown }).client_id === "string" &&
+    typeof (p as { client_name?: unknown }).client_name === "string" &&
+    typeof (p as { session_label?: unknown }).session_label === "string" &&
+    typeof quantity === "number" &&
+    Number.isInteger(quantity) &&
+    quantity >= 1
+  );
+}
+
 export interface NotificationView {
-  kind: "created" | "rescheduled" | "other";
+  kind: "created" | "rescheduled" | "purchase" | "other";
   title: string;
   /** «Cliente · Tipologia»; vuoto se il payload non si legge. */
   body: string;
@@ -48,6 +69,8 @@ export interface NotificationView {
   date: string | null;
   /** Prenotazione da evidenziare nel Calendario. */
   bookingId: string | null;
+  /** Solo per un acquisto: il cliente di cui aprire il profilo. */
+  clientId?: string;
 }
 
 function toDate(iso: string): Date | null {
@@ -97,6 +120,18 @@ export function describeNotification(
         bookingId,
       };
     }
+  }
+
+  if (n.type === "booster.purchased" && isBoosterPurchasedPayload(p)) {
+    return {
+      kind: "purchase",
+      title: "Acquisto Booster",
+      body: `${p.client_name} · +${p.quantity} ${p.session_label}`,
+      when: null,
+      date: null,
+      bookingId: null,
+      clientId: p.client_id,
+    };
   }
 
   return { kind: "other", title: "Notifica", body: "", when: null, date: null, bookingId: null };
