@@ -42,8 +42,15 @@ export async function subscribeToPush(profileId: string): Promise<PushSubscripti
   const permission = await Notification.requestPermission();
   if (permission !== "granted") throw new Error("Permesso negato");
 
-  const reg =
-    (await navigator.serviceWorker.getRegistration()) ?? (await navigator.serviceWorker.ready);
+  // Passata 08: pushManager.subscribe() vuole un service worker attivo
+  // (Chrome: «no active Service Worker»; WebKit: «Subscribing for push
+  // requires an active service worker»), e getRegistration() restituisce anche
+  // una registrazione ancora in installazione; ready aspetta quella attiva. Al
+  // più 10 secondi.
+  const reg = await Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), 10_000)),
+  ]);
   if (!reg) throw new Error("Service worker non disponibile");
 
   let sub = await reg.pushManager.getSubscription();
