@@ -62,8 +62,12 @@ export function PwaRegister() {
           });
         },
       )
-      .catch(() => {
-        /* plugin non disponibile in questo ambiente */
+      .catch((e: unknown) => {
+        // Il modulo del plugin non si è caricato (per esempio il suo file in
+        // 404 dopo un rilascio, con una scheda vecchia aperta): senza questo
+        // avviso il service worker mancherebbe senza lasciare traccia, come
+        // fino alla passata 08.
+        console.warn("PWA SW registration failed", e);
       });
   }, []);
 

@@ -347,7 +347,9 @@ function ariaOf(unread: boolean, title: string, body: string): string {
  * La lista della pagina e del badge: i promemoria e le righe del database che
  * si leggono (describeClientNotification; le altre non si mostrano e non si
  * contano), dalla più recente. I crediti quasi finiti, senza un momento loro,
- * contano come adesso e stanno in cima; a parità di momento vale l'id. Una
+ * stanno in cima, anche sopra una voce con un momento dopo `now` (l'ora della
+ * cornice va a passi di 30 secondi, e una riga appena arrivata è più nuova);
+ * a parità di momento vale l'id. Una
  * riga che porta al dettaglio di una sessione che non è fra `bookingIds` (gli
  * id delle sessioni della cornice: eliminata, o passata a un altro cliente)
  * porta alla Home, come nel prototipo; con `bookingIds` null (le sessioni non
@@ -371,7 +373,7 @@ export function clientNotificationList(
     const at = r.at && isValid(r.at) ? r.at : null;
     const unread = !read.has(r.id);
     entries.push({
-      t: at ? at.getTime() : now.getTime(),
+      t: at ? at.getTime() : Number.POSITIVE_INFINITY,
       item: {
         id: r.id,
         rowId: null,

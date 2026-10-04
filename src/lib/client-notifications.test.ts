@@ -604,6 +604,28 @@ describe("clientNotificationList · le due fonti in una lista", () => {
     });
   });
 
+  it("i crediti quasi finiti restano in cima anche sopra una riga più nuova dell'ora della cornice", () => {
+    // L'ora della cornice va a passi di 30 secondi: una riga appena arrivata
+    // può avere un momento dopo `now`.
+    const fresh = {
+      id: "r9",
+      type: "booking.moved_by_coach",
+      payload: MOVED,
+      read_at: null,
+      created_at: new Date(NOW.getTime() + 20_000).toISOString(),
+    };
+    const items = clientNotificationList(
+      { reminders, rows: [fresh, rows[0]!], readIds: [], coach: NICOLO, bookingIds: null },
+      NOW,
+    );
+    expect(items.map((i) => [i.id, i.ago])).toEqual([
+      ["low-giulia-blocco-3-1", null],
+      ["row-r9", "adesso"],
+      ["row-r1", "25 min fa"],
+      [CONFIRM, "2 giorni fa"],
+    ]);
+  });
+
   it("a parità di momento vale l'id, e la creazione che non si legge conta come adesso", () => {
     const same = new Date(NOW.getTime() - HOUR).toISOString();
     const row = (id: string, created_at: string) => ({

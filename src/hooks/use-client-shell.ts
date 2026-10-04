@@ -13,7 +13,10 @@
 //     (useClientBookState) e dal coach (useMyCoach): le stesse chiavi delle
 //     pagine, quindi le stesse letture in cache;
 //   - le azioni del coach, righe di notifications col loro canale realtime
-//     (useNotifications, lo stesso hook del coach, che non cambia).
+//     (useNotifications, lo stesso hook del coach, che non cambia). Una riga
+//     nuova fa rileggere sessioni e crediti (invalidateBookingScope): le
+//     sessioni non hanno un canale realtime, e la riga parla di una sessione
+//     che la cache può non avere ancora.
 // Lo stato «letta» dei promemoria resta in localStorage, ma localStorage da
 // solo non avvisa nessuno: qui sopra c'è un piccolo store, così quando la
 // pagina Notifiche segna una voce la campanella dell'header desktop, che resta
@@ -39,7 +42,15 @@
 // cache mescolerebbe le colonne anche qui.
 // ----------------------------------------------------------------------------
 
-import { createContext, useCallback, useContext, useMemo, useSyncExternalStore } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useSyncExternalStore,
+} from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -64,6 +75,7 @@ import {
   type ClientNotificationItem,
 } from "@/lib/client-notifications";
 import { sessionsBadge } from "@/lib/client-shell";
+import { invalidateBookingScope } from "@/lib/query-keys";
 import { arrivedRead, lostRead } from "@/lib/query-state";
 import {
   useClientBookings,
@@ -204,11 +216,32 @@ export function useClientShellState(): ClientShellState {
     () => null,
   );
   const readIds = useMemo(() => parseReadIds(raw), [raw]);
+  // Le righe nuove (dal realtime, o da una rilettura) dicono che il coach ha
+  // cambiato sessioni o crediti del cliente, ma le sessioni non hanno un
+  // canale realtime: senza rileggerle, una sessione appena inserita non sta in
+  // cache (la sua riga porterebbe alla Home invece che al dettaglio), e la
+  // conferma di una sessione appena spostata, il badge di Sessioni e i crediti
+  // resterebbero quelli di prima. Alla prima lettura delle righe no: le
+  // letture partono insieme.
+  const coachId = profileQ.data?.coach_id ?? null;
+  const seenRowIds = useRef<ReadonlySet<string> | null>(null);
+  useEffect(() => {
+    if (!userId || !rowsQ.data) return;
+    const ids = new Set(rowsQ.data.map((r) => r.id));
+    const seen = seenRowIds.current;
+    seenRowIds.current = ids;
+    if (seen && [...ids].some((id) => !seen.has(id))) {
+      invalidateBookingScope(qc, { coachId, clientId: userId });
+    }
+  }, [rowsQ.data, userId, coachId, qc]);
   // Gli id delle sessioni della cornice, per le righe di una sessione che non
-  // è più del cliente; null finché non arrivano.
+  // è più del cliente; null finché non arrivano, e mentre si rileggono: una
+  // riga appena arrivata può parlare di una sessione che la lettura di prima
+  // non aveva, e allora resta il dettaglio.
+  const bookingsFetching = bookingsQ.isFetching;
   const bookingIds = useMemo(
-    () => (bookingsQ.data ? new Set(bookingsQ.data.map((b) => b.id)) : null),
-    [bookingsQ.data],
+    () => (bookingsQ.data && !bookingsFetching ? new Set(bookingsQ.data.map((b) => b.id)) : null),
+    [bookingsQ.data, bookingsFetching],
   );
   const notifications = useMemo(
     () => clientNotificationList({ reminders, rows, readIds, coach, bookingIds }, now),
@@ -258,9 +291,9 @@ export function useClientShellState(): ClientShellState {
 
   const bookingsLoading = bookingsQ.isLoading;
 
-  // Il cancello delle voci: tutte le letture da cui vengono. Il profilo di qui
-  // (path_start_date) deve solo arrivare: senza, il percorso nuovo comparirebbe
-  // per un attimo come «È iniziato un nuovo blocco».
+  // Il cancello delle voci: tutte le letture da cui vengono, compreso il
+  // profilo di qui (path_start_date decide fra «Nuovo percorso» e «È iniziato
+  // un nuovo blocco», che hanno id diversi).
   const notificationsLoading =
     !!userId &&
     (!arrivedRead(rowsQ) ||
@@ -274,36 +307,29 @@ export function useClientShellState(): ClientShellState {
     lostRead(bookingsQ) ||
     lostRead(feedbackQ) ||
     lostRead(biaQ) ||
+    lostRead(profileQ) ||
     bookState.failed;
   const notificationsRetrying =
     rowsQ.isFetching ||
     bookingsQ.isFetching ||
     feedbackQ.isFetching ||
     biaQ.isFetching ||
+    profileQ.isFetching ||
     bookState.retrying;
   const refetchRows = rowsQ.refetch;
   const refetchBookings = bookingsQ.refetch;
   const refetchFeedback = feedbackQ.refetch;
   const refetchBia = biaQ.refetch;
   const refetchProfile = profileQ.refetch;
-  const profileFailed = profileQ.isError;
   const retryBookState = bookState.retry;
   const retryNotifications = useCallback(() => {
     void refetchRows();
     void refetchBookings();
     void refetchFeedback();
     void refetchBia();
-    if (profileFailed) void refetchProfile();
+    void refetchProfile();
     retryBookState();
-  }, [
-    refetchRows,
-    refetchBookings,
-    refetchFeedback,
-    refetchBia,
-    refetchProfile,
-    profileFailed,
-    retryBookState,
-  ]);
+  }, [refetchRows, refetchBookings, refetchFeedback, refetchBia, refetchProfile, retryBookState]);
 
   return useMemo(
     () => ({

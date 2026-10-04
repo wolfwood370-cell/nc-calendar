@@ -1,4 +1,4 @@
-import { useRef, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
   Activity,
@@ -99,6 +99,25 @@ function ClientNotificationsPage() {
     }
   };
 
+  // «Riprova»: mentre rilegge il focus resta sul pulsante (aria-disabled, non
+  // disabled: il browser non glielo toglie). Se la rilettura fallisce di nuovo
+  // lo prende il titolo della card, che lo annuncia; se riesce, la card sparisce
+  // col pulsante, e il focus va al riepilogo (una regione live: «3 da
+  // leggere») o, senza voci, a «Nessuna notifica». Come Sessioni e la Home.
+  const lostTitleRef = useRef<HTMLHeadingElement>(null);
+  const emptyRef = useRef<HTMLParagraphElement>(null);
+  const retried = useRef(false);
+  const retry = () => {
+    retried.current = true;
+    retryNotifications();
+  };
+  useEffect(() => {
+    if (!retried.current || notificationsRetrying || notificationsLoading) return;
+    retried.current = false;
+    if (notificationsLost) lostTitleRef.current?.focus();
+    else (summaryRef.current ?? emptyRef.current)?.focus();
+  }, [notificationsRetrying, notificationsLoading, notificationsLost]);
+
   let content: ReactNode;
   if (notificationsLoading) {
     content = (
@@ -113,15 +132,18 @@ function ClientNotificationsPage() {
       <BookRetryCard
         title="Le notifiche non si sono caricate"
         text="Non siamo riusciti a leggere le tue notifiche. Riprova tra poco."
-        onRetry={retryNotifications}
+        onRetry={retry}
         retrying={notificationsRetrying}
+        titleRef={lostTitleRef}
       />
     );
   } else if (notifications.length === 0) {
     content = (
       <section className="flex flex-col items-center gap-2 rounded-[24px] border border-outline-variant/35 bg-white px-5 py-6 text-center">
         <BellOff className="size-7 text-outline" aria-hidden />
-        <p className="text-[17px] font-bold text-on-surface">Nessuna notifica</p>
+        <p ref={emptyRef} tabIndex={-1} className="text-[17px] font-bold text-on-surface">
+          Nessuna notifica
+        </p>
         <p className="text-sm leading-normal text-on-surface-variant">
           {emptyNotificationsText(coach)}
         </p>
