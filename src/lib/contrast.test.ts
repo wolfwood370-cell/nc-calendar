@@ -77,6 +77,12 @@ describe("le coppie corrette nella passata 10 stanno sopra 4.5", () => {
     expect(cls).toContain("text-white");
     expect(ratio("white", bg)).toBeGreaterThanOrEqual(4.5);
   });
+  it("badge della campanella del cliente (client-notifications-bell.tsx, passata 08)", () => {
+    const [cls] = pick("client-notifications-bell.tsx", /"([^"]*h-5 min-w-5[^"]*)"/);
+    const bg = cls!.match(/\bbg-(\S+)/)![1]!;
+    expect(cls).toContain("text-white");
+    expect(ratio("white", bg)).toBeGreaterThanOrEqual(4.5);
+  });
   it("variazione della BIA, in su e in giù, sulla card bianca (bia-sparkline.tsx)", () => {
     const [up, down] = pick("bia-sparkline.tsx", /good \? "text-(\S+)" : "text-(\S+)"/);
     expect(ratio(up!, "surface-container-lowest")).toBeGreaterThanOrEqual(4.5);
