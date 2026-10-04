@@ -205,10 +205,73 @@ export type Database = {
           },
         ]
       }
+      booking_cancel_refunds: {
+        Row: {
+          booking_id: string
+          created_at: string
+          credit_id: string
+          kind: string
+        }
+        Insert: {
+          booking_id: string
+          created_at?: string
+          credit_id: string
+          kind: string
+        }
+        Update: {
+          booking_id?: string
+          created_at?: string
+          credit_id?: string
+          kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_cancel_refunds_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: true
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      booking_extra_charges: {
+        Row: {
+          booking_id: string
+          created_at: string
+          credit_id: string
+        }
+        Insert: {
+          booking_id: string
+          created_at?: string
+          credit_id: string
+        }
+        Update: {
+          booking_id?: string
+          created_at?: string
+          credit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_extra_charges_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: true
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_extra_charges_credit_id_fkey"
+            columns: ["credit_id"]
+            isOneToOne: false
+            referencedRelation: "extra_credits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bookings: {
         Row: {
           block_id: string | null
           buffer_min: number
+          cancelled_at: string | null
           category: string
           client_confirmed_at: string | null
           client_id: string | null
@@ -236,6 +299,7 @@ export type Database = {
         Insert: {
           block_id?: string | null
           buffer_min?: number
+          cancelled_at?: string | null
           category?: string
           client_confirmed_at?: string | null
           client_id?: string | null
@@ -263,6 +327,7 @@ export type Database = {
         Update: {
           block_id?: string | null
           buffer_min?: number
+          cancelled_at?: string | null
           category?: string
           client_confirmed_at?: string | null
           client_id?: string | null
@@ -359,30 +424,36 @@ export type Database = {
           amount_cents: number
           created_at: string
           currency: string
+          description: string | null
           event_type_title: string
           id: string
           package_type: string
           quantity: number
+          title: string | null
         }
         Insert: {
           active?: boolean
           amount_cents: number
           created_at?: string
           currency?: string
+          description?: string | null
           event_type_title: string
           id?: string
           package_type: string
           quantity?: number
+          title?: string | null
         }
         Update: {
           active?: boolean
           amount_cents?: number
           created_at?: string
           currency?: string
+          description?: string | null
           event_type_title?: string
           id?: string
           package_type?: string
           quantity?: number
+          title?: string | null
         }
         Relationships: []
       }
@@ -516,6 +587,7 @@ export type Database = {
           client_id: string
           coach_id: string
           goal: string
+          limitations: string | null
           note: string
           updated_at: string
         }
@@ -523,6 +595,7 @@ export type Database = {
           client_id: string
           coach_id: string
           goal?: string
+          limitations?: string | null
           note?: string
           updated_at?: string
         }
@@ -530,6 +603,7 @@ export type Database = {
           client_id?: string
           coach_id?: string
           goal?: string
+          limitations?: string | null
           note?: string
           updated_at?: string
         }
@@ -950,6 +1024,7 @@ export type Database = {
           client_id: string
           created_at: string
           id: string
+          note: string | null
           rating: number
         }
         Insert: {
@@ -957,6 +1032,7 @@ export type Database = {
           client_id: string
           created_at?: string
           id?: string
+          note?: string | null
           rating: number
         }
         Update: {
@@ -964,6 +1040,7 @@ export type Database = {
           client_id?: string
           created_at?: string
           id?: string
+          note?: string | null
           rating?: number
         }
         Relationships: [
@@ -1362,6 +1439,15 @@ export type Database = {
         }[]
       }
       get_coach_for: { Args: { _user_id: string }; Returns: string }
+      get_my_coach: {
+        Args: never
+        Returns: {
+          email: string
+          full_name: string
+          id: string
+          phone: string
+        }[]
+      }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -1407,6 +1493,12 @@ export type Database = {
           end_at: string
           google_event_id: string
           scheduled_at: string
+        }[]
+      }
+      restore_booking: {
+        Args: { p_booking_id: string }
+        Returns: {
+          status: Database["public"]["Enums"]["booking_status"]
         }[]
       }
     }
