@@ -16,9 +16,9 @@
 //   - bookingErrorMessage: gli errori del server, detti nel foglio;
 //   - reportPoolMismatches: una segnalazione per ogni insieme di incoerenze;
 //   - canBuyBooster: chi compra un Booster, la regola dello Store.
-// Il coach è un parametro, oggi NO_COACH: il cliente non legge il profilo del
-// coach finché non c'è get_my_coach (02/10/2026), e senza nome i testi dicono
-// «il tuo coach».
+// Il coach è un parametro: le pagine lo leggono con useMyCoach (get_my_coach,
+// giro del server del 02/10/2026), e senza nome (NO_COACH, finché non arriva o
+// senza coach) i testi dicono «il tuo coach».
 // Puro: niente hook, niente rete, niente Sentry; l'ora entra come parametro.
 // ----------------------------------------------------------------------------
 

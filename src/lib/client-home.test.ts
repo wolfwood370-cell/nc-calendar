@@ -20,6 +20,8 @@ import {
   creditsFooter,
   creditsHeader,
   creditsWarning,
+  creditsWarningParts,
+  creditsWarningText,
   firstFreeSlot,
   homeGreeting,
   homeNext,
@@ -1493,6 +1495,46 @@ describe("Luca al confine («edge»)", () => {
     expect(creditsWarning(LUCA.client, state, NOW)).toBe(
       "2 crediti da prenotare entro martedì 29 settembre.",
     );
+  });
+});
+
+// Le parti dell'avviso, che usa anche la voce «Crediti da usare» delle
+// notifiche (passata 08): la Home e la campanella dicono lo stesso numero.
+describe("creditsWarningParts e creditsWarningText", () => {
+  it("le parti dell'avviso di Luca al confine, e la frase senza il punto", () => {
+    const blocks = lucaBlocks("2026-09-29", "2026-09-30", "2026-10-27");
+    const { state } = home(LUCA, blocks);
+    const parts = creditsWarningParts(LUCA.client, state, NOW);
+    expect(parts).toEqual({ blockId: "l2", left: 2, end: "2026-09-29", from: at(2026, 9, 22) });
+    expect(creditsWarningText(parts!)).toBe("2 crediti da prenotare entro martedì 29 settembre");
+    expect(creditsWarning(LUCA.client, state, NOW)).toBe(`${creditsWarningText(parts!)}.`);
+  });
+
+  it("senza avviso, niente parti", () => {
+    expect(creditsWarningParts(LUCA.client, home(LUCA).state, NOW)).toBeNull();
+    expect(creditsWarning(LUCA.client, home(LUCA).state, NOW)).toBeNull();
+  });
+
+  it("«da quando» sono 7 giorni di calendario, anche a cavallo del cambio d'ora", () => {
+    // A Roma l'ora cambia il 25/10: sottraendo 7 × 24 ore alla fine del
+    // blocco (il 01/11) si arriverebbe all'una di notte del 25.
+    const reference = {
+      id: "blocco-autunno",
+      status: "active",
+      start_date: "2026-10-05",
+      end_date: "2026-11-01",
+      sequence_order: 2,
+      allocations: [],
+    } as unknown as BookState["reference"];
+    const options = [{ referencePool: { blockAvail: 3 } }] as unknown as BookOption[];
+    const parts = creditsWarningParts(
+      { path_type: "fixed" },
+      { reference, options },
+      at(2026, 10, 26, 10),
+    );
+    expect(parts?.from).toEqual(at(2026, 10, 25));
+    expect(parts?.from.getHours()).toBe(0);
+    expect(creditsWarningText(parts!)).toBe("3 crediti da prenotare entro domenica 1 novembre");
   });
 });
 

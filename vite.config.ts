@@ -59,16 +59,30 @@ export default defineConfig({
             { src: "/favicon.png", sizes: "512x512", type: "image/png", purpose: "any maskable" },
           ],
         },
+        // Passata 08: l'icona del manifest (favicon.png, 1,9 MB) non va in
+        // precache, o si riscaricherebbe a ogni installazione del service worker.
+        includeManifestIcons: false,
+        // Il service worker serve alle notifiche sul telefono (push-sw.js), e
+        // basta: niente file della build, niente pagine (passata 08, misurato
+        // il 04/10/2026 sulla build di Lovable e in produzione).
         workbox: {
-          navigateFallbackDenylist: [/^\/~oauth/, /^\/api/, /^\/lovable/],
+          // Nella build di Lovable il client sta in dist/client e sw.js in
+          // dist: le voci della precache uscivano col prefisso «client/» e
+          // rispondevano 404 (85 su 87 in produzione), una voce in 404 fa
+          // fallire tutta l'installazione (bad-precaching-response) e il
+          // service worker non partiva mai. Con [] in precache resta solo il
+          // manifest, che il plugin aggiunge da sé.
+          globPatterns: [],
+          // Il plugin mette di suo «index.html», che un'app SSR non ha: la
+          // NavigationRoute verso un indirizzo fuori dalla precache lancia
+          // non-precached-url e ferma il resto del service worker.
+          navigateFallback: null,
+          // Niente runtimeCaching: la NetworkFirst sulle pagine non è mai
+          // partita in produzione (la fermava l'errore di sopra), e accesa
+          // adesso darebbe, dopo 3 secondi di rete lenta, una pagina vecchia
+          // coi file di una build che non c'è più, anche al ritorno
+          // dall'accesso con Google (/~oauth), senza vantaggi fuori rete.
           importScripts: ["/push-sw.js"],
-          runtimeCaching: [
-            {
-              urlPattern: ({ request }) => request.mode === "navigate",
-              handler: "NetworkFirst",
-              options: { cacheName: "html", networkTimeoutSeconds: 3 },
-            },
-          ],
         },
       }),
     ],

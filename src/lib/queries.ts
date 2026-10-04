@@ -45,6 +45,10 @@ export interface BookingRow {
   // (migrazione 20260703090000). Optional + fallback difensivo finché la
   // migrazione non è applicata; null = non ancora confermata.
   client_confirmed_at?: string | null;
+  // Passata 08 del lato cliente: quando la sessione è stata creata
+  // (bookings.created_at), per la data della voce «Conferma la tua presenza».
+  // C'è solo nella lettura più larga della scala (BOOKINGS_COLS_FULL_CONFIRM).
+  created_at?: string;
 }
 
 export type BookingCategory = "client_session" | "personal" | "consulenza";
@@ -154,7 +158,11 @@ const BOOKINGS_COLS_WITH_PERSONAL = `${BOOKINGS_BASE_COLS}, is_personal`;
 const BOOKINGS_COLS_FULL = `${BOOKINGS_COLS_WITH_PERSONAL}, category`;
 // Design handoff: client_confirmed_at (conferma presenza) — stessa strategia
 // difensiva delle colonne precedenti finché la migrazione non è applicata.
-const BOOKINGS_COLS_FULL_CONFIRM = `${BOOKINGS_COLS_FULL}, client_confirmed_at`;
+// Passata 08 del lato cliente: anche created_at, il momento della
+// prenotazione, per la data della voce «Conferma la tua presenza» (il più
+// recente fra l'inizio meno 48 ore e questo). La legge anche il coach, che non
+// la usa; le letture più strette della scala non la portano.
+const BOOKINGS_COLS_FULL_CONFIRM = `${BOOKINGS_COLS_FULL}, client_confirmed_at, created_at`;
 
 function isMissingColumnError(
   err: { code?: string; message?: string } | null,

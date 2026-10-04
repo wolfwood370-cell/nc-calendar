@@ -15,6 +15,7 @@ import { ClientBottomNav } from "@/components/client-bottom-nav";
 import { ClientNotificationsBell } from "@/components/client-notifications-bell";
 import { ClientShellContext, useClientShellState } from "@/hooks/use-client-shell";
 import { CLIENT_TABS, activeClientTab, showsTabBar } from "@/lib/client-shell";
+import { forgetPushForUser } from "@/lib/push";
 
 export const Route = createFileRoute("/client")({
   // viewport-fit a «cover» solo sulle route del cliente: senza, su iPhone
@@ -105,6 +106,8 @@ function ClientLayout() {
                 variant="ghost"
                 size="sm"
                 onClick={async () => {
+                  // Le notifiche di chi esce non arrivano più a questo dispositivo (passata 08).
+                  await forgetPushForUser(session.user.id);
                   await signOut();
                   navigate({ to: "/auth" });
                 }}

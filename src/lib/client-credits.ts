@@ -19,7 +19,8 @@
 //   - getMoveWindow: i giorni in cui una sessione si sposta, dentro il suo
 //     blocco (la regola per spostare);
 //   - getClientBlockInfo: piano, blocco e sottotitolo (V6), numerati come il
-//     coach (blockChip, client-profile.ts).
+//     coach (blockChip, client-profile.ts); validBlockCount è il «di 6», lo
+//     stesso nella Home e nel Profilo (07).
 // Puri: l'ora entra come parametro, niente rete, niente Sentry. Un'incoerenza
 // fra sessioni e quantity_booked si restituisce: la segnala la pagina.
 // ----------------------------------------------------------------------------
@@ -290,6 +291,11 @@ export function blockNumber(blocks: readonly RenewalBlock[], block: RenewalBlock
   return i >= 0 ? i + 1 : null;
 }
 
+/** Quanti blocchi ha il percorso: i validi, il «di 6» di «Blocco 3 di 6» (Home e Profilo). */
+export function validBlockCount(blocks: readonly Pick<RenewalBlock, "status">[]): number {
+  return blocks.filter(isValidBlock).length;
+}
+
 /** Il primo blocco valido che viene dopo il riferimento secondo comesAfter; null se non c'è. */
 export function getNextBlock<T extends RenewalBlock>(
   blocks: readonly T[],
@@ -464,7 +470,7 @@ export function getClientBlockInfo<T extends RenewalBlock>(
 
   const recurring = client.path_type === "recurring";
   const n = blockNumber(blocks, ref) ?? 1;
-  const total = blocks.filter(isValidBlock).length;
+  const total = validBlockCount(blocks);
   const start = parseISO(ref.start_date.slice(0, 10));
   const end = parseISO(ref.end_date.slice(0, 10));
   const timing = blockTiming(ref, now);

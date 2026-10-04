@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { getCoachContacts } from "@/lib/coach-contacts";
+import { NO_COACH } from "@/lib/client-book";
+import { bookCoach, getCoachContacts } from "@/lib/coach-contacts";
 
 describe("getCoachContacts · WhatsApp, telefono ed email del coach", () => {
   it("numero con spazi e prefisso", () => {
@@ -46,5 +47,42 @@ describe("getCoachContacts · WhatsApp, telefono ed email del coach", () => {
     expect(getCoachContacts({ name: "  Nicolò   Colombo " }).firstName).toBe("Nicolò");
     expect(getCoachContacts({ name: null }).firstName).toBeNull();
     expect(getCoachContacts({}).firstName).toBeNull();
+  });
+});
+
+// Nessun caso con un numero che comincia con 00: whatsappUrl oggi tiene lo 00
+// davanti al prefisso (https://wa.me/0039…), è del lato coach, e un test che lo
+// fissasse renderebbe più difficile correggerlo.
+describe("bookCoach · il coach dei testi dalla riga di get_my_coach", () => {
+  it("il nome senza spazi, il nome di battesimo e il WhatsApp di getCoachContacts", () => {
+    expect(
+      bookCoach({
+        id: "co",
+        full_name: " Marco Rossi ",
+        phone: "+39 347 555 01 23",
+        email: "marco@example.com",
+      }),
+    ).toEqual({ name: "Marco Rossi", firstName: "Marco", whatsapp: "https://wa.me/393475550123" });
+  });
+
+  it("il coach di oggi, senza telefono: il nome sì, il WhatsApp no", () => {
+    expect(
+      bookCoach({ id: "co", full_name: "Nicolò Castello", phone: null, email: "n@example.com" }),
+    ).toEqual({ name: "Nicolò Castello", firstName: "Nicolò", whatsapp: null });
+  });
+
+  it("il WhatsApp è sempre https://wa.me/<cifre>, mai il telefono così come arriva", () => {
+    expect(
+      bookCoach({ id: "co", full_name: "Marco", phone: "javascript:alert(1)", email: null })
+        .whatsapp,
+    ).toBeNull();
+  });
+
+  it("senza riga, o senza nome, è la costante NO_COACH (non una copia)", () => {
+    expect(bookCoach(null)).toBe(NO_COACH);
+    expect(bookCoach({ id: "co", full_name: "  ", phone: "3475550123", email: null })).toBe(
+      NO_COACH,
+    );
+    expect(bookCoach({ id: "co", full_name: null, phone: null, email: null })).toBe(NO_COACH);
   });
 });

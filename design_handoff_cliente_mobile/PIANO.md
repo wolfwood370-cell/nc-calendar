@@ -18,8 +18,8 @@ Questo file è il piano da seguire con Claude Code: ordine delle passate, stato,
 | 04 | [Dettaglio sessione, Sposta, Annulla](passes/04-sessione-e-sposta.md) | D1–D5, O3, O4, B2, H9, V11 | 02, 03 | sì | [x] |
 | 05 | [Home](passes/05-home.md) | H1–H7, H9, H10, N1, N5, V1, V2, V8, V9, V10 | 02, 04 | — | [x] |
 | 06 | [Booster](passes/06-booster.md) | S1–S5, H7, V12, V14 | 01, 02 | sì | [x] |
-| 07 | [Profilo](passes/07-profilo.md) | R1–R5, H6, N5, O4, V6 | 01 | sì | [ ] |
-| 08 | [Notifiche](passes/08-notifiche.md) | H8, O3 | 01, 04 | sì | [ ] |
+| 07 | [Profilo](passes/07-profilo.md) | R1–R5, H6, N5, O4, V6 | 01 | sì | [x] |
+| 08 | [Notifiche](passes/08-notifiche.md) | H8, O3 | 01, 04 | sì | [x] |
 | 09 | [Verifica finale](passes/09-verifica-finale.md) | V1–V15, O1–O4 | tutte | — | [ ] |
 
 Legenda: [ ] da fare · [~] in corso · [x] fatta e verificata. Code aggiorna la colonna Stato alla fine di ogni passata.

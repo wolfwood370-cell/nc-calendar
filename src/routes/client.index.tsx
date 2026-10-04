@@ -18,8 +18,9 @@
 // (shownId) invece di sparire alla rilettura; dopo «Non ora» e «Ho installato
 // l'app» sull'ultimo titolo prima della card d'installazione, altrimenti sul
 // contenuto; dopo «Riprova» riuscito sul primo titolo.
-// Il coach è NO_COACH finché non c'è get_my_coach (02/10/2026), come in
-// Prenota e nel dettaglio: i testi dicono «il tuo coach», niente WhatsApp.
+// Il coach viene da useMyCoach (get_my_coach), come in Prenota e nel
+// dettaglio: finché non arriva, o senza nome, i testi dicono «il tuo coach»,
+// e i pulsanti WhatsApp ci sono solo col link.
 // ----------------------------------------------------------------------------
 
 import { createFileRoute } from "@tanstack/react-router";
@@ -35,8 +36,8 @@ import { AuraSkeleton } from "@/components/ui/aura-skeleton";
 import { useBiaMeasurements } from "@/hooks/use-bia";
 import { useClientBookState } from "@/hooks/use-client-book-state";
 import { useClientShell } from "@/hooks/use-client-shell";
+import { useMyCoach } from "@/hooks/use-my-coach";
 import { useClientFeedback } from "@/hooks/use-session-feedback";
-import { NO_COACH } from "@/lib/client-book";
 import {
   homeGreeting,
   homeNext,
@@ -70,16 +71,14 @@ export const Route = createFileRoute("/client/")({
   component: ClientHome,
 });
 
-// Il coach nei testi: il cliente oggi non legge il profilo del coach. Nome e
-// WhatsApp arriveranno da get_my_coach, con le migrazioni del 02/10/2026.
-const COACH = NO_COACH;
-
 const NO_BOOKINGS: BookingRow[] = [];
 const NO_BLOCKS: BlockRow[] = [];
 const NO_EVENT_TYPES: EventTypeRow[] = [];
 
 function ClientHome() {
   const { now } = useClientShell();
+  // Il coach dei testi (get_my_coach): senza nome «il tuo coach».
+  const { coach } = useMyCoach();
   const {
     meId,
     coachId,
@@ -93,7 +92,7 @@ function ClientHome() {
     state,
     retry,
     retrying,
-  } = useClientBookState(now, COACH);
+  } = useClientBookState(now, coach);
   const feedbackQ = useClientFeedback(meId);
   const biaQ = useBiaMeasurements(meId);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -157,7 +156,7 @@ function ClientHome() {
     if (!state) return null;
     if (key === "concluded") {
       return (
-        <HomeConcludedCard key={key} endDate={state.reference?.end_date ?? ""} coach={COACH} />
+        <HomeConcludedCard key={key} endDate={state.reference?.end_date ?? ""} coach={coach} />
       );
     }
     if (key === "next" && next.next) {
@@ -167,17 +166,17 @@ function ClientHome() {
           booking={next.next}
           eventTypes={eventTypes}
           others={next.others}
-          coach={COACH}
+          coach={coach}
           clientName={profile?.full_name ?? null}
         />
       );
     }
     if (key === "no-next") {
-      return <HomeNoNextCard key={key} options={state.options} coachId={coachId} coach={COACH} />;
+      return <HomeNoNextCard key={key} options={state.options} coachId={coachId} coach={coach} />;
     }
     if (key === "credits" && client) {
       return (
-        <HomeCreditsCard key={key} client={client} blocks={blocks} state={state} coach={COACH} />
+        <HomeCreditsCard key={key} client={client} blocks={blocks} state={state} coach={coach} />
       );
     }
     if (key === "rating" && rating && meId) {
@@ -190,9 +189,9 @@ function ClientHome() {
           rating={rating.rating}
           note={rating.note}
           editable
-          coach={COACH}
+          coach={coach}
           layout="home"
-          subtitle={ratingSubtitle(sessionName(b, typeOf(b)), b, COACH)}
+          subtitle={ratingSubtitle(sessionName(b, typeOf(b)), b, coach)}
         />
       );
     }
@@ -224,7 +223,7 @@ function ClientHome() {
         className="flex flex-col gap-4 px-4 pt-1 pb-6 outline-none"
       >
         {content}
-        {biaQ.data && <HomeProgressCard measurements={biaQ.data} coach={COACH} />}
+        {biaQ.data && <HomeProgressCard measurements={biaQ.data} coach={coach} />}
         {meId && <HomeInstallCard userId={meId} returnFocus={beforeInstall} />}
       </div>
     </div>

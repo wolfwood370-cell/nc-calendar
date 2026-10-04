@@ -31,10 +31,10 @@ import { useBookConfirm, type BookConfirmType } from "@/hooks/use-book-confirm";
 import { useClientBookState } from "@/hooks/use-client-book-state";
 import { useClientShell } from "@/hooks/use-client-shell";
 import { useCoachSlotInputs } from "@/hooks/use-coach-slot-inputs";
+import { useMyCoach } from "@/hooks/use-my-coach";
 import { useAuth } from "@/lib/auth";
 import { bookingRulesText, type CreditWindow } from "@/lib/booking-rules";
 import {
-  NO_COACH,
   barType,
   barWhen,
   creditLine,
@@ -83,12 +83,6 @@ export const Route = createFileRoute("/client/book")({
   },
 });
 
-// Il coach nei testi. Il cliente oggi non legge il profilo del coach (nessuna
-// policy di profiles glielo dà, e nel backup il coach non ha il telefono):
-// nome e WhatsApp arriveranno da get_my_coach, con le migrazioni del 02/10/2026.
-// Fino ad allora i testi dicono «il tuo coach» e i pulsanti WhatsApp non ci sono.
-const COACH = NO_COACH;
-
 const NO_OPTIONS: BookOption[] = [];
 
 /**
@@ -107,6 +101,9 @@ interface ChosenSlot {
 function BookFlow() {
   const { user } = useAuth();
   const { now } = useClientShell();
+  // Il coach dei testi (get_my_coach): senza nome «il tuo coach», e i pulsanti
+  // WhatsApp solo col link (il coach di oggi, senza telefono, non ne ha).
+  const { coach } = useMyCoach();
   const navigate = useNavigate();
   const eventTypeParam = Route.useSearch({ select: (s) => s.eventType });
 
@@ -123,7 +120,7 @@ function BookFlow() {
     state,
     retry,
     retrying,
-  } = useClientBookState(now, COACH);
+  } = useClientBookState(now, coach);
   // Gli orari del coach e le loro letture: lo stesso hook di Sposta.
   const {
     availabilityQ,
@@ -285,7 +282,7 @@ function BookFlow() {
           durationMin: slotOption.durationMin,
           online: slotOption.location === "online",
           when: whenLine(slot),
-          coach: withCoachLine(COACH),
+          coach: withCoachLine(coach),
           place: placeLine(slotOption),
           credit: creditLine(slotOption, slotWindow, state),
           rule: summaryRule(slot.iso, now),
@@ -331,7 +328,7 @@ function BookFlow() {
     if (result.ok) {
       setDone({
         bookingId: result.bookingId,
-        text: doneText(slotOption.name, slot.iso, COACH, profile?.email ?? null),
+        text: doneText(slotOption.name, slot.iso, coach, profile?.email ?? null),
       });
       setSlot(null);
     } else {
@@ -351,7 +348,7 @@ function BookFlow() {
   );
 
   const howOption = howKey ? (options.find((o) => o.key === howKey) ?? null) : null;
-  const how = howOption && state ? howToBook(howOption, state, COACH) : null;
+  const how = howOption && state ? howToBook(howOption, state, coach) : null;
 
   // ---- La pagina --------------------------------------------------------
   const subtitle =
@@ -376,8 +373,8 @@ function BookFlow() {
     content = (
       <BookBlockedCard
         blocked={state.blocked}
-        whatsapp={COACH.whatsapp}
-        whatsappLabel={writeToCoach(COACH)}
+        whatsapp={coach.whatsapp}
+        whatsappLabel={writeToCoach(coach)}
         titleRef={cardTitleRef}
       />
     );
@@ -431,13 +428,13 @@ function BookFlow() {
                 ) : (
                   <div className="flex flex-col gap-2.5 rounded-[18px] border border-surface-variant bg-white px-4 py-3.5">
                     <p className="text-[15px] leading-normal text-on-surface-variant">
-                      {noSlotsText(bookable.name, slotDays.until, COACH)}
+                      {noSlotsText(bookable.name, slotDays.until, coach)}
                     </p>
-                    {COACH.whatsapp && (
+                    {coach.whatsapp && (
                       <ClientButton asChild variant="tonal" size="lg" className="self-start">
-                        <a href={COACH.whatsapp} target="_blank" rel="noopener noreferrer">
+                        <a href={coach.whatsapp} target="_blank" rel="noopener noreferrer">
                           <MessageCircle className="size-4" aria-hidden />
-                          {writeToCoach(COACH)}
+                          {writeToCoach(coach)}
                         </a>
                       </ClientButton>
                     )}
@@ -481,7 +478,7 @@ function BookFlow() {
         }}
         how={how}
         eventTypeId={howOption?.eventTypeId ?? null}
-        whatsappLabel={writeOnWhatsApp(COACH)}
+        whatsappLabel={writeOnWhatsApp(coach)}
       />
     </div>
   );

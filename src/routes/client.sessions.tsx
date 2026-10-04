@@ -27,8 +27,8 @@ import { SegmentedControl } from "@/components/segmented-control";
 import { AuraLineSkeleton, AuraSkeleton } from "@/components/ui/aura-skeleton";
 import { useClientBookState } from "@/hooks/use-client-book-state";
 import { useClientShell } from "@/hooks/use-client-shell";
+import { useMyCoach } from "@/hooks/use-my-coach";
 import { useClientFeedback } from "@/hooks/use-session-feedback";
-import { NO_COACH } from "@/lib/client-book";
 import {
   attendanceSummary,
   parseSessionsTab,
@@ -82,8 +82,10 @@ function ClientSessionsPage() {
   const navigate = useNavigate();
   const tab = Route.useSearch({ select: (s) => s.tab }) ?? "prossime";
 
+  // Il coach dei testi (get_my_coach): qui entra nella card vuota, tramite lo stato dei crediti.
+  const { coach } = useMyCoach();
   const { meId, coachId, profileArrived, bookingsQ, eventTypesQ, failed, state } =
-    useClientBookState(now, NO_COACH);
+    useClientBookState(now, coach);
   const feedbackQ = useClientFeedback(meId);
 
   // Persa: in errore e senza dati. Una rilettura fallita coi dati di prima
