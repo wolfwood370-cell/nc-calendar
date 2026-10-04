@@ -6,6 +6,7 @@ import {
   getCreditWindows,
   getMoveWindow,
   getNextBlock,
+  validBlockCount,
   type ClientBlock,
   type ClientPoolsInput,
   type CreditWindowsInput,
@@ -591,5 +592,18 @@ describe("getClientBlockInfo · piano, blocco e sottotitolo", () => {
     ];
     expect(getClientBlockInfo(client("fixed"), withCancelled, NOW).block).toBe("Blocco 2 di 2");
     expect(blockNumber(withCancelled, withCancelled[1]!)).toBeNull();
+  });
+});
+
+describe("validBlockCount · il «di 6» del percorso, nella Home e nel Profilo", () => {
+  it("conta i soli blocchi validi, come il numero del blocco", () => {
+    const withCancelled = [
+      block("a", 1, "2026-08-17", "2026-09-13"),
+      block("x", 2, "2026-08-31", "2026-09-27", [], "cancelled"),
+      block("b", 3, "2026-09-14", "2026-10-11"),
+    ];
+    expect(validBlockCount(withCancelled)).toBe(2);
+    expect(validBlockCount(PATH)).toBe(6);
+    expect(validBlockCount([])).toBe(0);
   });
 });

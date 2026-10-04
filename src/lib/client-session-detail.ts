@@ -17,10 +17,9 @@
 //   - le informazioni: la nota del coach e l'invito del calendario;
 //   - la valutazione, Annulla, Sposta (i giorni di getClientSlotDays senza
 //     l'orario in cui la sessione è adesso) e gli errori delle azioni.
-// Il coach è quello di BookCoach, oggi NO_COACH: il cliente non ne legge il
-// nome finché non c'è get_my_coach (02/10/2026), e i testi dicono «il tuo
-// coach». Puro: niente hook, niente rete, niente Sentry; l'ora entra come
-// parametro, sempre l'ultimo.
+// Il coach è quello di BookCoach (useMyCoach nella pagina, da get_my_coach):
+// senza nome (NO_COACH) i testi dicono «il tuo coach». Puro: niente hook,
+// niente rete, niente Sentry; l'ora entra come parametro, sempre l'ultimo.
 // ----------------------------------------------------------------------------
 
 import { differenceInCalendarDays, format } from "date-fns";

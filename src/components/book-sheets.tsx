@@ -9,7 +9,7 @@
 //     pagina (returnFocus), perché «Continua» non c'è più;
 //   - BookHowSheet: «Come si prenota», per le tipologie che non si scelgono.
 // I testi arrivano fatti da client-book.ts; il WhatsApp del coach c'è solo col
-// link (oggi mai: get_my_coach è del 02/10/2026).
+// link (bookCoach da get_my_coach: solo se il coach ha un numero valido).
 // ----------------------------------------------------------------------------
 
 import { Link } from "@tanstack/react-router";
