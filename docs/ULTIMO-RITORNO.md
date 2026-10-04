@@ -1,10 +1,20 @@
-**Dove ho girato (ultimo ritorno · lato cliente · passata 07 · il Profilo, sul PC):** **sul PC.** Git Bash: `pwd` = `/c/Coworks/NC App Development/repos/nc-calendar`, `uname -s` = `MINGW64_NT-10.0-26300`, `$OS` = `Windows_NT`, `deps-presenti`; bun 1.3.14, node v24.12.0, git 2.54.0.windows.1, gh 2.101.0. Nessuna installazione, nel repo né fuori.
+**Dove ho girato (ultimo ritorno · lato cliente · passata 08 · le Notifiche, sul PC):** **sul PC.** Git Bash: `pwd` = `/c/Coworks/NC App Development/repos/nc-calendar`, `uname -s` = `MINGW64_NT-10.0-26300`, `$OS` = `Windows_NT`, `deps-presenti`; bun 1.3.14, node v24.12.0, git 2.54.0.windows.1, gh 2.101.0. Nessuna installazione, nel repo né fuori.
 
-> **In breve.** La 07 è fatta sul PC, dal ramo `redesign/cliente-07-profilo` su `ec64733`: `useMyCoach` legge `get_my_coach` per tutte le pagine del cliente (Home, Prenota, Sessioni, Booster, il dettaglio e il Profilo), `bookCoach` ne fa il coach dei testi, e il Profilo nuovo (identità, «Il tuo coach», «Il tuo percorso», «Notifiche», «Account», «Esci», coi fogli «Cambia password» e «Collega Google») sta tutto sulle regole di `src/lib/client-settings.ts`, sopra gli helper della 00 e la presenza di Sessioni. Google resta il giro di oggi (decisione 11), niente «Scollega», le notifiche dicono cosa arriva oggi; il Profilo di prima e `settings-row.tsx` non ci sono più.
+> **In breve.** La 08 è fatta sul PC, sul ramo `redesign/cliente-08-notifiche` nato da `5440168`.
+> - **Il telefono può ricevere le notifiche.** Il service worker si registra in produzione (`isLovablePreviewHost`). Nella build di Lovable ha in precache il solo manifest, senza pagine in cache, e si installa (B13). Le pagine collegano il manifest. Il tocco su una notifica porta alla sua pagina anche con l'app aperta, l'iscrizione aspetta il service worker attivo, e un service worker nuovo non ricarica le pagine.
+> - **La pagina Notifiche** mette insieme i sette promemoria e le quattro azioni del coach (`describeClientNotification`), dalla più recente. Segna letta una voce alla volta, ha lo scheletro e «Riprova», e il badge conta le due fonti.
+> - **«Attive»** guarda la riga di chi è entrato, e i due «Esci» la tolgono.
 >
-> **La stampa di Cowork sul mio ramo dà esattamente `app/atteso-cli-07-2026-10-02.json`** a Roma, in UTC e a Los Angeles. Cancelli: typecheck 0, lint 0 errori e 14 avvisi (gli stessi della base), **1276 test in 62 file** (erano 1239 in 61), build riuscita; i quattro file del §5 verdi nei tre fusi con le sonde a 0, 420 e −120. Lo script dei controlli dà ogni riga all'atteso del §6. **R1-R20 tutte rosse** sui casi previsti e poi verdi (R18 nel lint e in D11, R19 nel browser). Nel browser `giro07.mjs` **147 su 147**, e i quattro giri di prima: `giro04` 104 su 104, `giro-sessioni` 78 su 78, `giro-prenota` 82 su 82, `giro05-cowork` 149 su 152 coi soli tre KO di oggi.
+> **La stampa di Cowork sul ramo dà esattamente `app/atteso-cli-08-2026-10-04.json`** a Roma, in UTC e a Los Angeles. I cancelli:
+> - typecheck 0;
+> - lint 0 errori e 14 avvisi, gli stessi della base;
+> - **1357 test in 65 file** (erano 1276 in 62);
+> - build riuscita, anche con `LOVABLE_SANDBOX=1` su Windows;
+> - i sette file del §5 verdi nei tre fusi, con le sonde a 0, 420 e −120.
 >
-> Un revisore in sola lettura ha dato 9 punti: tre veri, corretti in un commit in più (`8ad35fb`: l'errore del server che arrivava a foglio già chiuso, l'interruttore con `disabled` che perdeva il focus da tastiera, il focus fermo sul pulsante dopo un «Salva» con errore); gli altri sono per contratto o fuori perimetro e stanno in §11.
+> Lo script dei controlli dà ogni riga all'atteso del §6. **R1-R31 tutte rosse** sui casi previsti e poi verdi. Nel browser: `giro08.mjs` **79 su 79**; i giri di prima uguali alla base (giro04 104 su 104, giro-sessioni 78 su 78, giro-prenota 82 OK e 0 KO, giro05-cowork 149 su 152 coi soli tre KO noti, giro07 147 su 147); B13 «come atteso» nei due versi.
+>
+> Un revisore in sola lettura ha dato cinque rilievi, tutti veri e corretti in un commit in più (`1bffaa2`). Il più serio: una «Nuova sessione in agenda» arrivata dal realtime portava alla Home invece che al dettaglio, perché le sessioni del cliente non hanno un canale realtime (§1, passo 9; §10, punto 3).
 >
 > Workflow: 0. Agenti: 1 (il revisore).
 
@@ -12,228 +22,247 @@
 
 ☐ da fare · ☑ fatto, con l'hash del commit · ⚠️ deviato, con la misura e il `file:riga`
 
-0. ☑ **Dove giri, la base e il ramo** (§2). `ea4a658`, il commit del piano (ammesso dal §2).
-   - Ambiente: la riga in testa (PC). All'avvio il clone era su `main` @ `3d29634`, pulito, come l'aveva misurato Cowork.
-   - `git fetch origin` → `d15f6d4..ec64733  redesign/cliente-mobile -> origin/redesign/cliente-mobile`; `git rev-parse --short origin/redesign/cliente-mobile` → **`ec64733`** (non più avanti), albero `27c5d89`, lo stesso di `c365916`.
-   - `git switch --no-track -c redesign/cliente-07-profilo origin/redesign/cliente-mobile` → `ec64733`, nessun upstream.
-   - Le sonde del fuso, da PowerShell (`node -e "console.log(new Date(2026, 8, 28).getTimezoneOffset())"`): `UTC` → `0`; `America/Los_Angeles` → `420`; senza `TZ` (Roma) → `-120`.
-   - I cancelli su `ec64733`, senza toccare niente: typecheck 0 errori; lint 0 errori e **14** avvisi; **1239 test in 61 file**, tutti verdi (13,0 s); build riuscita.
-   - Lo script dei controlli su `ec64733` dà la colonna «oggi» del §6 riga per riga (§6 qui sotto la riporta accanto all'uscita finale).
-1. ☑ **Il coach da `get_my_coach`** (§4.1). `810166b`: `MyCoachRow` e `bookCoach` in `src/lib/coach-contacts.ts` (con la testa riscritta), `src/hooks/use-my-coach.ts`, i quattro casi del §5.2 in `coach-contacts.test.ts` (9 test, verde). D0 `useMyCoach 1 · bookCoach 1`.
-2. ☑ **Le pagine leggono il coach** (§4.2, §4.6). `99809b0`: `useMyCoach()` nelle cinque pagine al posto di `NO_COACH`, `coach` nelle dipendenze dei tre `useMemo` dello Store, i commenti del §4.6 (e `book-sheets.tsx`). Typecheck 0, lint 0 e 14, D2 `NO_COACH 0 · useMyCoach 1` nelle cinque pagine, D6 `0 file`, D11 `avvisi: 0`, suite verde (1243), D7 a commit fatto `0` su tutti e cinque.
-3. ☑ **Le regole del Profilo** (§4.3). `ef18915`: `src/lib/client-settings.ts`, `clientAttendance` in `client-sessions.ts` (e `attendanceSummary` che la chiama), `validBlockCount` in `client-credits.ts` (e `getClientBlockInfo` che la chiama), `client-settings.test.ts` (30 test) e i casi del §5.3. I quattro file verdi (109), D0 `12 su 12 · … · clientAttendance 1 · validBlockCount 1`, D5 all'atteso nelle prime due righe, D8 vuoto. Prima del commit la stampa di Cowork sul ramo: uguale all'atteso nei tre fusi.
-4. ☑ **La pagina, i fogli, l'interruttore** (§4.4). `d6e9490`: `client.settings.tsx` riscritto, `client-settings-sheets.tsx`, `client-switch.tsx`, `settings-row.tsx` tolto. `git add` dei due file nuovi prima dello script: D0 `ClientSwitch 1`, D2 anche per il Profilo, D3 tutto 0 e `assente · 0`, D4 `0 · 0`, D5 `clientAttendance 1 · attendanceSummary 0`, D11 `0`, D13 `0`; typecheck 0, lint 0 e 14. Una prova di fumo nel browser prima del commit (B1 su Giulia, 16 su 16).
-   - ⚠️ `max-[360px]:hidden` e non `max-[359px]` per le icone dei contatti (§10, punto 1); `ComponentRef` e `SubmitEvent` al posto dei tipi deprecati (§10, punto 2).
-5. ☑ **`PIANO.md`** (§4.7). `35590e5`: la riga 07 a `[x]`, con `sed` (l'hook Prettier riformatterebbe tutto il file), `git diff --numstat` `1 1`; D9 le due righe attese.
-6. ☑ **I cancelli e le prove rosse** (§2, §7). Nessun commit. I cancelli su `35590e5` e di nuovo, dopo la revisione, su `8ad35fb` (§4); i quattro file nei tre fusi da PowerShell (§4); R1-R17 e R20 con l'arnese della 06b adattato (§7), R18 con lint e D11 (§7).
-7. ☑ **Il browser** (§8). Nessun commit: il banco sta nello scratchpad. `giro07.mjs` 147 su 147; R19 rossa (10 su 11, Giorgio) e verde a file rimesso (11 su 11); B12: `giro04` 104 su 104, `giro-sessioni` 78 su 78, `giro-prenota` 82 su 82, `giro05-cowork` 149 su 152 coi soli tre KO di oggi.
-8. ☑ **Chiusura** (§10). Lo script dei controlli a lavoro committato (§6), questo file, `git push -u origin redesign/cliente-07-profilo`, la PR (§2).
-9. ☑ **Passo aggiunto: la revisione.** `8ad35fb`. Un revisore in sola lettura (un agente, circa 12 minuti) ha letto una fotografia del ramo a `35590e5` (`git archive` nello scratchpad) col diff e il brief. Nove punti: tre veri e corretti, sei dichiarati (§11).
-   - **L'errore del server a foglio chiuso** (`client-settings-sheets.tsx`): chiudendo «Cambia password» (Esc, trascinamento, «Indietro») mentre il salvataggio era in volo, `reset()` svuotava i campi e poi l'errore del server scriveva nel foglio chiuso, che alla riapertura mostrava «È la password che usi già…» su un campo vuoto. Ora un contatore di giri: una risposta arrivata dopo la chiusura si ignora.
-   - **L'interruttore con `disabled`** (`client.settings.tsx`, `client-switch.tsx`): attivato da tastiera, il pulsante diventava `disabled` per tutta la richiesta del permesso e il browser mandava il focus sul `body`. Ora `aria-disabled` mentre lavora (il tocco si ignora, come `BookRetryCard` della 05), e `ClientSwitch` ha gli stili anche per `aria-disabled`.
-   - **Il focus dopo «Salva» con errore**: restava sul pulsante e uno screen reader non annunciava niente. Ora va sul primo campo in errore (che ha `aria-describedby` verso il testo), e sul primo campo con l'errore del server.
-   - Dopo la correzione: typecheck 0, lint 0 e 14, i quattro file 109 su 109, lo script dei controlli all'atteso, `giro07.mjs` di nuovo 147 su 147.
+0. ☑ **Dove giri, la base e il ramo** (§2). `73621be`, il commit del piano (ammesso dal §2).
+   - Ambiente: la riga in testa (PC).
+   - ⚠️ All'avvio il clone era su `main` @ `3d29634` (`behind 173`), pulito, e non su `redesign/cliente-07-profilo` @ `0ef18e5` come l'aveva misurato Cowork alle 15:24. Non cambia niente: il ramo nasce da `origin/redesign/cliente-mobile`.
+   - `git fetch origin` → `ec64733..5440168  redesign/cliente-mobile -> origin/redesign/cliente-mobile`; `git rev-parse --short origin/redesign/cliente-mobile` → **`5440168`** (non più avanti), albero `66700ca`. `origin/main` è su `ac36dec` (il rilascio della 07): non toccato.
+   - `git switch --no-track -c redesign/cliente-08-notifiche origin/redesign/cliente-mobile` → `5440168`, nessun upstream.
+   - Le sonde del fuso, da PowerShell: `UTC` → `0`; `America/Los_Angeles` → `420`; senza `TZ` (Roma) → `-120`.
+   - I cancelli su `5440168`, senza toccare niente: typecheck 0; lint 0 errori e **14** avvisi; **1276 test in 62 file**; build riuscita; `LOVABLE_SANDBOX=1` riuscita anche su Windows, con 88 voci in precache di cui 86 `client/`, la NavigationRoute e la NetworkFirst (§4).
+   - Lo script dei controlli su `5440168` dà la colonna «oggi» del §6 riga per riga (§6).
+   - Il banco copiato nello scratchpad (`lib-windows.mjs` → `lib.mjs`, l'atteso della 04 accanto, la `DIR` di `giro-prenota.mjs` lì); Playwright e Chromium della cache ci sono.
+1. ☑ **Il telefono** (§4.1). `c79fc41`. I tre file di test verdi (19 test al passo 1); D2 tutto all'atteso; `LOVABLE_SANDBOX=1 bun run build` riuscita e B13 «come atteso» nei due versi già qui (`sw.js` con la sola voce `manifest.webmanifest`, «pronto», 1 registrazione; con `--rotto` «non pronto dopo 8 s», 0).
+2. ☑ **Le azioni del coach e le parti dell'avviso** (§4.2). `ab28e2c`. `notifications.test.ts` e `client-home.test.ts` verdi (145); D7 `1`; a commit fatto D4 `notifications.ts, righe tolte o cambiate 0`.
+3. ☑ **I promemoria, la lista, la cornice, la pagina, la campanella** (§4.3, §4.4). `307521c`. D0 all'atteso salvo `isPushEnabledFor 0 · forgetPushForUser 0`; D3, D5, D11 `avvisi: 0`, D13 `1`; typecheck 0; lint 0 e 14; suite intera verde (1348 in 65 a quel punto). Prima del commit la stampa di Cowork sul ramo: **uguale all'atteso nei tre fusi** (§8), e una prova di fumo nel browser (`giro08 solo=B1` su tre persone, 20 su 20).
+   - ⚠️ Lo scheletro aspetta anche il profilo della cornice (`src/hooks/use-client-shell.ts`, `notificationsLoading`): §10, punto 2.
+4. ☑ **Il telefono per persona** (§4.5, §4.7). `cb931ac`. D0 tutto all'atteso; D6 `1 · 1 · 2 · 0 · 1 · 1` e, a commit fatto, `righe di codice cambiate 0`; `push.test.ts` verde (11). Prova di fumo `giro08 solo=B10`: 9 su 9.
+   - ⚠️ L'interruttore spento, se la riga non si toglie, resta acceso col toast d'errore (`src/routes/client.settings.tsx`, `togglePush`): §10, punto 7.
+5. ☑ **`PIANO.md`** (§4.8). `057de9f`: la riga 08 a `[x]` con `sed` (l'hook Prettier riformatterebbe tutto il file), `git diff --numstat` `1 1`, blob `0d1e93a` (lo stesso del ramo simulato di Cowork); D9 le due righe attese.
+6. ☑ **I cancelli e le prove rosse** (§2, §7). Nessun commit. I cancelli (§4), i sette file nei tre fusi (§4), R1-R24 tutte rosse sui casi previsti e poi verdi (§7).
+7. ☑ **Il browser** (§8). Nessun commit: i file di prova stanno nello scratchpad. `giro08.mjs` **79 su 79**; R25-R31 tutte rosse (7 su 7), su 057de9f e su 1bffaa2; B12 uguali alla base (giro04 104 su 104, giro-sessioni 78 su 78, giro-prenota 82 OK e 0 KO, giro05-cowork 149 su 152 coi soli tre KO noti, giro07 147 su 147); B13 «come atteso» nei due versi; la sonda della revisione 7 su 7.
+8. ☑ **Chiusura** (§10). Lo script dei controlli a lavoro committato (§6), questo file (il commit di questo file), `git push -u origin redesign/cliente-08-notifiche`, la PR.
+9. ☑ **Passo aggiunto: la revisione.** `1bffaa2`. Un revisore in sola lettura (un agente, circa 24 minuti) ha letto una fotografia del ramo a `057de9f` (`git archive` nello scratchpad) col diff, il prompt e lo SQL di Cowork. Niente di grave e cinque rilievi, tutti veri, tutti corretti:
+   - **una «Nuova sessione in agenda» arrivata dal realtime portava alla Home** (media): le sessioni del cliente non hanno un canale realtime, quindi la sessione appena inserita non era fra `bookingIds`. Ora una riga nuova fa rileggere sessioni e crediti (`invalidateBookingScope`), e mentre le sessioni si rileggono la riga tiene il dettaglio. Si aggiornano così anche la conferma di una sessione appena spostata e il badge di Sessioni. Il dettaglio invece funzionava già, perché legge la sessione per id;
+   - **il focus dopo «Riprova»** andava sul `body` (riuscito) o restava muto sul pulsante (fallito);
+   - **il profilo** stava nello scheletro ma non in «Riprova», e i commenti dicevano il contrario;
+   - **i crediti quasi finiti** scendevano sotto una riga più nuova dell'ora della cornice (§10, punto 4);
+   - **l'import di `virtual:pwa-register` fallito** taceva.
+   - La sonda nel browser (`sonda-revisione08.mjs`, tre casi) dà **3 su 7** sul codice di `057de9f` (con le correzioni messe da parte con `git stash`): la riga porta a `/client`, le sessioni non si rileggono, il focus resta sul pulsante o va sul `body`. Sul codice di `1bffaa2` dà **7 su 7**.
+   - Dopo la correzione, rifatto tutto sul commit finale: cancelli, i sette file nei tre fusi, stampa, controlli, R1-R31, `giro08`, B12, B13.
 
 ## 2 · RAMO E COMMIT
 
-- Ramo: `redesign/cliente-07-profilo`, da `origin/redesign/cliente-mobile` @ `ec64733` (albero `27c5d89`), senza upstream (`--no-track`). L'ultimo commit di codice è `8ad35fb` (la revisione); dopo c'è solo il commit di questo file.
+- Ramo: `redesign/cliente-08-notifiche`, da `origin/redesign/cliente-mobile` @ `5440168` (albero `66700ca`), senza upstream (`--no-track`). L'ultimo commit di codice è `1bffaa2` (la revisione); dopo c'è solo il commit di questo file.
 - I commit del ramo, dal primo:
-  - `ea4a658` Il piano della passata 07 in testa a docs/ULTIMO-RITORNO.md (il piano del passo 0)
-  - `810166b` Il coach del cliente da get_my_coach: useMyCoach e bookCoach
-  - `99809b0` Le pagine del cliente leggono il coach con useMyCoach
-  - `ef18915` Profilo: le regole in client-settings.ts
-  - `d6e9490` Profilo: la pagina nuova, i fogli e l'interruttore
-  - `35590e5` PIANO.md: la passata 07 è fatta
-  - `8ad35fb` Revisione: il foglio della password e l'interruttore tengono il focus e ignorano le risposte in ritardo
-  - il commit di questo file («Riscrive docs/ULTIMO-RITORNO.md per la passata 07»)
-- PR: aperta con questo file come descrizione, verso `redesign/cliente-mobile`, **non** unita (il numero sta nella risposta in chat: nasce dopo questo file).
+  - `73621be` Il piano della passata 08 in testa a docs/ULTIMO-RITORNO.md (il piano del passo 0)
+  - `c79fc41` Notifiche sul telefono: il service worker si registra in produzione, le pagine collegano il manifest, il tocco apre la pagina, l'iscrizione aspetta il service worker attivo
+  - `ab28e2c` Notifiche del cliente: le azioni del coach lette da describeClientNotification, le parti dell'avviso dei crediti, la creazione delle sessioni
+  - `307521c` Notifiche del cliente: i promemoria nuovi, la lista con le azioni del coach, una letta alla volta, il badge
+  - `cb931ac` Notifiche sul telefono: «Attive» guarda la riga di chi è entrato, e all'uscita il telefono smette di riceverle
+  - `057de9f` PIANO.md: la passata 08 è fatta
+  - `1bffaa2` Revisione: una riga nuova fa rileggere sessioni e crediti, il focus dopo «Riprova», il profilo nel cancello, i crediti quasi finiti in cima
+  - il commit di questo file («Riscrive docs/ULTIMO-RITORNO.md per la passata 08»)
+- PR: aperta con questo file come descrizione, verso `redesign/cliente-mobile`, **non** unita. Il numero è nella risposta in chat, perché nasce dopo questo file.
 
 ## 3 · MANIFESTO
 
-- **NUOVI (5):** `src/lib/client-settings.ts`, `src/lib/client-settings.test.ts`, `src/hooks/use-my-coach.ts`, `src/components/client-settings-sheets.tsx`, `src/components/client-switch.tsx`.
-- **MODIFICATI (19):**
-  - il coach: `src/lib/coach-contacts.ts`, `src/lib/coach-contacts.test.ts`;
-  - le pagine: `src/routes/client.index.tsx`, `src/routes/client.book.tsx`, `src/routes/client.sessions.tsx`, `src/routes/client.store.tsx`, `src/components/client-booking-detail-view.tsx`, `src/routes/client.settings.tsx` (riscritto);
-  - le regole: `src/lib/client-sessions.ts` (`clientAttendance`), `src/lib/client-sessions.test.ts`, `src/lib/client-credits.ts` (`validBlockCount`), `src/lib/client-credits.test.ts`;
-  - solo commenti: `src/lib/client-book.ts`, `src/lib/client-home.ts`, `src/lib/client-session-detail.ts`, `src/lib/client-store.ts`, `src/components/book-sheets.tsx`;
-  - `design_handoff_cliente_mobile/PIANO.md` (la riga 07), `docs/ULTIMO-RITORNO.md`.
-- **TOLTI (1):** `src/components/settings-row.tsx` (lo importava solo `client.settings.tsx`).
-- **NEL PERIMETRO MA NON TOCCATI:** `src/hooks/use-my-coach.test.ts` (ammesso da D1, non scritto: il hook è rete e cache, e lo prova il banco con B3; i test restano in 62 file). `package.json`, `bun.lock`, `supabase/`, `src/lib/testing/*`, `src/integrations/supabase/types.ts` non cambiano (D9, D10).
+- **NUOVI (4):** `src/lib/pwa-host.ts`, `src/lib/pwa-host.test.ts`, `src/lib/push-sw.test.ts`, `src/lib/push.test.ts`.
+- **MODIFICATI (21):**
+  - il telefono: `public/push-sw.js`, `src/components/pwa-register.tsx`, `vite.config.ts`, `src/routes/__root.tsx`, `src/lib/push.ts`;
+  - le regole: `src/lib/client-notifications.ts` e il suo test (riscritti), `src/lib/notifications.ts` (solo aggiunte) e il suo test, `src/lib/client-home.ts` e il suo test, `src/lib/queries.ts`, `src/lib/contrast.test.ts`;
+  - la cornice e le pagine: `src/hooks/use-client-shell.ts`, `src/routes/client.notifications.tsx`, `src/components/client-notifications-bell.tsx`, `src/routes/client.settings.tsx`, `src/routes/client.tsx`;
+  - solo un commento: `src/lib/client-settings.ts`;
+  - `design_handoff_cliente_mobile/PIANO.md` (la riga 08), `docs/ULTIMO-RITORNO.md`.
+- **TOLTI:** nessun file. Spariscono `clientReminderItems`, `ClientReminderItem`, `ReminderBlock` e il tipo `ClientReminderTarget` (sostituito da `ClientNotificationTarget`), `reminders` e `readIds` della cornice.
+- **NEL PERIMETRO MA NON TOCCATI:** `src/hooks/use-notifications.ts`, `describeNotification`, `formatAgo`, la campanella e l'header del coach (D4); `src/hooks/use-client-book-state.ts`, `src/hooks/use-my-coach.ts`, `src/lib/query-state.ts`, `src/components/book-blocked-card.tsx`, `src/lib/client-session-status.ts`, `src/lib/session-time.ts`, `src/lib/client-book.ts` (usati così come sono); `src/lib/auth.tsx`, `src/routes/auth.tsx`, `src/integrations/` (§9); `supabase/` (nessuna migrazione: D9); `package.json` e `bun.lock` (D10).
 
 ## 4 · I CANCELLI
 
-| | su `ec64733` (passo 0) | alla fine, su `8ad35fb` |
+| | su `5440168` (passo 0) | alla fine, su `1bffaa2` |
 |---|---|---|
-| typecheck | 0 errori | 0 errori |
-| lint | 0 errori e 14 avvisi | 0 errori e 14 avvisi, gli stessi della base (nessun `react-hooks/exhaustive-deps`: D11 `avvisi: 0`) |
-| test | **1239 in 61 file**, tutti verdi (13,0 s) | **1276 in 62 file**, tutti verdi su `35590e5` e di nuovo su `8ad35fb` (il file nuovo è `src/lib/client-settings.test.ts`; nessun `use-my-coach.test.ts`) |
-| build | riuscita | riuscita (`✓ built in 32.01s` su `35590e5`, `✓ built in 24.71s` su `8ad35fb`) |
+| typecheck | 0 errori (25 s) | 0 errori (26 s) |
+| lint | 0 errori, **14** avvisi | 0 errori, **14** avvisi: gli stessi file e le stesse regole della base (confrontati), nessun `react-hooks/exhaustive-deps` (D11 `avvisi: 0`) |
+| test | **1276 in 62 file**, verdi (14 s) | **1357 in 65 file**, verdi (32 s) |
+| build | riuscita (57 s) | riuscita (70 s) |
+| build `LOVABLE_SANDBOX=1` | riuscita su Windows (25 s): `precache 88 entries`, 86 voci `client/`, NavigationRoute, NetworkFirst | riuscita (70 s): `precache 1 entries`, solo `manifest.webmanifest`, e B13 «come atteso» nei due versi (§8) |
 
-- I quattro file del §5 nei tre fusi, da PowerShell, con la sonda `node -e "console.log(new Date(2026, 8, 28).getTimezoneOffset())"` prima di ogni giro: `UTC` → sonda `0`, **109 su 109**; `America/Los_Angeles` → sonda `420`, **109 su 109**; senza `TZ` (Roma) → sonda `-120`, **109 su 109** (`client-settings` 30 `it`, `coach-contacts` 9, `client-sessions` 32, `client-credits` 38).
-- ⚠️ Un giro della suite intera prima del commit del passo 4 ha dato un rosso in `src/lib/clock.test.ts` (un file non toccato, 9,5 s): da solo passa 7 su 7, e la suite dopo `35590e5` è verde (1276 su 1276). In quel momento era aperto `tlou-i` (1,9 GB) e la memoria fisica libera era 0,3 GB, impegnabile 5,5: il rosso era del carico. Nessun programma di Nicolò chiuso; `--no-file-parallelism` non è servito.
-- **La stampa di Cowork sul ramo** (`app/stampa-cli-07-2026-10-02.ts`, lanciata dallo scratchpad col risolutore `app/risolutore-ts-cli`, `node --experimental-transform-types --import register.mjs`, `REPO` sul clone, da PowerShell): a Roma (sonda −120), in UTC (0) e a Los Angeles (420) la stessa uscita, sha `280e70ca2f5fafb7`, **uguale chiave per chiave a `app/atteso-cli-07-2026-10-02.json`** (confronto JSON contro JSON, 0 differenze nei tre fusi). È la prova che nomi, firme e testi del §4 tengono.
+- I tre file nuovi sono `src/lib/pwa-host.test.ts`, `src/lib/push-sw.test.ts`, `src/lib/push.test.ts`; i test in più rispetto al ramo simulato di Cowork (1327) sono casi miei nei file del §5 (per esempio gli orari di jsonb con l'offset e i microsecondi, la seconda finestra che si sposta quando la prima non si può, il pareggio dei momenti).
+- Nessun file caduto al caricamento, nessun `heap out of memory`: non è servito `--no-file-parallelism`.
+- **I sette file del §5 nei tre fusi, da PowerShell** (una riga per fuso, la sonda prima dei test):
+  - `UTC`: sonda `0` · 7 file, **218 test**, verdi;
+  - `America/Los_Angeles`: sonda `420` · 7 file, 218 test, verdi;
+  - senza `TZ` (Roma): sonda `-120` · 7 file, 218 test, verdi.
+  - In più una sonda **dentro i worker di vitest** (un test temporaneo che scriveva `process.env.TZ` e l'offset in un file dello scratchpad, poi tolto; l'albero è rimasto pulito): `UTC 0`, `America/Los_Angeles 420`, `undefined -120`.
 
 ## 5 · I PEZZI PER LE PASSATE DOPO
 
-- `useMyCoach(): { coach: BookCoach; row: MyCoachRow | null }` (`src/hooks/use-my-coach.ts`): `useQuery` con chiave `["get_my_coach", meId]`, attiva solo con `meId`, `staleTime` 5 minuti, `retry: 1`; chiama `rpc("get_my_coach")` con la chiamata rilassata; `coach` è `bookCoach(row)` dentro un `useMemo` su `row` (stesso oggetto fra un disegno e l'altro); un errore → `captureMessage("get_my_coach non risponde: i testi del cliente dicono «il tuo coach»", "warning")` una volta per pagina caricata (segno a livello di modulo).
-- `MyCoachRow { id, full_name, phone, email }` e `bookCoach(row: MyCoachRow | null): BookCoach` (`src/lib/coach-contacts.ts`): senza riga o senza nome la costante `NO_COACH`.
-- `src/lib/client-settings.ts`: `profileIdentity`, `coachCard` (`CoachLinkKind`, `CoachLink`, `CoachCardModel`), `profilePathRows` (`ProfileRow`), `pushRow` (`PushState`, `PushControl`, `PushRowModel`) con `PUSH_ON_TOAST`, `PUSH_OFF_TOAST`, `PUSH_DENIED_TOAST`, `PUSH_ERROR_TOAST`, `calendarInviteText`, `googleLinked` (`AuthIdentityUser`), `googleRow`, `googleLinkText`, `googleLinkToast`, `installRow` (`InstallRowModel`), `passwordCheck` (`PasswordCheck`, `PASSWORD_MIN_LENGTH`), `passwordSaveError`, `PASSWORD_SAVED_TOAST`. La 08, quando il server manderà gli avvisi del coach, cambia il testo «Attive: …» di `pushRow` e il suo test.
-- `ClientSwitch` (`src/components/client-switch.tsx`): i primitivi di Radix, 52×32, area di tocco 44 (`::before`), `aria-labelledby` lo dà chi lo usa.
-- `PasswordSheet({ open, onOpenChange, onSave: (password) => Promise<string | null> })` e `GoogleLinkSheet({ open, onOpenChange, email, onConfirm })` (`src/components/client-settings-sheets.tsx`).
-- `clientAttendance(bookings, now): Attendance | null` (`src/lib/client-sessions.ts`), la presenza di Sessioni e del Profilo; `validBlockCount(blocks): number` (`src/lib/client-credits.ts`), il «di 6» di Home e Profilo.
+- `isLovablePreviewHost(hostname)` (`src/lib/pwa-host.ts`): vero solo sulle anteprime di Lovable (zone di sviluppo; su `lovable.app` un primo nome con `--` o con l'id del progetto in testa). La produzione e le app dei workspace no.
+- `describeClientNotification(n, coachFirst)` (`src/lib/notifications.ts`), coi tipi `ClientCoachNotificationKind` e `ClientNotificationView` (`kind`, `title`, `body`, `target`): le quattro righe dei trigger della 08; ogni altra riga `null`, cioè non si mostra e non si conta. Il nome è la prima parola di `coach_name`, poi `coachFirst`, poi «il tuo coach».
+- `clientReminders(input, now)` (`src/lib/client-notifications.ts`), con `ClientReminderInput`, `ClientReminder`, `ReminderBooking`, `ClientReminderKind`, `ClientNotificationKind`, `ClientNotificationTarget`: i sette promemoria. `feedback: null` vuol dire «valutazioni non ancora arrivate», `book: null` «stato dei crediti non ancora arrivato».
+- `clientNotificationList(input, now)` e `ClientNotificationItem` (`id`, `rowId`, `kind`, `title`, `body`, `ago`, `unread`, `target`, `aria`): la lista dalla più recente, con le righe di sessioni che non sono più del cliente verso la Home.
+- `nextReadIds(readIds, reminders, mark)` e `READ_IDS_CAP = 200`: lo stato «letta» dei promemoria si aggiunge e basta; più `parseReadIds`, `clientNotificationsReadKey`, `unreadCount`, `notificationsSummary`, `emptyNotificationsText`.
+- `creditsWarningParts(client, state, now)` e `creditsWarningText(parts)` (`src/lib/client-home.ts`): le parti dell'avviso della Home (`blockId`, `left`, `end`, `from` a mezzanotte locale 7 giorni di calendario prima della fine) e la frase senza punto; `creditsWarning` è la frase col punto.
+- `isPushEnabledFor(profileId)` e `forgetPushForUser(profileId)` (`src/lib/push.ts`): «Attive» per persona, e la riga del telefono tolta all'uscita (al più 3 s, mai bloccante).
+- `ClientShellState` (`src/hooks/use-client-shell.ts`): `notifications`, `notificationsLoading`, `notificationsLost`, `retryNotifications`, `notificationsRetrying`, `unread` (le due fonti), `markRead(item)`, `markAllRead()`; `reminders` e `readIds` non ci sono più.
+- `BookingRow.created_at?` (`src/lib/queries.ts`), nella sola lettura più larga della scala.
 
 ## 6 · ACCEPTANCE
 
-`bash "C:/Coworks/NC App Development/app/controlli-cli-07-2026-10-02.sh"` dalla radice del clone, contro `origin/redesign/cliente-mobile`, a lavoro committato (`8ad35fb`, l'ultimo commit di codice; la stessa uscita riga per riga su `35590e5`, prima della revisione). L'uscita intera, con la colonna «oggi» (passo 0, su `ec64733`) accanto dove differisce.
+`bash "C:/Coworks/NC App Development/app/controlli-cli-08-2026-10-04.sh"` dalla radice del clone: a sinistra la colonna «oggi», misurata al passo 0 su `5440168`, a destra l'uscita a lavoro committato, su `1bffaa2`. Ogni riga di destra è quella attesa dal §6. D1, D8, D9 (salvo le due righe di `PIANO.md`) e D10 non hanno righe. D12 ha in più il commit della revisione (§10, punto 17).
 
-```
-== D0 · i nomi nuovi
-client-settings: 12 su 12 · useMyCoach 1 · bookCoach 1 · clientAttendance 1 · validBlockCount 1 · ClientSwitch 1
-   (oggi: 0 su 12 · 0 · 0 · 0 · 0 · 0)
-== D1 · il manifesto (file cambiati fuori dall'elenco del §4)
-(fine D1)                                                   (oggi: vuoto)
-== D2 · il coach: dalle pagine sparisce NO_COACH, arriva useMyCoach, get_my_coach in un posto
-src/routes/client.index.tsx: NO_COACH 0 · useMyCoach 1                  (oggi: 2 · 0)
-src/routes/client.book.tsx: NO_COACH 0 · useMyCoach 1                   (oggi: 2 · 0)
-src/routes/client.sessions.tsx: NO_COACH 0 · useMyCoach 1               (oggi: 2 · 0)
-src/routes/client.store.tsx: NO_COACH 0 · useMyCoach 1                  (oggi: 2 · 0)
-src/components/client-booking-detail-view.tsx: NO_COACH 0 · useMyCoach 1 (oggi: 2 · 0)
-src/routes/client.settings.tsx: NO_COACH 0 · useMyCoach 1               (oggi: 0 · 0)
-get_my_coach chiamata fuori da use-my-coach.ts (codice, test esclusi): 0 file · dentro: 1   (oggi: 0 file · dentro: 0)
-il coach dei testi da bookCoach: 1                                      (oggi: 0)
-== D3 · il Profilo di prima non c'è più
-pagina: email_notifications 0 · «Le tue sessioni residue» 0 · «sessioni fatte» 0 · key={p.name} 0 · SettingsRow 0 · findCurrentBlock 0 · useCoachEventTypes 0 · «Esci dall'account» 0 · «Email di conferma» 0
-   (oggi: 4 · 1 · 1 · 1 · 3 · 2 · 2 · 1 · 2)
-settings-row.tsx: assente · chi lo importa: 0                           (oggi: presente · 1)
-== D4 · niente conti né testi delle regole nella pagina e nei fogli
-conti: 0                                                                (oggi: 8)
-testi delle regole: 0                                                   (oggi: 1)
-== D5 · le regole del percorso sugli helper della 00 e di Sessioni
-client-settings: getClientBlockInfo 1 · validBlockCount 1 · blockTiming 1 · getCoachContacts 1 · isValidBlock 0 · getAttendance 0 · resolveCurrentBlock/clientReferenceBlock 0
-   (oggi: tutto 0, il file non c'era)
-client-sessions: getAttendance 1 · clientAttendance 2 · client-credits: validBlockCount 2 · isValidBlock 5
-   (oggi: getAttendance 1 · clientAttendance 0 · validBlockCount 0 · isValidBlock 5)
-la presenza nella pagina: clientAttendance 1 · attendanceSummary 0     (oggi: 0 · 0)
-== D6 · i commenti che dopo il giro del 02/10 direbbero il falso
-frasi vecchie: 0 file                                                   (oggi: 10 file)
-== D7 · solo commenti in client-book, client-home, client-session-detail, client-store e book-sheets
-src/lib/client-book.ts: righe di codice cambiate 0
-src/lib/client-home.ts: righe di codice cambiate 0
-src/lib/client-session-detail.ts: righe di codice cambiate 0
-src/lib/client-store.ts: righe di codice cambiate 0
-src/components/book-sheets.tsx: righe di codice cambiate 0              (oggi: 0, tutti)
-== D8 · nei test di prima non si toglie niente (le righe tolte dai file di test che c'erano, import esclusi)
-(fine D8)                                                               (oggi: vuoto)
-== D9 · PIANO.md: solo la riga 07; il resto del pacchetto e le funzioni del server non cambiano
-  -| 07 | [Profilo](passes/07-profilo.md) | R1–R5, H6, N5, O4, V6 | 01 | sì | [ ] |
-  +| 07 | [Profilo](passes/07-profilo.md) | R1–R5, H6, N5, O4, V6 | 01 | sì | [x] |
-(fine D9)                                                               (oggi: nessuna riga)
-== D10 · nessuna dipendenza nuova
-(fine D10)                                                              (oggi: vuoto)
-== D11 · le dipendenze dei hook dove entra il coach (react-hooks/exhaustive-deps nelle pagine)
-avvisi: 0                                                               (oggi: 0)
-== D12 · i commit del ramo
-  8ad35fb Revisione: il foglio della password e l'interruttore tengono il focus e ignorano le risposte in ritardo
-  35590e5 PIANO.md: la passata 07 è fatta
-  d6e9490 Profilo: la pagina nuova, i fogli e l'interruttore
-  ef18915 Profilo: le regole in client-settings.ts
-  99809b0 Le pagine del cliente leggono il coach con useMyCoach
-  810166b Il coach del cliente da get_my_coach: useMyCoach e bookCoach
-  ea4a658 Il piano della passata 07 in testa a docs/ULTIMO-RITORNO.md
-(fine D12)                                                              (oggi: vuoto; il commit di questo file viene dopo)
-== D13 · il collegamento WhatsApp nasce in un posto (whatsappUrl di calendar-events.ts)
-«wa.me» nel codice del cliente (pagine, componenti, hook, regole; commenti e test esclusi): 0   (oggi: 0)
-```
-
-Lo stesso script lanciato al passo 0 ha dato la colonna «oggi» del §6 del prompt riga per riga; a ogni passo le righe del passo sono passate all'atteso (D0 e D2 al passo 1 e 2, D6 e D11 al passo 2, D7 a commit fatto, D5 al passo 3, D3, D4 e D13 al passo 4 dopo il `git add` dei due file nuovi, D9 al passo 5).
+| controllo | oggi, su `5440168` | alla fine, su `1bffaa2` |
+|---|---|---|
+| **D0** | client-notifications: 3 su 9 · clientReminderItems 1 · describeClientNotification 0 · creditsWarningParts 0 · creditsWarningText 0 · isPushEnabledFor 0 · forgetPushForUser 0 · isLovablePreviewHost 0 | client-notifications: 9 su 9 · clientReminderItems 0 · describeClientNotification 1 · creditsWarningParts 1 · creditsWarningText 1 · isPushEnabledFor 1 · forgetPushForUser 1 · isLovablePreviewHost 1 |
+| **D1** | (fine D1) | (fine D1) |
+| **D2** | vite.config.ts: globPatterns: [] 0 · navigateFallback: null 0 · navigateFallbackDenylist 1 · importScripts push-sw 1 · runtimeCaching 1 · includeManifestIcons: false 0 | vite.config.ts: globPatterns: [] 1 · navigateFallback: null 1 · navigateFallbackDenylist 0 · importScripts push-sw 1 · runtimeCaching 0 · includeManifestIcons: false 1 |
+|  | __root.tsx: rel manifest 0 · pwa-register.tsx: «lovable.app» nel codice 1 · isLovablePreviewHost( 0 · onRegisterError 0 · onNeedReload 0 | __root.tsx: rel manifest 1 · pwa-register.tsx: «lovable.app» nel codice 0 · isLovablePreviewHost( 1 · onRegisterError 1 · onNeedReload 1 |
+|  | push-sw.js: navigate( 0 · openWindow( 1 · stessa origine 0 | push-sw.js: navigate( 1 · openWindow( 1 · stessa origine 3 |
+| **D3** | campanella: bg-error-bright 1 · bg-error 0 | campanella: bg-error-bright 0 · bg-error 1 |
+|  | pagina: markAllRead() 2 · markRead(item) 0 · readIds 2 · formatAgo/localStorage/date-fns/new Date( 0 | pagina: markAllRead() 1 · markRead(item) 1 · readIds 0 · formatAgo/localStorage/date-fns/new Date( 0 |
+|  | testi delle regole nella pagina (righe di codice): 2 | testi delle regole nella pagina (righe di codice): 0 |
+|  | pagina: tabella icone e colori del §4.4 3 su 11 · descrizione 0 · card della lettura persa: titolo 0 · testo 0 · scheletro h-[72px] rounded-[18px] 0 | pagina: tabella icone e colori del §4.4 11 su 11 · descrizione 1 · card della lettura persa: titolo 1 · testo 1 · scheletro h-[72px] rounded-[18px] 1 |
+|  | i testi di prima in src: 2 file | i testi di prima in src: 0 file |
+|  | src/lib/client-notifications.test.ts |  |
+|  | src/lib/client-notifications.ts |  |
+| **D4** | mark_notification_read / mark_all_notifications_read fuori da use-notifications.ts (codice, test esclusi): 0 file | mark_notification_read / mark_all_notifications_read fuori da use-notifications.ts (codice, test esclusi): 0 file |
+|  | from("notifications") fuori da use-notifications.ts (codice, test esclusi): 0 file | from("notifications") fuori da use-notifications.ts (codice, test esclusi): 0 file |
+|  | lato coach cambiato (use-notifications.ts, trainer-notifications-bell.tsx, trainer-header.tsx, trainer.index.tsx): 0 file | lato coach cambiato (use-notifications.ts, trainer-notifications-bell.tsx, trainer-header.tsx, trainer.index.tsx): 0 file |
+|  | notifications.ts, righe tolte o cambiate (deve solo aggiungere): 0 | notifications.ts, righe tolte o cambiate (deve solo aggiungere): 0 |
+| **D5** | cornice: clientReminders( 0 · clientNotificationList( 0 · useNotifications( 0 · useClientBookState( 0 · useMyCoach( 0 · nextReadIds( 0 | cornice: clientReminders( 1 · clientNotificationList( 1 · useNotifications( 1 · useClientBookState( 1 · useMyCoach( 1 · nextReadIds( 2 |
+|  | regole: creditsWarningParts( 0 · canRate( 0 · getClientSessionStatus( 1 · describeClientNotification( 0 · date dei blocchi e della BIA con new Date (in UTC) 3 | regole: creditsWarningParts( 1 · canRate( 1 · getClientSessionStatus( 1 · describeClientNotification( 1 · date dei blocchi e della BIA con new Date (in UTC) 0 |
+| **D6** | client.settings.tsx: isPushEnabledFor( 0 · forgetPushForUser( 0 · signOut() 2 · unsubscribe() 1 · client.tsx: forgetPushForUser( 0 · signOut() 1 | client.settings.tsx: isPushEnabledFor( 1 · forgetPushForUser( 1 · signOut() 2 · unsubscribe() 0 · client.tsx: forgetPushForUser( 1 · signOut() 1 |
+|  | client-settings.ts (i testi del Profilo non cambiano): righe di codice cambiate 0 | client-settings.ts (i testi del Profilo non cambiano): righe di codice cambiate 0 |
+| **D7** | queries.ts: created_at nella lettura più larga 0 | queries.ts: created_at nella lettura più larga 1 |
+| **D8** | (fine D8) | (fine D8) |
+| **D9** | (fine D9) | -\| 08 \| [Notifiche](passes/08-notifiche.md) \| H8, O3 \| 01, 04 \| sì \| [ ] \| |
+|  |  | +\| 08 \| [Notifiche](passes/08-notifiche.md) \| H8, O3 \| 01, 04 \| sì \| [x] \| |
+|  |  | (fine D9) |
+| **D10** | (fine D10) | (fine D10) |
+| **D11** | avvisi: 0 | avvisi: 0 |
+| **D12** | (fine D12) | 1bffaa2 Revisione: una riga nuova fa rileggere sessioni e crediti, il focus dopo «Riprova», il profilo nel cancello, i crediti quasi finiti in cima |
+|  |  | 057de9f PIANO.md: la passata 08 è fatta |
+|  |  | cb931ac Notifiche sul telefono: «Attive» guarda la riga di chi è entrato, e all'uscita il telefono smette di riceverle |
+|  |  | 307521c Notifiche del cliente: i promemoria nuovi, la lista con le azioni del coach, una letta alla volta, il badge |
+|  |  | ab28e2c Notifiche del cliente: le azioni del coach lette da describeClientNotification, le parti dell'avviso dei crediti, la creazione delle sessioni |
+|  |  | c79fc41 Notifiche sul telefono: il service worker si registra in produzione, le pagine collegano il manifest, il tocco apre la pagina, l'iscrizione aspetta il service worker attivo |
+|  |  | 73621be Il piano della passata 08 in testa a docs/ULTIMO-RITORNO.md |
+|  |  | (fine D12) |
+| **D13** | contrast.test.ts: il caso della campanella del cliente 0 | contrast.test.ts: il caso della campanella del cliente 1 |
 
 ## 7 · LE PROVE ROSSE
 
-L'arnese è quello della 06b (`rosse.mjs` + `mutazioni.json`, nello scratchpad), adattato ai quattro file del §5: per ogni mutazione una sostituzione esatta che deve trovare il testo una volta sola, i quattro file con `vitest run --reporter=json`, i test caduti raccolti dal JSON, i file rimessi e controllati con lo sha256. Fuso di Roma, come dice il §7. Prima e dopo: **109 su 109** verdi. Ogni mutazione cade sui casi che il §7 prevede; «N file» è il conteggio di vitest, che conta anche i `describe`.
+**R1-R24, sul codice, a Roma.** L'arnese della 07 adattato ai sette file del §5 (`rosse.mjs` + `mutazioni.json` nello scratchpad): ogni mutazione è una sostituzione esatta che deve trovare il testo una volta sola; lancia i sette file col reporter JSON, raccoglie i test caduti, rimette il file e ne confronta lo sha256. Girata due volte: su `057de9f` (217 test) e, dopo la revisione, su `1bffaa2`. Sul commit finale, prima e dopo, senza difetti: **218 su 218 verdi**. Tutte e 24 **rosse** le due volte, tutte coi file rimessi con lo **sha256 uguale**; il verde è la suite di dopo. Nessun file caduto al caricamento. Fra parentesi i test caduti su `1bffaa2`; i nomi sono quelli del §7 del prompt, quando ce n'è uno in più lo dico.
 
-| | cosa ho rotto | rosso |
-|---|---|---|
-| R1 | `client-settings.ts`: «Blocco in corso» anche per il fisso (`timing === "current"` senza `recurring`) | 4 test: il fisso in corso, l'ultimo giorno e il giorno dopo, il blocco annullato, «senza path_type» (105/109) |
-| R2 | «Rinnovo» con `dayText(end)` invece del giorno dopo | 1: l'abbonamento che si rinnova (108/109) |
-| R3 | il «di M» con `blocks.length` | 1: il blocco annullato in mezzo, «2 di 3» (108/109) |
-| R4 | `timing === "past"` mai vero: il finito trattato come in corso | 1: il percorso finito, «Blocco 2 di 2» e «Fine del blocco» al posto di «Concluso» (108/109) |
-| R5 | «Inizio del blocco» con la fine | 1: i due «Inizio del blocco» (fisso e abbonamento) (108/109) |
-| R6 | Chiama con `tel:${row.phone}` così com'è | 2: i tre collegamenti di Marco (`tel:+39 347 555 01 23`) e il telefono `javascript:alert(1)`, che diventa un href (107/109) |
-| R7 | `bookCoach` con `whatsapp: row.phone` | 2: Marco (`+39 347 555 01 23` al posto di `https://wa.me/…`) e `javascript:alert(1)` non nullo (107/109) |
-| R8 | `if (s.supported)` senza `ready` | 2: «Come fare» con `ready` falso (`'switch'` al posto di `'come-fare'`) e l'installata senza push (107/109) |
-| R9 | il caso `markedInstalled` saltato | 1: segnata ma aperta nel browser (108/109) |
-| R10 | `PASSWORD_MIN_LENGTH - 1`: 7 caratteri bastano | 2: «ora 7» (`firstInvalid` falso) e «1234567» uguali con `canSave` (107/109) |
-| R11 | `secondInvalid` senza `tried` | 2: «diverse prima del salvataggio» e «corta mentre si scrive» (107/109) |
-| R12 | il ramo `same_password` mai vero | 1: `passwordSaveError` («Non siamo riusciti…» al posto di «È la password che usi già…») (108/109) |
-| R13 | `calendarInviteText` senza `trim` | 1: `"  "` dà la frase invece di `null` (108/109) |
-| R14 | `googleLinked` senza il ramo dei `providers` | 1: il primo caso, `providers` con google e senza identità (108/109) |
-| R15 | `installRow` con `installed` solo | 1: `installRow(false, true)` dice «Installa l'app» (108/109) |
-| R16 | `clientAttendance` senza il filtro su `deleted_at` | 2: `clientAttendance` di Giulia (67% al posto di 75%) e `attendanceSummary` (107/109) |
-| R17 | `validBlockCount` con `blocks.length` | 3: `validBlockCount` (3 al posto di 2), `getClientBlockInfo` coi blocchi annullati («Blocco 2 di 3») e il blocco annullato del Profilo (106/109) |
-| R18 | `client.store.tsx`: `coach` tolto dalle dipendenze di `products` | il lint passa da 14 a **15** avvisi; D11 `avvisi: 1 · src/routes/client.store.tsx:150 React Hook useMemo has a missing dependency: 'coach'`; rimesso: 14 e `avvisi: 0` (`r18.mjs`, sha256 uguale) |
-| R19 | `client.store.tsx` su `const coach = NO_COACH` (con l'import) | vedi §8 |
-| R20 | `opens: !installed && !markedInstalled` | 1: `installRow(false, true)` con `opens` falso (108/109) |
+- **R1** `confirm-${b.id}` senza l'inizio (6): «una voce per ogni sessione «Da confermare»…», «spostata, la stessa sessione ha un id nuovo…», «dalla più recente…», «un promemoria letto resta letto finché il suo id non cambia», più «una riga di una sessione che non è più del cliente porta alla Home» e «i crediti quasi finiti restano in cima…» (i due casi cercano la conferma col suo id completo).
+- **R2** la data della conferma sempre inizio − 48 ore (1): «la data della voce è l'inizio meno 48 ore, o la creazione se è più recente».
+- **R3** «mer 30 set» col formato breve (3): «una voce per ogni sessione…», «oltre domani la data è lunga, col mese», più «senza tipologia il nome è quello del tipo base» (anche lì c'è «oggi»).
+- **R4** «da quando» in millisecondi (1, a Roma): ««da quando» sono 7 giorni di calendario, anche a cavallo del cambio d'ora» (`client-home.test.ts`). Rilanciata da sola in `UTC` e a `America/Los_Angeles`: **verde**, come la stampa (il cambio d'ora del caso è quello di Roma).
+- **R5** «Ti restano» a percorso concluso (1): «niente voce con 0 o con 3 crediti, a percorso concluso, o senza lo stato dei crediti».
+- **R6** il Booster a chi non compra (2): «chi non compra parla col coach, e verso la Home», più «il cliente libero…» (anche lui non compra).
+- **R7** «Crediti da usare» e «Ti restano» insieme (1): «con i crediti da usare non c'è anche «Ti restano»». ⚠️ Il mio `creditReminder` restituisce una voce sola, quindi il mutante equivalente aggiunge in `clientReminders` una seconda chiamata che, quando ci sono i crediti da usare, calcola anche quelli quasi finiti.
+- **R8** il primo blocco non apre un percorso (1): «il primo blocco del cliente, o quello che comincia con path_start_date, apre un percorso».
+- **R9** `<=` al posto di `<` (1): «niente notizia dal settimo giorno…».
+- **R10** la BIA col punto (3): «la misurazione più recente, se registrata da meno di 14 giorni…», più «registrata da 14 giorni esatti…» (la seconda metà, «30,1») e «senza la data di registrazione…».
+- **R11** la BIA più vecchia (1): «la misurazione più recente…».
+- **R12** la valutazione senza `canRate` (1): «valutata, importata da Google (col titolo) o di più di 14 giorni fa: niente voce».
+- **R13** `feedback ?? []` (1): «prima che le valutazioni arrivino (feedback null): niente voce».
+- **R14** la lista dalla più vecchia (4): «dalla più recente…», «un promemoria letto resta letto…», più «a parità di momento vale l'id…» e «i crediti quasi finiti restano in cima…».
+- **R15** la riga di una sessione non più sua apre il dettaglio (1): «una riga di una sessione che non è più del cliente porta alla Home».
+- **R16** la regola di prima (tenere solo i promemoria di adesso) (4): i tre casi di `nextReadIds`, più «oltre 200 id escono i più vecchi».
+- **R17** «credito scalato» al contrario (1): «sessione annullata: credito restituito o scalato».
+- **R18** il nome dal coach di adesso (1): «il nome è di chi ha agito (coach_name del payload), anche se il coach di adesso è un altro».
+- **R19** una riga di un tipo sconosciuto si mostra (2): «dalla più recente…», più «un promemoria letto resta letto…».
+- **R20** ogni host su `lovable.app` è un'anteprima (1): «la produzione non è un'anteprima».
+- **R21** il tocco mette solo il fuoco (7): «con l'app aperta altrove…», «prima il fuoco, poi la pagina…», «col fuoco negato…», «una finestra che non si può spostare: si apre la pagina», più «la prima finestra non si sposta, la seconda sì», «navigate che finisce senza finestra» e «senza indirizzo, o con un indirizzo di un'altra origine, la Home» (la finestra aperta non va più alla Home).
+- **R22** «Attive» col solo dispositivo (2): «con l'iscrizione ma senza la riga (di un'altra persona, o scrittura fallita): no», più «con l'iscrizione e la riga…» (che controlla anche la lettura).
+- **R23** `bg-error-bright` (1): il caso del badge in `contrast.test.ts`.
+- **R24** `getRegistration()` al posto di `ready` (2): «iscrive con la registrazione di ready…», più «senza un service worker attivo entro 10 secondi…» (con `getRegistration()` nullo e `ready` che non arriva, la promessa non finisce più).
 
-Tutti i file sono stati rimessi con lo sha256 uguale, a ogni mutazione; `git status` pulito alla fine (salvo questo file).
+**R25-R31, nel browser e nella build** (`banco\rosse-browser08.mjs`, adattato dallo script di Cowork). Ogni mutante si applica prima di avviare Vite; poi gira la parte del giro (o la build di Lovable con `prova-sw-cli-08.mjs`) che lo deve vedere, con accanto la riga dei controlli che il prompt nomina; poi il file torna com'era (sha256 uguale). Girata due volte, su `057de9f` e su `1bffaa2`, con gli stessi esiti: **7 rosse su 7**. Il verde è `giro08.mjs` 79 su 79 e B13 «come atteso» sullo stesso codice; dopo R30 la build è stata rifatta e B13 è tornato «pronto».
+
+- **R25** il tocco chiama anche `markAllRead()`: B2 **5 su 7**. Due RPC (`mark_notification_read` e `mark_all_notifications_read`), e tornando indietro «Tutte lette» invece di «4 da leggere». D3 col mutante: `markAllRead() 2`.
+- **R26** «Esci» dell'header desktop senza `forgetPushForUser`: B10 **8 su 9**. Nessuna `DELETE` prima di `/auth/v1/logout`, righe `["sua","altra"]`. D6: `client.tsx: forgetPushForUser( 0`.
+- **R27** il Profilo con `getCurrentPushSubscription()` al posto di `isPushEnabledFor`: B10 **7 su 9**. Il dispositivo iscritto senza la riga di Giulia, e con la riga di un'altra persona, dice «Attive» e l'interruttore è acceso. D6: `isPushEnabledFor( 0`.
+- **R28** la card di «Riprova» saltata: B8 **4 su 8**. Giulia senza righe mostra una lista a metà (3 voci, i soli promemoria), Marta senza extra 2 voci senza «Crediti da usare»; in nessuno dei due casi c'è «Riprova».
+- **R29** le pagine senza il manifest: B1 di Giulia **9 su 10**, `<link rel="manifest">` `null`. D2: `rel manifest 0`.
+- **R30** la precache coi file della build: con `LOVABLE_SANDBOX=1`, 86 voci con `client/` (la prima `client/push-sw.js`), `"ready":"non pronto dopo 8 s"`, `"registrations":0`, `ESITO: NON come atteso`. D2: `globPatterns: [] 0`. Rimesso il file e rifatta la build, B13 torna «pronto», 1 registrazione.
+- **R31** `bookState.failed` fuori da `notificationsLost`: B8 **6 su 8**. Marta con `extra_credits` in errore mostra 2 voci invece della card, e dopo «Riprova» la lista ha «2 da leggere» invece di «3 da leggere»: manca «Crediti da usare».
 
 ## 8 · IL BROWSER
 
-Il banco di Cowork (`app\banco-cli-2026-09-30`) copiato nello scratchpad della sessione (`%TEMP%\claude\C--Coworks-NC-App-Development-repos-nc-calendar\f2213923-826d-4679-b6ca-2ad30ea545ba\scratchpad\banco`), con `lib-windows.mjs` rinominato in `lib.mjs` (l'originale in `lib-linux.mjs`), `app\atteso-cli-04-2026-09-30.json` copiato accanto alla cartella del banco, e la cartella fissa di `giro-prenota.mjs` (`DIR`, righe 10-11) puntata allo scratchpad. Playwright dalla cache di `npx` e Chromium `chromium_headless_shell-1200`, come dice `lib.mjs`: nessuna installazione. Il codice è quello del ramo: `35590e5` nel primo giro, in R19 (rotto nell'albero di lavoro e poi rimesso) e in B12; `8ad35fb` nel giro ripetuto dopo la revisione, di nuovo 147 su 147. Nessuna correzione a `giro07.mjs`: il mio markup è quello che il giro legge.
+Il banco di Cowork copiato nello scratchpad (§1, passo 0); il codice è quello del ramo a lavoro committato. Nessuna correzione ai giri: il markup della pagina è quello che `giro08.mjs` legge.
 
-- **`giro07.mjs` (B1-B11), `porta=5507`, `DATI05=dati-cli-06-2026-10-01.json`: `ESITO: 147 su 147`**, come sul ramo simulato di Cowork. Dentro:
-  - **B1** · le nove persone a 390×844 (12 prove ciascuna: «Profilo», i tre titoli nell'ordine, le iniziali, nome ed email, la card del coach col solo `mailto:coach@esempio.test`, le righe del percorso uguali alle attese, «Booster» solo per Giulia, Marta, Luca, Sara e Paola, le notifiche del banco con «Come fare», l'invito con l'email della persona, «Accesso con Google» con «Collega», «Cambia password», «Installa l'app», «Esci», nessuno dei testi di prima). Schermate: `banco\schermate-07\b1-giulia-390.png`, `b1-davide-390.png`.
-  - **B2** · il coach col telefono: «WhatsApp» (`https://wa.me/393475550123`, `target="_blank"`, `rel="noopener noreferrer"`), «Chiama» (`tel:+393475550123`), «Email»; `b2-giulia-coach-390.png`.
-  - **B3** · senza `get_my_coach` (404 `PGRST202`): nessuna card del coach, le righe del percorso di Giulia uguali, **una** segnalazione a Sentry con `get_my_coach` nel messaggio; lo Store di Giorgio dice «… scrivi a Nicolò.» con la funzione e «… scrivi al tuo coach.» senza; la Home di Davide «… scrivi a Nicolò: ti proporrà il prossimo percorso.» con e «… scrivi al tuo coach: …» senza.
-  - **B4** · ad app installata col service worker finto: l'interruttore `aria-checked="false"` e «Disattivate: …», «App installata» non è un pulsante; acceso → `aria-checked="true"`, «Attive: …», il toast «Notifiche sul telefono attivate.», una scrittura su `push_subscriptions`; spento → «…disattivate.» e la riga tolta.
-  - **B5** · «Cambia password»: «1234567» → «Servono almeno 8 caratteri (ora 7).» e `aria-invalid="true"`; il campo a fuoco ha il contorno `solid` di 2 px; diverse e «Salva» → «Le due password non coincidono.», `aria-invalid` sul secondo, nessuna scrittura; `same_password` dal server → «È la password che usi già: scegline una diversa.» nel foglio e **nessun toast**; «Salva» di nuovo → il foglio si chiude, «Password aggiornata.», due scritture «12345678».
-  - **B6** · «Collega» apre «Collega Google» col testo di Giulia; «Esci e collega Google» → `/auth/v1/logout` e `/auth`; collegata: «Collegato: puoi entrare anche con Google», senza «Collega».
-  - **B7** · «Installa l'app» apre «Installa NC Calendar» con «…attiva le notifiche da qui»; «Come fare» apre lo stesso foglio; «Ho installato l'app» → «App installata» che resta un pulsante e riapre il foglio, le notifiche dicono «Per riceverle apri l'app dall'icona sulla schermata Home.» senza «Come fare», e il focus non è sul `body` (torna sul titolo «Account»).
-  - **B8** · 320×800 col coach col telefono: niente che esce, `scrollWidth` del documento nella finestra, niente `position: fixed` nel contenuto, al più un pulsante pieno per card, icone dei contatti nascoste (`squeezed: []`); `b8-giulia-320.png`.
-  - **B9** · `training_blocks` in errore: «Il percorso non si è caricato» con «Riprova», nessuna riga; «Cambia password», «Esci» e «Come fare» ci sono.
-  - **B10** · «Esci» → `/auth/v1/logout` e `/auth`.
-  - **B11** · zero richieste esterne bloccate, zero funzioni server, zero errori di pagina, nessun avviso di React sulle chiavi doppie.
-- **R19** (§7, nel browser): lo Store rotto nell'albero di lavoro con `sed` (`const coach = NO_COACH;` e l'import al posto di `useMyCoach`), `r19.sh`: D2 sullo Store → `NO_COACH 2 · useMyCoach 0`; `giro07.mjs solo=B3` → **10 su 11**, `KO giorgio · B3 Store, get_my_coach ok` (atteso `true`, visto `false`: lo Store di Giorgio dice «scrivi al tuo coach.» anche con la funzione). `git restore src/routes/client.store.tsx` (sha256 uguale, `e87379fa302e4e4b`), D2 → `NO_COACH 0 · useMyCoach 1`, `solo=B3` → **11 su 11**. Nessun commit.
-- **B12** · i quattro giri di prima sul mio ramo, copiati da `app\` così come sono (salvo `lib.mjs`, la cartella di `giro-prenota.mjs` e l'atteso della 04 accanto): `giro04.mjs porta=5470` → **104 su 104**; `giro-sessioni.mjs porta=5440` → **78 su 78**; `giro-prenota.mjs porta=5420` → **82 su 82** (i 500 in coda all'uscita sono quelli che B13 inietta apposta); `giro05-cowork.mjs porta=5490` → **149 su 152**, coi soli tre KO di oggi (`giorgio · crediti · righe`, `giorgio · crediti · fondo`, `nina · crediti · fondo`: le attese della 05 dicono «Acquista un Booster» e dalla 06 chi è nell'ultima settimana, o senza un blocco in corso, vede «Per altri crediti scrivi al tuo coach.»). Lanciati dalla copia, senza `DATI05`, uno dopo l'altro; il coach lì resta `NO_COACH` perché i loro finti rispondono vuoto a `get_my_coach`. Le uscite intere in `banco\b12-<giro>.txt`.
+- **`giro08.mjs` (B1-B11): 79 su 79**, sia su `057de9f` sia, di nuovo, su `1bffaa2` (`REPO=… DATI05=dati-cli-06-2026-10-01.json node giro08.mjs porta=5508`). B11: zero richieste esterne bloccate, zero funzioni server, zero errori di pagina, nessuna chiave doppia. Schermate: `schermate-08/b1-giulia-390.png`, `b1-marta-390.png`, `b1-davide-390.png`, `b9-giulia-320.png`, nella copia del banco (`…\scratchpad\banco\schermate-08\`).
+- **La stampa di Cowork** (`stampa-cli-08-2026-10-04.ts` col suo risolutore, da PowerShell, `node --experimental-transform-types`): **uguale all'atteso** a Roma (sonda −120), in UTC (0) e a Los Angeles (420), con la stessa impronta nei tre fusi. Prima del commit del passo 3 e di nuovo dopo la revisione.
+- **La sonda della revisione** (`sonda-revisione08.mjs`):
+  - A: una riga «Nuova sessione in agenda» arriva dal realtime per una sessione appena scritta nel finto;
+  - B: «Riprova» con la lettura ancora persa;
+  - C: «Riprova» riuscito.
+  - Su `057de9f` dà **3 su 7**: il tocco va a `/client`, nessuna rilettura delle sessioni, il focus resta su «Riprova» o va sul `body`.
+  - Su `1bffaa2` dà **7 su 7**: il dettaglio `/client/bookings/g-nuova-dal-coach`, le sessioni rilette, il focus sul titolo della card e poi su «5 da leggere».
+- **R25-R31:** §7.
+- **B12, i giri di prima** sul ramo, copiati da `app\` così come sono (salvo `lib.mjs`, la `DIR` di `giro-prenota.mjs` e l'atteso della 04 accanto), uno dopo l'altro:
+  - `giro04.mjs` **104 su 104**;
+  - `giro-sessioni.mjs` **78 su 78**;
+  - `giro-prenota.mjs` **82 OK e 0 KO** (`82/82 OK`);
+  - `giro05-cowork.mjs` **149 su 152**, coi soli tre KO noti delle attese della 05 (decisione 14: `giorgio · crediti · righe`, `giorgio · crediti · fondo`, `nina · crediti · fondo`);
+  - `giro07.mjs` (con `DATI05=dati-cli-06-2026-10-01.json`) **147 su 147**.
+  - Sono gli stessi numeri della base e del ramo simulato di Cowork. Gli errori 500 in fondo alle uscite sono quelli che i giri iniettano apposta. `giro.mjs` (la 01) non l'ho lanciato, come dice il §8.
+- **B13, il service worker della build** (`LOVABLE_SANDBOX=1 bun run build` su `1bffaa2`, poi `node prova-sw-cli-08.mjs …/dist/client …/dist 5611`):
+  - `{"rotto":false,"precache":["manifest.webmanifest"],"client":false,"navigationRoute":false,"networkFirst":false,"importScripts":"/push-sw.js","register":"ok","ready":"pronto","registrations":1,"state":"activating"}` → `ESITO: come atteso`
+  - con `--rotto`: `{"rotto":true,…,"ready":"non pronto dopo 8 s","registrations":0,"state":"redundant"}` → `ESITO: come atteso`
+  - Sulla base `5440168` la stessa build aveva 88 voci in precache, 86 con `client/`, la NavigationRoute e la NetworkFirst (§1, passo 0). Alla fine `rm -rf dist .output`.
 
 ## 9 · NON FATTO
 
-- `src/hooks/use-my-coach.test.ts` (facoltativo per D1): non scritto. Il hook è rete e cache (TanStack Query e Supabase), e un test unitario in Node senza React né rete proverebbe poco; quello che conta (NO_COACH finché non arriva, 404 `PGRST202` senza rompere niente, una segnalazione sola a Sentry, le pagine che leggono il coach) lo prova il banco con B3, e `bookCoach` ha i suoi test. I file di test restano 62.
-- Nient'altro del prompt è rimasto fuori: R1-R20 fatte (R19 nel browser), B1-B12 fatti.
+- **Niente di quello che il prompt chiedeva è rimasto fuori.** Non ho toccato il server (i trigger della 08 sono di Cowork e li applica Nicolò), non ho fatto merge, ho pubblicato solo `redesign/cliente-08-notifiche`.
+- Non fatti per scelta, come dice il §9: le preferenze per tipo di notifica, le push per le azioni del coach, una versione nell'URL di `importScripts`, il manifest statico in `public/` per togliere l'ascoltatore `fetch` del service worker, `cancelQueries` nella cornice (la corsa della cache con una lettura in volo resta, dichiarata nel commento di testa di `use-client-shell.ts`), il rimborso nel payload dell'annullamento, il lato coach, `whatsappUrl`, l'`h2` di `BookRetryCard`.
+- Le prove nel browser coprono le metà (la pagina con righe scritte dal finto nella forma dei trigger; i trigger nel banco SQL di Cowork): la prova sul database vero, da capo a fondo, è di Nicolò (§12).
 
 ## 10 · DIVERGENZE
 
-Fra questo prompt e il repo, e fra il mio ramo e il ramo simulato di Cowork (che è la prova, non l'ordine). Nessun nome, firma o testo del §4 cambiato.
+Nomi, firme e testi del §4 sono quelli del prompt, alla lettera: la stampa di Cowork sul ramo dà l'atteso nei tre fusi, prima e dopo la revisione. Le differenze:
 
-1. **`max-[360px]` e non `max-[359px]`** per nascondere le icone dei contatti del coach (`src/routes/client.settings.tsx`, la classe `max-[360px]:hidden`). Il prompt dice «sotto i 360 px le icone si nascondono»; il ramo simulato usa `max-[359px]:hidden`. In Tailwind v4 `max-[X]` compila in `width < X` (misurato: `node_modules/tailwindcss/dist/lib.js`, `width < ${h}`, e nel CSS della build `@media not all and (min-width:360px){.max-\[360px\]\:hidden{display:none}}`): con 359 a 359 px le icone si vedrebbero ancora. A 320 (B8) non cambia niente.
-2. **`ComponentRef` e `SubmitEvent` al posto di `ElementRef` e `FormEvent`** (`src/components/client-switch.tsx:14`, `src/components/client-settings-sheets.tsx:20,64`): @types/react 19.2.14 li segna deprecati (`FormEvent doesn't actually exist`); il ramo simulato e `coach-dialog.tsx` del repo usano ancora i vecchi. Solo tipi, stesso JavaScript.
-3. **La descrizione `<meta>` della pagina** (`src/routes/client.settings.tsx`, `DESCRIPTION`): «I tuoi dati, il tuo coach, il percorso, le notifiche e l'account.» al posto di «Gestisci i tuoi dati personali, le notifiche e le preferenze dell'account.», come nel ramo simulato: la pagina non gestisce più dati personali (fuori scope del brief). Il titolo resta `clientPageTitle("Profilo")`.
-4. **Lo scheletro dell'identità** è un tondo e due righe (`AuraSkeleton`, con `aria-busy`) e non un blocco solo come nel ramo simulato; quello del percorso ha `aria-busy="true"` come gli scheletri della Home. `profileReady` del giro aspetta che non ci siano `aria-busy` e li vede sparire.
-5. **Il piano è il primo commit del ramo** (`ea4a658`), come il §2 permette: sette commit (col passo 9, la revisione) più quello di questo file (D12).
-6. Il prompt al §3 dice che il Profilo di oggi ha 573 righe con le righe citate: combacia (`client.settings.tsx:357` `key={p.name}`, `:537` `minLength={6}`, ecc.). Il brief `07-profilo.md:63` e `PIANO.md:21,32,59` chiedono `linkIdentity` e la fermata: non fatte, come il §4.5 punto 1 decide.
-7. **I casi in più nei test** (ammessi dal §5, nessuna attesa cambiata): in `client-settings.test.ts` l'abbonamento concluso con presenza 0% («0%» si scrive: un oggetto con `percent: 0` è vero), `googleLinked` con `app_metadata: null` e `identities: null`, `calendarInviteText(undefined)`, `pushRow` segnata con un'iscrizione (`checked` falso), `coachCard` con `full_name: null`; in `coach-contacts.test.ts` `bookCoach` con `full_name: null`; in `client-credits.test.ts` `validBlockCount(PATH)` → 6; in `client-sessions.test.ts` `clientAttendance` con una sola sessione futura → `null`.
+1. **Il clone all'avvio** era su `main` @ `3d29634`, non su `redesign/cliente-07-profilo` @ `0ef18e5` (§1, passo 0). Senza effetti.
+2. **Nel cancello della pagina c'è anche il profilo della cornice** (`src/hooks/use-client-shell.ts`, `notificationsLoading`, `notificationsLost`, `notificationsRetrying`, `retryNotifications`). Il §4.4 elenca righe, sessioni, valutazioni, BIA e stato dei crediti, ma dice anche che il cancello copre «tutte le letture da cui vengono le voci». Il profilo è una di quelle: `path_start_date` decide fra «Nuovo percorso» e «È iniziato un nuovo blocco», che hanno id diversi, e `coach_id` dà i nomi delle tipologie. Senza il profilo, un percorso ricominciato comparirebbe come blocco nuovo e poi cambierebbe id, tornando non letto.
+3. **Una riga nuova fa rileggere sessioni e crediti**, e mentre le sessioni si rileggono `bookingIds` è `null` (`use-client-shell.ts`, l'effetto su `rowsQ.data` con `invalidateBookingScope`). Il §4.4 dice «gli id di `bookingsQ.data` (o `null`)», ma le sessioni del cliente non hanno un canale realtime. Una «Nuova sessione in agenda» arrivata dal realtime parlava quindi di una sessione che la cache non aveva, e la regola «non è più del cliente» la mandava alla Home: misurato nel banco, prima `/client`, dopo `/client/bookings/<id>` (§8). Lo ha trovato il revisore (passo 9).
+4. **I crediti quasi finiti stanno sempre in cima** (`client-notifications.ts`, `clientNotificationList`: senza momento la voce vale +∞, non `now`). Il §4.3 dice «contano come «adesso» e stanno in cima». Con l'ora della cornice ferma a passi di 30 s (`useNow`), una riga appena arrivata è più nuova di `now` e andava sopra; per mantenere «in cima» la voce supera tutto. Le altre voci restano in ordine cronologico vero: il revisore proponeva di fermare i momenti futuri a `now`, ma così le righe degli ultimi 30 s finirebbero in ordine di id. Stampa e attese del browser non cambiano.
+5. **Il focus dopo «Riprova»** (`src/routes/client.notifications.tsx`): il prompt non lo chiede, ma la card è nuova. Ho seguito lo schema di Sessioni e della Home: se la rilettura fallisce di nuovo, il focus va al titolo della card; se riesce, va al riepilogo o a «Nessuna notifica».
+6. **`describeClientNotification`:** un `coachFirst` vuoto o di soli spazi vale come nessun coach («Il tuo coach»), come un `coach_name` vuoto.
+7. **L'interruttore spento** (`src/routes/client.settings.tsx`, `togglePush`): se la `DELETE` della riga fallisce lancia l'errore, quindi compare il toast d'errore e l'interruttore resta acceso. Senza la disiscrizione di prima, una cancellazione fallita lascerebbe arrivare le notifiche con l'interruttore spento.
+8. **`public/push-sw.js`:**
+   - l'indirizzo della notifica vale solo se è una stringa;
+   - nel ramo «già sulla pagina» un fuoco negato si ignora (invece di `return c.focus()`, che faceva fallire `waitUntil`);
+   - `openWindow` si aspetta.
+   - Le righe con `self.location.origin` sono tre, come vuole D2.
+9. **`src/components/pwa-register.tsx`:** anche il `.catch` dell'import di `virtual:pwa-register` scrive l'avviso. Prima taceva: un file del modulo in 404 dopo un rilascio toglieva il service worker senza traccia (revisore, punto 5).
+10. **Il commento di `__root.tsx`:** il prompt dice che `virtual:pwa-info` «restituisce un tag HTML, non un indirizzo». In realtà `node_modules/vite-plugin-pwa/info.d.ts` dà anche `webManifest.href`. La scelta non cambia (l'href fisso), e il commento dice il motivo vero: un tipo in più in `tsconfig.json`.
+11. **`nextReadIds`** toglie anche i doppioni già presenti nello storage.
+12. **`biaReminder`** non fa la voce se i numeri o le date non si leggono, invece di «Peso NaN kg» o di un `toISOString` su una data non valida, che nella cornice di tutte le pagine sarebbe un crash.
+13. **`forgetPushForUser`** ferma il suo timer di 3 s quando la cancellazione finisce prima.
+14. **I numeri finali:** **1357 test in 65 file**, contro i 1327 del ramo simulato di Cowork (§4).
+15. **Le prove rosse:**
+    - R7 è un mutante equivalente (§7);
+    - dieci prove fanno cadere qualche caso in più di quelli elencati dal §7, e li ho scritti tutti.
+16. **`LOVABLE_SANDBOX=1 bun run build` funziona anche su Windows**: B13 e R30 non sono lacune.
+17. **D12 ha un commit in più**, quello della revisione (`1bffaa2`); il §6 lo ammette se detto.
 
 ## 11 · TROVATI E NON TOCCATI
 
-1. `src/lib/calendar-events.ts:207-210` — `whatsappUrl` tiene lo `00` davanti al prefisso (`0039-347-555-0123` → `https://wa.me/00393475550123`, che WhatsApp non apre; `app/atteso-cli-07-2026-10-02.json`, `numeroConTrattini`). È del lato coach (§9 del prompt, `HANDOFF-CLIENTE.md` §6): il test di `bookCoach` non lo fissa apposta.
-2. `src/routes/client.sessions.tsx:247` e `src/components/book-blocked-card.tsx:75` — gli `h2` senza `font-sans` prendono Sora e `-0.02em` dalla regola base di `styles.css:239-247`; il Profilo mostra quello di `BookRetryCard` col percorso perso. Non toccati (§4.4, punto 1).
-3. `src/lib/initials.ts` — con un'email come `sara@email.it` dà «SE» (la seconda lettera viene dal dominio): è la regola della 00 e dell'atteso di Cowork (`sara` → «SE»); lo dico perché nel Profilo si vede nell'avatar.
-4. `src/components/client-install-sheet.tsx:46` — il toast «App installata: attiva le notifiche dal Profilo.» compare anche quando si è già nel Profilo (da «Come fare» o da «Installa l'app»); il brief non lo cambia, e il foglio è della 01.
-5. `src/hooks/use-pwa.ts:128-135` — il segno di «Ho installato l'app» non si toglie mai: è il motivo della regola di `installRow` (§4.3, punto 10), e resta così.
-6. `src/lib/push.ts:43` — `subscribeToPush` dice «Permesso negato» con un testo italiano che la pagina riconosce con `includes("permesso")`, come oggi: una stringa come contratto fra due file. Non toccato (`push.ts` non è nel perimetro).
-
-Dalla revisione (§1, passo 9), dichiarati e non cambiati:
-
-7. `src/routes/client.settings.tsx` (la card «Il percorso non si è caricato») compare anche se a fallire è solo `extrasQ` o `eventTypesQ` (`use-client-book-state.ts:117-123`), letture che le righe del percorso non usano. È il contratto del §4.4 («con la lettura persa (`failed`) la card»), lo stesso `failed` della Home; e la riga «Booster» ha bisogno di `state`, che senza quelle letture non c'è.
-8. `src/hooks/use-my-coach.ts` — senza la migrazione (404 `PGRST202`) la query non ha mai dati, quindi è sempre stantia: ogni montaggio di una scheda e ogni ritorno sulla finestra rifanno la chiamata (due, con `retry: 1`). La segnalazione a Sentry resta una. Tenuto com'è: `staleTime` 5 minuti e `retry: 1` sono del §4.1, e lo stato senza la funzione è di passaggio (il giro del server del 02/10).
-9. `src/routes/client.settings.tsx` — `ready` (il service worker registrato) si legge una volta al montaggio (§4.4, punto 2): un Profilo montato prima della registrazione resta su «Come fare» finché non si rimonta. In pratica `pwa-register` registra all'avvio dell'app, prima di qualunque scheda.
-10. `src/lib/coach-contacts.ts:42-43` (la 00) — `tel:` tiene ogni carattere che non sia uno spazio (`+39 347/555…` → `tel:+39347/555…`) e `mailto:` non è validato (`x@y.it?cc=…` aggiungerebbe destinatari): schema fisso, niente script, e il dato è del coach nel suo profilo. Non toccato: l'helper è della 00 e il WhatsApp passa comunque da `whatsappUrl`.
-11. `src/lib/current-block.ts:55-56` — il commento dice che `findCurrentBlock` «lo usa ancora il lato cliente (client.settings.tsx)»: dopo questo ramo restano solo i test. Il file non è nell'elenco di D1, quindi il commento resta: da sistemare con la prossima passata che tocca `current-block.ts`.
-12. `SubmitEvent` da `react` (`client-settings-sheets.tsx`): il revisore dubitava che i tipi lo esportassero; c'è in `@types/react` 19.2.14 (`index.d.ts:2168`) e il typecheck è 0.
+1. **La sessione scaduta non toglie la riga del telefono** (`src/lib/auth.tsx:36-47`). È l'unica uscita senza `signOut`, e non passa dal codice del cliente (lo dice anche il §4.5, punto 4). Chi riprende il telefono dopo una sessione scaduta riceve ancora le notifiche della persona di prima, finché qualcuno non entra e le spegne.
+2. **Nessuna prova di qui fa girare la registrazione dell'app nella build** (`PwaRegister` → `virtual:pwa-register` → `registerSW`). B13 registra `/sw.js` direttamente da Chromium, e il banco gira sul server di sviluppo con `devOptions.enabled: false`. La catena dell'app si vede solo alla rilettura della produzione (§12, punto 2).
+3. **`<html lang="en">` per un'app in italiano** (`src/routes/__root.tsx:121`), e il manifest esce con `"lang":"en"`, il valore predefinito di vite-plugin-pwa (`vite.config.ts` non lo dice). Uno screen reader legge i testi italiani con la voce inglese (WCAG 3.1.1). Fuori dalla 08.
+4. **La lettura delle righe ne prende 30** (`src/hooks/use-notifications.ts`, `PAGE_SIZE`). Le righe che il cliente non sa leggere (un `booking.no_show` arrivato comunque, un tipo nuovo) occupano posti, quindi con molte righe illeggibili una riga leggibile più vecchia non si vede. Oggi non succede, perché i trigger della 08 scrivono solo i quattro tipi; il file non si tocca (D4).
+5. **`useClientBookState().retry` è una funzione nuova a ogni disegno** (`src/hooks/use-client-book-state.ts:176`). `retryNotifications` della cornice cambia insieme a lei, quindi il valore del contesto si rifà a ogni disegno del layout e ridisegna chi lo legge. Nessun difetto visibile, ma la memoizzazione della cornice serve meno di quanto sembri (il revisore lo ha visto pure lui).
+6. **Il timer di 10 secondi di `subscribeToPush` non si ferma** quando `ready` arriva prima (`src/lib/push.ts`). È innocuo.
+7. **La policy «Coach read clients push subscriptions»** (`supabase/migrations/20260510114859_0a2e8967-…sql:18`) lascia a un coach leggere le iscrizioni dei suoi clienti, con le chiavi `p256dh` e `auth`. Per mandare una push serve anche la chiave privata VAPID, che ha solo il server, ma è un dato che il coach non usa. È per la corsia del coach.
 
 ## 12 · RESTA A NICOLÒ
 
-- Il merge della PR nel ramo di integrazione `redesign/cliente-mobile`, dopo la verifica di Cowork.
-- Al rilascio su `main`, con il giro del server del 02/10 applicato, che `get_my_coach` risponda: senza (404 `PGRST202`) i testi dicono «il tuo coach», la card del coach non c'è e parte una segnalazione a Sentry per pagina caricata. Se nel profilo del coach manca il telefono, WhatsApp e Chiama non compaiono e resta «Email»: è un dato suo, da scrivere in `profiles.phone`.
-- Dopo il rilascio: provare sul telefono «Cambia password» con la password vera, e l'interruttore delle push dall'app installata (il banco finge il service worker).
+1. **Il merge della PR** in `redesign/cliente-mobile`, dopo la verifica di Cowork (che rilancia la stampa sul ramo: qui dà già l'atteso nei tre fusi, §8).
+2. **Al rilascio su `main` e alla pubblicazione**, Cowork rilegge la produzione in sola lettura: `/sw.js` con la precache del solo manifest e il suo `workbox-*.js` che rispondono 200, il `<link rel="manifest">` nelle pagine, una registrazione attiva in Chrome.
+3. **Sul telefono:** chi ha già l'icona dell'app sulla schermata Home di un iPhone la toglie e la rimette (iOS legge il manifest quando l'icona si aggiunge).
+4. **La push vera, una volta, sul telefono:** nel pannello di Lovable Cloud ci sono i segreti `VAPID_PUBLIC_KEY` e `VAPID_PRIVATE_KEY` (si guardano i nomi, non i valori; senza, `send-push` risponde 500, `supabase/functions/send-push/index.ts`); poi, con l'app aperta dall'icona e un account cliente di prova, «Attive» acceso, una prenotazione: la conferma arriva sul telefono e il tocco apre l'app. Fino a lì «Attive» promette una cosa che nessuno ha visto arrivare.
+5. **I trigger della 08** (`app/server-cli-08-notifiche-2026-10-04.sql`, nell'editor SQL di Lovable Cloud, come il giro del 02/10), le letture di controllo, e **una prova da capo a fondo:** dal lato coach si sposta e poi si annulla una sessione del cliente di prova, e sulla pagina Notifiche di quell'account le due voci compaiono senza ricaricare e aprono il dettaglio giusto (il criterio 1 del brief, che le prove di qui coprono in due metà e nella giunzione, mai sul database vero).
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)

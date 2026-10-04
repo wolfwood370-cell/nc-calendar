@@ -42,8 +42,15 @@ export async function subscribeToPush(profileId: string): Promise<PushSubscripti
   const permission = await Notification.requestPermission();
   if (permission !== "granted") throw new Error("Permesso negato");
 
-  const reg =
-    (await navigator.serviceWorker.getRegistration()) ?? (await navigator.serviceWorker.ready);
+  // Passata 08: pushManager.subscribe() vuole un service worker attivo
+  // (Chrome: «no active Service Worker»; WebKit: «Subscribing for push
+  // requires an active service worker»), e getRegistration() restituisce anche
+  // una registrazione ancora in installazione; ready aspetta quella attiva. Al
+  // più 10 secondi.
+  const reg = await Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), 10_000)),
+  ]);
   if (!reg) throw new Error("Service worker non disponibile");
 
   let sub = await reg.pushManager.getSubscription();
@@ -77,6 +84,60 @@ export async function getCurrentPushSubscription(): Promise<PushSubscription | n
   const reg = await navigator.serviceWorker.getRegistration();
   if (!reg) return null;
   return reg.pushManager.getSubscription();
+}
+
+/**
+ * Le notifiche sul telefono sono attive per questa persona su questo
+ * dispositivo (passata 08 del lato cliente): il dispositivo ha un'iscrizione e
+ * il server ha la riga di push_subscriptions di chi è entrato per
+ * quell'iscrizione (la policy «Self manage push subscriptions» lascia leggere
+ * a ognuno le sue righe; endpoint è la colonna generata da
+ * subscription->>'endpoint'). Prima bastava l'iscrizione del dispositivo: con
+ * due persone sullo stesso telefono la seconda vedeva «Attive» senza
+ * riceverle, e un'iscrizione rimasta dopo una scrittura fallita diceva
+ * «Attive» senza la riga. Se la lettura fallisce vale l'iscrizione, come prima.
+ */
+export async function isPushEnabledFor(profileId: string): Promise<boolean> {
+  const sub = await getCurrentPushSubscription();
+  if (!sub) return false;
+  const { data, error } = await supabase
+    .from("push_subscriptions")
+    .select("id")
+    .eq("profile_id", profileId)
+    .eq("endpoint", sub.endpoint)
+    .limit(1);
+  if (error) return true;
+  return (data ?? []).length > 0;
+}
+
+/**
+ * All'uscita dall'account (passata 08 del lato cliente: «Esci» del Profilo e
+ * dell'header desktop; non «Esci e collega Google», dove si rientra subito
+ * nello stesso account) toglie la riga di questa persona per questo
+ * dispositivo, così le sue notifiche non arrivano a chi userà il telefono
+ * dopo. L'iscrizione del browser resta: può servire a un'altra persona dello
+ * stesso telefono, la cui riga punta allo stesso endpoint. Mai bloccante: al
+ * più 3 secondi, e un errore si ignora (l'uscita va avanti comunque).
+ */
+export async function forgetPushForUser(profileId: string): Promise<void> {
+  const work = (async () => {
+    const sub = await getCurrentPushSubscription();
+    if (!sub) return;
+    await supabase
+      .from("push_subscriptions")
+      .delete()
+      .eq("profile_id", profileId)
+      .eq("endpoint", sub.endpoint);
+  })().catch(() => undefined);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const limit = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, 3_000);
+  });
+  try {
+    await Promise.race([work, limit]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 interface SendPushArgs {

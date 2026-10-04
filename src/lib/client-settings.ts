@@ -207,9 +207,13 @@ export interface PushRowModel {
  * «Notifiche sul telefono» (R2), in quest'ordine:
  *   - con le push (supportate e service worker registrato) l'interruttore, e
  *     il testo dice cosa arriva oggi: la conferma della sessione che il
- *     cliente prenota (use-book-confirm.ts è l'unica push del cliente; gli
- *     avvisi delle azioni del coach sono della passata 08, che cambierà il
- *     testo);
+ *     cliente prenota (use-book-confirm.ts è l'unica push del cliente). Dalla
+ *     passata 08 gli avvisi delle azioni del coach arrivano nella campanella
+ *     dell'app, in tempo reale, e non sul telefono: il server non ha un modo
+ *     per mandare una push quando agisce il coach (niente pg_net, e send-push
+ *     vuole il JWT di un utente), quindi il testo resta questo. «Attive»
+ *     guarda la riga di chi è entrato per questo dispositivo
+ *     (isPushEnabledFor);
  *   - altrimenti, aperta dall'icona: qui non si attivano, niente comando;
  *   - altrimenti, segnata con «Ho installato l'app» ma aperta nel browser: si
  *     apre l'app dall'icona (su iPhone le push ci sono solo lì). Senza questo

@@ -7,7 +7,11 @@
 // «letta» sono in un posto solo, così la campanella dell'header desktop, che
 // resta montata, perde il badge appena la pagina Notifiche segna tutto letto.
 // 44×44, tonda, bordo 1px rgba(193,199,208,0.6), icona Bell 20; badge rosso
-// solo con voci non lette, «99+» oltre 99.
+// solo con voci non lette, «99+» oltre 99. Dalla passata 08 le non lette sono
+// quelle di tutte e due le fonti (i promemoria e le azioni del coach), e il
+// rosso del badge è error (#ba1a1a, 6,46:1 col bianco), come il badge desktop
+// del coach: error-bright (#e53935) faceva 4,23:1, sotto il 4,5:1 che vuole il
+// testo a 12 px.
 // ----------------------------------------------------------------------------
 
 import { Link } from "@tanstack/react-router";
@@ -31,7 +35,7 @@ export function ClientNotificationsBell({ className }: { className?: string }) {
       {unread > 0 && (
         <span
           aria-hidden
-          className="absolute -top-[3px] -right-[3px] flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-surface bg-error-bright px-[5px] text-xs leading-none font-bold text-white"
+          className="absolute -top-[3px] -right-[3px] flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-surface bg-error px-[5px] text-xs leading-none font-bold text-white"
         >
           {formatUnreadBadge(unread)}
         </span>

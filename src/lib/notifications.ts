@@ -137,6 +137,114 @@ export function describeNotification(
   return { kind: "other", title: "Notifica", body: "", when: null, date: null, bookingId: null };
 }
 
+// ----------------------------------------------------------------------------
+// Le azioni del coach, per il cliente (lato cliente, passata 08)
+// ----------------------------------------------------------------------------
+// Le righe le scrivono i trigger del server della 08 in notifications, col
+// cliente come destinatario, quando il suo coach gli sposta, annulla o
+// inserisce una sessione, o gli aggiunge crediti. Nel payload ci sono i dati
+// dei testi com'erano in quel momento (session_label, coach_name), le date in
+// ISO (da jsonb arrivano con l'offset) e i numeri. Un payload che non ha la
+// forma attesa, o un tipo che il cliente non conosce, dà null: la riga non si
+// mostra e non si conta (describeNotification del coach mostra invece
+// «Notifica», e il suo test lo fissa). Il blocco nuovo, il percorso nuovo e la
+// BIA sono promemoria calcolati (client-notifications.ts), e le assenze non
+// notificano (decisione 12 di Nicolò, 30/09/2026).
+
+/** Le quattro azioni del coach che arrivano al cliente dal database. */
+export type ClientCoachNotificationKind = "moved" | "cancelled" | "created" | "credits";
+
+export interface ClientNotificationView {
+  kind: ClientCoachNotificationKind;
+  title: string;
+  body: string;
+  /** Il dettaglio della sessione per le tre azioni sulle sessioni, la Home per i crediti. */
+  target: { to: "/client/bookings/$bookingId"; bookingId: string } | { to: "/client" };
+}
+
+/** Una stringa non vuota, senza gli spazi attorno; altrimenti null. */
+function filled(v: unknown): string | null {
+  return typeof v === "string" && v.trim() ? v.trim() : null;
+}
+
+/** Una data ISO che si legge; altrimenti null. */
+function isoDate(v: unknown): Date | null {
+  return typeof v === "string" ? toDate(v) : null;
+}
+
+/** «lun 5 ott», in ora locale. */
+const clientDay = (d: Date) => format(d, "EEE d MMM", { locale: it });
+/** «09:00», in ora locale. */
+const clientTime = (d: Date) => format(d, "HH:mm");
+
+/**
+ * Titolo, testo e destinazione di una riga di notifications per il cliente
+ * (i testi del brief della 08); null se il tipo non è uno dei quattro o se il
+ * payload non ha la forma attesa. Il nome è il primo nome di chi ha agito (la
+ * prima parola di coach_name), altrimenti `coachFirst` (il coach di adesso),
+ * altrimenti «Il tuo coach» a inizio frase e «dal tuo coach» dentro.
+ */
+export function describeClientNotification(
+  n: Pick<NotificationRow, "type" | "payload">,
+  coachFirst: string | null,
+): ClientNotificationView | null {
+  const p = n.payload;
+  const first = filled(p.coach_name)?.split(/\s+/)[0] ?? filled(coachFirst);
+  const by = first ? `da ${first}` : "dal tuo coach";
+  const label = filled(p.session_label) ?? "Sessione";
+
+  if (n.type === "credits.added") {
+    const quantity = p.quantity;
+    if (typeof quantity !== "number" || !Number.isInteger(quantity) || quantity < 1) return null;
+    return {
+      kind: "credits",
+      title: "Crediti aggiunti",
+      body: `+${quantity} ${label} ${by}`,
+      target: { to: "/client" },
+    };
+  }
+
+  if (
+    n.type !== "booking.moved_by_coach" &&
+    n.type !== "booking.cancelled_by_coach" &&
+    n.type !== "booking.created_by_coach"
+  ) {
+    return null;
+  }
+  const bookingId = filled(p.booking_id);
+  const start = isoDate(p.scheduled_at);
+  if (!bookingId || !start) return null;
+  const target = { to: "/client/bookings/$bookingId" as const, bookingId };
+  const when = `${clientDay(start)} alle ${clientTime(start)}`;
+  const subject = first ?? "Il tuo coach";
+
+  if (n.type === "booking.moved_by_coach") {
+    const before = isoDate(p.old_scheduled_at);
+    if (!before) return null;
+    return {
+      kind: "moved",
+      title: `${subject} ha spostato una sessione`,
+      body: `${label} · ${clientDay(before)} ${clientTime(before)} → ${when}`,
+      target,
+    };
+  }
+  if (n.type === "booking.cancelled_by_coach") {
+    if (typeof p.charged !== "boolean") return null;
+    return {
+      kind: "cancelled",
+      title: `${subject} ha annullato una sessione`,
+      body: `${label} di ${when} · ${p.charged ? "credito scalato" : "credito restituito"}`,
+      target,
+    };
+  }
+  return {
+    kind: "created",
+    title: "Nuova sessione in agenda",
+    body: `${label} · ${when} · inserita ${by}`,
+    target,
+  };
+}
+
 /** «adesso», «25 min fa», «1 ora fa», «3 ore fa», «ieri», «4 giorni fa». */
 export function formatAgo(iso: string, now: Date = new Date()): string {
   const minutes = Math.round((now.getTime() - new Date(iso).getTime()) / 60_000);

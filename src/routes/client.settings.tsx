@@ -14,8 +14,8 @@
 // «Esci» non aspettano le letture: col percorso perso si cambia la password e
 // si esce.
 // Lo stato delle notifiche sul telefono (le API del browser, il service
-// worker, l'iscrizione) si legge una volta al montaggio; l'installazione da
-// usePwaInstall. «Ho installato l'app» nel foglio d'installazione può togliere
+// worker, e dalla 08 la riga di chi è entrato per l'iscrizione di questo
+// dispositivo) si legge al montaggio; l'installazione da usePwaInstall. «Ho installato l'app» nel foglio d'installazione può togliere
 // il pulsante che l'ha aperto («Come fare» delle notifiche): il focus torna
 // sul titolo «Account».
 // Il collegamento a Google resta il giro di oggi (decisione 11 del
@@ -72,7 +72,9 @@ import {
 } from "@/lib/client-settings";
 import { clientPageTitle } from "@/lib/client-shell";
 import {
+  forgetPushForUser,
   getCurrentPushSubscription,
+  isPushEnabledFor,
   isPushReady,
   isPushSupported,
   subscribeToPush,
@@ -143,18 +145,23 @@ function ClientSettings() {
   const [sheet, setSheet] = useState<"password" | "google" | "install" | null>(null);
   const accountRef = useRef<HTMLHeadingElement>(null);
 
+  // «Attive» vuol dire la riga di chi è entrato per questo dispositivo, non la
+  // sola iscrizione del browser (isPushEnabledFor, passata 08): si legge
+  // quando l'utente c'è.
+  const meId = user?.id ?? null;
   useEffect(() => {
     let alive = true;
     const supported = isPushSupported();
-    void Promise.all([isPushReady(), getCurrentPushSubscription().catch(() => null)]).then(
-      ([ready, sub]) => {
-        if (alive) setDevice({ supported, ready, enabled: sub !== null });
-      },
-    );
+    void Promise.all([
+      isPushReady(),
+      meId ? isPushEnabledFor(meId).catch(() => false) : Promise.resolve(false),
+    ]).then(([ready, enabled]) => {
+      if (alive) setDevice({ supported, ready, enabled });
+    });
     return () => {
       alive = false;
     };
-  }, []);
+  }, [meId]);
 
   const identity = profileIdentity(profile, user?.email);
   const card = coachCard(coachRow);
@@ -176,14 +183,22 @@ function ClientSettings() {
         setDevice((d) => (d ? { ...d, enabled: true } : d));
         toast.success(PUSH_ON_TOAST);
       } else {
+        // Spento, si toglie solo la riga di chi è entrato, e l'iscrizione del
+        // browser resta (passata 08): sullo stesso telefono può servire a
+        // un'altra persona, la cui riga punta allo stesso endpoint, e
+        // disiscriverla spegnerebbe anche le sue notifiche senza dirglielo.
+        // Senza righe il server non manda niente a quell'iscrizione. Se la
+        // riga non si toglie, l'interruttore resta acceso e lo dice il toast:
+        // senza la disiscrizione di prima, le notifiche continuerebbero ad
+        // arrivare con l'interruttore spento.
         const sub = await getCurrentPushSubscription();
         if (sub) {
-          await sub.unsubscribe();
-          await supabase
+          const { error } = await supabase
             .from("push_subscriptions")
             .delete()
             .eq("profile_id", user.id)
             .eq("endpoint", sub.endpoint);
+          if (error) throw error;
         }
         setDevice((d) => (d ? { ...d, enabled: false } : d));
         toast.success(PUSH_OFF_TOAST);
@@ -205,6 +220,9 @@ function ClientSettings() {
     return null;
   };
 
+  // Qui la riga del telefono resta: «Esci e collega Google» fa rientrare
+  // subito con la stessa email, cioè nello stesso account, e toglierla gli
+  // spegnerebbe le notifiche sul telefono senza dirlo (passata 08).
   const linkGoogle = async () => {
     setSheet(null);
     toast.info(googleLinkToast(identity.email));
@@ -212,7 +230,10 @@ function ClientSettings() {
     void navigate({ to: "/auth" });
   };
 
+  // Prima dell'uscita, la riga di chi esce per questo dispositivo: le sue
+  // notifiche non arrivano più a chi userà il telefono dopo (passata 08).
   const logout = async () => {
+    if (user) await forgetPushForUser(user.id);
     await signOut();
     void navigate({ to: "/auth" });
   };

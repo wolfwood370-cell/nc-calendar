@@ -91,6 +91,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     links: [
       { rel: "stylesheet", href: appCss },
+      // Il manifest dell'app (passata 08 del lato cliente): vite-plugin-pwa lo
+      // pubblica in /manifest.webmanifest ma scrive questo link solo dentro un
+      // index.html, che con TanStack Start non c'è. Senza, il telefono non sa
+      // che è un'app (schermo intero, pagina di partenza, ambito), e su iPhone
+      // le notifiche arrivano solo all'app aperta dall'icona della schermata
+      // Home. Un href fisso e non virtual:pwa-info: quel modulo vuole un tipo
+      // in più in tsconfig.json (vite-plugin-pwa/info), e l'indirizzo che dà è
+      // questo stesso.
+      { rel: "manifest", href: "/manifest.webmanifest" },
       { rel: "icon", type: "image/png", href: "/favicon.png" },
       { rel: "apple-touch-icon", href: "/favicon.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
