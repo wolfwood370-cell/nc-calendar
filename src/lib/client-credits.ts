@@ -153,8 +153,9 @@ export interface ClientPoolsInput {
   /** Il blocco di riferimento o il blocco dopo; null per il cliente libero. */
   block: ClientBlock | null;
   /**
-   * Le sessioni del cliente, comprese le annullate tardi con deleted_at:
-   * cancel_booking lo scrive anche su di loro, e useClientBookings oggi le scarta.
+   * Le sessioni del cliente, comprese le annullate tardi con deleted_at: fino
+   * al giro del server del 02/10/2026 cancel_booking lo scriveva anche su di
+   * loro, e useClientBookings le scarta.
    */
   bookings: readonly PoolBooking[];
   /** I crediti extra del cliente: solo con il blocco di riferimento. */

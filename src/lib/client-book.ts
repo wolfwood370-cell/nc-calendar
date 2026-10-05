@@ -168,7 +168,8 @@ export interface BookStateInput {
   blocks: readonly ClientBlock[];
   /**
    * Le sessioni del cliente, comprese le annullate tardi con deleted_at
-   * (useClientBookingsForCredits): cancel_booking lo scrive anche su di loro.
+   * (useClientBookingsForCredits): fino al giro del server del 02/10/2026
+   * cancel_booking lo scriveva anche su di loro, e quelle righe restano.
    */
   bookings: readonly PoolBooking[];
   /** I crediti extra del cliente: vanno solo al blocco di riferimento. */

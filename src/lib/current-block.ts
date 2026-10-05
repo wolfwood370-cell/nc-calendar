@@ -52,8 +52,8 @@ export function findCurrentBlock<T extends BlockDates>(
  * percorso del cliente oggi» (Panoramica, Clienti, Profilo, dialog
  * Pacchetto). Il pannello del Calendario e Assegna evento mostrano invece il
  * blocco della data della sessione (blockForDate, assign-event.ts).
- * findCurrentBlock, qui sopra, ne è il primo passo e lo usa ancora il lato
- * cliente (client.settings.tsx).
+ * findCurrentBlock, qui sopra, ne è il primo passo; fuori dai test non la usa
+ * più nessuno.
  */
 export function resolveCurrentBlock<T extends BlockDates>(
   blocks: readonly T[],

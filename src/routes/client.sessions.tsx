@@ -89,7 +89,7 @@ function ClientSessionsPage() {
   const navigate = useNavigate();
   const tab = Route.useSearch({ select: (s) => s.tab }) ?? "prossime";
 
-  // Il coach dei testi (get_my_coach): qui entra nella card vuota, tramite lo stato dei crediti.
+  // Il coach dei testi (get_my_coach): lo vuole lo stato dei crediti; la card vuota non lo nomina.
   const { coach } = useMyCoach();
   const { meId, coachId, profileArrived, bookingsQ, eventTypesQ, failed, state } =
     useClientBookState(now, coach);

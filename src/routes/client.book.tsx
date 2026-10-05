@@ -104,7 +104,7 @@ function BookFlow() {
   const { user } = useAuth();
   const { now } = useClientShell();
   // Il coach dei testi (get_my_coach): senza nome «il tuo coach», e i pulsanti
-  // WhatsApp solo col link (il coach di oggi, senza telefono, non ne ha).
+  // WhatsApp solo col link, cioè solo se il coach ha un telefono nel profilo.
   const { coach } = useMyCoach();
   const navigate = useNavigate();
   const eventTypeParam = Route.useSearch({ select: (s) => s.eventType });

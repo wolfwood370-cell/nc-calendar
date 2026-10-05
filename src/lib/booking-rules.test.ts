@@ -18,7 +18,6 @@ import {
   type RulesBlock,
 } from "@/lib/booking-rules";
 import { getMoveWindow } from "@/lib/client-credits";
-import { RESCHEDULE_WINDOW_DAYS } from "@/lib/reschedule-slots";
 
 describe("regole di prenotazione", () => {
   it("i numeri del cliente, per prenotare, spostare, annullare, confermare e valutare", () => {
@@ -29,10 +28,6 @@ describe("regole di prenotazione", () => {
     expect(CLIENT_FREE_CANCEL_HOURS).toBe(24);
     expect(CLIENT_CONFIRM_WINDOW_HOURS).toBe(48);
     expect(CLIENT_FEEDBACK_DAYS).toBe(14);
-  });
-
-  it("il foglio di riprogrammazione di oggi resta a 14 giorni, ora letti da qui", () => {
-    expect(RESCHEDULE_WINDOW_DAYS).toBe(14);
   });
 
   it("preavviso: 0 dà «Nessuno», 1 ora al singolare, e la card mostra «24 ore»", () => {

@@ -50,9 +50,8 @@ describe("getCoachContacts · WhatsApp, telefono ed email del coach", () => {
   });
 });
 
-// Nessun caso con un numero che comincia con 00: whatsappUrl oggi tiene lo 00
-// davanti al prefisso (https://wa.me/0039…), è del lato coach, e un test che lo
-// fissasse renderebbe più difficile correggerlo.
+// I numeri con 00 o senza prefisso: whatsappUrl, in calendar-events.test.ts
+// (passata 09).
 describe("bookCoach · il coach dei testi dalla riga di get_my_coach", () => {
   it("il nome senza spazi, il nome di battesimo e il WhatsApp di getCoachContacts", () => {
     expect(
