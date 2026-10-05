@@ -822,3 +822,89 @@ describe("reportPoolMismatches", () => {
     expect(sent).toHaveLength(2);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Passata 09: l'ultimo giorno di un blocco il numero è quello del blocco dopo,
+// coi suoi extra.
+// ---------------------------------------------------------------------------
+
+describe("l'ultimo giorno di un blocco: il blocco dopo conta i suoi extra (passata 09)", () => {
+  // Il blocco 1 finisce oggi (con le 24 ore non si prenota più), il 2 comincia domani con 8 crediti.
+  const lastDay = (
+    b1: CreditAllocation[] = [alloc("z1", "pt", 8, 6)],
+    b2: CreditAllocation[] = [alloc("z2", "pt", 8, 0)],
+  ): ClientBlock[] => [
+    block("z1", 1, "2026-09-01", "2026-09-28", b1),
+    block("z2", 2, "2026-09-29", "2026-10-26", b2),
+  ];
+  // Un Booster: scade a fine giornata, in ora locale (le stesse attese nei tre fusi).
+  const booster = (typeId: string, until: Date): PoolExtra => ({
+    event_type_id: typeId,
+    quantity: 1,
+    quantity_booked: 0,
+    expires_at: until.toISOString(),
+  });
+  const onNext = (extras: PoolExtra[], typeId = "pt", blocks = lastDay()) => {
+    const s = giulia({ blocks, bookings: [], extras, coach: NICOLO });
+    const o = option(s, typeId);
+    const w = o.windows.find((x) => s.next !== null && x.blockId === s.next.id);
+    return { count: o.count, sub: o.sub, line: w ? creditLine(o, w, s) : null };
+  };
+
+  it("un Booster appena comprato vale anche nel blocco dopo: 9, e «ne resteranno 8»", () => {
+    expect(onNext([booster("pt", at(2026, 10, 28, 23, 59))])).toEqual({
+      count: 9,
+      sub: "60 min · 9 disponibili",
+      line: "Userai 1 credito Sessione PT del blocco 2: ne resteranno 8.",
+    });
+  });
+
+  it("senza Booster: 8, e «ne resteranno 7»", () => {
+    expect(onNext([])).toEqual({
+      count: 8,
+      sub: "60 min · 8 disponibili",
+      line: "Userai 1 credito Sessione PT del blocco 2: ne resteranno 7.",
+    });
+  });
+
+  it("con un extra del coach di 2 crediti, che non scade: 10", () => {
+    expect(onNext([extra("pt", 2, 0)])).toEqual({
+      count: 10,
+      sub: "60 min · 10 disponibili",
+      line: "Userai 1 credito Sessione PT del blocco 2: ne resteranno 9.",
+    });
+  });
+
+  it("un Booster che scade con il blocco 1 nel blocco dopo non conta: 8", () => {
+    expect(onNext([booster("pt", at(2026, 9, 28, 23, 59))])).toEqual({
+      count: 8,
+      sub: "60 min · 8 disponibili",
+      line: "Userai 1 credito Sessione PT del blocco 2: ne resteranno 7.",
+    });
+  });
+
+  it("un Booster di una tipologia che il blocco dopo non ha: «non ne resteranno altri»", () => {
+    const blocks = lastDay([alloc("z1", "pt", 8, 8), alloc("z1", "test", 1, 0)]);
+    expect(onNext([booster("test", at(2026, 10, 28, 23, 59))], "test", blocks)).toEqual({
+      count: 1,
+      sub: "60 min · 1 disponibile",
+      line: "Userai 1 credito Test Funzionali + Check Tecnico: non ne resteranno altri.",
+    });
+  });
+});
+
+// Passata 09: l'esito promette l'invito solo a un'email che il server invita.
+describe("doneText · l'invito solo a un'email che il server invita (passata 09)", () => {
+  it("senza spazi ai lati; con uno spazio in mezzo o fra virgolette, nessun invito", () => {
+    const when = at(2026, 9, 29, 11, 10).toISOString();
+    expect(doneText("Sessione PT", when, NICOLO, " giulia.b@email.it ")).toBe(
+      "Sessione PT, martedì 29 settembre alle 11:10. Nicolò la vede subito nel calendario; l'invito di Google Calendar arriva a giulia.b@email.it.",
+    );
+    expect(doneText("Sessione PT", when, NICOLO, "giulia b@email.it")).toBe(
+      "Sessione PT, martedì 29 settembre alle 11:10. Nicolò la vede subito nel calendario.",
+    );
+    expect(doneText("Sessione PT", when, NICOLO, '"giulia"@email.it')).toBe(
+      "Sessione PT, martedì 29 settembre alle 11:10. Nicolò la vede subito nel calendario.",
+    );
+  });
+});

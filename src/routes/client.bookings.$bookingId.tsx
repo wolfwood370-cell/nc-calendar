@@ -3,14 +3,18 @@
 // B2, H9 e V11)
 // ----------------------------------------------------------------------------
 // La lettura della sessione e della sua tipologia, con la chiave
-// ["booking-detail", id] (queryKeys.bookings.detail: le azioni del dettaglio
-// la rinfrescano, invalidateBookingScope no). Il coach non si legge: nessuna
-// policy di profiles dà al cliente la riga del suo coach, e i testi lo
-// prendono da BookCoach (client-booking-detail-view.tsx).
+// ["booking-detail", id] (queryKeys.bookings.detail): la rinfrescano le azioni
+// del dettaglio e, dalla passata 09, invalidateBookingScope, cioè anche lo
+// spostamento o l'annullamento del coach che arriva con le notifiche. Il coach
+// dei testi viene da useMyCoach (get_my_coach), dentro la vista
+// (client-booking-detail-view.tsx).
 // Gli stati, nell'ordine: la sessione letta e visibile, il dettaglio; letta e
 // assente, o eliminata dal coach (isVisibleSession, come in Sessioni), la card
-// «Sessione non trovata»; la lettura in errore, la frase e «Riprova»; prima,
-// lo scheletro. Una rilettura fallita coi dati di prima tiene il dettaglio.
+// «Sessione non trovata»; la lettura persa (lostRead), la card con «Riprova»,
+// che resta mentre rilegge (passata 09, come Sessioni); prima, lo scheletro.
+// Una rilettura fallita coi dati di prima tiene il dettaglio. Dopo «Riprova»
+// il focus va sul primo titolo che arriva, o su quello della card se fallisce
+// di nuovo; solo se si era perso o era ancora nella card.
 // Anche la tipologia fallita è un errore: il dettaglio senza direbbe il nome
 // sbagliato e perderebbe il luogo e «Entra nella videochiamata». La vista ha
 // la chiave della sessione: passando da un dettaglio all'altro riparte da capo.
@@ -18,7 +22,8 @@
 
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
+import { BookRetryCard } from "@/components/book-blocked-card";
 import {
   ClientBookingDetailView,
   type ClientBookingDetail,
@@ -29,15 +34,21 @@ import { AuraCardSkeleton, AuraLineSkeleton } from "@/components/ui/aura-skeleto
 import { supabase } from "@/integrations/supabase/client";
 import { isVisibleSession } from "@/lib/client-sessions";
 import { clientPageTitle } from "@/lib/client-shell";
+import { CARD_TITLE } from "@/lib/client-type";
+import { focusIfLost } from "@/lib/focus";
 import { queryKeys } from "@/lib/query-keys";
+import { lostRead } from "@/lib/query-state";
+
+// La parola del lato cliente è «sessione» (passata 09, il brief).
+const DESCRIPTION = "Consulta, sposta o annulla la tua sessione.";
 
 export const Route = createFileRoute("/client/bookings/$bookingId")({
   head: () => ({
     meta: [
       { title: clientPageTitle("Sessione") },
-      { name: "description", content: "Consulta, sposta o annulla il tuo appuntamento." },
+      { name: "description", content: DESCRIPTION },
       { property: "og:title", content: clientPageTitle("Sessione") },
-      { property: "og:description", content: "Consulta, sposta o annulla il tuo appuntamento." },
+      { property: "og:description", content: DESCRIPTION },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -94,13 +105,39 @@ function BookingDetailPage() {
   });
 
   const booking = q.data;
+  // Persa: senza dati, in errore o riletta dopo un errore (lostRead): TanStack
+  // Query, rileggendo una lettura senza dati, la rimette in attesa e ne toglie
+  // l'errore, e la card sparirebbe sotto lo scheletro col pulsante.
+  const lost = lostRead(q);
+  const reading = q.fetchStatus !== "idle";
+  const contentRef = useRef<HTMLDivElement>(null);
+  const lostTitleRef = useRef<HTMLHeadingElement>(null);
+  const retried = useRef(false);
+  const retry = () => {
+    retried.current = true;
+    void q.refetch();
+  };
+  useEffect(() => {
+    if (!retried.current || reading) return;
+    retried.current = false;
+    const root = contentRef.current;
+    if (lost) {
+      const title = lostTitleRef.current;
+      focusIfLost(title, root, title?.parentElement);
+    } else if (root) {
+      focusIfLost(root.querySelector<HTMLElement>("h2") ?? root, root);
+    }
+  }, [reading, lost]);
+
   let content: ReactNode;
   if (booking && isVisibleSession(booking)) {
     content = <ClientBookingDetailView key={booking.id} booking={booking} />;
   } else if (booking !== undefined) {
     content = (
       <section className={CARD}>
-        <h2 className="text-[17px] font-bold">Sessione non trovata</h2>
+        <h2 tabIndex={-1} className={CARD_TITLE}>
+          Sessione non trovata
+        </h2>
         <p className="text-[15px] leading-normal text-on-surface-variant">
           Potrebbe essere stata eliminata.
         </p>
@@ -109,18 +146,16 @@ function BookingDetailPage() {
         </ClientButton>
       </section>
     );
-  } else if (q.isError) {
-    // B15 (audit): distingui errore di rete (con retry) da sessione
-    // realmente inesistente, invece di mostrare sempre "non trovata".
+  } else if (lost) {
+    // B15 (audit): un errore di rete non è una sessione che non c'è.
     content = (
-      <section className={CARD}>
-        <p className="text-[15px] leading-normal text-on-surface-variant">
-          Impossibile caricare la sessione. Controlla la connessione e riprova.
-        </p>
-        <ClientButton variant="secondary" fullWidth onClick={() => void q.refetch()}>
-          Riprova
-        </ClientButton>
-      </section>
+      <BookRetryCard
+        title="La sessione non si è caricata"
+        text="Non siamo riusciti a leggere la sessione. Riprova tra poco."
+        onRetry={retry}
+        retrying={reading}
+        titleRef={lostTitleRef}
+      />
     );
   } else {
     // Audit 2026-05-22 M4: Aura skeletons (rounded-[32px]) match
@@ -147,7 +182,13 @@ function BookingDetailPage() {
   return (
     <>
       <ClientPageHeader title="Sessione" />
-      <div className="flex flex-col gap-4 px-4 pt-2 pb-8">{content}</div>
+      <div
+        ref={contentRef}
+        tabIndex={-1}
+        className="flex flex-col gap-4 px-4 pt-2 pb-8 outline-none"
+      >
+        {content}
+      </div>
     </>
   );
 }

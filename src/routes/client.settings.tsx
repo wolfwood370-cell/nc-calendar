@@ -10,14 +10,16 @@
 // (get_my_coach); il profilo, i blocchi, le sessioni e lo stato dei crediti
 // da useClientBookState, lo stesso di Home, Prenota e Sessioni.
 // Gli stati del percorso, nell'ordine: il caricamento (lo scheletro); una
-// lettura persa (la card con «Riprova»); le righe. Notifiche, account ed
-// «Esci» non aspettano le letture: col percorso perso si cambia la password e
-// si esce.
+// lettura persa (la card con «Riprova»: riuscita, il focus va sul titolo «Il
+// tuo percorso», dalla 09); le righe. Notifiche, account ed «Esci» non
+// aspettano le letture: col percorso perso si cambia la password e si esce.
 // Lo stato delle notifiche sul telefono (le API del browser, il service
 // worker, e dalla 08 la riga di chi è entrato per l'iscrizione di questo
-// dispositivo) si legge al montaggio; l'installazione da usePwaInstall. «Ho installato l'app» nel foglio d'installazione può togliere
-// il pulsante che l'ha aperto («Come fare» delle notifiche): il focus torna
-// sul titolo «Account».
+// dispositivo) si legge al montaggio, e di nuovo quando il service worker è
+// pronto se all'apertura non lo era (09); l'installazione da usePwaInstall.
+// «Ho installato l'app» nel foglio d'installazione può togliere il pulsante
+// che l'ha aperto («Come fare» delle notifiche): il focus torna sul titolo
+// «Account».
 // Il collegamento a Google resta il giro di oggi (decisione 11 del
 // 30/09/2026): si esce e si rientra con «Continua con Google» usando la
 // stessa email; niente linkIdentity, niente «Scollega».
@@ -71,6 +73,8 @@ import {
   type CoachLinkKind,
 } from "@/lib/client-settings";
 import { clientPageTitle } from "@/lib/client-shell";
+import { SECTION_LABEL } from "@/lib/client-type";
+import { focusIfLost } from "@/lib/focus";
 import {
   forgetPushForUser,
   getCurrentPushSubscription,
@@ -102,9 +106,8 @@ const LIST_CARD = "overflow-hidden rounded-[24px] border border-outline-variant/
 const ROW_SEP = "border-t border-surface-container-low first:border-t-0";
 // Righe di almeno 52 px, padding 10 e 16.
 const ROW = "flex min-h-[52px] items-center gap-3 px-4 py-2.5";
-// I titoli di sezione in Manrope 14/700, come la Home: la regola base di
-// styles.css mette Sora e -0.02em su ogni h2.
-const SECTION_TITLE = "px-1 font-sans text-sm font-bold tracking-normal text-on-surface-variant";
+// I titoli di sezione in Manrope 14/700, come la Home (client-type.ts).
+const SECTION_TITLE = `${SECTION_LABEL} px-1`;
 const ROW_TITLE = "text-[15px] font-bold";
 const ROW_SUB = "text-[13px] leading-[1.4] text-on-surface-variant";
 
@@ -114,7 +117,7 @@ const LINK_ICON: Record<CoachLinkKind, LucideIcon> = {
   mail: Mail,
 };
 
-/** Quello che il browser dice delle push, letto una volta al montaggio. */
+/** Quello che il browser dice delle push, letto al montaggio (e a service worker pronto). */
 interface PushDevice {
   supported: boolean;
   ready: boolean;
@@ -144,19 +147,32 @@ function ClientSettings() {
   const [pushBusy, setPushBusy] = useState(false);
   const [sheet, setSheet] = useState<"password" | "google" | "install" | null>(null);
   const accountRef = useRef<HTMLHeadingElement>(null);
+  const pathTitleRef = useRef<HTMLHeadingElement>(null);
+  const pathCardTitleRef = useRef<HTMLHeadingElement>(null);
 
   // «Attive» vuol dire la riga di chi è entrato per questo dispositivo, non la
   // sola iscrizione del browser (isPushEnabledFor, passata 08): si legge
-  // quando l'utente c'è.
+  // quando l'utente c'è. Passata 09: al primo avvio dell'app il service worker
+  // può registrarsi dopo che il Profilo si è aperto, e la riga diceva fino
+  // alla riapertura che sul telefono non si possono attivare: se non è ancora
+  // pronto, si rilegge quando lo è.
   const meId = user?.id ?? null;
   useEffect(() => {
     let alive = true;
     const supported = isPushSupported();
-    void Promise.all([
-      isPushReady(),
-      meId ? isPushEnabledFor(meId).catch(() => false) : Promise.resolve(false),
-    ]).then(([ready, enabled]) => {
-      if (alive) setDevice({ supported, ready, enabled });
+    const read = () =>
+      Promise.all([
+        isPushReady(),
+        meId ? isPushEnabledFor(meId).catch(() => false) : Promise.resolve(false),
+      ]).then(([ready, enabled]) => {
+        if (alive) setDevice({ supported, ready, enabled });
+        return ready;
+      });
+    void read().then((ready) => {
+      if (!alive || !supported || ready) return;
+      void navigator.serviceWorker.ready.then(() => {
+        if (alive) void read();
+      });
     });
     return () => {
       alive = false;
@@ -238,6 +254,27 @@ function ClientSettings() {
     void navigate({ to: "/auth" });
   };
 
+  // «Riprova» del percorso (passata 09, come la Home e Sessioni): riuscito, la
+  // card sparisce col pulsante che aveva il focus, che va sul titolo della
+  // sezione; fallito di nuovo, sul titolo della card, che lo annuncia. Solo se
+  // il focus si era perso o era ancora nella card.
+  const pathLost = !loading && (failed || !rows);
+  const retried = useRef(false);
+  const retryPath = () => {
+    retried.current = true;
+    retry();
+  };
+  useEffect(() => {
+    if (!retried.current || retrying) return;
+    retried.current = false;
+    if (pathLost) {
+      const title = pathCardTitleRef.current;
+      focusIfLost(title, null, title?.parentElement);
+    } else {
+      focusIfLost(pathTitleRef.current);
+    }
+  }, [retrying, pathLost]);
+
   let path: ReactNode;
   if (loading) {
     path = <AuraSkeleton className="h-[220px] rounded-[24px]" aria-busy="true" />;
@@ -246,8 +283,9 @@ function ClientSettings() {
       <BookRetryCard
         title="Il percorso non si è caricato"
         text="Non siamo riusciti a leggere il tuo percorso. Riprova tra poco."
-        onRetry={retry}
+        onRetry={retryPath}
         retrying={retrying}
+        titleRef={pathCardTitleRef}
       />
     );
   } else {
@@ -325,9 +363,13 @@ function ClientSettings() {
               </div>
             </div>
             {card.links.length > 0 && (
-              // Tante colonne quanti sono i collegamenti: col coach di oggi
-              // «Email» a tutta larghezza. Sotto i 360 px le icone si
-              // nascondono: a 320 «WhatsApp» con l'icona non ci sta.
+              // Tante colonne quanti sono i collegamenti: con la sola email
+              // «Email» a tutta larghezza. Ogni pillola è un contenitore, e
+              // l'icona si nasconde quando la pillola è più stretta di 95 px
+              // (passata 09): «WhatsApp» con l'icona e lo spazio, in Manrope
+              // vero, misura 92,8 px, più 2 di margine. La soglia di prima, sui
+              // 360 px dello schermo, non sapeva quanti collegamenti ci sono, e
+              // con tre la parola usciva dalla pillola fra 360 e circa 368 px.
               <div
                 className="grid gap-2"
                 style={{ gridTemplateColumns: `repeat(${card.links.length}, minmax(0, 1fr))` }}
@@ -341,9 +383,9 @@ function ClientSettings() {
                       {...(l.kind === "whatsapp"
                         ? { target: "_blank", rel: "noopener noreferrer" }
                         : {})}
-                      className="flex h-12 items-center justify-center gap-1.5 rounded-[14px] bg-primary-container/8 text-sm font-bold text-aura-primary"
+                      className="@container flex h-12 items-center justify-center gap-1.5 rounded-[14px] bg-primary-container/8 text-sm font-bold text-aura-primary"
                     >
-                      <Icon className="size-4 shrink-0 max-[360px]:hidden" aria-hidden />
+                      <Icon className="size-4 shrink-0 @max-[95px]:hidden" aria-hidden />
                       {l.label}
                     </a>
                   );
@@ -354,7 +396,9 @@ function ClientSettings() {
         )}
 
         <section className="flex flex-col gap-2">
-          <h2 className={SECTION_TITLE}>Il tuo percorso</h2>
+          <h2 ref={pathTitleRef} tabIndex={-1} className={SECTION_TITLE}>
+            Il tuo percorso
+          </h2>
           {path}
         </section>
 

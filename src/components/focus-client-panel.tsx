@@ -11,6 +11,7 @@ import { Calendar as CalendarIcon, MessageCircle } from "lucide-react";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { whatsappUrl } from "@/lib/calendar-events";
 import type { ProfileRow } from "@/lib/queries";
 
 export interface FocusClientPanelProps {
@@ -69,7 +70,8 @@ export function FocusClientPanel({
       .map((s) => s[0]?.toUpperCase() ?? "")
       .join("") || "?";
 
-  const phoneDigits = focusClient.phone ? focusClient.phone.replace(/\D/g, "") : "";
+  // Lo stesso link del resto dell'app, col prefisso del paese (passata 09 del lato cliente).
+  const whatsapp = whatsappUrl(focusClient.phone);
 
   return (
     <>
@@ -91,9 +93,9 @@ export function FocusClientPanel({
       </div>
 
       <div className={`${cardClass} p-4`}>
-        {phoneDigits ? (
+        {whatsapp ? (
           <a
-            href={`https://wa.me/${phoneDigits}`}
+            href={whatsapp}
             target="_blank"
             rel="noreferrer"
             className="w-full min-h-11 bg-brand-whatsapp/10 text-on-brand-whatsapp border border-brand-whatsapp/30 text-sm font-semibold py-3 rounded-full flex items-center justify-center gap-2 hover:bg-brand-whatsapp/20 transition-colors"

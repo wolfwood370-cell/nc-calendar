@@ -211,7 +211,8 @@ export function extraValidAt(
  * giro del server del 02/10/2026 l'inserimento scala solo un extra che vale
  * alla data: restituire il credito a uno scaduto prima lascerebbe usato quello
  * che ha pagato la sessione. null anche per una sessione spostata oltre la
- * scadenza del suo extra (reschedule_booking non la guarda ancora).
+ * scadenza del suo extra prima di quel giro, quando reschedule_booking non la
+ * guardava (da allora vuole un extra che valga fino alla nuova data).
  */
 export function pickRefundExtraCredit(
   eventTypeId: string | null,

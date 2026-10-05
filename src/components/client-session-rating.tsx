@@ -25,6 +25,7 @@ import { ClientButton } from "@/components/client-button";
 import { useSetSessionFeedback } from "@/hooks/use-session-feedback";
 import type { BookCoach } from "@/lib/client-book";
 import { ratingToast, starsLabel } from "@/lib/client-session-detail";
+import { CARD_TITLE } from "@/lib/client-type";
 import { segmentKeyTarget } from "@/lib/segment-keys";
 import { cn } from "@/lib/utils";
 
@@ -143,13 +144,9 @@ export function ClientSessionRating({
     );
   };
 
-  // Nella Home i titoli delle card sono in Manrope, come le altre card.
+  // I titoli delle card sono in Manrope, nella Home e nel dettaglio (09).
   const title = (
-    <h2
-      ref={titleRef}
-      tabIndex={-1}
-      className={cn("text-[17px] font-bold", layout === "home" && "font-sans tracking-normal")}
-    >
+    <h2 ref={titleRef} tabIndex={-1} className={CARD_TITLE}>
       {choosing ? "Com'è andata?" : "La tua valutazione"}
     </h2>
   );
@@ -194,7 +191,12 @@ export function ClientSessionRating({
               className="w-full resize-none rounded-[14px] border border-outline-variant bg-white px-3.5 py-3 text-[15px] leading-[1.4] text-on-surface placeholder:text-outline"
             />
           )}
-          <ClientButton fullWidth disabled={choice === 0 || setFeedback.isPending} onClick={send}>
+          <ClientButton
+            fullWidth
+            disabled={choice === 0}
+            busy={setFeedback.isPending}
+            onClick={send}
+          >
             {current === null ? "Invia valutazione" : "Aggiorna valutazione"}
           </ClientButton>
         </>

@@ -49,21 +49,16 @@ import { sessionName } from "@/lib/client-sessions";
 import { clientPageTitle, homeSubtitle } from "@/lib/client-shell";
 import type { BlockRow, BookingRow, EventTypeRow } from "@/lib/queries";
 
+// La parola del lato cliente è «sessione» (passata 09, il brief).
+const DESCRIPTION = "Le tue prossime sessioni e i crediti disponibili in un colpo d'occhio.";
+
 export const Route = createFileRoute("/client/")({
   head: () => ({
     meta: [
       { title: clientPageTitle("Home") },
-      {
-        name: "description",
-        content:
-          "Le tue sessioni, i crediti disponibili e i prossimi appuntamenti in un colpo d'occhio.",
-      },
+      { name: "description", content: DESCRIPTION },
       { property: "og:title", content: clientPageTitle("Home") },
-      {
-        property: "og:description",
-        content:
-          "Le tue sessioni, i crediti disponibili e i prossimi appuntamenti in un colpo d'occhio.",
-      },
+      { property: "og:description", content: DESCRIPTION },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],

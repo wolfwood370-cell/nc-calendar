@@ -66,10 +66,15 @@ export async function sendPushToSubscriptions(
         if (status === 404 || status === 410) {
           await admin.from("push_subscriptions").delete().eq("id", row.id);
         }
+        // Il motivo del rifiuto sta nel corpo della risposta (Apple:
+        // {"reason":"BadJwtToken"}), che non contiene l'endpoint: senza, un 403
+        // non si sa perché (passata 09 del lato cliente, i log del 04/10/2026).
+        const body = (e as { body?: unknown }).body;
         console.error(logLabel, {
           id: row.id,
           status,
           message: e instanceof Error ? e.message : String(e),
+          reason: typeof body === "string" ? body.slice(0, 300) : undefined,
         });
         return { id: row.id, ok: false, status } satisfies PushSendResult;
       }

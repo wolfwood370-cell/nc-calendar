@@ -264,6 +264,24 @@ export interface StoreProduct {
 }
 
 /**
+ * Un pacchetto si vende: attivo, in euro, con quantità e prezzo sopra zero (lo
+ * stesso filtro di storeProducts e di booster-checkout, che legge solo euro).
+ */
+function isSellablePack(pack: StorePack): boolean {
+  return pack.active && pack.currency === "eur" && pack.quantity > 0 && pack.amount_cents > 0;
+}
+
+/**
+ * I nomi delle tipologie con un pacchetto che si vende (passata 09): li usano
+ * Home e Prenota per «Acquista». Prima venivano da tutti i pacchetti attivi,
+ * anche in dollari o a zero, e una tipologia con un pacchetto solo in dollari
+ * aveva «Acquista» e nessun prodotto nello Store.
+ */
+export function sellablePackTitles(packs: readonly StorePack[]): string[] {
+  return [...new Set(packs.filter(isSellablePack).map((p) => p.event_type_title))];
+}
+
+/**
  * I prodotti dello Store. Entrano i pacchetti attivi, in euro, con quantità e
  * prezzo sopra zero, il cui event_type_title è esattamente il nome di una
  * tipologia del coach (la prima con quel nome), come li risolve
@@ -281,8 +299,7 @@ export function storeProducts(
 ): StoreProduct[] {
   const products: StoreProduct[] = [];
   for (const pack of packs) {
-    if (!pack.active || pack.currency !== "eur") continue;
-    if (!(pack.quantity > 0) || !(pack.amount_cents > 0)) continue;
+    if (!isSellablePack(pack)) continue;
     const type = eventTypes.find((t) => t.name === pack.event_type_title);
     if (!type) continue;
     const bookable = type.client_bookable;
@@ -422,10 +439,14 @@ function bookCount(input: BookStateInput, eventTypeId: string): number {
 
 /**
  * Il foglio «Riepilogo». Il numero dopo l'acquisto è quello di Prenota adesso
- * più i crediti comprati, come nel prototipo: l'ultimo giorno di un blocco
- * Prenota conta già i crediti del blocco dopo, e gli extra contano solo nel
- * blocco di riferimento; ricalcolare Prenota con il Booster dentro direbbe lo
- * stesso numero con 1 credito e con 3.
+ * più i crediti comprati, come nel prototipo. Dalla passata 09 l'ultimo
+ * giorno di un blocco è anche il numero che Prenota dirà dopo il pagamento:
+ * Prenota conta i crediti del blocco dopo più gli extra che valgono lì, e il
+ * Booster comprato in un percorso che continua vale anche nel blocco dopo
+ * (booster-validity.ts). Con giorni ancora prenotabili nel blocco in corso,
+ * dove la tipologia non ha più crediti suoi, può non esserlo: il Booster apre
+ * prima la sua finestra su quei giorni (scada col blocco o sia prorogato), e
+ * Prenota conta quella, i soli extra, anche se prima contava il blocco dopo.
  */
 export function storeSummary(
   product: StoreProduct,

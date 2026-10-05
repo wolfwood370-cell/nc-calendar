@@ -27,6 +27,7 @@ import {
   type ClientNotificationKind,
 } from "@/lib/client-notifications";
 import { clientPageTitle } from "@/lib/client-shell";
+import { focusIfLost } from "@/lib/focus";
 import { cn } from "@/lib/utils";
 
 const DESCRIPTION = "I promemoria sulle tue sessioni e sui tuoi crediti, e gli avvisi del coach.";
@@ -43,19 +44,28 @@ export const Route = createFileRoute("/client/notifications")({
   component: ClientNotificationsPage,
 });
 
-/** Icone e colori del brief della 08: i promemoria e le azioni del coach. */
-const KIND: Record<ClientNotificationKind, { icon: LucideIcon; color: string }> = {
-  confirm: { icon: CalendarCheck, color: "#c2410c" },
-  use: { icon: Hourglass, color: "#c2410c" },
-  low: { icon: Coins, color: "#c2410c" },
-  feedback: { icon: Star, color: "#b45309" },
-  moved: { icon: Repeat, color: "#005685" },
-  cancelled: { icon: CalendarX, color: "#b91c1c" },
-  created: { icon: CalendarPlus, color: "#005685" },
-  credits: { icon: Coins, color: "#047857" },
-  renewed: { icon: Layers, color: "#047857" },
-  path: { icon: Rocket, color: "#047857" },
-  bia: { icon: Activity, color: "#039be5" },
+/**
+ * Icone e colori del brief della 08: i promemoria e le azioni del coach. Dalla
+ * 09 i colori sono i token del tema, col fondo al 10% (lo stesso colore con
+ * l'opacità di Tailwind, cioè color-mix), invece degli esadecimali scritti
+ * qui; la BIA ha il suo token più scuro (info-bia-text, styles.css), perché il
+ * colore del brief sul suo fondo resta sotto il 3:1 delle icone.
+ */
+const WARNING = "bg-warning-text/10 text-warning-text";
+const PRIMARY = "bg-primary-container/10 text-primary-container";
+const SUCCESS = "bg-success-text/10 text-success-text";
+const KIND: Record<ClientNotificationKind, { icon: LucideIcon; tile: string }> = {
+  confirm: { icon: CalendarCheck, tile: WARNING },
+  use: { icon: Hourglass, tile: WARNING },
+  low: { icon: Coins, tile: WARNING },
+  feedback: { icon: Star, tile: "bg-rating-star-line/10 text-rating-star-line" },
+  moved: { icon: Repeat, tile: PRIMARY },
+  cancelled: { icon: CalendarX, tile: "bg-danger-text/10 text-danger-text" },
+  created: { icon: CalendarPlus, tile: PRIMARY },
+  credits: { icon: Coins, tile: SUCCESS },
+  renewed: { icon: Layers, tile: SUCCESS },
+  path: { icon: Rocket, tile: SUCCESS },
+  bia: { icon: Activity, tile: "bg-info-bia-text/10 text-info-bia-text" },
 };
 
 /**
@@ -104,6 +114,9 @@ function ClientNotificationsPage() {
   // lo prende il titolo della card, che lo annuncia; se riesce, la card sparisce
   // col pulsante, e il focus va al riepilogo (una regione live: «3 da
   // leggere») o, senza voci, a «Nessuna notifica». Come Sessioni e la Home.
+  // Solo se il focus si era perso o era ancora nella card (passata 09):
+  // toccato fuori rete, la rilettura aspetta la rete, e chi intanto è andato
+  // altrove resta dov'è.
   const lostTitleRef = useRef<HTMLHeadingElement>(null);
   const emptyRef = useRef<HTMLParagraphElement>(null);
   const retried = useRef(false);
@@ -114,8 +127,12 @@ function ClientNotificationsPage() {
   useEffect(() => {
     if (!retried.current || notificationsRetrying || notificationsLoading) return;
     retried.current = false;
-    if (notificationsLost) lostTitleRef.current?.focus();
-    else (summaryRef.current ?? emptyRef.current)?.focus();
+    if (notificationsLost) {
+      const title = lostTitleRef.current;
+      focusIfLost(title, null, title?.parentElement);
+    } else {
+      focusIfLost(summaryRef.current ?? emptyRef.current);
+    }
   }, [notificationsRetrying, notificationsLoading, notificationsLost]);
 
   let content: ReactNode;
@@ -173,7 +190,7 @@ function ClientNotificationsPage() {
         </div>
         <ul className="flex flex-col gap-2">
           {notifications.map((item) => {
-            const { icon: Icon, color } = KIND[item.kind];
+            const { icon: Icon, tile } = KIND[item.kind];
             return (
               <li key={item.id}>
                 <button
@@ -188,8 +205,7 @@ function ClientNotificationsPage() {
                   )}
                 >
                   <span
-                    className="grid size-10 shrink-0 place-items-center rounded-[12px]"
-                    style={{ background: `${color}1a`, color }}
+                    className={cn("grid size-10 shrink-0 place-items-center rounded-[12px]", tile)}
                   >
                     <Icon className="size-5" aria-hidden />
                   </span>

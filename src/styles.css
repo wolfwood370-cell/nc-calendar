@@ -55,18 +55,12 @@
   /* Material 3-style hard error (delete buttons, destructive badges) */
   --color-error: #ba1a1a;
 
-  /* High-contrast dark CTA — booster-card primary action */
-  --color-cta-dark: #0f172a;
-
-  /* Booking status badges (client.bookings.$bookingId.tsx). Distinct from
-     the M3 *-container pair because they target the Google Calendar visual
-     language used in the client-facing detail page. */
-  --color-status-success-bg: #e6f4ea;
-  --color-on-status-success: #0b8043;
+  /* Il badge «Programmata» del profilo cliente del coach su mobile
+     (client-profile-mobile.tsx). Le coppie success ed error dei badge e la CTA
+     scura del Booster non le usava più nessun componente: tolte con la passata
+     09 del lato cliente. */
   --color-status-info-bg: #e3f2fd;
   --color-on-status-info: #1565c0;
-  --color-status-error-bg: #fce8e6;
-  --color-on-status-error: #c5221f;
 
   /* Third-party brand colors that appear inside the app UI (not in
      integrations.tsx, which uses raw brand hex on purpose) */
@@ -117,6 +111,10 @@
   --color-toast-ok: #6ee7b7;
   --color-toast-warn: #fdba74;
   --color-scrim: rgba(0, 20, 35, 0.42);
+  /* L'icona delle misurazioni BIA nella pagina Notifiche (passata 09): il
+     #039be5 del brief (info-bia) sul suo fondo al 10% fa 2,76:1, sotto il 3:1
+     delle icone; questo fa 4,19:1. */
+  --color-info-bia-text: #0277bd;
 
   /* Raggi card del design: 32px mobile, 28px desktop */
   --radius-card-mobile: 32px;

@@ -95,9 +95,10 @@ function recreateEvent(input: RestoreBookingInput, onCreated: () => void) {
 
 /**
  * «Ripristina» dell'annullamento. Riuscito: l'evento Google, le sessioni e i
- * crediti (invalidateBookingScope), il dettaglio (la sua chiave non è nello
- * scope) e «Sessione ripristinata.». Fallito: il toast d'avviso con
- * actionErrorText, e la sessione resta annullata.
+ * crediti (invalidateBookingScope, che dalla passata 09 rilegge anche i
+ * dettagli), il dettaglio di nuovo dopo l'evento Google (refreshDetail) e
+ * «Sessione ripristinata.». Fallito: il toast d'avviso con actionErrorText, e
+ * la sessione resta annullata.
  */
 export function useRestoreBooking() {
   const qc = useQueryClient();

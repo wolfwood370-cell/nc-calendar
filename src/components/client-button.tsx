@@ -13,6 +13,11 @@
 //     col bordo.
 // In ogni card o foglio al massimo un pulsante pieno (V4, V11). Il focus
 // visibile (2px #005685, scostato di 2) è la regola globale di styles.css.
+// busy (passata 09): mentre una richiesta è in volo il pulsante è
+// aria-disabled e non disabled, con l'aspetto di disabled e il tocco ignorato:
+// a un pulsante disabled il browser toglie il focus, che finisce sul body, e
+// chi usa la tastiera o uno screen reader riparte da capo. disabled resta per
+// ciò che non si può ancora fare (nessun orario scelto, nessuna stella).
 // components/ui/button.tsx resta com'è: lo usa il lato coach.
 // ----------------------------------------------------------------------------
 
@@ -41,6 +46,8 @@ export interface ClientButtonProps extends ButtonHTMLAttributes<HTMLButtonElemen
   fullWidth?: boolean;
   /** Presta lo stile al figlio (un Link), senza icona. */
   asChild?: boolean;
+  /** Occupato: aria-disabled, l'aspetto di disabled, il tocco ignorato; tiene il focus. Non con asChild. */
+  busy?: boolean;
 }
 
 const BASE =
@@ -63,6 +70,22 @@ const VARIANT: Record<ClientButtonVariant, string> = {
     "h-11 px-4 border border-outline-variant bg-transparent text-aura-primary text-sm font-bold active:bg-primary-container/8 disabled:opacity-50",
 };
 
+// L'aspetto di disabled per busy, variante per variante (VARIANT, qui sopra):
+// le piene grigie, senza lo scuro della pressione; le altre a metà opacità.
+const DIMMED = "cursor-not-allowed opacity-50";
+const GREYED =
+  "cursor-not-allowed bg-surface-variant text-on-surface-variant active:bg-surface-variant active:opacity-100";
+const BUSY: Record<ClientButtonVariant, string> = {
+  primary: GREYED,
+  danger: GREYED,
+  secondary: DIMMED,
+  tonal: DIMMED,
+  text: DIMMED,
+  "text-danger": DIMMED,
+  row: DIMMED,
+  "row-outline": DIMMED,
+};
+
 const TONAL_SIZE = { md: "h-11 px-4 text-sm", lg: "h-12 px-5 text-[15px]" } as const;
 
 const ICON_SIZE: Record<ClientButtonVariant, string> = {
@@ -83,9 +106,11 @@ export const ClientButton = forwardRef<HTMLButtonElement, ClientButtonProps>(fun
     icon: Icon,
     fullWidth = false,
     asChild = false,
+    busy = false,
     className,
     children,
     type,
+    onClick,
     ...props
   },
   ref,
@@ -95,17 +120,32 @@ export const ClientButton = forwardRef<HTMLButtonElement, ClientButtonProps>(fun
     VARIANT[variant],
     variant === "tonal" && TONAL_SIZE[size],
     fullWidth && "w-full",
+    busy && !asChild && BUSY[variant],
     className,
   );
   if (asChild) {
     return (
-      <Slot ref={ref} className={classes} {...props}>
+      <Slot ref={ref} className={classes} onClick={onClick} {...props}>
         {children}
       </Slot>
     );
   }
   return (
-    <button ref={ref} type={type ?? "button"} className={classes} {...props}>
+    <button
+      ref={ref}
+      type={type ?? "button"}
+      className={classes}
+      {...props}
+      aria-disabled={busy || props["aria-disabled"] || undefined}
+      onClick={(e) => {
+        // Occupato: nessun secondo invio, nemmeno di un form (type="submit").
+        if (busy) {
+          e.preventDefault();
+          return;
+        }
+        onClick?.(e);
+      }}
+    >
       {Icon && <Icon className={ICON_SIZE[variant]} aria-hidden />}
       {children}
     </button>

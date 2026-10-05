@@ -19,6 +19,7 @@ import { ClientButton } from "@/components/client-button";
 import { typeTint } from "@/lib/client-book";
 import { tileIcon } from "@/lib/client-session-detail";
 import type { StoreBoughtRow, StoreLock, StoreProduct } from "@/lib/client-store";
+import { CARD_TITLE, SANS_HEADING } from "@/lib/client-type";
 import { iconForType } from "@/lib/session-type-icon";
 import { cn } from "@/lib/utils";
 
@@ -39,7 +40,7 @@ export function StoreLockCard({ lock, titleRef }: StoreLockCardProps) {
       >
         <Sparkles className="size-6" />
       </span>
-      <h2 ref={titleRef} tabIndex={-1} className="text-[17px] font-bold">
+      <h2 ref={titleRef} tabIndex={-1} className={CARD_TITLE}>
         {lock.title}
       </h2>
       <p className="text-[15px] leading-normal text-on-surface-variant">{lock.text}</p>
@@ -67,7 +68,7 @@ export function StoreValidityBox({ text }: { text: string }) {
 export function StoreBoughtCard({ rows }: { rows: readonly StoreBoughtRow[] }) {
   return (
     <section className={cn(CARD, "flex flex-col gap-2.5 px-4 py-3.5")}>
-      <h2 className="text-[15px] font-bold">Acquistati in questo blocco</h2>
+      <h2 className={`${SANS_HEADING} text-[15px] font-bold`}>Acquistati in questo blocco</h2>
       <ul className="flex flex-col gap-2.5">
         {rows.map((row) => (
           <li key={row.id} className="flex items-center justify-between gap-3 text-sm">
@@ -110,7 +111,7 @@ export function StoreProductCard({ product, onBuy }: StoreProductCardProps) {
           <Icon className="size-[22px]" />
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <h2 id={titleId} className="text-[17px] font-bold">
+          <h2 id={titleId} className={CARD_TITLE}>
             {product.title}
           </h2>
           {product.description && (

@@ -17,6 +17,7 @@ import {
   STORE_POLL_MS,
   euro,
   findPurchase,
+  sellablePackTitles,
   storeBought,
   storeBoughtVisible,
   storeEmpty,
@@ -29,6 +30,7 @@ import {
   storeValidity,
   type StoreLockKind,
   type StoreOutcome,
+  type StorePack,
   type StoreProduct,
   type StorePurchase,
   type StoreValidity,
@@ -854,5 +856,32 @@ describe("storeSearch", () => {
     ]) {
       expect(storeSearch({ session })).toEqual({});
     }
+  });
+});
+
+// Passata 09: «Acquista» in Home e in Prenota solo per una tipologia che ha un
+// Booster in vendita nello Store.
+describe("sellablePackTitles · i Booster in vendita (passata 09)", () => {
+  const pack = (title: string, over: Partial<StorePack> = {}): StorePack => ({
+    package_type: `p-${title}`,
+    currency: "eur",
+    amount_cents: 4000,
+    quantity: 1,
+    event_type_title: title,
+    active: true,
+    ...over,
+  });
+
+  it("attivi, in euro, con quantità e prezzo sopra zero; ogni nome una volta sola", () => {
+    expect(
+      sellablePackTitles([
+        pack("Personal Training"),
+        pack("Personal Training", { package_type: "p-3", quantity: 3, amount_cents: 9900 }),
+        pack("Test funzionale", { currency: "usd" }),
+        pack("Misurazione BIA", { amount_cents: 0 }),
+        pack("Consulenza", { active: false }),
+        pack("Yoga", { quantity: 0 }),
+      ]),
+    ).toEqual(["Personal Training"]);
   });
 });

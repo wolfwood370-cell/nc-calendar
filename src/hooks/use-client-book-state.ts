@@ -3,7 +3,8 @@
 // ----------------------------------------------------------------------------
 // getBookState sopra le letture di Prenota: il profilo, i blocchi, le sessioni
 // con le annullate tardi (useClientBookingsForCredits), i crediti extra,
-// ensure_client_block_state, le tipologie del coach e i titoli dei Booster; la
+// ensure_client_block_state, le tipologie del coach e i titoli dei Booster in
+// vendita (sellablePackTitles sui pacchetti dello Store, dalla passata 09); la
 // rilettura dei blocchi quando l'RPC ne crea uno nuovo; le incoerenze a Sentry
 // a letture ferme. Spostato da client.book.tsx così com'era nella passata 02:
 // Prenota lo usa com'era, Sessioni per la card vuota, la Home (05) per la card
@@ -20,7 +21,7 @@
 // ----------------------------------------------------------------------------
 
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useCurrentBlock } from "@/hooks/use-current-block";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -31,8 +32,9 @@ import {
   type BookCoach,
   type BookStateInput,
 } from "@/lib/client-book";
+import { sellablePackTitles } from "@/lib/client-store";
 import {
-  useActiveShopTitles,
+  useBoosterPacks,
   useClientBlocks,
   useClientBookingsForCredits,
   useClientExtraCredits,
@@ -79,7 +81,11 @@ export function useClientBookState(now: Date, coach: BookCoach) {
   const currentBlockQ = useCurrentBlock(meId);
   const coachId = profileQ.data?.coach_id ?? null;
   const eventTypesQ = useCoachEventTypes(coachId);
-  const boostersQ = useActiveShopTitles();
+  // «Acquista» solo per le tipologie con un pacchetto che lo Store vende
+  // (passata 09): gli stessi pacchetti e lo stesso filtro dello Store, non
+  // tutti i titoli attivi (useActiveShopTitles resta per il coach).
+  const packsQ = useBoosterPacks();
+  const boosterTitles = useMemo(() => sellablePackTitles(packsQ.data ?? []), [packsQ.data]);
 
   // Il primo giorno del mese nuovo l'RPC crea il blocco nello stesso
   // caricamento: se il suo blocco non c'è fra quelli letti, si rileggono i
@@ -149,7 +155,7 @@ export function useClientBookState(now: Date, coach: BookCoach) {
       bookings: bookingsQ.data,
       extras: extrasQ.data,
       eventTypes: eventTypesQ.data ?? [],
-      boosterTitles: boostersQ.data ?? [],
+      boosterTitles,
       coach,
     };
   }, [
@@ -161,7 +167,7 @@ export function useClientBookState(now: Date, coach: BookCoach) {
     bookingsQ.data,
     extrasQ.data,
     eventTypesQ.data,
-    boostersQ.data,
+    boosterTitles,
     coach,
   ]);
   const state = useMemo(() => (input ? getBookState(input) : null), [input]);
@@ -173,14 +179,35 @@ export function useClientBookState(now: Date, coach: BookCoach) {
     if (state && settled) reportPoolMismatches(state.mismatches, sendMismatch, SENT_MISMATCHES);
   }, [state, settled]);
 
-  const retry = () => {
-    void profileQ.refetch();
-    void blocksQ.refetch();
-    void bookingsQ.refetch();
-    void extrasQ.refetch();
-    void currentBlockQ.refetch();
-    if (coachId) void eventTypesQ.refetch();
-  };
+  // Stabile fra un disegno e l'altro (passata 09): la cornice lo mette fra le
+  // dipendenze del suo «Riprova», e uno nuovo a ogni disegno rifaceva il
+  // contesto della cornice per tutte le pagine. refetch di TanStack Query non
+  // cambia fra un disegno e l'altro. Rilegge anche i pacchetti dello Store.
+  const refetchProfile = profileQ.refetch;
+  const refetchBlocksAll = blocksQ.refetch;
+  const refetchBookings = bookingsQ.refetch;
+  const refetchExtras = extrasQ.refetch;
+  const refetchCurrent = currentBlockQ.refetch;
+  const refetchTypes = eventTypesQ.refetch;
+  const refetchPacks = packsQ.refetch;
+  const retry = useCallback(() => {
+    void refetchProfile();
+    void refetchBlocksAll();
+    void refetchBookings();
+    void refetchExtras();
+    void refetchCurrent();
+    void refetchPacks();
+    if (coachId) void refetchTypes();
+  }, [
+    refetchProfile,
+    refetchBlocksAll,
+    refetchBookings,
+    refetchExtras,
+    refetchCurrent,
+    refetchPacks,
+    refetchTypes,
+    coachId,
+  ]);
   const retrying =
     profileQ.isFetching ||
     blocksQ.isFetching ||

@@ -8,7 +8,7 @@ import { createElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { SegmentedControl } from "@/components/segmented-control";
-import { segmentKeyTarget } from "@/lib/segment-keys";
+import { segmentKeyTarget, tabId, tabPanelId } from "@/lib/segment-keys";
 
 type Value = "a" | "b" | "c";
 const OPTIONS = [
@@ -155,5 +155,38 @@ describe("i gruppi segmentati e i tab del perimetro passano dal componente", () 
     expect(read("client-profile-desktop.tsx")).toMatch(
       /kind="tabs"\s+size="tab"\s+ariaLabel="Sezioni del profilo"/,
     );
+  });
+});
+
+// Passata 09: i tab di Sessioni dicono quale pannello controllano
+// (aria-controls) e hanno un id, a cui il pannello rimanda con
+// aria-labelledby; senza idBase (gli usi del coach) niente cambia.
+describe("SegmentedControl: i tab col loro pannello (passata 09)", () => {
+  const items = (idBase?: string) =>
+    (
+      SegmentedControl<Value>({
+        value: "b",
+        options: OPTIONS,
+        onChange: () => {},
+        ariaLabel: "Prova",
+        kind: "tabs",
+        idBase,
+      }) as ReactElement<{ children: ReactElement<{ id?: string; "aria-controls"?: string }>[] }>
+    ).props.children;
+
+  it("con idBase: l'id di ogni tab e il pannello che controllano", () => {
+    expect(tabId("sessioni", "prossime")).toBe("sessioni-tab-prossime");
+    expect(tabPanelId("sessioni")).toBe("sessioni-panel");
+    expect(items("sessioni").map((i) => [i.props.id, i.props["aria-controls"]])).toEqual([
+      ["sessioni-tab-a", "sessioni-panel"],
+      ["sessioni-tab-b", "sessioni-panel"],
+      ["sessioni-tab-c", "sessioni-panel"],
+    ]);
+  });
+
+  it("senza idBase: né id né aria-controls", () => {
+    expect(
+      items().every((i) => i.props.id === undefined && i.props["aria-controls"] === undefined),
+    ).toBe(true);
   });
 });

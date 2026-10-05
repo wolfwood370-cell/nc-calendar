@@ -294,13 +294,15 @@ export function useClientBookings(clientId?: string) {
 }
 
 // Le sessioni del cliente per contare i crediti (Prenota, passata 02): come
-// useClientBookings, più le annullate tardi con deleted_at. cancel_booking lo
-// scrive anche su di loro, e senza quelle getClientPools direbbe tornato un
-// credito che il server ha tenuto. La policy «Client read own bookings» non
-// filtra deleted_at. La chiave comincia come quella di useClientBookings, così
-// invalidateBookingScope (confronto per prefisso) la rinfresca, ma non è
-// uguale: la cornice monta useClientBookings su ogni pagina del cliente, e due
-// letture diverse sotto la stessa chiave si sovrascriverebbero nella cache.
+// useClientBookings, più le annullate tardi con deleted_at. Fino al 02/10/2026
+// cancel_booking scriveva deleted_at anche su di loro (dal giro del server di
+// quel giorno non più), e quelle righe restano: senza, getClientPools direbbe
+// tornato un credito che il server ha tenuto. La policy «Client read own
+// bookings» non filtra deleted_at. La chiave comincia come quella di
+// useClientBookings, così invalidateBookingScope (confronto per prefisso) la
+// rinfresca, ma non è uguale: la cornice monta useClientBookings su ogni
+// pagina del cliente, e due letture diverse sotto la stessa chiave si
+// sovrascriverebbero nella cache.
 async function selectClientBookingsForCredits(clientId: string): Promise<BookingRow[]> {
   return loadBookingsWithFallback((cols) =>
     supabase
@@ -617,7 +619,7 @@ export function useCancelBooking() {
         status: BookingStatus;
         was_late: boolean;
       } | null;
-      if (!result) throw new Error("Cancellazione non riuscita.");
+      if (!result) throw new Error("Annullamento non riuscito.");
       const wasLate = result.was_late;
 
       // Sync Google Calendar: in entrambi i casi (late o free) cancelliamo

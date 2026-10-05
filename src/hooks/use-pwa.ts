@@ -72,7 +72,14 @@ export function startInstallCapture(): void {
   });
 }
 
+// Il segno anche in memoria (passata 09): con localStorage negato (Safari in
+// navigazione privata, spazio pieno) «Ho installato l'app» non lasciava
+// niente, e la card della Home e la voce del Profilo restavano come prima.
+// Così vale almeno fino al ricaricamento della pagina.
+let markedInMemory = false;
+
 function readMarkedInstalled(): boolean {
+  if (markedInMemory) return true;
   try {
     return localStorage.getItem(APP_INSTALLED_KEY) !== null;
   } catch {
@@ -124,12 +131,13 @@ export function usePwaInstall() {
     }
   }, []);
 
-  /** «Ho installato l'app»: il segno resta sul dispositivo. */
+  /** «Ho installato l'app»: il segno resta sul dispositivo, o almeno in memoria. */
   const markInstalled = useCallback(() => {
+    markedInMemory = true;
     try {
       localStorage.setItem(APP_INSTALLED_KEY, "1");
     } catch {
-      /* storage pieno o negato: niente segno, nessun crash */
+      /* storage pieno o negato: il segno resta in memoria, nessun crash */
     }
     emit();
   }, []);

@@ -10,6 +10,8 @@
 //   - BookHowSheet: «Come si prenota», per le tipologie che non si scelgono.
 // I testi arrivano fatti da client-book.ts; il WhatsApp del coach c'è solo col
 // link (bookCoach da get_my_coach: solo se il coach ha un numero valido).
+// L'icona della tipologia ha il colore di tileIcon (passata 09). I pulsanti
+// del riepilogo, mentre conferma, sono occupati (busy) e tengono il focus.
 // ----------------------------------------------------------------------------
 
 import { Link } from "@tanstack/react-router";
@@ -27,7 +29,8 @@ import {
 import type { ReactNode } from "react";
 import { ClientButton } from "@/components/client-button";
 import { ClientSheet } from "@/components/client-sheet";
-import { typeColor, typeTint } from "@/lib/client-book";
+import { typeTint } from "@/lib/client-book";
+import { tileIcon } from "@/lib/client-session-detail";
 import { iconForType } from "@/lib/session-type-icon";
 
 /** Il riepilogo, coi testi di client-book.ts. */
@@ -133,7 +136,7 @@ export function BookConfirmSheet({
             <span
               aria-hidden
               className="grid size-11 shrink-0 place-items-center rounded-[14px]"
-              style={{ background: typeTint(summary.color), color: typeColor(summary.color) }}
+              style={{ background: typeTint(summary.color), color: tileIcon(summary.color) }}
             >
               <Icon className="size-[22px]" />
             </span>
@@ -159,14 +162,14 @@ export function BookConfirmSheet({
             </p>
           )}
           <div className="flex flex-col gap-2 pt-1">
-            <ClientButton fullWidth disabled={confirming} onClick={onConfirm}>
+            <ClientButton fullWidth busy={confirming} onClick={onConfirm}>
               {confirming && <Loader2 className="size-[18px] animate-spin" aria-hidden />}
               Conferma prenotazione
             </ClientButton>
             <ClientButton
               variant="text"
               fullWidth
-              disabled={confirming}
+              busy={confirming}
               onClick={() => onOpenChange(false)}
             >
               Indietro

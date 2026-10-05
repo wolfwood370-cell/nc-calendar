@@ -34,10 +34,11 @@ export interface MovedSession {
 /**
  * Restituisce la funzione da chiamare a spostamento riuscito: lascia il
  * toast «Spostata a …» con «Ripristina». Riportata la sessione, onRefresh
- * (la rilettura di chi la mostra) e «Sessione riportata all'orario di
- * prima.»; se non riesce, il motivo (actionErrorText).
+ * (la rilettura di chi la mostra), onRestored (passata 09: chi la mostra
+ * rimette il focus, che col toast chiuso finiva sul body) e «Sessione
+ * riportata all'orario di prima.»; se non riesce, il motivo (actionErrorText).
  */
-export function useMoveUndo(coach: BookCoach, onRefresh?: () => void) {
+export function useMoveUndo(coach: BookCoach, onRefresh?: () => void, onRestored?: () => void) {
   const reschedule = useRescheduleBooking();
   return (move: MovedSession) => {
     const moveBack = () => {
@@ -51,6 +52,7 @@ export function useMoveUndo(coach: BookCoach, onRefresh?: () => void) {
         })
         .then(() => {
           onRefresh?.();
+          onRestored?.();
           toast.success("Sessione riportata all'orario di prima.");
         })
         .catch((err) => toast.warning(actionErrorText(err, "undo-move")));

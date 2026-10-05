@@ -2,9 +2,9 @@
 // Eccezioni della Disponibilità su un periodo (passata 08, D6)
 // ----------------------------------------------------------------------------
 // Nel database un'eccezione resta una riga per giorno (availability_exceptions
-// ha una sola colonna `date`): la leggono così Prenota, le due
-// riprogrammazioni e il Calendario (booking-slots.ts, reschedule-slots.ts,
-// calendar-time.ts), che non cambiano. Un periodo «Dal … Al …» diventa una
+// ha una sola colonna `date`): la leggono così Prenota e Sposta del cliente
+// (booking-slots.ts, attraverso client-slots.ts) e il Calendario
+// (calendar-time.ts), che non cambiano. Un periodo «Dal … Al …» diventa una
 // riga per giorno con gli stessi orari e lo stesso motivo; la pagina rimette
 // insieme le righe in periodi.
 //   - Date come date di calendario «YYYY-MM-DD», con l'aritmetica dei giorni

@@ -115,6 +115,14 @@ export interface ClientPool {
   blockAvail: number;
   /** quantity − quantity_booked degli extra validi. */
   extraAvail: number;
+  /**
+   * La parte di extraAvail degli extra che scadono con il blocco della riga, il
+   * giorno della sua fine (un Booster comprato a più di 7 giorni dalla fine
+   * scade alle 23:59:59 di Roma di quel giorno, booster-validity.ts): l'avviso
+   * della Home la conta coi crediti del blocco (passata 09). 0 senza blocco e a
+   * percorso concluso.
+   */
+  extraAvailUntilEnd: number;
   avail: number;
   /** L'ultimo giorno (YYYY-MM-DD) in cui vale un extra della riga; null senza extra. */
   extraUntil: string | null;
@@ -145,11 +153,16 @@ export interface ClientPoolsInput {
   /** Il blocco di riferimento o il blocco dopo; null per il cliente libero. */
   block: ClientBlock | null;
   /**
-   * Le sessioni del cliente, comprese le annullate tardi con deleted_at:
-   * cancel_booking lo scrive anche su di loro, e useClientBookings oggi le scarta.
+   * Le sessioni del cliente, comprese le annullate tardi con deleted_at: fino
+   * al giro del server del 02/10/2026 cancel_booking lo scriveva anche su di
+   * loro, e useClientBookings le scarta.
    */
   bookings: readonly PoolBooking[];
-  /** I crediti extra del cliente: solo con il blocco di riferimento. */
+  /**
+   * I crediti extra del cliente: col blocco di riferimento, e col blocco dopo
+   * solo per il numero dei suoi giorni, con gli extra che valgono dal suo
+   * primo giorno (nextCountPool di client-book.ts, passata 09).
+   */
   extras?: readonly PoolExtra[];
   eventTypes: readonly PoolEventType[];
 }
@@ -204,6 +217,7 @@ export function getClientPools(input: ClientPoolsInput): ClientPools {
       extraUsed: 0,
       blockAvail: 0,
       extraAvail: 0,
+      extraAvailUntilEnd: 0,
       avail: 0,
       extraUntil: null,
     };
@@ -268,12 +282,14 @@ export function getClientPools(input: ClientPoolsInput): ClientPools {
     row.extraAvail += left;
     const until = toIsoDate(expires);
     if (!row.extraUntil || until > row.extraUntil) row.extraUntil = until;
+    if (block && until === block.end_date.slice(0, 10)) row.extraAvailUntilEnd += left;
   }
 
   for (const row of rows.values()) {
     if (concluded) {
       row.blockAvail = 0;
       row.extraAvail = 0;
+      row.extraAvailUntilEnd = 0;
     }
     row.avail = row.blockAvail + row.extraAvail;
   }
@@ -392,26 +408,50 @@ function withoutOverlaps(windows: CreditWindow[]): CreditWindow[] {
  * I giorni in cui una sessione si sposta. Con block_id solo dentro il suo
  * blocco, da oggi (o dal suo inizio) alla sua fine, qualunque sia il residuo:
  * il credito la sessione lo ha già impegnato. Mai nel blocco dopo: un credito
- * non passa di blocco nemmeno spostando. Senza block_id (pagata con un extra,
- * o collegata senza credito) nessun limite di blocco: da oggi a oggi + 14.
- * null se il blocco non c'è fra i blocchi, o è già finito.
- * È la regola voluta; il server oggi può rifiutare. reschedule_booking
- * riprende il credito fra tutti i blocchi del cliente, valid_until più vicino
- * per primo (20260827143053_…sql:214-231), e riscrive block_id (:253-255), che
- * validate_client_booking_update vieta al cliente (20260607191854_…sql:20):
- * con crediti della tipologia in un blocco precedente lo spostamento fallisce.
- * E una sessione senza block_id e senza un extra impegnato non la sposta
- * (:257-285). La correzione del server è del 02/10/2026.
+ * non passa di blocco nemmeno spostando. null se il blocco non c'è fra i
+ * blocchi, o è già finito.
+ * Senza block_id (pagata con un extra), come reschedule_booking dal giro del
+ * server del 02/10/2026 (passata 09): la sessione libera l'extra che l'ha
+ * pagata, e il nuovo giorno vuole un extra della tipologia che valga fino a
+ * lì (expires_at non prima del nuovo inizio), fra quelli con crediti liberi e
+ * quello liberato. Quale extra l'ha pagata lo sa il server
+ * (booking_extra_charges, che il cliente non legge): qui si prende quello che
+ * il server sceglie senza registro, l'impegnato che vale alla data della
+ * sessione e scade per primo. L'extra registrato vale anche lui alla data
+ * della sessione, quindi scade non prima di questo: i giorni non sono mai più
+ * di quelli che il server accetta. Senza un extra impegnato che valga alla
+ * data della sessione il server non la sposta («credito originale non
+ * individuabile»): null. Senza tipologia, senza inizio o senza gli extra
+ * (extras non passato), da oggi a oggi + 14, come prima.
  */
 export function getMoveWindow(
-  session: Pick<BookingRow, "block_id">,
+  session: Pick<BookingRow, "block_id"> &
+    Partial<Pick<BookingRow, "event_type_id" | "scheduled_at">>,
   blocks: readonly RenewalBlock[],
   now: Date,
+  extras?: readonly PoolExtra[],
 ): CreditWindow | null {
   const today = toIsoDate(now);
   if (!session.block_id) {
-    const until = toIsoDate(addDays(now, CLIENT_RESCHEDULE_WINDOW_DAYS));
-    return { from: today, until, source: "extra", blockId: null, blockNumber: null };
+    const max = toIsoDate(addDays(now, CLIENT_RESCHEDULE_WINDOW_DAYS));
+    const lone = { source: "extra" as const, blockId: null, blockNumber: null };
+    if (!session.event_type_id || !session.scheduled_at || extras === undefined) {
+      return { from: today, until: max, ...lone };
+    }
+    const at = Date.parse(session.scheduled_at);
+    const mine = extras.filter((e) => e.event_type_id === session.event_type_id);
+    const released =
+      mine
+        .filter((e) => e.quantity_booked > 0 && Date.parse(e.expires_at) >= at)
+        .sort((a, b) => Date.parse(a.expires_at) - Date.parse(b.expires_at))[0] ?? null;
+    if (!released) return null;
+    const last = mine
+      .filter((e) => e === released || e.quantity - e.quantity_booked > 0)
+      .reduce((m, e) => Math.max(m, Date.parse(e.expires_at)), Date.parse(released.expires_at));
+    const lastDay = toIsoDate(new Date(last));
+    const until = lastDay < max ? lastDay : max;
+    if (until < today) return null;
+    return { from: today, until, ...lone };
   }
   const block = blocks.find((b) => b.id === session.block_id);
   if (!block) return null;

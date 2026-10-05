@@ -71,13 +71,13 @@ export function ClientCancelSheet({
       }
       returnFocus={returnFocus}
     >
-      <ClientButton variant="danger" fullWidth disabled={cancel.isPending} onClick={onCancel}>
+      <ClientButton variant="danger" fullWidth busy={cancel.isPending} onClick={onCancel}>
         Annulla sessione
       </ClientButton>
       <ClientButton
         variant="text"
         fullWidth
-        disabled={cancel.isPending}
+        busy={cancel.isPending}
         onClick={() => onOpenChange(false)}
       >
         Tienila

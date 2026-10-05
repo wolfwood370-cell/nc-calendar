@@ -5,15 +5,19 @@
 // security definer che setta bookings.client_confirmed_at SOLO sui booking
 // del chiamante ancora `scheduled`. Il coach vede la spunta ✓ su calendario
 // e liste. La riprogrammazione azzera la conferma (trigger DB).
+// Il toast dice il coach come la didascalia sotto il pulsante (confirmCaption:
+// il nome, o «Il tuo coach» senza), dalla passata 09 del lato cliente.
 // ----------------------------------------------------------------------------
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { NO_COACH, type BookCoach } from "@/lib/client-book";
+import { confirmCaption } from "@/lib/client-session-detail";
 import { queryKeys } from "@/lib/query-keys";
 import { isMissingMigration } from "@/hooks/use-bia";
 
-export function useConfirmAttendance() {
+export function useConfirmAttendance(coach: BookCoach = NO_COACH) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { bookingId: string; clientId: string | null | undefined }) => {
@@ -29,9 +33,7 @@ export function useConfirmAttendance() {
       if (!data) throw new Error("Conferma non riuscita: la sessione non è più confermabile.");
     },
     onSuccess: (_d, input) => {
-      toast.success("Presenza confermata", {
-        description: "Il tuo coach vedrà la conferma sul calendario.",
-      });
+      toast.success("Presenza confermata", { description: confirmCaption(coach) });
       qc.invalidateQueries({ queryKey: queryKeys.bookings.client(input.clientId) });
       qc.invalidateQueries({ queryKey: queryKeys.bookings.detail(input.bookingId) });
     },

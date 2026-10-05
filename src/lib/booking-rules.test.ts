@@ -18,7 +18,6 @@ import {
   type RulesBlock,
 } from "@/lib/booking-rules";
 import { getMoveWindow } from "@/lib/client-credits";
-import { RESCHEDULE_WINDOW_DAYS } from "@/lib/reschedule-slots";
 
 describe("regole di prenotazione", () => {
   it("i numeri del cliente, per prenotare, spostare, annullare, confermare e valutare", () => {
@@ -29,10 +28,6 @@ describe("regole di prenotazione", () => {
     expect(CLIENT_FREE_CANCEL_HOURS).toBe(24);
     expect(CLIENT_CONFIRM_WINDOW_HOURS).toBe(48);
     expect(CLIENT_FEEDBACK_DAYS).toBe(14);
-  });
-
-  it("il foglio di riprogrammazione di oggi resta a 14 giorni, ora letti da qui", () => {
-    expect(RESCHEDULE_WINDOW_DAYS).toBe(14);
   });
 
   it("preavviso: 0 dà «Nessuno», 1 ora al singolare, e la card mostra «24 ore»", () => {
@@ -245,6 +240,25 @@ describe("testi di Sposta · leggono la finestra di getMoveWindow", () => {
       "Si sposta fino a 24 ore prima, su un orario entro 14 giorni. Marco riceve un avviso.";
     expect(moveRulesText({ now: NOW, window: windowOf(LONG), coachName: "Marco" })).toBe(text);
     expect(moveRulesText({ now: NOW, window: windowOf(null), coachName: "Marco" })).toBe(text);
+  });
+
+  it("senza blocco, col credito che scade prima dei 14 giorni: non oltre la scadenza (passata 09)", () => {
+    const window = getMoveWindow(
+      { block_id: null, event_type_id: "pt", scheduled_at: new Date(2026, 9, 2, 10).toISOString() },
+      [],
+      NOW,
+      [
+        {
+          event_type_id: "pt",
+          quantity: 1,
+          quantity_booked: 1,
+          expires_at: new Date(2026, 9, 4, 23, 59).toISOString(),
+        },
+      ],
+    );
+    expect(moveRulesText({ now: NOW, window, coachName: "Marco" })).toBe(
+      "Si sposta fino a 24 ore prima, su un orario entro 14 giorni e non oltre domenica 4 ottobre, scadenza del credito. Marco riceve un avviso.",
+    );
   });
 
   it("il blocco della sessione non è ancora iniziato: non prima del suo inizio", () => {

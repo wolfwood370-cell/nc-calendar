@@ -14,8 +14,9 @@
 //   - HomeConcludedCard: il percorso concluso, col WhatsApp del coach solo se
 //     c'è il link (H7: niente Store, niente Prenota).
 // Testi, stati, date e azioni vengono da client-home.ts. Il focus non si
-// perde: dopo «Conferma presenza» e dopo lo spostamento va sul titolo della
-// card, che resta anche quando la prossima sessione cambia.
+// perde: dopo «Conferma presenza», dopo lo spostamento e, dalla passata 09,
+// dopo «Ripristina» (se si era perso) va sul titolo della card, che resta
+// anche quando la prossima sessione cambia.
 // ----------------------------------------------------------------------------
 
 import { Link } from "@tanstack/react-router";
@@ -47,16 +48,17 @@ import {
 } from "@/lib/client-home";
 import { sessionName } from "@/lib/client-sessions";
 import { getClientSlotDays } from "@/lib/client-slots";
+import { CARD_TITLE, SECTION_LABEL } from "@/lib/client-type";
+import { focusIfLost } from "@/lib/focus";
 import type { BookingRow, EventTypeRow } from "@/lib/queries";
 import { iconForType } from "@/lib/session-type-icon";
 import { cn } from "@/lib/utils";
 
 const CARD = "rounded-[24px] border border-outline-variant/35 bg-white shadow-soft-card";
 
-// I titoli delle card sono in Manrope (README, V3): la regola globale dà Sora
-// e la spaziatura stretta a ogni h2.
-const LABEL = "font-sans text-sm font-bold tracking-normal text-on-surface-variant";
-const TITLE = "font-sans text-[17px] font-bold tracking-normal";
+// I titoli delle card sono in Manrope (README, V3; client-type.ts).
+const LABEL = SECTION_LABEL;
+const TITLE = CARD_TITLE;
 
 // ----------------------------------------------------------------------------
 // La prossima sessione
@@ -82,9 +84,11 @@ export function HomeNextCard({
   clientName,
 }: HomeNextCardProps) {
   const { now } = useClientShell();
-  const confirmAttendance = useConfirmAttendance();
-  const moveUndo = useMoveUndo(coach);
+  const confirmAttendance = useConfirmAttendance(coach);
   const titleRef = useRef<HTMLHeadingElement>(null);
+  // Dopo «Ripristina» il toast si chiude col pulsante che aveva il focus: il
+  // focus va sul titolo della card, se si era perso (passata 09).
+  const moveUndo = useMoveUndo(coach, undefined, () => focusIfLost(titleRef.current));
   const [moveOpen, setMoveOpen] = useState(false);
   // La sessione del foglio: resta quella aperta anche se nel frattempo la
   // prossima sessione cambia, così «Ripristina» riporta quella spostata.

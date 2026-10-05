@@ -34,6 +34,7 @@ import { getCoachContacts, type MyCoachRow } from "@/lib/coach-contacts";
 import { blockTiming } from "@/lib/current-block";
 import { initials } from "@/lib/initials";
 import { renewsAutomatically, type RenewalBlock, type RenewalClient } from "@/lib/renewal";
+import { inviteEmail } from "@/lib/safe-email";
 import { formatLongDay } from "@/lib/session-time";
 
 // ----------------------------------------------------------------------------
@@ -93,8 +94,8 @@ export interface CoachCardModel {
 /**
  * La card «Il tuo coach» (H6): null senza riga o senza nome, e la card non
  * c'è. I collegamenti sono quelli di getCoachContacts, quindi WhatsApp e
- * Chiama compaiono insieme e solo con un numero valido (un telefono che non è
- * un numero non diventa un href), e l'email se c'è.
+ * Chiama compaiono insieme e solo con almeno sei cifre nel numero, tolto lo
+ * 00 davanti (whatsappUrl: con meno, nessun href), e l'email se c'è.
  */
 export function coachCard(row: MyCoachRow | null): CoachCardModel | null {
   const name = row?.full_name?.trim();
@@ -267,15 +268,17 @@ export const PUSH_ERROR_TOAST = "Non siamo riusciti a cambiare le notifiche. Rip
 
 /**
  * «Inviti del calendario» (R1, O4), al posto dell'interruttore «Email di
- * conferma»: ogni sessione creata nell'app diventa un evento Google col
+ * conferma»: ogni sessione fissata nell'app diventa un evento Google col
  * cliente invitato all'email del suo profilo (gcal.server.ts, sendUpdates=all),
- * la stessa che il dettaglio della 04 scrive. null senza email, e la riga non
- * c'è.
+ * la stessa che il dettaglio della 04 scrive. Quelle importate da Google non
+ * hanno l'invito, e il testo dalla 09 dice «fissate nell'app». null senza
+ * un'email che Google riceve (inviteEmail, la regola del server), e la riga
+ * non c'è.
  */
 export function calendarInviteText(profileEmail: string | null | undefined): string | null {
-  const address = profileEmail?.trim();
+  const address = inviteEmail(profileEmail);
   if (!address) return null;
-  return `Ogni sessione arriva come invito di Google Calendar a ${address} e si aggiorna da sola se viene spostata o annullata.`;
+  return `Le sessioni fissate nell'app arrivano come invito di Google Calendar a ${address} e si aggiornano da sole se vengono spostate o annullate.`;
 }
 
 // ----------------------------------------------------------------------------

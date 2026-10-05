@@ -7,10 +7,10 @@
 //   1. crea l'evento alla prenotazione (use-book-confirm.ts:244,
 //      session-store.ts:104);
 //   2. invito al cliente e aggiornamenti a ogni modifica o cancellazione
-//      (gcal.server.ts:128, :181, :202);
+//      (gcal.server.ts, sendUpdates in gcalCreate, gcalUpdate e gcalDelete);
 //   3. i due promemoria stanno sul calendario dello studio: per Google i
 //      promemoria di un evento valgono per l'account che lo crea
-//      (gcal.server.ts:69-81);
+//      (gcal.server.ts, buildReminders);
 //   4. link Meet alle sessioni online in tutti i percorsi di creazione;
 //   5. la riconciliazione all'apertura del Calendario, ogni 10 minuti al
 //      massimo, sui prossimi 16 giorni (use-gcal-sync.ts, gcal.functions.ts:386-393).

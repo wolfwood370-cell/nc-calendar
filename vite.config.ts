@@ -50,6 +50,8 @@ export default defineConfig({
           name: "NC Calendar",
           short_name: "NC Calendar",
           description: "Studio personal trainer — prenotazioni e blocchi di allenamento.",
+          // La lingua dei testi del manifest (passata 09 del lato cliente).
+          lang: "it",
           theme_color: "#3b82f6",
           background_color: "#3b82f6",
           display: "standalone",

@@ -46,7 +46,7 @@ export interface StorePersona {
   extras: StorePurchase[];
 }
 
-/** I titoli dei Booster attivi (useActiveShopTitles). */
+/** I titoli dei Booster in vendita (sellablePackTitles dei pacchetti di useBoosterPacks, dalla passata 09). */
 export const BOOSTER_TITLES = ["Personal Training", "Test funzionale"];
 
 /** Una riga di extra_credits pagata con Stripe. */

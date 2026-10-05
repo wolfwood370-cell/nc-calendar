@@ -14,10 +14,10 @@
 //   - Slots avoid colliding with any blocked range, where each range is
 //     [scheduled_at, scheduled_at + duration + buffer].
 //   - Il preavviso minimo di default è quello del cliente
-//     (CLIENT_MIN_NOTICE_HOURS, booking-rules.ts). Oggi lo applica solo
-//     l'app: il server non lo controlla né all'inserimento né sulla nuova
-//     data di uno spostamento (validate_client_booking_update guarda l'ora
-//     vecchia della sessione).
+//     (CLIENT_MIN_NOTICE_HOURS, booking-rules.ts). Dal giro del server del
+//     02/10/2026 lo controlla anche il server, all'inserimento e sulla nuova
+//     data di uno spostamento («Si prenota e si sposta da 24 ore a 14 giorni
+//     prima.»).
 //   - Optimization layer (recommended slots) is opt-in via the
 //     `optimization.enabled` flag — leave undefined or false to skip.
 // ----------------------------------------------------------------------------

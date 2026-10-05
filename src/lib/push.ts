@@ -1,7 +1,11 @@
 import { supabase } from "@/integrations/supabase/client";
 
+// La chiave pubblica VAPID della coppia nuova (passata 09 del lato cliente). Con quella di prima Apple
+// rifiutava ogni notifica con 403 (04/10/2026, i log di send-push), con ogni probabilità perché la
+// privata salvata nei segreti di Lovable Cloud non faceva coppia con lei. La privata sta solo nei
+// segreti (VAPID_PRIVATE_KEY), mai nel repo.
 export const VAPID_PUBLIC_KEY =
-  "BBs68P5VeBxnTmlUz0mkMNJuLe7zMBoptyunIoghZhFpcCvgAV7lh1ydN4f0XJhDRnT5E4lzP0aV_Ac7umIi_R0";
+  "BMAawwktEABnlhpEZlqEqMs8wRGNfT1DcFxSAC39zPZ1awDpa_5Zj2UVeVYUXbKEBSg8mygOejjG9SymgtGk1dc";
 
 export function isPushSupported(): boolean {
   return (
@@ -36,6 +40,20 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return out;
 }
 
+/**
+ * L'iscrizione è nata con la chiave pubblica di oggi? true o false se il
+ * browser lo dice (`options.applicationServerKey`), null se non lo dice.
+ * Un'iscrizione nata con un'altra chiave non riceve niente: il servizio push
+ * del browser rifiuta la firma del server (Apple con 403). Passata 09.
+ */
+export function subscriptionKeyMatches(sub: Pick<PushSubscription, "options">): boolean | null {
+  const key = sub.options?.applicationServerKey;
+  if (!key) return null;
+  const want = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+  const have = new Uint8Array(key);
+  return have.length === want.length && have.every((b, i) => b === want[i]);
+}
+
 export async function subscribeToPush(profileId: string): Promise<PushSubscription> {
   if (!isPushSupported()) throw new Error("Push non supportato su questo dispositivo");
 
@@ -53,7 +71,19 @@ export async function subscribeToPush(profileId: string): Promise<PushSubscripti
   ]);
   if (!reg) throw new Error("Service worker non disponibile");
 
+  // Passata 09: un'iscrizione nata con un'altra chiave, o che non dice con
+  // quale, non si riusa. subscribe() con una chiave diversa rifiuta finché la
+  // vecchia c'è, quindi prima la si toglie (un errore si ignora); dopo la
+  // scrittura della riga nuova si toglie la riga di questa persona per il
+  // vecchio endpoint. Rifarla a un browser che non dice la chiave non costa
+  // niente, e garantisce quella giusta.
   let sub = await reg.pushManager.getSubscription();
+  let stale: string | null = null;
+  if (sub && subscriptionKeyMatches(sub) !== true) {
+    stale = sub.endpoint;
+    await sub.unsubscribe().catch(() => false);
+    sub = null;
+  }
   if (!sub) {
     const key = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
     const buf = key.buffer.slice(key.byteOffset, key.byteOffset + key.byteLength) as ArrayBuffer;
@@ -76,6 +106,20 @@ export async function subscribeToPush(profileId: string): Promise<PushSubscripti
     );
   if (error) throw error;
 
+  // La riga del vecchio endpoint: il suo errore non ferma niente (al più
+  // resta una riga che il server cancella al primo 404 o 410).
+  if (stale && stale !== sub.endpoint) {
+    try {
+      await supabase
+        .from("push_subscriptions")
+        .delete()
+        .eq("profile_id", profileId)
+        .eq("endpoint", stale);
+    } catch {
+      // niente: l'iscrizione nuova è scritta
+    }
+  }
+
   return sub;
 }
 
@@ -96,10 +140,14 @@ export async function getCurrentPushSubscription(): Promise<PushSubscription | n
  * due persone sullo stesso telefono la seconda vedeva «Attive» senza
  * riceverle, e un'iscrizione rimasta dopo una scrittura fallita diceva
  * «Attive» senza la riga. Se la lettura fallisce vale l'iscrizione, come prima.
+ * Passata 09: un'iscrizione nata con un'altra chiave non è attiva, così il
+ * Profilo dice «Disattivate» e riaccenderle la rifà con la chiave di oggi; se
+ * il browser non dice la chiave, come prima.
  */
 export async function isPushEnabledFor(profileId: string): Promise<boolean> {
   const sub = await getCurrentPushSubscription();
   if (!sub) return false;
+  if (subscriptionKeyMatches(sub) === false) return false;
   const { data, error } = await supabase
     .from("push_subscriptions")
     .select("id")
@@ -137,6 +185,72 @@ export async function forgetPushForUser(profileId: string): Promise<void> {
     await Promise.race([work, limit]);
   } finally {
     clearTimeout(timer);
+  }
+}
+
+/** Dove una scheda scrive l'istante in cui ha chiesto l'uscita (markLeaving): lo leggono anche le altre. */
+export const LEAVING_KEY = "nc-push-leaving-at";
+
+/**
+ * Per quanto vale quel segno: Supabase manda SIGNED_OUT alle altre schede
+ * subito dopo l'uscita. Una scheda ferma in background (Chrome su Android la
+ * congela) lo riceve quando torna: oltre questo margine lo prende per
+ * un'uscita non chiesta, e libera il telefono.
+ */
+export const LEAVING_WINDOW_MS = 10_000;
+
+/** Segna un'uscita chiesta, prima di signOut(); con lo storage negato la sa solo la scheda che esce. */
+export function markLeaving(now = Date.now()): void {
+  try {
+    localStorage.setItem(LEAVING_KEY, String(now));
+  } catch {
+    // niente: resta il segno in memoria della scheda (auth.tsx)
+  }
+}
+
+/** Il segno di markLeaving, o null se non c'è o lo storage non si legge. */
+export function readLeaving(): string | null {
+  try {
+    return localStorage.getItem(LEAVING_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Un'uscita chiesta da poco, in questa scheda o in un'altra (passata 09):
+ * Supabase manda SIGNED_OUT a tutte le schede aperte (BroadcastChannel), e
+ * solo quella che ha chiamato signOut() ha il segno in memoria. Vale per
+ * LEAVING_WINDOW_MS dal segno, e solo per un istante già passato.
+ */
+export function leftOnPurposeRecently(raw: string | null, now: number): boolean {
+  if (raw === null) return false;
+  const at = Number(raw);
+  return Number.isFinite(at) && now >= at && now - at < LEAVING_WINDOW_MS;
+}
+
+/** Un'uscita che nessuno ha chiesto: SIGNED_OUT senza il segno di un'uscita chiesta (passata 09). */
+export function shouldReleaseOnAuthEvent(event: string, leavingOnPurpose: boolean): boolean {
+  return event === "SIGNED_OUT" && !leavingOnPurpose;
+}
+
+/**
+ * Libera il telefono a un'uscita che nessuno ha chiesto (passata 09): la
+ * sessione scaduta o revocata, anche da un «Esci» su un altro dispositivo,
+ * perché signOut() di Supabase esce da tutti. La riga del server non si può
+ * togliere, perché la policy «Self manage push subscriptions» vuole il JWT del
+ * proprietario; si toglie allora l'iscrizione del browser. Alla prossima
+ * notifica il servizio push risponde 404 o 410 e il server cancella la riga
+ * da sé (supabase/functions/_shared/push.ts), e il telefono smette di
+ * ricevere le notifiche di chi è uscito. Chi rientra le riaccende dal
+ * Profilo. Mai bloccante: un errore si ignora.
+ */
+export async function releasePushDevice(): Promise<void> {
+  try {
+    const sub = await getCurrentPushSubscription();
+    await sub?.unsubscribe();
+  } catch {
+    // niente: l'uscita va avanti comunque
   }
 }
 

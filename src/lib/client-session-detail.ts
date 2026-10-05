@@ -53,6 +53,7 @@ import {
 import { tintContrast } from "@/lib/client-sessions";
 import type { ClientSlot, ClientSlotDay } from "@/lib/client-slots";
 import type { BookingRow, EventTypeRow } from "@/lib/queries";
+import { inviteEmail } from "@/lib/safe-email";
 import { formatLongDay, formatShortDay, formatTimeRange, formatUntil } from "@/lib/session-time";
 
 /** I campi della sessione che servono al dettaglio e ai fogli. */
@@ -241,7 +242,7 @@ export function lockedText(name: string, coach: BookCoach): string {
   return `La sessione non si può più spostare. Se la annulli, il credito ${name} viene scalato comunque. Per un altro orario scrivi ${coachTo(coach)}.`;
 }
 
-/** Sotto «Conferma presenza». Il toast resta quello di useConfirmAttendance. */
+/** Sotto «Conferma presenza», e nel toast di useConfirmAttendance (passata 09). */
 export function confirmCaption(coach: BookCoach): string {
   return `${coachSubject(coach)} vede la conferma nel suo calendario.`;
 }
@@ -299,8 +300,9 @@ export function absentHint(coach: BookCoach): { text: string; href: string | nul
 
 /**
  * L'invito del calendario: solo per le sessioni in programma create
- * nell'app, con l'evento Google e con l'email del profilo. L'invito lo manda
- * la creazione dell'evento, col cliente invitato all'email del suo profilo
+ * nell'app, con l'evento Google e con un'email del profilo che Google riceve
+ * (inviteEmail, la regola del server, dalla 09). L'invito lo manda la
+ * creazione dell'evento, col cliente invitato all'email del suo profilo
  * (gcal.functions.ts); le sessioni col titolo sono importate da Google o
  * impegni del coach, e lì il cliente non è invitato (la regola di canRate).
  */
@@ -309,7 +311,7 @@ export function inviteText(
   email: string | null | undefined,
   now: Date,
 ): string | null {
-  const address = email?.trim();
+  const address = inviteEmail(email);
   if (!address || !b.google_event_id || b.title != null || !scheduledAhead(b, now)) return null;
   return `Invito del calendario inviato a ${address}: si aggiorna da solo se la sessione viene spostata o annullata.`;
 }
@@ -402,6 +404,17 @@ export function moveCurrent(b: Timed, name: string): string {
 /** Il foglio aperto quando la sessione non si sposta più. */
 export function moveBlockedText(coach: BookCoach): string {
   return `Mancano meno di ${CLIENT_RESCHEDULE_CUTOFF_HOURS} ore all'inizio: la sessione non si può più spostare. Per un altro orario scrivi ${coachTo(coach)}.`;
+}
+
+/**
+ * Nessuna finestra per spostarla (getMoveWindow null, passata 09): il blocco
+ * della sessione non c'è più o è finito, o la sessione senza blocco non ha un
+ * extra da liberare, e il server la rifiuterebbe («credito originale non
+ * individuabile»). Il foglio lo dice al posto dei giorni, invece di aprire
+ * una fila tutta chiusa con «Nessun orario libero».
+ */
+export function moveNoCreditText(coach: BookCoach): string {
+  return `Questa sessione non si può spostare dall'app. Per un altro orario scrivi ${coachTo(coach)}.`;
 }
 
 /** Nessun giorno con orari. */

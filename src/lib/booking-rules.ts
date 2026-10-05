@@ -8,28 +8,23 @@
 // lettura. trainer_settings (min_notice_hours, booking_horizon_days) non li
 // applica nessuno: né Prenota, dal 27/08/2026, né il server.
 //
-// Cosa il server oggi non fa, fino alle migrazioni rinviate al 02/10/2026:
-//   - preavviso e orizzonte li applica solo l'app: enforce_client_booking_rules
-//     controlla solo che la tipologia sia prenotabile, e reschedule_booking non
-//     controlla preavviso e orizzonte della nuova data (20260827143053_4c03121c-…sql).
-//     Su questi due numeri è sicuro: l'app stringe, il server lascia passare.
-//   - il blocco che paga il server può sbagliarlo: validate_booking_block_allocation
-//     (stessa migrazione, :35-53 e :59-61) sceglie il credito fra tutti i
-//     blocchi del cliente, anche quelli finiti, e riscrive block_id col blocco
-//     scelto. Una prenotazione sul blocco dopo può quindi scalare un credito
-//     del blocco in corso. Dove vale ogni credito lo dicono le finestre dei
-//     crediti (getCreditWindows, client-credits.ts), che il server non conosce.
-//   - spostando, reschedule_booking riprende il credito allo stesso modo
-//     (:214-231) e riscrive block_id (:253-255), che validate_client_booking_update
-//     vieta al cliente: con crediti della tipologia in un blocco precedente lo
-//     spostamento fallisce. La scadenza degli extra, dal giro del server del
-//     02/10/2026, la guarda l'inserimento (validate_booking_extra_credits) e non
-//     lo spostamento: reschedule_booking non la guarda, e Sposta per una
-//     sessione senza blocco apre i giorni da oggi a oggi + 14 (getMoveWindow).
-// Le soglie delle 24 ore sono invece già del server: validate_client_booking_update
-// rifiuta lo spostamento di una sessione che inizia prima di now() + 24 ore, e
-// cancel_booking segna tardivo l'annullamento da now() >= inizio − 24 ore. Il
-// preavviso della prenotazione, invece, no: l'inserimento non ne ha.
+// Cosa fa il server dal giro del 02/10/2026 (lo SQL sta nella cartella di
+// Cowork, app/server-giro-2026-10-02.sql, non fra le migrazioni del repo):
+//   - preavviso e orizzonte: l'inserimento del cliente
+//     (enforce_client_booking_rules) e la nuova data di uno spostamento
+//     (reschedule_booking) fuori da 24 ore - 14 giorni li rifiuta («Si prenota
+//     e si sposta da 24 ore a 14 giorni prima.»), con le soglie di questo file;
+//   - i crediti: una sessione la paga il blocco che contiene la sua data, e se
+//     lì non c'è, un extra che vale alla sua data; spostando, la sessione
+//     libera l'extra che l'ha pagata e ne vuole uno che valga fino alla nuova
+//     data, e Sposta per una sessione senza blocco apre solo quei giorni
+//     (getMoveWindow con gli extra, passata 09 del lato cliente). Dove vale
+//     ogni credito per il cliente lo dicono le finestre dei crediti
+//     (getCreditWindows, client-credits.ts).
+// Le soglie delle 24 ore per spostare e annullare erano già del server:
+// validate_client_booking_update rifiuta lo spostamento di una sessione che
+// inizia prima di now() + 24 ore, e cancel_booking segna tardivo
+// l'annullamento da now() >= inizio − 24 ore.
 // ----------------------------------------------------------------------------
 
 import { addDays, parseISO } from "date-fns";
@@ -242,10 +237,11 @@ export interface MoveTextInput {
   now: Date;
   /**
    * La finestra della sessione che si sposta (getMoveWindow): dentro il suo
-   * blocco, o i 14 giorni se non ne ha. null se non si sposta.
+   * blocco; senza blocco i 14 giorni, o fino alla scadenza dell'extra che la
+   * sessione libera, se viene prima (passata 09). null se non si sposta.
    */
   window: CreditWindow | null;
-  /** Il nome del coach; oggi il cliente non lo legge (profiles), e senza si dice «Il tuo coach». */
+  /** Il nome del coach (get_my_coach, dalla passata 07); senza si dice «Il tuo coach». */
   coachName?: string | null;
 }
 
@@ -258,7 +254,14 @@ export interface MoveTextInput {
 export function moveRulesText({ now, window, coachName }: MoveTextInput): string {
   const lead = `Si sposta fino a ${hoursText(CLIENT_RESCHEDULE_CUTOFF_HOURS)} prima, su un orario entro ${daysText(CLIENT_RESCHEDULE_WINDOW_DAYS)}`;
   const tail = `${coachName?.trim() || "Il tuo coach"} riceve un avviso.`;
-  // Senza blocco la finestra sono i 14 giorni: nessun limite in più da dire.
+  // Senza blocco la finestra è quella dell'extra che la sessione libera
+  // (getMoveWindow, passata 09): i 14 giorni, o meno se il credito scade
+  // prima, e allora la frase dice fino a quando.
+  if (window && !window.blockId) {
+    if (window.until < toIsoDate(addDays(now, CLIENT_RESCHEDULE_WINDOW_DAYS))) {
+      return `${lead} e non oltre ${dayText(window.until)}, scadenza del credito. ${tail}`;
+    }
+  }
   if (window?.blockId) {
     if (window.from > toIsoDate(now)) {
       return `${lead} e non prima di ${dayText(window.from)}, inizio del blocco. ${tail}`;

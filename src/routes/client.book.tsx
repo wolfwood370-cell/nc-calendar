@@ -53,6 +53,8 @@ import {
 } from "@/lib/client-book";
 import { bookSubtitle, clientPageTitle } from "@/lib/client-shell";
 import { getClientSlotDays } from "@/lib/client-slots";
+import { CARD_TITLE } from "@/lib/client-type";
+import { focusIfLost } from "@/lib/focus";
 import { renewsAutomatically } from "@/lib/renewal";
 import { formatLongDay } from "@/lib/session-time";
 
@@ -102,7 +104,7 @@ function BookFlow() {
   const { user } = useAuth();
   const { now } = useClientShell();
   // Il coach dei testi (get_my_coach): senza nome «il tuo coach», e i pulsanti
-  // WhatsApp solo col link (il coach di oggi, senza telefono, non ne ha).
+  // WhatsApp solo col link, cioè solo se il coach ha un telefono nel profilo.
   const { coach } = useMyCoach();
   const navigate = useNavigate();
   const eventTypeParam = Route.useSearch({ select: (s) => s.eventType });
@@ -342,10 +344,63 @@ function BookFlow() {
   const slotsTitleRef = useRef<HTMLHeadingElement>(null);
   const typesTitleRef = useRef<HTMLHeadingElement>(null);
   const cardTitleRef = useRef<HTMLHeadingElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const returnFocus = useCallback(
     () => slotsTitleRef.current ?? typesTitleRef.current ?? cardTitleRef.current,
     [],
   );
+
+  // «Riprova» (passata 09, come la Home e Sessioni): riuscito, la card lascia
+  // il posto alle sezioni e il pulsante che aveva il focus sparisce con lei: il
+  // focus va sul contenitore mentre le sezioni si preparano, poi sul primo
+  // titolo; fallito di nuovo, sul titolo della card, che lo annuncia. Solo se
+  // il focus si era perso o era ancora nella card: chi intanto è andato
+  // altrove resta dov'è.
+  const retried = useRef(false);
+  const onRetry = () => {
+    retried.current = true;
+    retry();
+  };
+  const showRetry = !loading && (failed || !state);
+  useEffect(() => {
+    const root = contentRef.current;
+    if (!retried.current || !root) return;
+    if (showRetry) {
+      if (retrying) return;
+      retried.current = false;
+      const title = cardTitleRef.current;
+      focusIfLost(title, root, title?.parentElement);
+      return;
+    }
+    if (loading) {
+      focusIfLost(root, root);
+      return;
+    }
+    retried.current = false;
+    focusIfLost(typesTitleRef.current ?? cardTitleRef.current ?? root, root);
+  }, [showRetry, loading, retrying]);
+  // Lo stesso per «Orari non aggiornati»: tornati gli orari, il titolo del
+  // giorno; fallita di nuovo la lettura, il titolo della card.
+  const slotsCardTitleRef = useRef<HTMLHeadingElement>(null);
+  const retriedSlots = useRef(false);
+  const onRetrySlots = () => {
+    retriedSlots.current = true;
+    retrySlots();
+  };
+  const slotsShown = !slotsFailed && slotDays !== null;
+  useEffect(() => {
+    if (!retriedSlots.current || retryingSlots) return;
+    const root = contentRef.current;
+    if (slotsFailed) {
+      retriedSlots.current = false;
+      const title = slotsCardTitleRef.current;
+      focusIfLost(title, root, title?.parentElement);
+      return;
+    }
+    if (!slotsShown) return;
+    retriedSlots.current = false;
+    focusIfLost(slotsTitleRef.current ?? typesTitleRef.current, root);
+  }, [retryingSlots, slotsFailed, slotsShown]);
 
   const howOption = howKey ? (options.find((o) => o.key === howKey) ?? null) : null;
   const how = howOption && state ? howToBook(howOption, state, coach) : null;
@@ -364,7 +419,7 @@ function BookFlow() {
       <BookRetryCard
         title="Prenota non si è caricata"
         text="Non siamo riusciti a leggere i tuoi crediti. Riprova tra poco."
-        onRetry={retry}
+        onRetry={onRetry}
         retrying={retrying}
         titleRef={cardTitleRef}
       />
@@ -393,15 +448,16 @@ function BookFlow() {
             <BookRetryCard
               title="Orari non aggiornati"
               text="Non siamo riusciti a leggere gli orari liberi. Riprova tra poco."
-              onRetry={retrySlots}
+              onRetry={onRetrySlots}
               retrying={retryingSlots}
+              titleRef={slotsCardTitleRef}
             />
           ) : !slotDays ? (
             <SlotsSkeleton />
           ) : (
             <>
               <section className="flex flex-col gap-2.5">
-                <h2 className="text-[17px] font-bold">Quando?</h2>
+                <h2 className={CARD_TITLE}>Quando?</h2>
                 <ClientDayStrip
                   // Una fila nuova per tipologia: riparte dal giorno scelto
                   // anche se è lo stesso di prima, e la fila era scorsa altrove.
@@ -416,7 +472,7 @@ function BookFlow() {
                 </p>
               </section>
               <section className="flex flex-col gap-3">
-                <h2 ref={slotsTitleRef} tabIndex={-1} className="text-[17px] font-bold">
+                <h2 ref={slotsTitleRef} tabIndex={-1} className={CARD_TITLE}>
                   {day ? formatLongDay(day.date) : "Orari"}
                 </h2>
                 {day ? (
@@ -455,7 +511,13 @@ function BookFlow() {
     // d'azione, ultima, ci si attacca in fondo (book-action-bar.tsx).
     <div className="flex min-h-[calc(100dvh_-_65px_-_max(6px,env(safe-area-inset-bottom))_-_24px)] flex-col md:min-h-[calc(100dvh_-_105px_-_env(safe-area-inset-bottom))]">
       <ClientTabHeader title="Prenota" subtitle={subtitle} />
-      <div className="flex flex-col gap-5 px-4 pt-1 pb-6">{content}</div>
+      <div
+        ref={contentRef}
+        tabIndex={-1}
+        className="flex flex-col gap-5 px-4 pt-1 pb-6 outline-none"
+      >
+        {content}
+      </div>
       {barSlot && barOption && (
         <BookActionBar type={barType(barOption)} when={barWhen(barSlot)} onContinue={openConfirm} />
       )}
