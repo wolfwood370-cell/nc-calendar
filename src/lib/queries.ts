@@ -617,7 +617,7 @@ export function useCancelBooking() {
         status: BookingStatus;
         was_late: boolean;
       } | null;
-      if (!result) throw new Error("Cancellazione non riuscita.");
+      if (!result) throw new Error("Annullamento non riuscito.");
       const wasLate = result.was_late;
 
       // Sync Google Calendar: in entrambi i casi (late o free) cancelliamo

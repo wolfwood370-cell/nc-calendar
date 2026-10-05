@@ -73,6 +73,7 @@ import {
   type CoachLinkKind,
 } from "@/lib/client-settings";
 import { clientPageTitle } from "@/lib/client-shell";
+import { SECTION_LABEL } from "@/lib/client-type";
 import { focusIfLost } from "@/lib/focus";
 import {
   forgetPushForUser,
@@ -105,9 +106,8 @@ const LIST_CARD = "overflow-hidden rounded-[24px] border border-outline-variant/
 const ROW_SEP = "border-t border-surface-container-low first:border-t-0";
 // Righe di almeno 52 px, padding 10 e 16.
 const ROW = "flex min-h-[52px] items-center gap-3 px-4 py-2.5";
-// I titoli di sezione in Manrope 14/700, come la Home: la regola base di
-// styles.css mette Sora e -0.02em su ogni h2.
-const SECTION_TITLE = "px-1 font-sans text-sm font-bold tracking-normal text-on-surface-variant";
+// I titoli di sezione in Manrope 14/700, come la Home (client-type.ts).
+const SECTION_TITLE = `${SECTION_LABEL} px-1`;
 const ROW_TITLE = "text-[15px] font-bold";
 const ROW_SUB = "text-[13px] leading-[1.4] text-on-surface-variant";
 
@@ -363,9 +363,13 @@ function ClientSettings() {
               </div>
             </div>
             {card.links.length > 0 && (
-              // Tante colonne quanti sono i collegamenti: col coach di oggi
-              // «Email» a tutta larghezza. Sotto i 360 px le icone si
-              // nascondono: a 320 «WhatsApp» con l'icona non ci sta.
+              // Tante colonne quanti sono i collegamenti: con la sola email
+              // «Email» a tutta larghezza. Ogni pillola è un contenitore, e
+              // l'icona si nasconde quando la pillola è più stretta di 95 px
+              // (passata 09): «WhatsApp» con l'icona e lo spazio, in Manrope
+              // vero, misura 92,8 px, più 2 di margine. La soglia di prima, sui
+              // 360 px dello schermo, non sapeva quanti collegamenti ci sono, e
+              // con tre la parola usciva dalla pillola fra 360 e circa 368 px.
               <div
                 className="grid gap-2"
                 style={{ gridTemplateColumns: `repeat(${card.links.length}, minmax(0, 1fr))` }}
@@ -379,9 +383,9 @@ function ClientSettings() {
                       {...(l.kind === "whatsapp"
                         ? { target: "_blank", rel: "noopener noreferrer" }
                         : {})}
-                      className="flex h-12 items-center justify-center gap-1.5 rounded-[14px] bg-primary-container/8 text-sm font-bold text-aura-primary"
+                      className="@container flex h-12 items-center justify-center gap-1.5 rounded-[14px] bg-primary-container/8 text-sm font-bold text-aura-primary"
                     >
-                      <Icon className="size-4 shrink-0 max-[360px]:hidden" aria-hidden />
+                      <Icon className="size-4 shrink-0 @max-[95px]:hidden" aria-hidden />
                       {l.label}
                     </a>
                   );

@@ -8,11 +8,15 @@
 // «Come si prenota». Un solo punto di Tab (la scelta, altrimenti la prima);
 // le frecce, Home ed End spostano il focus su tutte le opzioni e scelgono
 // solo le prenotabili (segmentKeyTarget, come segmented-control.tsx).
+// L'icona della tipologia ha il colore di tileIcon, come il dettaglio e la
+// Home: sotto il 3:1 sulla sua tinta passa al primario (passata 09).
 // ----------------------------------------------------------------------------
 
 import type { KeyboardEvent, Ref } from "react";
 import { ChevronRight } from "lucide-react";
-import { typeColor, typeTint, type BookOption } from "@/lib/client-book";
+import { typeTint, type BookOption } from "@/lib/client-book";
+import { tileIcon } from "@/lib/client-session-detail";
+import { CARD_TITLE } from "@/lib/client-type";
 import { segmentKeyTarget } from "@/lib/segment-keys";
 import { iconForType } from "@/lib/session-type-icon";
 import { cn } from "@/lib/utils";
@@ -50,7 +54,7 @@ export function BookTypePicker({
 
   return (
     <section className="flex flex-col gap-2.5">
-      <h2 ref={titleRef} tabIndex={-1} className="text-[17px] font-bold">
+      <h2 ref={titleRef} tabIndex={-1} className={CARD_TITLE}>
         Cosa vuoi prenotare?
       </h2>
       <div role="radiogroup" aria-label="Tipologia di sessione" className="flex flex-col gap-2">
@@ -82,7 +86,7 @@ export function BookTypePicker({
               <span
                 aria-hidden
                 className="grid size-10 shrink-0 place-items-center rounded-[12px]"
-                style={{ background: typeTint(o.color), color: typeColor(o.color) }}
+                style={{ background: typeTint(o.color), color: tileIcon(o.color) }}
               >
                 <Icon className="size-5" />
               </span>

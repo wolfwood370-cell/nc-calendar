@@ -17,6 +17,7 @@ import { MessageCircle } from "lucide-react";
 import type { Ref } from "react";
 import { ClientButton } from "@/components/client-button";
 import type { Blocked } from "@/lib/client-book";
+import { CARD_TITLE } from "@/lib/client-type";
 
 const CARD =
   "flex flex-col gap-3 rounded-[24px] border border-outline-variant/35 bg-white p-5 shadow-soft-card";
@@ -39,7 +40,7 @@ export function BookBlockedCard({
 }: BookBlockedCardProps) {
   return (
     <section className={CARD}>
-      <h2 ref={titleRef} tabIndex={-1} className="text-[17px] font-bold">
+      <h2 ref={titleRef} tabIndex={-1} className={CARD_TITLE}>
         {blocked.title}
       </h2>
       <p className="text-[15px] leading-normal text-on-surface-variant">{blocked.text}</p>
@@ -72,7 +73,7 @@ export interface BookRetryCardProps {
 export function BookRetryCard({ title, text, onRetry, retrying, titleRef }: BookRetryCardProps) {
   return (
     <section className={CARD}>
-      <h2 ref={titleRef} tabIndex={-1} className="text-[17px] font-bold">
+      <h2 ref={titleRef} tabIndex={-1} className={CARD_TITLE}>
         {title}
       </h2>
       <p className="text-[15px] leading-normal text-on-surface-variant">{text}</p>

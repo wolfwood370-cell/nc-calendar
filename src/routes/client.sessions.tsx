@@ -44,6 +44,7 @@ import {
   type SessionsTab,
 } from "@/lib/client-sessions";
 import { clientPageTitle, sessionsSubtitle } from "@/lib/client-shell";
+import { CARD_TITLE, SECTION_LABEL } from "@/lib/client-type";
 import { focusIfLost } from "@/lib/focus";
 import type { EventTypeRow } from "@/lib/queries";
 import { arrivedRead, lostRead } from "@/lib/query-state";
@@ -190,7 +191,7 @@ function ClientSessionsPage() {
       const empty = upcomingEmpty(state, failed);
       content = (
         <section className={CARD}>
-          <h2 tabIndex={-1} className="text-[17px] font-bold">
+          <h2 tabIndex={-1} className={CARD_TITLE}>
             Nessuna sessione in programma
           </h2>
           {empty.text ? (
@@ -225,7 +226,7 @@ function ClientSessionsPage() {
           <SessionGroups groups={groups} onOpen={open} />
         ) : (
           <section className={CARD}>
-            <h2 tabIndex={-1} className="text-[17px] font-bold">
+            <h2 tabIndex={-1} className={CARD_TITLE}>
               Nessuna sessione passata
             </h2>
             <p className="text-[15px] leading-normal text-on-surface-variant">
@@ -283,7 +284,7 @@ function ClientSessionsPage() {
 function SessionGroups({ groups, onOpen }: { groups: RowGroup[]; onOpen: (id: string) => void }) {
   return groups.map((g) => (
     <section key={g.key} className="flex flex-col gap-2">
-      <h2 tabIndex={-1} className="px-1 text-sm font-bold text-on-surface-variant">
+      <h2 tabIndex={-1} className={`${SECTION_LABEL} px-1`}>
         {g.label}
       </h2>
       {g.rows.map((row) => (

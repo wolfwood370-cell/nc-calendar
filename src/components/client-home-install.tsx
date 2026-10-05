@@ -19,6 +19,7 @@ import { ClientButton } from "@/components/client-button";
 import { ClientInstallSheet } from "@/components/client-install-sheet";
 import { usePwaInstall } from "@/hooks/use-pwa";
 import { installHiddenKey } from "@/lib/client-home";
+import { SANS_HEADING } from "@/lib/client-type";
 
 // «Non ora» scritto qui non avvisa nessuno da solo: un piccolo store, come le
 // notifiche lette della cornice.
@@ -87,9 +88,7 @@ export function HomeInstallCard({ userId, returnFocus }: HomeInstallCardProps) {
             <Download className="size-5" />
           </span>
           <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <h2 className="font-sans text-[15px] font-bold tracking-normal">
-              Installa NC Calendar
-            </h2>
+            <h2 className={`${SANS_HEADING} text-[15px] font-bold`}>Installa NC Calendar</h2>
             <p className="text-[13px] leading-[1.45] text-on-surface-variant">
               Apri l'app dalla schermata Home e ricevi le notifiche sulle sessioni.
             </p>

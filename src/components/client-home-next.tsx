@@ -48,6 +48,7 @@ import {
 } from "@/lib/client-home";
 import { sessionName } from "@/lib/client-sessions";
 import { getClientSlotDays } from "@/lib/client-slots";
+import { CARD_TITLE, SECTION_LABEL } from "@/lib/client-type";
 import { focusIfLost } from "@/lib/focus";
 import type { BookingRow, EventTypeRow } from "@/lib/queries";
 import { iconForType } from "@/lib/session-type-icon";
@@ -55,10 +56,9 @@ import { cn } from "@/lib/utils";
 
 const CARD = "rounded-[24px] border border-outline-variant/35 bg-white shadow-soft-card";
 
-// I titoli delle card sono in Manrope (README, V3): la regola globale dà Sora
-// e la spaziatura stretta a ogni h2.
-const LABEL = "font-sans text-sm font-bold tracking-normal text-on-surface-variant";
-const TITLE = "font-sans text-[17px] font-bold tracking-normal";
+// I titoli delle card sono in Manrope (README, V3; client-type.ts).
+const LABEL = SECTION_LABEL;
+const TITLE = CARD_TITLE;
 
 // ----------------------------------------------------------------------------
 // La prossima sessione

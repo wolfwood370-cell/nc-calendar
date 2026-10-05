@@ -34,17 +34,21 @@ import { AuraCardSkeleton, AuraLineSkeleton } from "@/components/ui/aura-skeleto
 import { supabase } from "@/integrations/supabase/client";
 import { isVisibleSession } from "@/lib/client-sessions";
 import { clientPageTitle } from "@/lib/client-shell";
+import { CARD_TITLE } from "@/lib/client-type";
 import { focusIfLost } from "@/lib/focus";
 import { queryKeys } from "@/lib/query-keys";
 import { lostRead } from "@/lib/query-state";
+
+// La parola del lato cliente è «sessione» (passata 09, il brief).
+const DESCRIPTION = "Consulta, sposta o annulla la tua sessione.";
 
 export const Route = createFileRoute("/client/bookings/$bookingId")({
   head: () => ({
     meta: [
       { title: clientPageTitle("Sessione") },
-      { name: "description", content: "Consulta, sposta o annulla il tuo appuntamento." },
+      { name: "description", content: DESCRIPTION },
       { property: "og:title", content: clientPageTitle("Sessione") },
-      { property: "og:description", content: "Consulta, sposta o annulla il tuo appuntamento." },
+      { property: "og:description", content: DESCRIPTION },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -131,7 +135,7 @@ function BookingDetailPage() {
   } else if (booking !== undefined) {
     content = (
       <section className={CARD}>
-        <h2 tabIndex={-1} className="text-[17px] font-bold">
+        <h2 tabIndex={-1} className={CARD_TITLE}>
           Sessione non trovata
         </h2>
         <p className="text-[15px] leading-normal text-on-surface-variant">

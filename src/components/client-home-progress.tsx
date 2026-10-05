@@ -20,6 +20,7 @@ import {
   type ProgressMeasurement,
   type ProgressMetric,
 } from "@/lib/client-home";
+import { CARD_TITLE } from "@/lib/client-type";
 import { cn } from "@/lib/utils";
 
 const CARD = "rounded-[24px] border border-outline-variant/35 bg-white shadow-soft-card";
@@ -39,7 +40,7 @@ export function HomeProgressCard({ measurements, coach }: HomeProgressCardProps)
 
   return (
     <section aria-label="I tuoi progressi" className={cn(CARD, "flex flex-col gap-3.5 p-[18px]")}>
-      <h2 tabIndex={-1} className="font-sans text-[17px] font-bold tracking-normal">
+      <h2 tabIndex={-1} className={CARD_TITLE}>
         I tuoi progressi
       </h2>
       <SegmentedControl

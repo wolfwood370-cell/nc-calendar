@@ -37,6 +37,7 @@ import {
   type CreditStep,
 } from "@/lib/client-home";
 import { tileIcon } from "@/lib/client-session-detail";
+import { CARD_TITLE } from "@/lib/client-type";
 import { iconForType } from "@/lib/session-type-icon";
 import { cn } from "@/lib/utils";
 
@@ -82,7 +83,7 @@ export function HomeCreditsCard({ client, blocks, state, coach }: HomeCreditsCar
     <section aria-label="I tuoi crediti" className={cn(CARD, "flex flex-col gap-3 p-[18px]")}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-[3px]">
-          <h2 tabIndex={-1} className="font-sans text-[17px] font-bold tracking-normal">
+          <h2 tabIndex={-1} className={CARD_TITLE}>
             I tuoi crediti
           </h2>
           {header.sub && (
@@ -216,9 +217,13 @@ function CreditRowView({
           <Icon className="size-5" />
         </span>
         {/* Nome e azione vanno a capo solo se non ci stanno: a 320 px «Come si
-            prenota» scende sotto il nome invece di schiacciarlo. */}
+            prenota» scende sotto il nome invece di schiacciarlo. La base di 96
+            px decide quando si va a capo, e il nome non scende sotto la sua
+            parola più lunga (passata 09: con min-w-24 una parola lunga, come
+            «Elettrostimolazione», usciva dalla sua colonna e finiva sotto
+            l'azione). */}
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2">
-          <span className="flex min-w-24 flex-1 flex-col gap-0.5">
+          <span className="flex grow basis-24 flex-col gap-0.5">
             <span className="text-[15px] font-bold">{row.name}</span>
             <span
               className={cn(

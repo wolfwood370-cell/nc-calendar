@@ -13,6 +13,7 @@
 import { useCanGoBack, useNavigate, useRouter, useRouterState } from "@tanstack/react-router";
 import { ChevronLeft } from "lucide-react";
 import { backFallback } from "@/lib/client-shell";
+import { CARD_TITLE } from "@/lib/client-type";
 
 export function ClientPageHeader({ title }: { title: string }) {
   const router = useRouter();
@@ -38,9 +39,7 @@ export function ClientPageHeader({ title }: { title: string }) {
       >
         <ChevronLeft className="size-[22px]" aria-hidden />
       </button>
-      <h1 className="truncate text-center font-sans text-[17px] font-bold tracking-normal text-on-surface">
-        {title}
-      </h1>
+      <h1 className={`${CARD_TITLE} truncate text-center text-on-surface`}>{title}</h1>
       <span aria-hidden />
     </header>
   );

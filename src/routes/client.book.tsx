@@ -53,6 +53,7 @@ import {
 } from "@/lib/client-book";
 import { bookSubtitle, clientPageTitle } from "@/lib/client-shell";
 import { getClientSlotDays } from "@/lib/client-slots";
+import { CARD_TITLE } from "@/lib/client-type";
 import { focusIfLost } from "@/lib/focus";
 import { renewsAutomatically } from "@/lib/renewal";
 import { formatLongDay } from "@/lib/session-time";
@@ -456,7 +457,7 @@ function BookFlow() {
           ) : (
             <>
               <section className="flex flex-col gap-2.5">
-                <h2 className="text-[17px] font-bold">Quando?</h2>
+                <h2 className={CARD_TITLE}>Quando?</h2>
                 <ClientDayStrip
                   // Una fila nuova per tipologia: riparte dal giorno scelto
                   // anche se è lo stesso di prima, e la fila era scorsa altrove.
@@ -471,7 +472,7 @@ function BookFlow() {
                 </p>
               </section>
               <section className="flex flex-col gap-3">
-                <h2 ref={slotsTitleRef} tabIndex={-1} className="text-[17px] font-bold">
+                <h2 ref={slotsTitleRef} tabIndex={-1} className={CARD_TITLE}>
                   {day ? formatLongDay(day.date) : "Orari"}
                 </h2>
                 {day ? (

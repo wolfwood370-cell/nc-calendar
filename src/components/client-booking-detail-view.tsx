@@ -72,6 +72,7 @@ import {
   type DetailEventType,
 } from "@/lib/client-session-detail";
 import { sessionName } from "@/lib/client-sessions";
+import { SANS_HEADING } from "@/lib/client-type";
 import { focusIfLost } from "@/lib/focus";
 import { queryKeys } from "@/lib/query-keys";
 import { iconForType } from "@/lib/session-type-icon";
@@ -381,7 +382,7 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
         <section className={cn(CARD, "flex flex-col gap-3.5 p-4")}>
           {note && (
             <div className="flex flex-col gap-1">
-              <h3 className="text-sm font-bold">{coachNoteTitle(coach)}</h3>
+              <h3 className={`${SANS_HEADING} text-sm font-bold`}>{coachNoteTitle(coach)}</h3>
               <p className="text-[15px] leading-normal whitespace-pre-wrap text-on-surface-variant">
                 {note}
               </p>
@@ -389,7 +390,7 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
           )}
           {description && (
             <div className="flex flex-col gap-1">
-              <h3 className="text-sm font-bold">Cosa aspettarti</h3>
+              <h3 className={`${SANS_HEADING} text-sm font-bold`}>Cosa aspettarti</h3>
               <p className="text-[15px] leading-normal text-on-surface-variant">{description}</p>
             </div>
           )}

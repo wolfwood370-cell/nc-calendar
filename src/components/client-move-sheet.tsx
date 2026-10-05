@@ -52,6 +52,7 @@ import {
 } from "@/lib/client-session-detail";
 import { canMove } from "@/lib/client-session-status";
 import { getClientSlotDays } from "@/lib/client-slots";
+import { SANS_HEADING } from "@/lib/client-type";
 import {
   useClientBlocks,
   useClientExtraCredits,
@@ -288,7 +289,7 @@ function MoveBody({ booking, name, coach, clientName, onMoved, onClose }: MoveBo
     content = (
       <>
         <div className="flex flex-col gap-2.5">
-          <h3 className="text-[15px] font-bold">Nuovo giorno</h3>
+          <h3 className={`${SANS_HEADING} text-[15px] font-bold`}>Nuovo giorno</h3>
           <ClientDayStrip
             days={days}
             selectedIso={day?.isoDate ?? null}
@@ -297,7 +298,9 @@ function MoveBody({ booking, name, coach, clientName, onMoved, onClose }: MoveBo
           />
         </div>
         <div className="flex flex-col gap-3">
-          <h3 className="text-[15px] font-bold">{day ? formatLongDay(day.date) : "Orari"}</h3>
+          <h3 className={`${SANS_HEADING} text-[15px] font-bold`}>
+            {day ? formatLongDay(day.date) : "Orari"}
+          </h3>
           {day ? (
             <ClientSlotGroups day={day} selectedIso={slot?.iso ?? null} onSelect={pickSlot} />
           ) : (

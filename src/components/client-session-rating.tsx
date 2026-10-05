@@ -25,6 +25,7 @@ import { ClientButton } from "@/components/client-button";
 import { useSetSessionFeedback } from "@/hooks/use-session-feedback";
 import type { BookCoach } from "@/lib/client-book";
 import { ratingToast, starsLabel } from "@/lib/client-session-detail";
+import { CARD_TITLE } from "@/lib/client-type";
 import { segmentKeyTarget } from "@/lib/segment-keys";
 import { cn } from "@/lib/utils";
 
@@ -143,13 +144,9 @@ export function ClientSessionRating({
     );
   };
 
-  // Nella Home i titoli delle card sono in Manrope, come le altre card.
+  // I titoli delle card sono in Manrope, nella Home e nel dettaglio (09).
   const title = (
-    <h2
-      ref={titleRef}
-      tabIndex={-1}
-      className={cn("text-[17px] font-bold", layout === "home" && "font-sans tracking-normal")}
-    >
+    <h2 ref={titleRef} tabIndex={-1} className={CARD_TITLE}>
       {choosing ? "Com'è andata?" : "La tua valutazione"}
     </h2>
   );
