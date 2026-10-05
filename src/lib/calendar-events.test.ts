@@ -209,6 +209,19 @@ describe("pannello dettagli", () => {
     expect(whatsappUrl("")).toBeNull();
   });
 
+  it("WhatsApp col prefisso del paese: lo 00 via, il 39 ai numeri italiani senza (passata 09)", () => {
+    expect(whatsappUrl("0039 340 118 22 09")).toBe("https://wa.me/393401182209");
+    expect(whatsappUrl("340 118 22 09")).toBe("https://wa.me/393401182209");
+    expect(whatsappUrl("3401182209")).toBe("https://wa.me/393401182209");
+    expect(whatsappUrl("393401182209")).toBe("https://wa.me/393401182209");
+    expect(whatsappUrl("02 1234 5678")).toBe("https://wa.me/390212345678");
+    expect(whatsappUrl("+44 20 7946 0958")).toBe("https://wa.me/442079460958");
+    expect(whatsappUrl("0044 20 7946 0958")).toBe("https://wa.me/442079460958");
+    expect(whatsappUrl("+3401182209")).toBe("https://wa.me/3401182209");
+    expect(whatsappUrl("00")).toBeNull();
+    expect(whatsappUrl("javascript:alert(1)")).toBeNull();
+  });
+
   it("ultima nota: la più recente fra le sessioni già iniziate", () => {
     const list = [
       {

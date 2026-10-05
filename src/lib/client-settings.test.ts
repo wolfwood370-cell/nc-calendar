@@ -328,11 +328,17 @@ describe("pushRow · notifiche sul telefono", () => {
 describe("calendarInviteText · inviti del calendario", () => {
   it("con l'email del profilo, senza spazi; senza email nessuna riga", () => {
     expect(calendarInviteText(" giulia.b@email.it ")).toBe(
-      "Ogni sessione arriva come invito di Google Calendar a giulia.b@email.it e si aggiorna da sola se viene spostata o annullata.",
+      "Le sessioni fissate nell'app arrivano come invito di Google Calendar a giulia.b@email.it e si aggiornano da sole se vengono spostate o annullate.",
     );
     expect(calendarInviteText("  ")).toBeNull();
     expect(calendarInviteText(null)).toBeNull();
     expect(calendarInviteText(undefined)).toBeNull();
+  });
+
+  it("un'email che il server non invita non promette l'invito (passata 09)", () => {
+    expect(calendarInviteText("giulia b@email.it")).toBeNull();
+    expect(calendarInviteText('"giulia"@email.it')).toBeNull();
+    expect(calendarInviteText("giulia@email")).toBeNull();
   });
 });
 

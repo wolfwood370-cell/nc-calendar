@@ -12,6 +12,8 @@
 // che facciamo qui dentro.
 // ----------------------------------------------------------------------------
 
+import { inviteEmail } from "@/lib/safe-email";
+
 const GATEWAY_BASE = "https://connector-gateway.lovable.dev/google_calendar";
 const CALENDAR_PATH = "/calendar/v3/calendars/primary/events";
 
@@ -80,20 +82,9 @@ function buildReminders(isOnline: boolean | undefined) {
   } as const;
 }
 
-// Wave 7 P8: validazione attendee email prima di passarla a Google Calendar
-// con sendUpdates=all. L'email arriva da `profiles.email` (impostata dal
-// coach in fase di invito), ma un valore malformato o di lunghezza
-// abusiva farebbe inviare un invito Google a un indirizzo arbitrario o
-// triggererebbe errori 400 ripetuti. RFC 5321 limita la lunghezza totale
-// a 254 caratteri; la regex è volutamente permissiva (Google fa la
-// validazione vera) ma rifiuta whitespace, CRLF injection e formati
-// chiaramente non-email.
-const EMAIL_RE = /^[^\s@<>,;"'\\]+@[^\s@<>,;"'\\]+\.[^\s@<>,;"'\\]+$/;
-function isSafeEmail(email: string): boolean {
-  if (email.length === 0 || email.length > 254) return false;
-  if (/[\r\n\t]/.test(email)) return false;
-  return EMAIL_RE.test(email);
-}
+// L'email dell'invito (Wave 7 P8): inviteEmail di safe-email.ts, la stessa
+// regola dei testi del cliente che promettono l'invito (passata 09 del lato
+// cliente), con gli spazi ai lati tolti come nei testi.
 
 export async function gcalCreate(input: CreateEventInput): Promise<CreateEventResult> {
   const body: Record<string, unknown> = {
@@ -104,12 +95,13 @@ export async function gcalCreate(input: CreateEventInput): Promise<CreateEventRe
     reminders: buildReminders(input.isOnline),
   };
   if (input.attendeeEmail) {
-    if (!isSafeEmail(input.attendeeEmail)) {
+    const attendee = inviteEmail(input.attendeeEmail);
+    if (!attendee) {
       console.warn("[gcal] skipping invalid attendee email", {
         length: input.attendeeEmail.length,
       });
     } else {
-      body.attendees = [{ email: input.attendeeEmail }];
+      body.attendees = [{ email: attendee }];
     }
   }
   if (input.colorId) body.colorId = input.colorId;

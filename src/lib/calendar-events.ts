@@ -203,9 +203,29 @@ export function confirmLine(
     : { label: "In attesa di conferma del cliente", confirmed: false };
 }
 
-/** https://wa.me/<solo cifre>; null senza un numero. */
+/**
+ * https://wa.me/<prefisso del paese e numero, solo cifre>; null senza un
+ * numero (meno di sei cifre). wa.me vuole il prefisso senza + né 00 (passata
+ * 09 del lato cliente, per il coach e per il cliente): «+39 347…» e «0039
+ * 347…» diventano 39347…; un numero italiano scritto senza prefisso, cioè un
+ * cellulare di dieci cifre che comincia con 3 o un fisso che comincia con 0
+ * (da 6 a 11 cifre), prende il 39, perché WhatsApp leggerebbe le prime cifre
+ * come il prefisso di un altro paese (347… come la Spagna, 34). Ogni altro
+ * numero resta com'è.
+ */
 export function whatsappUrl(phone: string | null | undefined): string | null {
-  const digits = (phone ?? "").replace(/\D/g, "");
+  const raw = (phone ?? "").trim();
+  let digits = raw.replace(/\D/g, "");
+  if (!raw.startsWith("+")) {
+    if (digits.startsWith("00")) {
+      digits = digits.slice(2);
+    } else if (
+      (digits.length === 10 && digits.startsWith("3")) ||
+      (digits.startsWith("0") && digits.length >= 6 && digits.length <= 11)
+    ) {
+      digits = `39${digits}`;
+    }
+  }
   return digits.length >= 6 ? `https://wa.me/${digits}` : null;
 }
 

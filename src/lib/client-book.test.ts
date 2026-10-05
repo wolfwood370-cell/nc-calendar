@@ -892,3 +892,19 @@ describe("l'ultimo giorno di un blocco: il blocco dopo conta i suoi extra (passa
     });
   });
 });
+
+// Passata 09: l'esito promette l'invito solo a un'email che il server invita.
+describe("doneText · l'invito solo a un'email che il server invita (passata 09)", () => {
+  it("senza spazi ai lati; con uno spazio in mezzo o fra virgolette, nessun invito", () => {
+    const when = at(2026, 9, 29, 11, 10).toISOString();
+    expect(doneText("Sessione PT", when, NICOLO, " giulia.b@email.it ")).toBe(
+      "Sessione PT, martedì 29 settembre alle 11:10. Nicolò la vede subito nel calendario; l'invito di Google Calendar arriva a giulia.b@email.it.",
+    );
+    expect(doneText("Sessione PT", when, NICOLO, "giulia b@email.it")).toBe(
+      "Sessione PT, martedì 29 settembre alle 11:10. Nicolò la vede subito nel calendario.",
+    );
+    expect(doneText("Sessione PT", when, NICOLO, '"giulia"@email.it')).toBe(
+      "Sessione PT, martedì 29 settembre alle 11:10. Nicolò la vede subito nel calendario.",
+    );
+  });
+});

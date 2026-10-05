@@ -757,3 +757,15 @@ describe("Sposta senza credito (passata 09)", () => {
     );
   });
 });
+
+// Passata 09: l'invito del dettaglio solo a un'email che il server invita.
+describe("inviteText · l'email del server (passata 09)", () => {
+  it("senza spazi ai lati, e nessun invito a un'email che il server scarta", () => {
+    expect(inviteText(session("d1"), ` ${EMAIL} `, NOW)).toBe(
+      inviteText(session("d1"), EMAIL, NOW),
+    );
+    expect(inviteText(session("d1"), EMAIL, NOW)).not.toBeNull();
+    expect(inviteText(session("d1"), "giulia b@example.com", NOW)).toBeNull();
+    expect(inviteText(session("d1"), '"giulia"@example.com', NOW)).toBeNull();
+  });
+});

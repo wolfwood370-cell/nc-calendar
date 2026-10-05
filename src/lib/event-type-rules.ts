@@ -170,8 +170,8 @@ export function bookableHint(t: {
 /**
  * Il link non lo manda l'app: alla prenotazione nasce l'evento Google con la
  * stanza Meet, il cliente lo trova nel dettaglio della sessione e, se ha
- * un'email valida, nell'invito di Google Calendar (gcal.server.ts:106-129,
- * client-booking-detail-view.tsx:215-227).
+ * un'email valida, nell'invito di Google Calendar (gcal.server.ts, gcalCreate;
+ * client-booking-detail-view.tsx, «Entra nella videochiamata»).
  */
 export const ONLINE_LABEL = "Online · link Meet creato alla prenotazione";
 

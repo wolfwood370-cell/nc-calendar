@@ -53,6 +53,7 @@ import {
 import { tintContrast } from "@/lib/client-sessions";
 import type { ClientSlot, ClientSlotDay } from "@/lib/client-slots";
 import type { BookingRow, EventTypeRow } from "@/lib/queries";
+import { inviteEmail } from "@/lib/safe-email";
 import { formatLongDay, formatShortDay, formatTimeRange, formatUntil } from "@/lib/session-time";
 
 /** I campi della sessione che servono al dettaglio e ai fogli. */
@@ -299,8 +300,9 @@ export function absentHint(coach: BookCoach): { text: string; href: string | nul
 
 /**
  * L'invito del calendario: solo per le sessioni in programma create
- * nell'app, con l'evento Google e con l'email del profilo. L'invito lo manda
- * la creazione dell'evento, col cliente invitato all'email del suo profilo
+ * nell'app, con l'evento Google e con un'email del profilo che Google riceve
+ * (inviteEmail, la regola del server, dalla 09). L'invito lo manda la
+ * creazione dell'evento, col cliente invitato all'email del suo profilo
  * (gcal.functions.ts); le sessioni col titolo sono importate da Google o
  * impegni del coach, e lì il cliente non è invitato (la regola di canRate).
  */
@@ -309,7 +311,7 @@ export function inviteText(
   email: string | null | undefined,
   now: Date,
 ): string | null {
-  const address = email?.trim();
+  const address = inviteEmail(email);
   if (!address || !b.google_event_id || b.title != null || !scheduledAhead(b, now)) return null;
   return `Invito del calendario inviato a ${address}: si aggiorna da solo se la sessione viene spostata o annullata.`;
 }

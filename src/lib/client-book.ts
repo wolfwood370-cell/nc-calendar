@@ -48,6 +48,7 @@ import { formatCreditsAgreed } from "@/lib/credits";
 import { blockTiming, toIsoDate } from "@/lib/current-block";
 import type { SessionType } from "@/lib/mock-data";
 import { clientReferenceBlock, renewsAutomatically } from "@/lib/renewal";
+import { inviteEmail } from "@/lib/safe-email";
 import { formatLongDay, formatShortDay } from "@/lib/session-time";
 import {
   boosterPathAllowed,
@@ -610,7 +611,9 @@ export function summaryRule(iso: string, now: Date): string {
 
 /**
  * Il testo dell'esito. L'email è profiles.email del cliente, quella a cui
- * gcalCreateEvent manda l'invito; senza, la frase finisce al calendario.
+ * gcalCreateEvent manda l'invito; senza, o con un'email che Google non
+ * riceve (inviteEmail, la regola del server, dalla 09), la frase finisce al
+ * calendario.
  */
 export function doneText(
   name: string,
@@ -620,7 +623,7 @@ export function doneText(
 ): string {
   const d = new Date(iso);
   const when = `${formatLongDay(d).toLowerCase()} alle ${format(d, "HH:mm")}`;
-  const address = email?.trim();
+  const address = inviteEmail(email);
   const invite = address ? `; l'invito di Google Calendar arriva a ${address}.` : ".";
   return `${name}, ${when}. ${coachSubject(coach)} la vede subito nel calendario${invite}`;
 }
