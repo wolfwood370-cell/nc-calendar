@@ -27,6 +27,7 @@ import {
   type ClientNotificationKind,
 } from "@/lib/client-notifications";
 import { clientPageTitle } from "@/lib/client-shell";
+import { focusIfLost } from "@/lib/focus";
 import { cn } from "@/lib/utils";
 
 const DESCRIPTION = "I promemoria sulle tue sessioni e sui tuoi crediti, e gli avvisi del coach.";
@@ -113,6 +114,9 @@ function ClientNotificationsPage() {
   // lo prende il titolo della card, che lo annuncia; se riesce, la card sparisce
   // col pulsante, e il focus va al riepilogo (una regione live: «3 da
   // leggere») o, senza voci, a «Nessuna notifica». Come Sessioni e la Home.
+  // Solo se il focus si era perso o era ancora nella card (passata 09):
+  // toccato fuori rete, la rilettura aspetta la rete, e chi intanto è andato
+  // altrove resta dov'è.
   const lostTitleRef = useRef<HTMLHeadingElement>(null);
   const emptyRef = useRef<HTMLParagraphElement>(null);
   const retried = useRef(false);
@@ -123,8 +127,12 @@ function ClientNotificationsPage() {
   useEffect(() => {
     if (!retried.current || notificationsRetrying || notificationsLoading) return;
     retried.current = false;
-    if (notificationsLost) lostTitleRef.current?.focus();
-    else (summaryRef.current ?? emptyRef.current)?.focus();
+    if (notificationsLost) {
+      const title = lostTitleRef.current;
+      focusIfLost(title, null, title?.parentElement);
+    } else {
+      focusIfLost(summaryRef.current ?? emptyRef.current);
+    }
   }, [notificationsRetrying, notificationsLoading, notificationsLost]);
 
   let content: ReactNode;

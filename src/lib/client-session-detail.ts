@@ -241,7 +241,7 @@ export function lockedText(name: string, coach: BookCoach): string {
   return `La sessione non si può più spostare. Se la annulli, il credito ${name} viene scalato comunque. Per un altro orario scrivi ${coachTo(coach)}.`;
 }
 
-/** Sotto «Conferma presenza». Il toast resta quello di useConfirmAttendance. */
+/** Sotto «Conferma presenza», e nel toast di useConfirmAttendance (passata 09). */
 export function confirmCaption(coach: BookCoach): string {
   return `${coachSubject(coach)} vede la conferma nel suo calendario.`;
 }

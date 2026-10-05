@@ -194,7 +194,12 @@ export function ClientSessionRating({
               className="w-full resize-none rounded-[14px] border border-outline-variant bg-white px-3.5 py-3 text-[15px] leading-[1.4] text-on-surface placeholder:text-outline"
             />
           )}
-          <ClientButton fullWidth disabled={choice === 0 || setFeedback.isPending} onClick={send}>
+          <ClientButton
+            fullWidth
+            disabled={choice === 0}
+            busy={setFeedback.isPending}
+            onClick={send}
+          >
             {current === null ? "Invia valutazione" : "Aggiorna valutazione"}
           </ClientButton>
         </>

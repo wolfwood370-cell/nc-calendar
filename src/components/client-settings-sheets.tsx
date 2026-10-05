@@ -10,7 +10,12 @@
 //     campo e il foglio resta aperto; chiudendo il foglio i campi si svuotano,
 //     e una risposta del server arrivata dopo la chiusura si ignora. Dopo un
 //     «Salva» che non passa il focus va sul primo campo in errore, che ha
-//     aria-describedby verso il suo testo;
+//     aria-describedby verso il suo testo: dalla passata 09 dopo che React ha
+//     scritto l'errore (flushSync), così lo screen reader lo legge entrando nel
+//     campo; se il focus era già lì (Invio dal campo) non si sposta, e
+//     l'errore lo dice una regione live. Se il salvataggio rigetta (un errore
+//     che non è di Auth) l'errore generico va sotto il primo campo e «Salva»
+//     torna attivo;
 //   - GoogleLinkSheet: «Collega Google», il giro di oggi spiegato (si esce e
 //     si rientra con Google usando la stessa email, decisione 11 del
 //     30/09/2026): «Esci e collega Google» chiude il foglio ed esce.
@@ -21,9 +26,10 @@
 // ----------------------------------------------------------------------------
 
 import { useRef, useState, type SubmitEvent } from "react";
+import { flushSync } from "react-dom";
 import { ClientButton } from "@/components/client-button";
 import { ClientSheet } from "@/components/client-sheet";
-import { googleLinkText, passwordCheck } from "@/lib/client-settings";
+import { googleLinkText, passwordCheck, passwordSaveError } from "@/lib/client-settings";
 import { cn } from "@/lib/utils";
 
 // Il campo del brief: 52 px, raggio 14, bordo #c1c7d0 (#b91c1c in errore), 16/500.
@@ -48,6 +54,10 @@ export function PasswordSheet({ open, onOpenChange, onSave }: PasswordSheetProps
   const [tried, setTried] = useState(false);
   const [saving, setSaving] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  // L'errore detto dalla regione live quando il focus non si sposta: id nuovo
+  // a ogni «Salva», così lo stesso testo si annuncia di nuovo.
+  const [spoken, setSpoken] = useState<{ id: number; text: string } | null>(null);
+  const spokenId = useRef(0);
   const firstRef = useRef<HTMLInputElement>(null);
   const secondRef = useRef<HTMLInputElement>(null);
   // Cambia a ogni chiusura: un salvataggio partito prima non scrive più nel foglio.
@@ -63,32 +73,64 @@ export function PasswordSheet({ open, onOpenChange, onSave }: PasswordSheetProps
     setTried(false);
     setSaving(false);
     setServerError(null);
+    setSpoken(null);
   };
   const change = (next: boolean) => {
     if (!next) reset();
     onOpenChange(next);
   };
 
+  // Un «Salva» che non passa: prima l'errore nel DOM (aria-invalid e il testo
+  // sotto il campo), poi il focus sul campo, che lo screen reader legge con la
+  // sua descrizione; se il focus è già lì, la regione live.
+  const fail = (field: HTMLInputElement | null, text: string, update: () => void) => {
+    const already = field !== null && document.activeElement === field;
+    flushSync(() => {
+      update();
+      setSpoken(already ? { id: (spokenId.current += 1), text } : null);
+    });
+    if (!already) field?.focus();
+  };
+
   const submit = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (saving) return;
-    setTried(true);
-    setServerError(null);
     // La regola col tentativo segnato: senza salvare, il focus va sul primo campo in errore.
     const next = passwordCheck(first, second, true);
     if (!next.canSave) {
-      (next.firstInvalid ? firstRef : secondRef).current?.focus();
+      const onFirst = next.firstInvalid;
+      fail(
+        onFirst ? firstRef.current : secondRef.current,
+        onFirst ? next.firstHint : (next.secondError ?? ""),
+        () => {
+          setTried(true);
+          setServerError(null);
+        },
+      );
       return;
     }
+    setTried(true);
+    setServerError(null);
+    setSpoken(null);
     const mine = run.current;
     setSaving(true);
-    const error = await onSave(first);
+    let error: string | null;
+    try {
+      error = await onSave(first);
+    } catch {
+      // updateUser che rigetta invece di rispondere con un errore: «Salva» non
+      // resta spento fino alla chiusura del foglio.
+      error = passwordSaveError(null);
+    }
     if (mine !== run.current) return;
-    setSaving(false);
     if (error) {
-      setServerError(error);
-      firstRef.current?.focus();
+      const text = error;
+      fail(firstRef.current, text, () => {
+        setSaving(false);
+        setServerError(text);
+      });
     } else {
+      setSaving(false);
       change(false);
     }
   };
@@ -150,6 +192,11 @@ export function PasswordSheet({ open, onOpenChange, onSave }: PasswordSheetProps
         >
           Salva la nuova password
         </ClientButton>
+        {spoken && (
+          <p key={spoken.id} role="alert" className="sr-only">
+            {spoken.text}
+          </p>
+        )}
         <ClientButton type="button" variant="text" fullWidth onClick={() => change(false)}>
           Indietro
         </ClientButton>

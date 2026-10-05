@@ -14,6 +14,7 @@
 // sessione…» per una lettura che non è arrivata, né qui né nell'intestazione);
 // elenco non pronto (lo scheletro); l'elenco della scheda, o la sua card vuota.
 // Al cambio di scheda la pagina torna in cima: l'altro elenco comincia da lì.
+// Il contenuto è il pannello dei due tab (role="tabpanel", passata 09).
 // ----------------------------------------------------------------------------
 
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
@@ -43,8 +44,10 @@ import {
   type SessionsTab,
 } from "@/lib/client-sessions";
 import { clientPageTitle, sessionsSubtitle } from "@/lib/client-shell";
+import { focusIfLost } from "@/lib/focus";
 import type { EventTypeRow } from "@/lib/queries";
 import { arrivedRead, lostRead } from "@/lib/query-state";
+import { tabId, tabPanelId } from "@/lib/segment-keys";
 import { cn } from "@/lib/utils";
 
 const DESCRIPTION = "Le tue sessioni, in programma e passate.";
@@ -68,6 +71,9 @@ export const Route = createFileRoute("/client/sessions")({
 });
 
 const NO_EVENT_TYPES: EventTypeRow[] = [];
+
+/** Gli id dei due tab e del pannello che controllano (passata 09). */
+const TABS_ID = "sessioni";
 
 const CARD = "flex flex-col gap-3 rounded-[24px] border border-outline-variant/35 bg-white p-5";
 
@@ -132,6 +138,7 @@ function ClientSessionsPage() {
     void navigate({ to: "/client/bookings/$bookingId", params: { bookingId } });
   };
   const lostTitleRef = useRef<HTMLHeadingElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const retried = useRef(false);
   const retrySessions = () => {
     retried.current = true;
@@ -140,12 +147,28 @@ function ClientSessionsPage() {
   };
   // Mentre rilegge il focus resta su «Riprova» (aria-disabled, non disabled:
   // il browser non glielo toglie). Se la rilettura fallisce di nuovo lo prende
-  // il titolo della card, che lo annuncia.
+  // il titolo della card, che lo annuncia; se riesce, la card sparisce col
+  // pulsante, e il focus va al pannello mentre l'elenco si prepara e poi al
+  // primo titolo (passata 09, come la Home). Solo se il focus si era perso o
+  // era ancora nella card: chi, mentre la rete era ferma, è andato altrove
+  // resta dov'è.
   useEffect(() => {
     if (!retried.current || reading) return;
+    const root = contentRef.current;
+    if (sessionsLost) {
+      retried.current = false;
+      const title = lostTitleRef.current;
+      focusIfLost(title, root, title?.parentElement);
+      return;
+    }
+    if (!root) return;
+    if (!ready) {
+      focusIfLost(root, root);
+      return;
+    }
     retried.current = false;
-    if (sessionsLost) lostTitleRef.current?.focus();
-  }, [reading, sessionsLost]);
+    focusIfLost(root.querySelector<HTMLElement>("h2") ?? root, root);
+  }, [reading, sessionsLost, ready]);
 
   let content: ReactNode;
   if (sessionsLost) {
@@ -167,7 +190,9 @@ function ClientSessionsPage() {
       const empty = upcomingEmpty(state, failed);
       content = (
         <section className={CARD}>
-          <h2 className="text-[17px] font-bold">Nessuna sessione in programma</h2>
+          <h2 tabIndex={-1} className="text-[17px] font-bold">
+            Nessuna sessione in programma
+          </h2>
           {empty.text ? (
             <p className="text-[15px] leading-normal text-on-surface-variant">{empty.text}</p>
           ) : (
@@ -200,7 +225,9 @@ function ClientSessionsPage() {
           <SessionGroups groups={groups} onOpen={open} />
         ) : (
           <section className={CARD}>
-            <h2 className="text-[17px] font-bold">Nessuna sessione passata</h2>
+            <h2 tabIndex={-1} className="text-[17px] font-bold">
+              Nessuna sessione passata
+            </h2>
             <p className="text-[15px] leading-normal text-on-surface-variant">
               Qui trovi le sessioni svolte, le assenze e quelle annullate.
             </p>
@@ -220,6 +247,7 @@ function ClientSessionsPage() {
           kind="tabs"
           appearance="plain"
           ariaLabel="Sessioni"
+          idBase={TABS_ID}
           value={tab}
           onChange={chooseTab}
           options={[
@@ -237,7 +265,16 @@ function ClientSessionsPage() {
           }
         />
       </ClientTabHeader>
-      <div className="flex flex-col gap-5 px-4 pt-2 pb-6">{content}</div>
+      <div
+        ref={contentRef}
+        role="tabpanel"
+        id={tabPanelId(TABS_ID)}
+        aria-labelledby={tabId(TABS_ID, tab)}
+        tabIndex={-1}
+        className="flex flex-col gap-5 px-4 pt-2 pb-6 outline-none"
+      >
+        {content}
+      </div>
     </div>
   );
 }
@@ -246,7 +283,9 @@ function ClientSessionsPage() {
 function SessionGroups({ groups, onOpen }: { groups: RowGroup[]; onOpen: (id: string) => void }) {
   return groups.map((g) => (
     <section key={g.key} className="flex flex-col gap-2">
-      <h2 className="px-1 text-sm font-bold text-on-surface-variant">{g.label}</h2>
+      <h2 tabIndex={-1} className="px-1 text-sm font-bold text-on-surface-variant">
+        {g.label}
+      </h2>
       {g.rows.map((row) => (
         <ClientSessionRow key={row.id} row={row} onOpen={onOpen} />
       ))}

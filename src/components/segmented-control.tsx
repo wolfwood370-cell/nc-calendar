@@ -12,12 +12,17 @@
 // ombra; 32px per filtri e finestre, 36px per i tab di pagina (size="tab").
 // appearance="plain" lascia l'aspetto al chiamante (le schede di «Tipo di
 // percorso») e tiene ruoli e tastiera.
+// Con kind="tabs" e idBase (passata 09 del lato cliente) ogni tab ha un id e
+// aria-controls verso il pannello `${idBase}-panel`, che il chiamante disegna
+// con role="tabpanel" e aria-labelledby verso il tab scelto (tabId e
+// tabPanelId, in lib/segment-keys.ts): senza, lo screen reader annuncia i tab
+// senza dire cosa controllano.
 // Il componente non ha hook: il fuoco passa al segmento cercandolo nel
 // gruppo, e le prove lo chiamano come una funzione (segmented-control.test.ts).
 // ----------------------------------------------------------------------------
 
 import type { KeyboardEvent, ReactNode } from "react";
-import { segmentKeyTarget } from "@/lib/segment-keys";
+import { segmentKeyTarget, tabId, tabPanelId } from "@/lib/segment-keys";
 import { cn } from "@/lib/utils";
 
 export interface SegmentOption<T extends string> {
@@ -43,6 +48,7 @@ export function SegmentedControl<T extends string>({
   onChange,
   ariaLabel,
   ariaLabelledby,
+  idBase,
   kind = "radio",
   size = "md",
   appearance = "track",
@@ -55,6 +61,8 @@ export function SegmentedControl<T extends string>({
   ariaLabel?: string;
   /** Id dell'etichetta visibile del gruppo, al posto di ariaLabel. */
   ariaLabelledby?: string;
+  /** Con kind="tabs": gli id dei tab e del pannello che controllano (tabId, tabPanelId). */
+  idBase?: string;
   /** «tabs» per i tab di pagina: role="tablist" e aria-selected. */
   kind?: "radio" | "tabs";
   /** md: 32px (filtri, finestre); tab: 36px (tab di pagina). */
@@ -66,6 +74,7 @@ export function SegmentedControl<T extends string>({
   itemClassName?: string | ((checked: boolean) => string);
 }) {
   const tabs = kind === "tabs";
+  const ids = tabs && idBase ? idBase : null;
   const selected = options.findIndex((o) => o.value === value);
   const onKeyDown = (index: number) => (e: KeyboardEvent<HTMLButtonElement>) => {
     const target = segmentKeyTarget(e.key, index, options.length);
@@ -94,6 +103,8 @@ export function SegmentedControl<T extends string>({
             key={o.value}
             type="button"
             role={tabs ? "tab" : "radio"}
+            id={ids ? tabId(ids, o.value) : undefined}
+            aria-controls={ids ? tabPanelId(ids) : undefined}
             aria-checked={tabs ? undefined : checked}
             aria-selected={tabs ? checked : undefined}
             aria-label={o.ariaLabel}

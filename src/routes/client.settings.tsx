@@ -10,9 +10,9 @@
 // (get_my_coach); il profilo, i blocchi, le sessioni e lo stato dei crediti
 // da useClientBookState, lo stesso di Home, Prenota e Sessioni.
 // Gli stati del percorso, nell'ordine: il caricamento (lo scheletro); una
-// lettura persa (la card con «Riprova»); le righe. Notifiche, account ed
-// «Esci» non aspettano le letture: col percorso perso si cambia la password e
-// si esce.
+// lettura persa (la card con «Riprova»: riuscita, il focus va sul titolo «Il
+// tuo percorso», dalla 09); le righe. Notifiche, account ed «Esci» non
+// aspettano le letture: col percorso perso si cambia la password e si esce.
 // Lo stato delle notifiche sul telefono (le API del browser, il service
 // worker, e dalla 08 la riga di chi è entrato per l'iscrizione di questo
 // dispositivo) si legge al montaggio, e di nuovo quando il service worker è
@@ -73,6 +73,7 @@ import {
   type CoachLinkKind,
 } from "@/lib/client-settings";
 import { clientPageTitle } from "@/lib/client-shell";
+import { focusIfLost } from "@/lib/focus";
 import {
   forgetPushForUser,
   getCurrentPushSubscription,
@@ -146,6 +147,8 @@ function ClientSettings() {
   const [pushBusy, setPushBusy] = useState(false);
   const [sheet, setSheet] = useState<"password" | "google" | "install" | null>(null);
   const accountRef = useRef<HTMLHeadingElement>(null);
+  const pathTitleRef = useRef<HTMLHeadingElement>(null);
+  const pathCardTitleRef = useRef<HTMLHeadingElement>(null);
 
   // «Attive» vuol dire la riga di chi è entrato per questo dispositivo, non la
   // sola iscrizione del browser (isPushEnabledFor, passata 08): si legge
@@ -251,6 +254,27 @@ function ClientSettings() {
     void navigate({ to: "/auth" });
   };
 
+  // «Riprova» del percorso (passata 09, come la Home e Sessioni): riuscito, la
+  // card sparisce col pulsante che aveva il focus, che va sul titolo della
+  // sezione; fallito di nuovo, sul titolo della card, che lo annuncia. Solo se
+  // il focus si era perso o era ancora nella card.
+  const pathLost = !loading && (failed || !rows);
+  const retried = useRef(false);
+  const retryPath = () => {
+    retried.current = true;
+    retry();
+  };
+  useEffect(() => {
+    if (!retried.current || retrying) return;
+    retried.current = false;
+    if (pathLost) {
+      const title = pathCardTitleRef.current;
+      focusIfLost(title, null, title?.parentElement);
+    } else {
+      focusIfLost(pathTitleRef.current);
+    }
+  }, [retrying, pathLost]);
+
   let path: ReactNode;
   if (loading) {
     path = <AuraSkeleton className="h-[220px] rounded-[24px]" aria-busy="true" />;
@@ -259,8 +283,9 @@ function ClientSettings() {
       <BookRetryCard
         title="Il percorso non si è caricato"
         text="Non siamo riusciti a leggere il tuo percorso. Riprova tra poco."
-        onRetry={retry}
+        onRetry={retryPath}
         retrying={retrying}
+        titleRef={pathCardTitleRef}
       />
     );
   } else {
@@ -367,7 +392,9 @@ function ClientSettings() {
         )}
 
         <section className="flex flex-col gap-2">
-          <h2 className={SECTION_TITLE}>Il tuo percorso</h2>
+          <h2 ref={pathTitleRef} tabIndex={-1} className={SECTION_TITLE}>
+            Il tuo percorso
+          </h2>
           {path}
         </section>
 

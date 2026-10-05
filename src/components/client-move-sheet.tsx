@@ -315,7 +315,7 @@ function MoveBody({ booking, name, coach, clientName, onMoved, onClose }: MoveBo
             {error}
           </p>
         )}
-        <ClientButton fullWidth disabled={!slot || reschedule.isPending} onClick={onMove}>
+        <ClientButton fullWidth disabled={!slot} busy={reschedule.isPending} onClick={onMove}>
           {moveButton(slot)}
         </ClientButton>
       </>
@@ -325,7 +325,7 @@ function MoveBody({ booking, name, coach, clientName, onMoved, onClose }: MoveBo
   return (
     <>
       {content}
-      <ClientButton variant="text" fullWidth disabled={reschedule.isPending} onClick={onClose}>
+      <ClientButton variant="text" fullWidth busy={reschedule.isPending} onClick={onClose}>
         Indietro
       </ClientButton>
     </>

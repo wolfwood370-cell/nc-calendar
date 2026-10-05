@@ -159,14 +159,14 @@ export function BookConfirmSheet({
             </p>
           )}
           <div className="flex flex-col gap-2 pt-1">
-            <ClientButton fullWidth disabled={confirming} onClick={onConfirm}>
+            <ClientButton fullWidth busy={confirming} onClick={onConfirm}>
               {confirming && <Loader2 className="size-[18px] animate-spin" aria-hidden />}
               Conferma prenotazione
             </ClientButton>
             <ClientButton
               variant="text"
               fullWidth
-              disabled={confirming}
+              busy={confirming}
               onClick={() => onOpenChange(false)}
             >
               Indietro

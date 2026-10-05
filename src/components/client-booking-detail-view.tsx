@@ -16,7 +16,9 @@
 //     aggiungere l'evento al calendario (D2): l'invito si aggiorna da solo.
 // Ogni stato, soglia, data e testo viene da client-session-detail.ts. Dopo
 // un'azione si resta sulla sessione: Annulla e Sposta chiudono il foglio,
-// rileggono il dettaglio e lasciano un toast con «Ripristina» per 8 secondi.
+// rileggono il dettaglio e lasciano un toast con «Ripristina» per 8 secondi;
+// «Ripristina» riuscito rimette il focus sul titolo, se si era perso col
+// toast (passata 09).
 // Il coach viene da useMyCoach (get_my_coach): finché non arriva, o senza
 // nome, i testi dicono «il tuo coach», e la riga «con …» e i pulsanti
 // WhatsApp non ci sono.
@@ -70,6 +72,7 @@ import {
   type DetailEventType,
 } from "@/lib/client-session-detail";
 import { sessionName } from "@/lib/client-sessions";
+import { focusIfLost } from "@/lib/focus";
 import { queryKeys } from "@/lib/query-keys";
 import { iconForType } from "@/lib/session-type-icon";
 import { toastWithUndo } from "@/lib/toast";
@@ -100,7 +103,7 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
   const { coach } = useMyCoach();
   const { meId, profile, state } = useClientBookState(now, coach);
   const feedbackQ = useClientFeedback(meId);
-  const confirmAttendance = useConfirmAttendance();
+  const confirmAttendance = useConfirmAttendance(coach);
   const restore = useRestoreBooking();
   const [sheet, setSheet] = useState<"move" | "cancel" | null>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -140,7 +143,12 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
   const refreshDetail = () => {
     void qc.invalidateQueries({ queryKey: detailKey });
   };
-  const moveUndo = useMoveUndo(coach, refreshDetail);
+  // Dopo «Ripristina» il toast si chiude col pulsante che aveva il focus: il
+  // focus va sul titolo, se si era perso (passata 09).
+  const focusTitleIfLost = () => {
+    focusIfLost(titleRef.current);
+  };
+  const moveUndo = useMoveUndo(coach, refreshDetail, focusTitleIfLost);
 
   // «Conferma presenza» sparisce con la rilettura: il focus va sul titolo.
   const onConfirmAttendance = () => {
@@ -153,18 +161,21 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
   // «Ripristina» dell'annullamento: la sessione com'era prima (useRestoreBooking
   // ricrea anche l'evento Google, col riepilogo di Prenota).
   const restoreSession = () => {
-    restore.mutate({
-      bookingId: booking.id,
-      coachId: booking.coach_id,
-      clientId: booking.client_id,
-      scheduledAt: booking.scheduled_at,
-      durationMin: sessionMinutes(booking),
-      name,
-      clientName: profile?.full_name ?? email ?? "Cliente",
-      color,
-      online: place?.online ?? false,
-      description,
-    });
+    restore.mutate(
+      {
+        bookingId: booking.id,
+        coachId: booking.coach_id,
+        clientId: booking.client_id,
+        scheduledAt: booking.scheduled_at,
+        durationMin: sessionMinutes(booking),
+        name,
+        clientName: profile?.full_name ?? email ?? "Cliente",
+        color,
+        online: place?.online ?? false,
+        description,
+      },
+      { onSuccess: focusTitleIfLost },
+    );
   };
 
   const onCancelled = (wasLate: boolean) => {
@@ -265,7 +276,7 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
               <ClientButton
                 fullWidth
                 icon={CircleCheck}
-                disabled={confirmAttendance.isPending}
+                busy={confirmAttendance.isPending}
                 onClick={onConfirmAttendance}
               >
                 Conferma presenza
