@@ -15,9 +15,11 @@
 // si esce.
 // Lo stato delle notifiche sul telefono (le API del browser, il service
 // worker, e dalla 08 la riga di chi è entrato per l'iscrizione di questo
-// dispositivo) si legge al montaggio; l'installazione da usePwaInstall. «Ho installato l'app» nel foglio d'installazione può togliere
-// il pulsante che l'ha aperto («Come fare» delle notifiche): il focus torna
-// sul titolo «Account».
+// dispositivo) si legge al montaggio, e di nuovo quando il service worker è
+// pronto se all'apertura non lo era (09); l'installazione da usePwaInstall.
+// «Ho installato l'app» nel foglio d'installazione può togliere il pulsante
+// che l'ha aperto («Come fare» delle notifiche): il focus torna sul titolo
+// «Account».
 // Il collegamento a Google resta il giro di oggi (decisione 11 del
 // 30/09/2026): si esce e si rientra con «Continua con Google» usando la
 // stessa email; niente linkIdentity, niente «Scollega».
@@ -114,7 +116,7 @@ const LINK_ICON: Record<CoachLinkKind, LucideIcon> = {
   mail: Mail,
 };
 
-/** Quello che il browser dice delle push, letto una volta al montaggio. */
+/** Quello che il browser dice delle push, letto al montaggio (e a service worker pronto). */
 interface PushDevice {
   supported: boolean;
   ready: boolean;
@@ -147,16 +149,27 @@ function ClientSettings() {
 
   // «Attive» vuol dire la riga di chi è entrato per questo dispositivo, non la
   // sola iscrizione del browser (isPushEnabledFor, passata 08): si legge
-  // quando l'utente c'è.
+  // quando l'utente c'è. Passata 09: al primo avvio dell'app il service worker
+  // può registrarsi dopo che il Profilo si è aperto, e la riga diceva fino
+  // alla riapertura che sul telefono non si possono attivare: se non è ancora
+  // pronto, si rilegge quando lo è.
   const meId = user?.id ?? null;
   useEffect(() => {
     let alive = true;
     const supported = isPushSupported();
-    void Promise.all([
-      isPushReady(),
-      meId ? isPushEnabledFor(meId).catch(() => false) : Promise.resolve(false),
-    ]).then(([ready, enabled]) => {
-      if (alive) setDevice({ supported, ready, enabled });
+    const read = () =>
+      Promise.all([
+        isPushReady(),
+        meId ? isPushEnabledFor(meId).catch(() => false) : Promise.resolve(false),
+      ]).then(([ready, enabled]) => {
+        if (alive) setDevice({ supported, ready, enabled });
+        return ready;
+      });
+    void read().then((ready) => {
+      if (!alive || !supported || ready) return;
+      void navigator.serviceWorker.ready.then(() => {
+        if (alive) void read();
+      });
     });
     return () => {
       alive = false;

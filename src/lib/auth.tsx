@@ -1,8 +1,15 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  leftOnPurposeRecently,
+  markLeaving,
+  readLeaving,
+  releasePushDevice,
+  shouldReleaseOnAuthEvent,
+} from "@/lib/push";
 import { setSentryUser, setSentryRoleTag } from "@/lib/sentry";
 
 // M10: validate the role coming from the DB through a Zod enum instead of
@@ -31,9 +38,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<Role | null>(null);
   const [loading, setLoading] = useState(true);
+  // Le uscite chieste (signOut qui sotto: «Esci» ed «Esci e collega Google»):
+  // questa scheda ha il segno in memoria, le altre leggono quello di
+  // markLeaving. Le altre uscite (la sessione scaduta o revocata) arrivano
+  // come SIGNED_OUT senza segno, e liberano il telefono (passata 09).
+  const leaving = useRef(false);
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
+      if (
+        shouldReleaseOnAuthEvent(
+          event,
+          leaving.current || leftOnPurposeRecently(readLeaving(), Date.now()),
+        )
+      ) {
+        void releasePushDevice();
+      }
       setSession(s);
       setUser(s?.user ?? null);
       // Sentry user context — ogni bug futuro avrà l'id/email del
@@ -79,7 +99,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    leaving.current = true;
+    markLeaving();
+    try {
+      await supabase.auth.signOut();
+    } finally {
+      leaving.current = false;
+    }
     setSession(null);
     setUser(null);
     setRole(null);
