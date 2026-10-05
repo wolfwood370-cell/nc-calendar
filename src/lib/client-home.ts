@@ -363,8 +363,12 @@ export function creditsHeader(
  * Le parti dell'avviso dei crediti da prenotare, quando tutto insieme: il
  * cliente non è libero, il blocco di riferimento è in corso, alla sua fine
  * mancano al più 7 giorni di calendario, gli resta un giorno prenotabile (la
- * fine non è prima del giorno di oggi + 24 ore) e ha crediti suoi. Gli extra
- * non contano: non scadono col blocco. Nessuna frase sul blocco dopo (V2).
+ * fine non è prima del giorno di oggi + 24 ore) e ha crediti suoi. Coi
+ * crediti del blocco contano gli extra che scadono con lui, il giorno della
+ * sua fine (un Booster comprato a più di 7 giorni dalla fine, passata 09:
+ * prima non contavano, e chi aveva solo quelli non riceveva l'avviso); quelli
+ * del coach, i Booster prorogati e ogni extra che scade un altro giorno no.
+ * Nessuna frase sul blocco dopo (V2).
  * Il blocco, quanti crediti suoi restano, l'ultimo giorno (YYYY-MM-DD) e da
  * quando l'avviso vale: 7 giorni di calendario prima della fine, a mezzanotte
  * locale (sottrarre 7 × 24 ore sbaglierebbe l'ora a cavallo del cambio d'ora).
@@ -381,7 +385,11 @@ export function creditsWarningParts(
   const end = ref.end_date.slice(0, 10);
   if (differenceInCalendarDays(parseISO(end), now) > WARNING_DAYS) return null;
   if (end < toIsoDate(addHours(now, CLIENT_MIN_NOTICE_HOURS))) return null;
-  const left = state.options.reduce((sum, o) => sum + (o.referencePool?.blockAvail ?? 0), 0);
+  const left = state.options.reduce(
+    (sum, o) =>
+      sum + (o.referencePool?.blockAvail ?? 0) + (o.referencePool?.extraAvailUntilEnd ?? 0),
+    0,
+  );
   if (left <= 0) return null;
   return { blockId: ref.id, left, end, from: subDays(parseISO(end), WARNING_DAYS) };
 }

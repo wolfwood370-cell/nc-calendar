@@ -308,19 +308,38 @@ export function createMemoryCalendar(db: MemDb): MemoryCalendar {
         }
         if (cand.block_id !== b.block_id) b.block_id = cand.block_id;
       } else if (b.event_type_id) {
+        // Come reschedule_booking dal giro del server del 02/10/2026 (passata
+        // 09): si libera un extra impegnato che vale alla data di prima (il
+        // server guarda prima il registro booking_extra_charges, che qui non
+        // c'è), e il nuovo deve valere fino al nuovo inizio.
         const byExp = (l: MemExtra[]) =>
           [...l].sort((x, y) => Date.parse(x.expires_at) - Date.parse(y.expires_at))[0] ?? null;
         const mine = db.extras.filter(
           (x) => x.client_id === b.client_id && x.event_type_id === b.event_type_id,
         );
-        const rel = byExp(mine.filter((x) => x.quantity_booked > 0));
+        const rel = byExp(
+          mine.filter(
+            (x) => x.quantity_booked > 0 && Date.parse(x.expires_at) >= Date.parse(b.scheduled_at),
+          ),
+        );
         const cand = byExp(
-          mine.filter((x) => x.quantity - x.quantity_booked > 0 || x.id === rel?.id),
+          mine.filter(
+            (x) =>
+              (x.quantity - x.quantity_booked > 0 || x.id === rel?.id) &&
+              Date.parse(x.expires_at) >= Date.parse(at),
+          ),
         );
         if (!cand)
-          throw new PgError("P0001", "Credito esaurito per la nuova data. Acquista un Booster.");
+          throw new PgError(
+            "P0001",
+            "Credito non disponibile per la nuova data: il credito di questa sessione scade prima.",
+          );
         if (!(rel && rel.id === cand.id)) {
-          if (!rel) throw new PgError("P0001", "Impossibile spostare la sessione.");
+          if (!rel)
+            throw new PgError(
+              "P0001",
+              "Impossibile spostare la sessione: credito originale non individuabile per il rilascio. Riprova o contatta il supporto.",
+            );
           rel.quantity_booked = Math.max(0, rel.quantity_booked - 1);
           cand.quantity_booked += 1;
         }

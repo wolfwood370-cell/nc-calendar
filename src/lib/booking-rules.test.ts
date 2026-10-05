@@ -247,6 +247,25 @@ describe("testi di Sposta · leggono la finestra di getMoveWindow", () => {
     expect(moveRulesText({ now: NOW, window: windowOf(null), coachName: "Marco" })).toBe(text);
   });
 
+  it("senza blocco, col credito che scade prima dei 14 giorni: non oltre la scadenza (passata 09)", () => {
+    const window = getMoveWindow(
+      { block_id: null, event_type_id: "pt", scheduled_at: new Date(2026, 9, 2, 10).toISOString() },
+      [],
+      NOW,
+      [
+        {
+          event_type_id: "pt",
+          quantity: 1,
+          quantity_booked: 1,
+          expires_at: new Date(2026, 9, 4, 23, 59).toISOString(),
+        },
+      ],
+    );
+    expect(moveRulesText({ now: NOW, window, coachName: "Marco" })).toBe(
+      "Si sposta fino a 24 ore prima, su un orario entro 14 giorni e non oltre domenica 4 ottobre, scadenza del credito. Marco riceve un avviso.",
+    );
+  });
+
   it("il blocco della sessione non è ancora iniziato: non prima del suo inizio", () => {
     expect(moveRulesText({ now: NOW, window: windowOf(B4_MOVE), coachName: "Marco" })).toBe(
       "Si sposta fino a 24 ore prima, su un orario entro 14 giorni e non prima di lunedì 12 ottobre, inizio del blocco. Marco riceve un avviso.",

@@ -242,7 +242,8 @@ export interface MoveTextInput {
   now: Date;
   /**
    * La finestra della sessione che si sposta (getMoveWindow): dentro il suo
-   * blocco, o i 14 giorni se non ne ha. null se non si sposta.
+   * blocco; senza blocco i 14 giorni, o fino alla scadenza dell'extra che la
+   * sessione libera, se viene prima (passata 09). null se non si sposta.
    */
   window: CreditWindow | null;
   /** Il nome del coach; oggi il cliente non lo legge (profiles), e senza si dice «Il tuo coach». */
@@ -258,7 +259,14 @@ export interface MoveTextInput {
 export function moveRulesText({ now, window, coachName }: MoveTextInput): string {
   const lead = `Si sposta fino a ${hoursText(CLIENT_RESCHEDULE_CUTOFF_HOURS)} prima, su un orario entro ${daysText(CLIENT_RESCHEDULE_WINDOW_DAYS)}`;
   const tail = `${coachName?.trim() || "Il tuo coach"} riceve un avviso.`;
-  // Senza blocco la finestra sono i 14 giorni: nessun limite in più da dire.
+  // Senza blocco la finestra è quella dell'extra che la sessione libera
+  // (getMoveWindow, passata 09): i 14 giorni, o meno se il credito scade
+  // prima, e allora la frase dice fino a quando.
+  if (window && !window.blockId) {
+    if (window.until < toIsoDate(addDays(now, CLIENT_RESCHEDULE_WINDOW_DAYS))) {
+      return `${lead} e non oltre ${dayText(window.until)}, scadenza del credito. ${tail}`;
+    }
+  }
   if (window?.blockId) {
     if (window.from > toIsoDate(now)) {
       return `${lead} e non prima di ${dayText(window.from)}, inizio del blocco. ${tail}`;

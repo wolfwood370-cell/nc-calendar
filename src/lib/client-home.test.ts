@@ -1559,3 +1559,49 @@ describe("il resto", () => {
     expect(installHiddenKey("u1")).toBe("nc-home-install-hidden-u1");
   });
 });
+
+// Passata 09: coi crediti del blocco l'avviso conta gli extra che scadono con
+// lui (un Booster comprato a più di 7 giorni dalla fine); gli extra del coach e
+// i Booster prorogati oltre la fine restano fuori.
+describe("creditsWarningParts · gli extra che scadono col blocco (passata 09)", () => {
+  // Il blocco finisce sabato 3 ottobre; il Booster, comprato il 20/09, scade con lui.
+  const blocks = (booked: number) => [
+    block("g1", 1, "2026-09-06", "2026-10-03", [alloc("g1", "pt", 8, booked)]),
+  ];
+  const booster = (until: Date): PoolExtra => ({
+    event_type_id: "pt",
+    quantity: 1,
+    quantity_booked: 0,
+    expires_at: until.toISOString(),
+  });
+  const parts = (booked: number, extras: PoolExtra[]) => {
+    const state = getBookState({
+      now: NOW,
+      client: client("fixed"),
+      blocks: blocks(booked),
+      bookings: [],
+      extras,
+      eventTypes: TYPES,
+      boosterTitles: BOOSTERS,
+      coach: NO_COACH,
+    });
+    return creditsWarningParts(client("fixed"), state, NOW);
+  };
+
+  it("i crediti del blocco prenotati e un Booster che scade con lui: «1 credito da prenotare»", () => {
+    const p = parts(8, [booster(at(2026, 10, 3, 23, 59))]);
+    expect(p).toEqual({ blockId: "g1", left: 1, end: "2026-10-03", from: at(2026, 9, 26) });
+    expect(creditsWarningText(p!)).toBe("1 credito da prenotare entro sabato 3 ottobre");
+  });
+
+  it("2 crediti del blocco e il Booster: 3", () => {
+    const p = parts(6, [booster(at(2026, 10, 3, 23, 59))]);
+    expect(p?.left).toBe(3);
+    expect(creditsWarningText(p!)).toBe("3 crediti da prenotare entro sabato 3 ottobre");
+  });
+
+  it("un Booster prorogato oltre la fine, o un extra del coach: niente avviso", () => {
+    expect(parts(8, [booster(at(2026, 11, 2, 23, 59))])).toBeNull();
+    expect(parts(8, [extra("pt", 1, 0)])).toBeNull();
+  });
+});

@@ -197,6 +197,7 @@ describe("getClientPools · una definizione sola del disponibile", () => {
       extraUsed: 0,
       blockAvail: 1,
       extraAvail: 0,
+      extraAvailUntilEnd: 0,
       avail: 1,
       extraUntil: null,
     });
@@ -605,5 +606,113 @@ describe("validBlockCount · il «di 6» del percorso, nella Home e nel Profilo"
     expect(validBlockCount(withCancelled)).toBe(2);
     expect(validBlockCount(PATH)).toBe(6);
     expect(validBlockCount([])).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Passata 09: gli extra che scadono col blocco (l'avviso della Home) e Sposta
+// per una sessione pagata con un extra
+// ---------------------------------------------------------------------------
+
+// A fine giornata, in ora locale: lo stesso giorno a Roma, in UTC e a Los Angeles.
+const END = (y: number, m: number, d: number) => new Date(y, m - 1, d, 23, 59);
+
+describe("getClientPools · extraAvailUntilEnd, gli extra che scadono col blocco (passata 09)", () => {
+  // Il blocco 3 finisce domenica 11 ottobre, coi suoi crediti tutti prenotati.
+  const b3 = block("b3", 3, "2026-09-14", "2026-10-11", [alloc("b3", "pt", 8, 8)]);
+
+  it("conta un Booster che scade con il blocco; non uno prorogato oltre la fine, né un extra del coach", () => {
+    const r = pools({
+      block: b3,
+      extras: [
+        extra("pt", 2, 1, END(2026, 10, 11)),
+        extra("pt", 1, 0, END(2026, 11, 10)),
+        extra("pt", 1, 0, COACH_EXTRA),
+      ],
+    });
+    expect(r.rows[0]).toMatchObject({ blockAvail: 0, extraAvail: 3, extraAvailUntilEnd: 1 });
+  });
+
+  it("un extra che scade dentro il blocco ma non il giorno della sua fine non conta", () => {
+    const r = pools({ block: b3, extras: [extra("pt", 1, 0, END(2026, 10, 5))] });
+    expect(r.rows[0]).toMatchObject({ extraAvail: 1, extraAvailUntilEnd: 0 });
+  });
+
+  it("senza blocco: 0", () => {
+    const r = pools({
+      pathType: "free",
+      block: null,
+      extras: [extra("pt", 1, 0, END(2026, 10, 11))],
+    });
+    expect(r.rows[0]).toMatchObject({ extraAvail: 1, extraAvailUntilEnd: 0 });
+  });
+});
+
+describe("getMoveWindow · una sessione pagata con un extra (passata 09)", () => {
+  // Venerdì 2 ottobre alle 10:00, senza blocco.
+  const lone = (when = new Date(2026, 9, 2, 10), typeId: string | null = "pt") => ({
+    block_id: null,
+    event_type_id: typeId,
+    scheduled_at: when.toISOString(),
+  });
+  const upTo = (until: string) => ({
+    from: "2026-09-28",
+    until,
+    source: "extra",
+    blockId: null,
+    blockNumber: null,
+  });
+
+  it("i giorni arrivano alla scadenza dell'extra che la sessione libera", () => {
+    expect(getMoveWindow(lone(), PATH, NOW, [extra("pt", 1, 1, END(2026, 10, 11))])).toEqual(
+      upTo("2026-10-11"),
+    );
+  });
+
+  it("con un altro extra della tipologia con crediti liberi che scade più tardi: fino a oggi + 14", () => {
+    const extras = [extra("pt", 1, 1, END(2026, 10, 4)), extra("pt", 2, 0, END(2026, 11, 30))];
+    expect(getMoveWindow(lone(), PATH, NOW, extras)).toEqual(upTo("2026-10-12"));
+  });
+
+  it("si libera l'extra impegnato che scade per primo", () => {
+    const extras = [extra("pt", 1, 1, END(2026, 11, 30)), extra("pt", 1, 1, END(2026, 10, 6))];
+    expect(getMoveWindow(lone(), PATH, NOW, extras)).toEqual(upTo("2026-10-06"));
+  });
+
+  it("l'extra scade oggi: solo oggi", () => {
+    const today = lone(new Date(2026, 8, 28, 12));
+    expect(getMoveWindow(today, PATH, NOW, [extra("pt", 1, 1, END(2026, 9, 28))])).toEqual(
+      upTo("2026-09-28"),
+    );
+  });
+
+  it("nessun extra impegnato che valga alla data della sessione: nessuna finestra", () => {
+    expect(getMoveWindow(lone(), PATH, NOW, [extra("pt", 1, 1, END(2026, 10, 1))])).toBeNull();
+    expect(getMoveWindow(lone(), PATH, NOW, [extra("pt", 2, 0, END(2026, 11, 30))])).toBeNull();
+    expect(getMoveWindow(lone(), PATH, NOW, [extra("bia", 1, 1, END(2026, 11, 30))])).toBeNull();
+  });
+
+  it("senza tipologia, senza inizio o senza gli extra: oggi + 14, come prima", () => {
+    const extras = [extra("pt", 1, 1, END(2026, 10, 4))];
+    expect(getMoveWindow(lone(undefined, null), PATH, NOW, extras)).toEqual(upTo("2026-10-12"));
+    expect(getMoveWindow({ block_id: null, event_type_id: "pt" }, PATH, NOW, extras)).toEqual(
+      upTo("2026-10-12"),
+    );
+    expect(getMoveWindow(lone(), PATH, NOW)).toEqual(upTo("2026-10-12"));
+  });
+
+  it("con un blocco gli extra non cambiano niente", () => {
+    const inB4 = {
+      block_id: "b4",
+      event_type_id: "pt",
+      scheduled_at: new Date(2026, 9, 14, 10).toISOString(),
+    };
+    expect(getMoveWindow(inB4, PATH, NOW, [extra("pt", 1, 1, END(2026, 10, 11))])).toEqual({
+      from: "2026-10-12",
+      until: "2026-11-08",
+      source: "block",
+      blockId: "b4",
+      blockNumber: 4,
+    });
   });
 });

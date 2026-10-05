@@ -26,6 +26,7 @@ import {
   moveCurrent,
   moveDay,
   moveDays,
+  moveNoCreditText,
   moveNoSlotsText,
   moveRule,
   moveToast,
@@ -741,6 +742,18 @@ describe("actionErrorText", () => {
     );
     expect(actionErrorText(undefined, "restore")).toBe(
       "Non siamo riusciti a ripristinare la sessione.",
+    );
+  });
+});
+
+// Passata 09: Sposta senza un credito che regga lo spostamento.
+describe("Sposta senza credito (passata 09)", () => {
+  it("moveNoCreditText: col coach e senza", () => {
+    expect(moveNoCreditText(COACH)).toBe(
+      "Questa sessione non si può spostare dall'app. Per un altro orario scrivi a Nicolò.",
+    );
+    expect(moveNoCreditText(NO_COACH)).toBe(
+      "Questa sessione non si può spostare dall'app. Per un altro orario scrivi al tuo coach.",
     );
   });
 });

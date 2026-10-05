@@ -404,6 +404,17 @@ export function moveBlockedText(coach: BookCoach): string {
   return `Mancano meno di ${CLIENT_RESCHEDULE_CUTOFF_HOURS} ore all'inizio: la sessione non si può più spostare. Per un altro orario scrivi ${coachTo(coach)}.`;
 }
 
+/**
+ * Nessuna finestra per spostarla (getMoveWindow null, passata 09): il blocco
+ * della sessione non c'è più o è finito, o la sessione senza blocco non ha un
+ * extra da liberare, e il server la rifiuterebbe («credito originale non
+ * individuabile»). Il foglio lo dice al posto dei giorni, invece di aprire
+ * una fila tutta chiusa con «Nessun orario libero».
+ */
+export function moveNoCreditText(coach: BookCoach): string {
+  return `Questa sessione non si può spostare dall'app. Per un altro orario scrivi ${coachTo(coach)}.`;
+}
+
 /** Nessun giorno con orari. */
 export function moveNoSlotsText(coach: BookCoach): string {
   return `Nessun orario libero nei prossimi giorni. Per trovarne uno scrivi ${coachTo(coach)}.`;

@@ -106,7 +106,8 @@ export interface BookOption {
   count: number;
   /**
    * La finestra del numero è pagata dal blocco dopo (paidByNext): count sono
-   * i crediti del blocco dopo. Falso senza finestre.
+   * i crediti del blocco dopo, con gli extra che valgono lì (passata 09).
+   * Falso senza finestre.
    */
   countFromNext: boolean;
   /** «60 min · 3 disponibili» · «Si prenota con il tuo coach» · «Crediti esauriti». */
@@ -119,6 +120,12 @@ export interface BookOption {
   referencePool: ClientPool | null;
   /** La riga del blocco dopo; null se non c'è, o se il blocco dopo inizia oltre i 14 giorni. */
   nextPool: ClientPool | null;
+  /**
+   * La stessa riga con gli extra che valgono nel blocco dopo: solo per il
+   * numero dei giorni del blocco dopo (poolCount, passata 09); assente o null
+   * come nextPool.
+   */
+  nextCountPool?: ClientPool | null;
 }
 
 /** Perché la pagina mostra la card invece della prenotazione. */
@@ -253,19 +260,24 @@ function paidByNext(window: CreditWindow, next: ClientBlock | null): boolean {
 }
 
 /**
- * I crediti del pool che paga una finestra: il disponibile del blocco dopo
- * (blockAvail) se la paga il blocco dopo, altrimenti quello del riferimento,
- * blocco più extra (avail), anche per una finestra extra sui giorni del blocco
- * dopo: getCreditWindows mette il blockId anche lì, e da solo non basta.
+ * I crediti del pool che paga una finestra. Sui giorni del blocco dopo
+ * (getCreditWindows ci mette il blockId del blocco dopo, sia per le finestre
+ * del blocco sia per quelle extra) contano i crediti del blocco dopo più gli
+ * extra che valgono nel blocco dopo (nextCountPool, passata 09): prima
+ * contava il solo blocco dopo, e l'ultimo giorno di un blocco Prenota diceva
+ * 8 mentre il Booster appena comprato dava 9; e una finestra extra su quei
+ * giorni contava anche i crediti del blocco che finisce, che lì non si
+ * prenotano più. Altrimenti il riferimento, blocco più extra (avail).
  */
 function poolCount(
   window: CreditWindow,
-  option: Pick<BookOption, "referencePool" | "nextPool">,
+  option: Pick<BookOption, "referencePool" | "nextPool" | "nextCountPool">,
   next: ClientBlock | null,
 ): number {
-  return paidByNext(window, next)
-    ? (option.nextPool?.blockAvail ?? 0)
-    : (option.referencePool?.avail ?? 0);
+  if (next !== null && window.blockId === next.id) {
+    return option.nextCountPool?.avail ?? option.nextPool?.blockAvail ?? 0;
+  }
+  return option.referencePool?.avail ?? 0;
 }
 
 /**
@@ -282,7 +294,8 @@ function poolCount(
  *     altrimenti della prima. Così una tipologia finita nel blocco 3 e
  *     presente nel 4 dice il credito che userà, e negli ultimi giorni di un
  *     blocco, quando per le 24 ore non si prenotano più, il numero è quello
- *     del blocco dopo (countFromNext); senza finestre, il disponibile del
+ *     del blocco dopo (countFromNext), coi suoi crediti più gli extra che
+ *     valgono nel blocco dopo (passata 09); senza finestre, il disponibile del
  *     riferimento;
  *   - blocked, il primo caso che vale: percorso concluso; nessuna opzione;
  *     nessuna prenotabile e nessuna col coach con crediti.
@@ -310,6 +323,21 @@ export function getBookState(input: BookStateInput): BookState {
     ? getClientPools({ now, pathType, block: next, bookings, eventTypes })
     : null;
   const nextRows = nextPools?.rows ?? [];
+  // Solo per il numero (poolCount): le righe del blocco dopo con gli extra che
+  // valgono dal suo primo giorno in poi. Le finestre restano quelle di
+  // getCreditWindows sulle righe senza extra (passata 09).
+  const nextStart = next ? next.start_date.slice(0, 10) : null;
+  const nextCountRows =
+    nextOpen && nextStart !== null
+      ? getClientPools({
+          now,
+          pathType,
+          block: next,
+          bookings,
+          eventTypes,
+          extras: extras.filter((e) => toIsoDate(new Date(e.expires_at)) >= nextStart),
+        }).rows
+      : [];
 
   const current = reference !== null && blockTiming(reference, now) === "current";
   // Il percorso continua come per la validità del Booster: il blocco dopo, o
@@ -350,7 +378,8 @@ export function getBookState(input: BookStateInput): BookState {
       : windows.length > 0
         ? "prenotabile"
         : "esaurita";
-    const pools = { referencePool: ref, nextPool };
+    const nextCountPool = nextCountRows.find((n) => n.key === row.key) ?? null;
+    const pools = { referencePool: ref, nextPool, nextCountPool };
     const numbered = windows.find((w) => w.until >= firstBookable) ?? windows[0];
     const count = numbered
       ? poolCount(numbered, pools, next)
