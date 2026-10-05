@@ -191,7 +191,12 @@ export async function forgetPushForUser(profileId: string): Promise<void> {
 /** Dove una scheda scrive l'istante in cui ha chiesto l'uscita (markLeaving): lo leggono anche le altre. */
 export const LEAVING_KEY = "nc-push-leaving-at";
 
-/** Per quanto vale quel segno: Supabase manda SIGNED_OUT alle altre schede subito dopo l'uscita. */
+/**
+ * Per quanto vale quel segno: Supabase manda SIGNED_OUT alle altre schede
+ * subito dopo l'uscita. Una scheda ferma in background (Chrome su Android la
+ * congela) lo riceve quando torna: oltre questo margine lo prende per
+ * un'uscita non chiesta, e libera il telefono.
+ */
 export const LEAVING_WINDOW_MS = 10_000;
 
 /** Segna un'uscita chiesta, prima di signOut(); con lo storage negato la sa solo la scheda che esce. */

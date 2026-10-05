@@ -158,7 +158,11 @@ export interface ClientPoolsInput {
    * loro, e useClientBookings le scarta.
    */
   bookings: readonly PoolBooking[];
-  /** I crediti extra del cliente: solo con il blocco di riferimento. */
+  /**
+   * I crediti extra del cliente: col blocco di riferimento, e col blocco dopo
+   * solo per il numero dei suoi giorni, con gli extra che valgono dal suo
+   * primo giorno (nextCountPool di client-book.ts, passata 09).
+   */
   extras?: readonly PoolExtra[];
   eventTypes: readonly PoolEventType[];
 }

@@ -94,8 +94,8 @@ export interface CoachCardModel {
 /**
  * La card «Il tuo coach» (H6): null senza riga o senza nome, e la card non
  * c'è. I collegamenti sono quelli di getCoachContacts, quindi WhatsApp e
- * Chiama compaiono insieme e solo con almeno sei cifre nel telefono
- * (whatsappUrl: con meno, nessun href), e l'email se c'è.
+ * Chiama compaiono insieme e solo con almeno sei cifre nel numero, tolto lo
+ * 00 davanti (whatsappUrl: con meno, nessun href), e l'email se c'è.
  */
 export function coachCard(row: MyCoachRow | null): CoachCardModel | null {
   const name = row?.full_name?.trim();

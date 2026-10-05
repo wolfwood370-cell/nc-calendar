@@ -172,7 +172,11 @@ export interface BookStateInput {
    * cancel_booking lo scriveva anche su di loro, e quelle righe restano.
    */
   bookings: readonly PoolBooking[];
-  /** I crediti extra del cliente: vanno solo al blocco di riferimento. */
+  /**
+   * I crediti extra del cliente: vanno al blocco di riferimento e, quelli che
+   * valgono dal primo giorno del blocco dopo, nel numero dei suoi giorni
+   * (nextCountPool, passata 09).
+   */
   extras: readonly PoolExtra[];
   eventTypes: readonly PoolEventType[];
   /** event_type_title dei pacchetti attivi di booster_packs (legati alla tipologia per nome). */
@@ -285,8 +289,10 @@ function poolCount(
 /**
  * Tutto quello che Prenota mostra dei crediti:
  *   - il riferimento (clientReferenceBlock) e il blocco dopo (getNextBlock);
- *   - le righe del riferimento, con gli extra, e quelle del blocco dopo, senza,
- *     solo se il blocco dopo inizia entro oggi + 14: oltre non apre niente;
+ *   - le righe del riferimento, con gli extra, e quelle del blocco dopo, senza
+ *     per le finestre e con gli extra che valgono dal suo primo giorno per il
+ *     numero (nextCountPool, passata 09), solo se il blocco dopo inizia entro
+ *     oggi + 14: oltre non apre niente;
  *   - le opzioni: le righe del riferimento nel loro ordine, poi quelle del
  *     blocco dopo che il riferimento non ha. Ognuna con le sue finestre
  *     (getCreditWindows) e il suo stato: coach se non è prenotabile dal
@@ -562,9 +568,11 @@ export function placeLine(option: Pick<BookOption, "location" | "address">): str
 }
 
 /**
- * «Userai 1 credito Sessione PT: ne resteranno 2.» Il pool è quello della
- * finestra del giorno scelto: il blocco dopo, se la paga lui («… del blocco
- * 4: …»), altrimenti il riferimento, blocco più extra.
+ * «Userai 1 credito Sessione PT: ne resteranno 2.» Il numero è quello di
+ * poolCount per la finestra del giorno scelto: sui giorni del blocco dopo il
+ * blocco dopo con gli extra che valgono lì (nextCountPool, passata 09), anche
+ * per una finestra extra; altrimenti il riferimento, blocco più extra. «… del
+ * blocco 4: …» solo quando la finestra è dei crediti del blocco dopo.
  */
 export function creditLine(
   option: BookOption,
