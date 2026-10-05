@@ -711,3 +711,47 @@ describe("i testi della pagina", () => {
     );
   });
 });
+
+// Passata 09: una riga nata dopo la lettura delle sessioni tiene il dettaglio
+// anche se la sua sessione non è fra quelle lette (il coach l'ha appena
+// creata); una nata prima porta alla Home (la sessione non c'è più).
+describe("clientNotificationList · il momento della lettura delle sessioni (passata 09)", () => {
+  const created = new Date(NOW.getTime() - MIN);
+  const rows = [
+    {
+      id: "r-nuova",
+      type: "booking.created_by_coach",
+      payload: {
+        coach_name: "Nicolò Castello",
+        booking_id: "b-nuova",
+        session_label: "Personal Training",
+        scheduled_at: new Date(2026, 9, 1, 10).toISOString(),
+      },
+      read_at: null,
+      created_at: created.toISOString(),
+    },
+  ];
+  const targets = (bookingIds: Set<string> | null, bookingIdsAt?: number | null) =>
+    clientNotificationList(
+      { reminders: [], rows, readIds: [], coach: NICOLO, bookingIds, bookingIdsAt },
+      NOW,
+    ).map((i) => i.target);
+  const DETAIL = { to: "/client/bookings/$bookingId", bookingId: "b-nuova" };
+  const HOME = { to: "/client" };
+
+  it("nata dopo la lettura: il dettaglio, anche se la sessione non è fra quelle lette", () => {
+    expect(targets(new Set(["b1"]), NOW.getTime() - 5 * MIN)).toEqual([DETAIL]);
+  });
+
+  it("nata prima della lettura, o nello stesso istante: la Home", () => {
+    expect(targets(new Set(["b1"]), NOW.getTime())).toEqual([HOME]);
+    expect(targets(new Set(["b1"]), created.getTime())).toEqual([HOME]);
+  });
+
+  it("senza il momento della lettura, come prima", () => {
+    expect(targets(new Set(["b1"]), null)).toEqual([HOME]);
+    expect(targets(new Set(["b1"]))).toEqual([HOME]);
+    expect(targets(null, null)).toEqual([DETAIL]);
+    expect(targets(new Set(["b-nuova"]), NOW.getTime())).toEqual([DETAIL]);
+  });
+});

@@ -3,10 +3,11 @@
 // B2, H9 e V11)
 // ----------------------------------------------------------------------------
 // La lettura della sessione e della sua tipologia, con la chiave
-// ["booking-detail", id] (queryKeys.bookings.detail: le azioni del dettaglio
-// la rinfrescano, invalidateBookingScope no). Il coach non si legge: nessuna
-// policy di profiles dà al cliente la riga del suo coach, e i testi lo
-// prendono da BookCoach (client-booking-detail-view.tsx).
+// ["booking-detail", id] (queryKeys.bookings.detail): la rinfrescano le azioni
+// del dettaglio e, dalla passata 09, invalidateBookingScope, cioè anche lo
+// spostamento o l'annullamento del coach che arriva con le notifiche. Il coach
+// dei testi viene da useMyCoach (get_my_coach), dentro la vista
+// (client-booking-detail-view.tsx).
 // Gli stati, nell'ordine: la sessione letta e visibile, il dettaglio; letta e
 // assente, o eliminata dal coach (isVisibleSession, come in Sessioni), la card
 // «Sessione non trovata»; la lettura in errore, la frase e «Riprova»; prima,

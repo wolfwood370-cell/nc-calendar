@@ -353,7 +353,11 @@ function ariaOf(unread: boolean, title: string, body: string): string {
  * riga che porta al dettaglio di una sessione che non è fra `bookingIds` (gli
  * id delle sessioni della cornice: eliminata, o passata a un altro cliente)
  * porta alla Home, come nel prototipo; con `bookingIds` null (le sessioni non
- * ancora arrivate) resta il dettaglio.
+ * ancora arrivate) resta il dettaglio. Passata 09: `bookingIdsAt` è quando le
+ * sessioni sono state lette (dataUpdatedAt); una riga nata dopo tiene il
+ * dettaglio anche se la sua sessione non è fra quelle lette (la sessione
+ * appena creata dal coach arriva con la rilettura), e così la cornice tiene
+ * le sessioni lette anche mentre si rileggono, invece di passare a null.
  */
 export function clientNotificationList(
   input: {
@@ -362,6 +366,7 @@ export function clientNotificationList(
     readIds: readonly string[];
     coach: BookCoach;
     bookingIds: ReadonlySet<string> | null;
+    bookingIdsAt?: number | null;
   },
   now: Date,
 ): ClientNotificationItem[] {
@@ -393,10 +398,13 @@ export function clientNotificationList(
     if (!view) continue;
     const created = new Date(row.created_at);
     const unread = row.read_at == null;
+    const after =
+      input.bookingIdsAt != null && isValid(created) && created.getTime() > input.bookingIdsAt;
     const gone =
       view.target.to === "/client/bookings/$bookingId" &&
       input.bookingIds !== null &&
-      !input.bookingIds.has(view.target.bookingId);
+      !input.bookingIds.has(view.target.bookingId) &&
+      !after;
     entries.push({
       t: isValid(created) ? created.getTime() : now.getTime(),
       item: {

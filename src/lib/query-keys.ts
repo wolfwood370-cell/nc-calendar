@@ -81,5 +81,12 @@ export function invalidateBookingScope(
   // prenotato, perché `coach-busy` non veniva mai rinfrescata dopo una
   // mutazione. Prefix match: la key completa include anche blocco e date.
   qc.invalidateQueries({ queryKey: ["coach-busy", scope.coachId] });
-  qc.invalidateQueries({ queryKey: ["coach-busy-reschedule", scope.coachId] });
+  // Il dettaglio di una sessione del cliente (passata 09): una riga nuova del
+  // coach (spostata, annullata) arriva in tempo reale e rilegge sessioni e
+  // crediti, e il dettaglio aperto restava quello di prima fino alla
+  // riapertura. Prefix match su tutti i dettagli: si rilegge solo quello
+  // aperto, gli altri non hanno osservatori. (Al suo posto c'era la chiave del
+  // vecchio foglio di riprogrammazione, che dalla passata 04 nessuno legge:
+  // Sposta usa quella di Prenota.)
+  qc.invalidateQueries({ queryKey: ["booking-detail"] });
 }

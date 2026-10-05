@@ -31,11 +31,11 @@
 // falsi. Una cliente con la sola voce dei crediti, senza lo stato dei crediti
 // nel cancello, vedrebbe «Nessuna notifica» finché non arriva, e per sempre se
 // la lettura degli extra si perde.
-// ⚠️ La cache delle righe si segna senza fermare una lettura in volo
-// (cancelQueries): se un evento realtime ne ha appena fatta partire una, la
-// sua risposta può riportare la riga a «non letta» fino all'invalidazione
-// della RPC riuscita (qualche centinaio di millisecondi, sulla pagina che il
-// tocco ha appena lasciato). Dichiarato, non corretto.
+// Prima di segnare la cache delle righe si ferma una lettura in volo
+// (cancelQueries, passata 09): partita da un evento realtime, la sua risposta
+// riportava la riga a «non letta» fino all'invalidazione della RPC riuscita.
+// Con lo storage negato o pieno (Safari in navigazione privata) le lette dei
+// promemoria restano in memoria per la vita della pagina (passata 09).
 // Il profilo (coach_id per i nomi delle tipologie, path_start_date per il
 // percorso nuovo) si legge con una chiave sua: quella di Home e Prenota
 // («profile» e l'id, la stessa di query-keys.ts) ha due select diversi, e la
@@ -131,20 +131,34 @@ function subscribeRead(listener: () => void) {
   };
 }
 
+// Le lette in memoria quando lo storage non le prende (negato o pieno), per la
+// vita della pagina (passata 09): prima una voce letta tornava subito non
+// letta. La copia in memoria c'è solo dopo una scrittura fallita, e allora è
+// la più nuova; una scrittura riuscita la toglie, e torna a valere lo storage,
+// che le altre schede aggiornano.
+const readMemory = new Map<string, string>();
+
 function readRaw(userId: string | null): string | null {
   if (!userId) return null;
+  const key = clientNotificationsReadKey(userId);
+  const memory = readMemory.get(key);
+  if (memory !== undefined) return memory;
   try {
-    return localStorage.getItem(clientNotificationsReadKey(userId));
+    return localStorage.getItem(key);
   } catch {
     return null;
   }
 }
 
 function writeRead(userId: string, ids: readonly string[]) {
+  const key = clientNotificationsReadKey(userId);
+  const json = JSON.stringify(ids);
   try {
-    localStorage.setItem(clientNotificationsReadKey(userId), JSON.stringify(ids));
+    localStorage.setItem(key, json);
+    readMemory.delete(key);
   } catch {
-    // storage pieno o negato: la voce resta non letta, nessun crash
+    // storage pieno o negato: la copia in memoria, nessun crash
+    readMemory.set(key, json);
   }
   for (const listener of readListeners) listener();
 }
@@ -235,25 +249,30 @@ export function useClientShellState(): ClientShellState {
     }
   }, [rowsQ.data, userId, coachId, qc]);
   // Gli id delle sessioni della cornice, per le righe di una sessione che non
-  // è più del cliente; null finché non arrivano, e mentre si rileggono: una
-  // riga appena arrivata può parlare di una sessione che la lettura di prima
-  // non aveva, e allora resta il dettaglio.
-  const bookingsFetching = bookingsQ.isFetching;
+  // è più del cliente; null finché non arrivano. Restano anche mentre si
+  // rileggono (passata 09: prima tornavano null a ogni rilettura, anche al
+  // ritorno sulla finestra, e una riga di una sessione eliminata apriva
+  // «Sessione non trovata»): una riga nata dopo la lettura tiene il dettaglio
+  // (bookingIdsAt, in clientNotificationList), perché può parlare di una
+  // sessione che la lettura di prima non aveva.
   const bookingIds = useMemo(
-    () => (bookingsQ.data && !bookingsFetching ? new Set(bookingsQ.data.map((b) => b.id)) : null),
-    [bookingsQ.data, bookingsFetching],
+    () => (bookingsQ.data ? new Set(bookingsQ.data.map((b) => b.id)) : null),
+    [bookingsQ.data],
   );
+  const bookingIdsAt = bookingsQ.data ? bookingsQ.dataUpdatedAt : null;
   const notifications = useMemo(
-    () => clientNotificationList({ reminders, rows, readIds, coach, bookingIds }, now),
-    [reminders, rows, readIds, coach, bookingIds, now],
+    () =>
+      clientNotificationList({ reminders, rows, readIds, coach, bookingIds, bookingIdsAt }, now),
+    [reminders, rows, readIds, coach, bookingIds, bookingIdsAt, now],
   );
   const unread = unreadCount(notifications);
 
   // La chiave di useNotifications, per segnare la cache prima della risposta.
   const rowsKey = useMemo(() => ["notifications", userId ?? ""] as const, [userId]);
   const markRowsInCache = useCallback(
-    (only: string | null) => {
+    async (only: string | null) => {
       const at = new Date().toISOString();
+      await qc.cancelQueries({ queryKey: rowsKey });
       qc.setQueryData<NotificationRow[]>(rowsKey, (prev) =>
         prev?.map((r) =>
           r.read_at == null && (only === null || r.id === only) ? { ...r, read_at: at } : r,
@@ -271,7 +290,7 @@ export function useClientShellState(): ClientShellState {
     (item: ClientNotificationItem) => {
       if (!userId || !item.unread) return;
       if (item.rowId) {
-        markRowsInCache(item.rowId);
+        void markRowsInCache(item.rowId);
         markRowRead.mutate(item.rowId, { onError: rereadRows });
       } else {
         writeRead(userId, nextReadIds(readIds, reminders, item.id));
@@ -284,7 +303,7 @@ export function useClientShellState(): ClientShellState {
     if (!userId) return;
     writeRead(userId, nextReadIds(readIds, reminders, "all"));
     if (notifications.some((n) => n.rowId !== null && n.unread)) {
-      markRowsInCache(null);
+      void markRowsInCache(null);
       markRowsRead.mutate(undefined, { onError: rereadRows });
     }
   }, [userId, readIds, reminders, notifications, markRowsInCache, markRowsRead, rereadRows]);
