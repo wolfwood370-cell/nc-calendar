@@ -63,6 +63,14 @@ describe("profilePathRows · il tuo percorso", () => {
     ]);
   });
 
+  it("percorso fisso col rinnovo acceso: la fine del blocco, non «Rinnovo» (il server rinnova solo gli abbonamenti; passata 10)", () => {
+    expect(profilePathRows(client("fixed", true), PATH, null, NOW)).toEqual([
+      row("Percorso", "Percorso fisso"),
+      row("Blocco", "3 di 6"),
+      row("Fine del blocco", "domenica 11 ottobre"),
+    ]);
+  });
+
   it("l'ultimo giorno del blocco è ancora il suo; dal giorno dopo il blocco 4", () => {
     expect(profilePathRows(client("fixed"), PATH, null, at(2026, 10, 11, 21, 30))).toEqual([
       row("Percorso", "Percorso fisso"),
@@ -302,6 +310,14 @@ describe("pushRow · notifiche sul telefono", () => {
     });
     // Le API ci sono ma il service worker no (l'anteprima): non basta supported.
     expect(pushRow({ ...none, supported: true, enabled: false }).control).toBe("come-fare");
+  });
+
+  it("senza push ma con un'iscrizione rimasta: «Come fare», e checked falso (passata 10)", () => {
+    expect(pushRow({ ...none, enabled: true })).toEqual({
+      text: "Per riceverle installa l'app sulla schermata Home del telefono.",
+      control: "come-fare",
+      checked: false,
+    });
   });
 
   it("segnata con «Ho installato l'app» ma aperta nel browser: si apre l'app dall'icona", () => {
