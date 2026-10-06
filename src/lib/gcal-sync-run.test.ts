@@ -213,6 +213,29 @@ describe("sincronizzazione completa: il ciclo del ripristino", () => {
     expect(r.repair).toMatchObject({ ok: false, error: "boom", stop: "failure", created: 50 });
   });
 
+  it("una passata fermata al tetto delle pagine (more) non è l'ultima, anche con meno di 50 (passata 11)", async () => {
+    const api = fakeApi([PULL_NONE], [{ ok: true, created: 0, failed: 3, total: 3, more: true }]);
+    const r = await runFullSync(api, { now: NOW, repairEstimate: 3 });
+    expect(r.repair).toMatchObject({ stop: "no-progress", complete: false });
+    const empty = await runFullSync(
+      fakeApi([PULL_NONE], [{ ok: true, created: 0, failed: 0, total: 0, more: true }]),
+      {
+        now: NOW,
+        repairEstimate: 0,
+      },
+    );
+    expect(empty.repair).toMatchObject({ stop: "no-progress", complete: false });
+    // senza more, la stessa passata è l'ultima
+    const last = await runFullSync(
+      fakeApi([PULL_NONE], [{ ok: true, created: 0, failed: 3, total: 3 }]),
+      {
+        now: NOW,
+        repairEstimate: 3,
+      },
+    );
+    expect(last.repair).toMatchObject({ stop: "no-progress", complete: true });
+  });
+
   it("al massimo 20 passate", async () => {
     const api = fakeApi([PULL_NONE], [{ ok: true, created: 50, failed: 0, total: 50 }]);
     const r = await runFullSync(api, { now: NOW, repairEstimate: 2000 });

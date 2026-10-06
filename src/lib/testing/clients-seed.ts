@@ -169,4 +169,7 @@ export const BOOKINGS: Array<ListBooking & { id: string }> = [
   bk("andrea2", "2026-09-23T15:00:00Z", "no_show"),
 ];
 
-export const EXTRAS: ListExtraCredit[] = [{ client_id: "elena", quantity: 7, quantity_booked: 5 }];
+// Crediti dati dal coach: scadenza 2100 (EXTRA_EXPIRES_AT).
+export const EXTRAS: ListExtraCredit[] = [
+  { client_id: "elena", quantity: 7, quantity_booked: 5, expires_at: "2100-01-01T00:00:00.000Z" },
+];

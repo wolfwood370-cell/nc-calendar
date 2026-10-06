@@ -125,13 +125,6 @@ export function lastUpdateText(lastOk: number | null, now: Date): string {
 // Stima della completa
 // ----------------------------------------------------------------------------
 
-/**
- * Inizio fisso della finestra del ripristino sul server (timeMinISO di
- * gcalRepairMissingEvents); quella della riconciliazione parte dal 1° gennaio
- * dell'anno in corso. Nel 2026 coincidono.
- */
-export const REPAIR_FROM_ISO = "2026-01-01T00:00:00.000Z";
-
 type EstimateBooking = Pick<
   BookingRow,
   "status" | "deleted_at" | "google_event_id" | "is_personal" | "scheduled_at"
@@ -143,6 +136,11 @@ export interface FullSyncEstimate {
   /** Le sessioni a cui il ripristino ricrea l'evento (M). */
   repair: number;
   total: number;
+  /**
+   * Le sessioni lette sono le più recenti fino al tetto (BOOKINGS_FETCH_LIMIT)
+   * e non arrivano al 1° gennaio: la stima è per difetto (passata 11).
+   */
+  partial: boolean;
 }
 
 function within(iso: string, fromMs: number, toMs: number): boolean {
@@ -151,26 +149,32 @@ function within(iso: string, fromMs: number, toMs: number): boolean {
 }
 
 /**
- * Quante sessioni la completa controlla, coi filtri dei due server. È una
- * stima del solo coach: useCoachBookings legge le sue sessioni (al massimo
- * 1000, BOOKINGS_FETCH_LIMIT in queries.ts), mentre la riconciliazione del
- * server guarda quelle di tutti i coach (gcalReconcileEvents). Con un coach
- * solo coincidono.
+ * Quante sessioni la completa controlla, coi filtri dei due server, sulle
+ * sessioni del coach: dalla passata 11 anche la riconciliazione del server
+ * guarda solo le sue (gcalReconcileEvents, come il ripristino), e le due
+ * finestre partono dal 1° gennaio dell'anno in corso (yearStartISO).
+ * useCoachBookings legge al massimo BOOKINGS_FETCH_LIMIT sessioni, le più
+ * recenti: con `truncated` e la più vecchia letta dopo il 1° gennaio la stima
+ * è per difetto (`partial`).
  * Le completed con evento non contano: nessuno le confronta.
  */
 export function estimateFullSync(
   bookings: readonly EstimateBooking[],
   now: Date,
+  truncated = false,
 ): FullSyncEstimate {
   const window = fullSyncWindow(now);
   const toMs = Date.parse(window.timeMaxISO);
   const reconcileFrom = Date.parse(window.timeMinISO);
-  const repairFrom = Date.parse(REPAIR_FROM_ISO);
+  const repairFrom = reconcileFrom;
+  let oldest = Infinity;
   let reconcile = 0;
   let repair = 0;
   for (const b of bookings) {
+    const ms = Date.parse(b.scheduled_at);
+    if (Number.isFinite(ms) && ms < oldest) oldest = ms;
     if (b.deleted_at) continue;
-    // Riconciliazione: scheduled, con evento, nella finestra (gcal.functions.ts:396-403).
+    // Riconciliazione: scheduled, con evento, nella finestra (gcalReconcileEvents).
     if (
       b.status === "scheduled" &&
       b.google_event_id &&
@@ -179,7 +183,7 @@ export function estimateFullSync(
       reconcile++;
     }
     // Ripristino: sessioni reali, non personali, senza evento, non giornaliere
-    // (gcal.functions.ts:535-563: la stessa regola di isAllDayEvent).
+    // (gcalRepairMissingEvents, con la stessa isAllDayEvent).
     if (
       (b.status === "scheduled" || b.status === "completed" || b.status === "no_show") &&
       !b.is_personal &&
@@ -190,7 +194,8 @@ export function estimateFullSync(
       repair++;
     }
   }
-  return { reconcile, repair, total: reconcile + repair };
+  const partial = truncated && !(oldest < reconcileFrom);
+  return { reconcile, repair, total: reconcile + repair, partial };
 }
 
 // ----------------------------------------------------------------------------
@@ -209,9 +214,17 @@ export function fullSyncDescription(now: Date): string {
 const CONFIRM_TAIL =
   "Può richiedere qualche minuto e la pagina deve restare aperta fino alla fine.";
 
-/** Il testo del dialog di conferma; null quando le sessioni non si sono ancora lette. */
-export function fullSyncConfirmText(total: number | null): string {
+/**
+ * Il testo del dialog di conferma; null quando le sessioni non si sono ancora
+ * lette. Con `partial` la stima è per difetto: «almeno» (passata 11).
+ */
+export function fullSyncConfirmText(total: number | null, partial = false): string {
   if (total === null) return CONFIRM_TAIL;
+  if (partial) {
+    return total === 1
+      ? `Viene controllata almeno 1 sessione. ${CONFIRM_TAIL}`
+      : `Vengono controllate almeno ${total} sessioni. ${CONFIRM_TAIL}`;
+  }
   if (total === 0) {
     return "Non risultano sessioni da controllare dal 1° gennaio: la sincronizzazione finisce in pochi secondi.";
   }

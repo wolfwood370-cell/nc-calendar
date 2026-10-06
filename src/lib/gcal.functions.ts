@@ -17,6 +17,13 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { gcalCreate, gcalUpdate, gcalDelete, gcalList } from "@/lib/gcal.server";
+import {
+  REPAIR_MIN_AGE_MS,
+  collectRepairCandidates,
+  reconcileWith,
+  writeBackEventId,
+  yearStartISO,
+} from "@/lib/gcal-repair";
 
 // Wrapper di sicurezza: ogni server fn ritorna SEMPRE un DTO {ok,error?}.
 // Le UI esistenti non vogliono throw — mostrano toast warning quando ok=false.
@@ -193,15 +200,59 @@ export const gcalCreateEvent = createServerFn({ method: "POST" })
 
         step = "writeback";
         if (r.googleEventId) {
-          const { error: upErr } = await supabaseAdmin
-            .from("bookings")
-            .update({
-              google_event_id: r.googleEventId,
-              ...(r.meetingLink ? { meeting_link: r.meetingLink } : {}),
-            })
-            .eq("id", data.bookingId);
-          if (upErr) {
-            console.error("gcalCreateEvent: booking writeback failed", upErr);
+          // Passata 11 (gcal-repair.ts): l'id si scrive solo se la sessione
+          // non ne ha già uno; chi arriva secondo toglie in silenzio il
+          // proprio evento. Una scrittura con errore si verifica rileggendo
+          // la riga: senza l'id la si dà per fallita e il proprio evento si
+          // toglie (il ripristino ne creerebbe un secondo); se la rilettura
+          // non risponde l'evento resta.
+          const createdId = r.googleEventId;
+          const outcome = await writeBackEventId({
+            createdId,
+            writeIfEmpty: async () =>
+              await supabaseAdmin
+                .from("bookings")
+                .update({
+                  google_event_id: createdId,
+                  ...(r.meetingLink ? { meeting_link: r.meetingLink } : {}),
+                })
+                .eq("id", data.bookingId)
+                .is("google_event_id", null)
+                .select("id"),
+            readId: async () =>
+              await supabaseAdmin
+                .from("bookings")
+                .select("google_event_id")
+                .eq("id", data.bookingId)
+                .maybeSingle(),
+            deleteCreated: () => gcalDelete(createdId, { sendUpdates: "none" }),
+          });
+          if (outcome === "failed" || outcome === "kept") {
+            throw new Error(
+              outcome === "failed"
+                ? "scrittura dell'id dell'evento non riuscita"
+                : "scrittura dell'id dell'evento incerta",
+            );
+          }
+          if (outcome === "taken") {
+            // L'evento della sessione c'è già: si restituisce quello. Senza
+            // un id nella riga non c'è niente da restituire: il nostro evento
+            // è già tolto, e un id restituito lo scriverebbe il browser.
+            const { data: row } = await supabaseAdmin
+              .from("bookings")
+              .select("google_event_id, meeting_link")
+              .eq("id", data.bookingId)
+              .maybeSingle();
+            if (!row?.google_event_id) {
+              throw new Error("l'evento della sessione non si legge dopo la scrittura");
+            }
+            await persistGcalError(data.bookingId, null);
+            return {
+              ok: true,
+              googleEventId: row.google_event_id,
+              meetingLink: row.meeting_link ?? null,
+              htmlLink: null,
+            };
           }
         }
 
@@ -393,8 +444,11 @@ export const gcalReconcileEvents = createServerFn({ method: "POST" })
           ? data.timeMaxISO
           : new Date(now + 16 * 24 * 60 * 60_000).toISOString();
 
-      // Sessioni candidate: scheduled, non cancellate, con evento Google, nella finestra.
-      const { data: bookings, error: bErr } = await supabaseAdmin
+      // Sessioni candidate: scheduled, non cancellate, con evento Google, nella
+      // finestra. Coach -> solo le proprie, admin -> tutte, come il ripristino
+      // qui sotto (passata 11: prima il coach riconciliava le sessioni di
+      // tutti, e la stima della completa, che legge solo le sue, non tornava).
+      let rq = supabaseAdmin
         .from("bookings")
         .select("id, google_event_id, scheduled_at")
         .eq("status", "scheduled")
@@ -402,6 +456,8 @@ export const gcalReconcileEvents = createServerFn({ method: "POST" })
         .not("google_event_id", "is", null)
         .gte("scheduled_at", timeMinISO)
         .lte("scheduled_at", timeMaxISO);
+      if (role === "coach") rq = rq.eq("coach_id", context.userId);
+      const { data: bookings, error: bErr } = await rq;
       if (bErr) {
         console.error("gcalReconcile: bookings query failed", bErr);
         return { ok: false, error: "Lettura prenotazioni fallita" };
@@ -432,38 +488,18 @@ export const gcalReconcileEvents = createServerFn({ method: "POST" })
         return { ok: true, skipped: "empty-list-guard", cancelled: 0, moved: 0, conflicts: 0 };
       }
 
-      let cancelled = 0;
-      let moved = 0;
-      let conflicts = 0;
-      for (const ev of events) {
-        const booking = byEventId.get(ev.id);
-        if (!booking) continue; // evento Google non mappato a una sessione -> ignora (no import)
-
-        if (ev.status === "cancelled") {
-          const { error } = await supabaseAdmin.rpc("reconcile_gcal_cancel", {
-            p_booking_id: booking.id,
-          });
-          if (error) console.error("reconcile_gcal_cancel failed", { id: booking.id, error });
-          else cancelled++;
-          continue;
-        }
-
-        // Spostamento: confronto su epoch (offset-safe), tolleranza 60s.
-        if (ev.startMs !== null && Number.isFinite(booking.scheduledMs)) {
-          if (Math.abs(ev.startMs - booking.scheduledMs) > 60_000) {
-            const { error } = await supabaseAdmin.rpc("reconcile_gcal_move", {
-              p_booking_id: booking.id,
-              p_new_scheduled_at: new Date(ev.startMs).toISOString(),
-            });
-            if (error) {
-              console.error("reconcile_gcal_move failed", { id: booking.id, error });
-              conflicts++;
-            } else {
-              moved++;
-            }
-          }
-        }
-      }
+      // Annullamenti e spostamenti (gcal-repair.ts): un annullamento non
+      // riuscito si conta fra le sessioni non aggiornate (passata 11).
+      const { cancelled, moved, conflicts } = await reconcileWith(events, byEventId, {
+        cancel: async (id) =>
+          await supabaseAdmin.rpc("reconcile_gcal_cancel", { p_booking_id: id }),
+        move: async (id, at) =>
+          await supabaseAdmin.rpc("reconcile_gcal_move", {
+            p_booking_id: id,
+            p_new_scheduled_at: at,
+          }),
+        logError: (what, detail) => console.error(what, detail),
+      });
       return { ok: true, cancelled, moved, conflicts, checked: rows.length };
     } catch (e) {
       console.error("gcalReconcileEvents failed", e);
@@ -496,6 +532,8 @@ type RepairResult = {
   created?: number;
   failed?: number;
   total?: number;
+  /** Il giro si è fermato al tetto di pagine con altre sessioni da leggere (passata 11). */
+  more?: boolean;
   error?: string;
 };
 
@@ -520,10 +558,12 @@ export const gcalRepairMissingEvents = createServerFn({ method: "POST" })
       }
 
       const now = Date.now();
-      // Finestra di backfill: dal 1° gennaio 2026 fino a +90 giorni nel futuro.
-      // Copre TUTTE le sessioni reali dell'anno mancanti su Google (richiesta
-      // utente 2026-06-06), non solo le future.
-      const timeMinISO = "2026-01-01T00:00:00.000Z";
+      // Finestra di backfill: dal 1° gennaio dell'anno in corso fino a +90
+      // giorni nel futuro, la stessa della completa (fullSyncWindow). Copre
+      // TUTTE le sessioni reali dell'anno mancanti su Google (richiesta
+      // utente 2026-06-06), non solo le future. Fino alla passata 11 partiva
+      // dal 1° gennaio 2026 fisso.
+      const timeMinISO = yearStartISO(new Date(now));
       const timeMaxISO = new Date(now + 90 * 24 * 60 * 60_000).toISOString(); // +90g
 
       // Sessioni candidate: stati "reali" (scheduled/completed/no_show -> NON
@@ -533,36 +573,44 @@ export const gcalRepairMissingEvents = createServerFn({ method: "POST" })
       // Gli eventi "tutto il giorno" (compleanni/Stripe/milestone) sono
       // esclusi DOPO il fetch (vedi isMidnightUtc) -> restano solo nell'app
       // (decisione utente 2026-06-06).
-      let q = supabaseAdmin
-        .from("bookings")
-        .select(
-          "id, client_id, coach_id, scheduled_at, end_at, duration_min, session_type, event_type_id, is_personal, title",
-        )
-        .in("status", ["scheduled", "completed", "no_show"])
-        .is("deleted_at", null)
-        .eq("is_personal", false)
-        .is("google_event_id", null)
-        .gte("scheduled_at", timeMinISO)
-        .lte("scheduled_at", timeMaxISO)
-        // Cap per-esecuzione: ogni gcalCreate e' una chiamata HTTP sequenziale,
-        // un backfill enorme rischierebbe il timeout del server. La fn e'
-        // idempotente e rigira al prossimo mount / click "Aggiorna", quindi
-        // completa il backfill in piu' passate. Future/recenti prima.
-        .order("scheduled_at", { ascending: false })
-        .limit(50);
-      if (role === "coach") q = q.eq("coach_id", context.userId);
+      // Cap per-esecuzione: 50 sessioni (REPAIR_WANT), perché ogni gcalCreate
+      // e' una chiamata HTTP sequenziale e un backfill enorme rischierebbe il
+      // timeout del server. La fn e' idempotente e rigira al prossimo mount /
+      // click "Aggiorna", quindi completa il backfill in piu' passate.
+      // Future/recenti prima.
+      // Gli eventi "tutto il giorno" (isAllDayEvent: compleanni, promemoria
+      // Stripe, fine percorso) restano solo nell'app e non vanno spinti su
+      // Google, dove diventerebbero eventi delle 02:00. Si scartano leggendo
+      // a pagine (collectRepairCandidates, passata 11): prima si leggevano 50
+      // righe e poi si scartavano, e la regola non riconosceva il formato del
+      // database (+00:00), quindi su Google finivano anche loro.
+      const page = (from: number, to: number) => {
+        let q = supabaseAdmin
+          .from("bookings")
+          .select(
+            "id, client_id, coach_id, scheduled_at, end_at, duration_min, session_type, event_type_id, is_personal, title",
+          )
+          .in("status", ["scheduled", "completed", "no_show"])
+          .is("deleted_at", null)
+          .eq("is_personal", false)
+          .is("google_event_id", null)
+          .gte("scheduled_at", timeMinISO)
+          .lte("scheduled_at", timeMaxISO)
+          // Le sessioni appena create hanno il loro evento in arrivo dalla
+          // prenotazione (REPAIR_MIN_AGE_MS, passata 11).
+          .lt("created_at", new Date(now - REPAIR_MIN_AGE_MS).toISOString());
+        if (role === "coach") q = q.eq("coach_id", context.userId);
+        return q.order("scheduled_at", { ascending: false }).order("id").range(from, to);
+      };
 
-      const { data: rows, error: bErr } = await q;
-      if (bErr) {
-        console.error("gcalRepair: bookings query failed", bErr);
+      const found = await collectRepairCandidates(async (from, to) => await page(from, to));
+      if (found.error) {
+        console.error("gcalRepair: bookings query failed", found.error);
         return { ok: false, error: "Lettura prenotazioni fallita" };
       }
-      // Escludi gli eventi "tutto il giorno" (scheduled_at a mezzanotte UTC):
-      // compleanni / promemoria Stripe / fine percorso -> restano solo nell'app,
-      // non vanno spinti su Google (diventerebbero brutti eventi delle 02:00).
-      const isMidnightUtc = (iso: string) => /T00:00:00(?:\.000)?Z$/i.test(iso);
-      const bookings = (rows ?? []).filter((b) => !isMidnightUtc(b.scheduled_at));
-      if (bookings.length === 0) return { ok: true, created: 0, failed: 0, total: 0 };
+      const bookings = found.rows;
+      const more = found.more;
+      if (bookings.length === 0) return { ok: true, created: 0, failed: 0, total: 0, more };
 
       // Prefetch event_types + profiles in 2 query (no N+1).
       const eventTypeIds = [
@@ -653,15 +701,43 @@ export const gcalRepairMissingEvents = createServerFn({ method: "POST" })
           });
 
           if (r.googleEventId) {
-            await supabaseAdmin
-              .from("bookings")
-              .update({
-                google_event_id: r.googleEventId,
-                ...(r.meetingLink ? { meeting_link: r.meetingLink } : {}),
-                last_gcal_error: null, // successo: nessun errore in sospeso
-              })
-              .eq("id", b.id);
-            created++;
+            // L'id si scrive solo se la sessione non ne ha già uno (due
+            // ripristini da due schede): chi arriva secondo toglie in silenzio
+            // il proprio evento e non lo conta. Una scrittura con errore si
+            // verifica rileggendo la riga (passata 11, gcal-repair.ts).
+            const createdId = r.googleEventId;
+            const outcome = await writeBackEventId({
+              createdId,
+              writeIfEmpty: async () =>
+                await supabaseAdmin
+                  .from("bookings")
+                  .update({
+                    google_event_id: createdId,
+                    ...(r.meetingLink ? { meeting_link: r.meetingLink } : {}),
+                    last_gcal_error: null, // successo: nessun errore in sospeso
+                  })
+                  .eq("id", b.id)
+                  .is("google_event_id", null)
+                  .select("id"),
+              readId: async () =>
+                await supabaseAdmin
+                  .from("bookings")
+                  .select("google_event_id")
+                  .eq("id", b.id)
+                  .maybeSingle(),
+              deleteCreated: () => gcalDelete(createdId, { sendUpdates: "none" }),
+            });
+            if (outcome === "written") created++;
+            else if (outcome === "failed" || outcome === "kept") {
+              await persistGcalError(
+                b.id,
+                outcome === "failed"
+                  ? "[repair] scrittura dell'id dell'evento non riuscita"
+                  : "[repair] scrittura dell'id dell'evento incerta",
+              );
+              failed++;
+            }
+            // "taken": la sessione ha già il suo evento, niente da contare.
           } else {
             await persistGcalError(b.id, "[repair] gcalCreate ritornato senza eventId");
             failed++;
@@ -676,7 +752,7 @@ export const gcalRepairMissingEvents = createServerFn({ method: "POST" })
         }
       }
 
-      return { ok: true, created, failed, total: bookings.length };
+      return { ok: true, created, failed, total: bookings.length, more };
     } catch (e) {
       console.error("gcalRepairMissingEvents failed", e);
       return { ok: false, error: e instanceof Error ? e.message : String(e) };

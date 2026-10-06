@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { CreditUnavailableError, SessionChangedError } from "@/lib/cancel-session";
 import { NoCreditError, createClientSession, createCommitment } from "@/lib/session-create";
-import { editSession, snapshotOf, undoEdit, type EditInput } from "@/lib/session-edit";
+import {
+  TYPE_THEN_DATE_MESSAGE,
+  editSession,
+  snapshotOf,
+  undoEdit,
+  type EditInput,
+} from "@/lib/session-edit";
 import { COACH, TYPES, at, seedDb } from "@/lib/testing/calendar-seed";
 import { createMemoryCalendar, type MemoryCalendar } from "@/lib/testing/memory-calendar-store";
 
@@ -248,5 +254,201 @@ describe("modifica · la durata (trigger delle durate dal giro del 02/10/2026)",
     const s = (await mem.store.getEditableSession(sessionId))!;
     await editSession(mem.store, input(s, { scheduledAt: at("2026-09-24", "11:30") }));
     expect(row()).toMatchObject({ duration_min: 60, scheduled_at: at("2026-09-24", "11:30") });
+  });
+});
+
+describe("modifica · tipologia con scadenze vere (passata 11)", () => {
+  /** Marta con due extra BIA: uno scaduto il 30/09 e uno che vale fino al 2100; m1-bia esaurito. */
+  function withBiaExtras() {
+    const db = seedDb();
+    db.allocations.find((a) => a.id === "m1-bia")!.quantity_booked = 1;
+    db.extras.find((e) => e.id === "m-bia-extra")!.quantity = 0;
+    db.extras.push(
+      {
+        id: "m-bia-scaduto",
+        client_id: "marta",
+        event_type_id: "bia",
+        quantity: 2,
+        quantity_booked: 0,
+        expires_at: "2026-09-30T21:59:59.999Z",
+      },
+      {
+        id: "m-bia-valido",
+        client_id: "marta",
+        event_type_id: "bia",
+        quantity: 1,
+        quantity_booked: 0,
+        expires_at: "2100-01-01T00:00:00Z",
+      },
+    );
+    return db;
+  }
+
+  it("verso una tipologia pagata da extra: si prende quello che vale alla data, non quello scaduto", async () => {
+    const mem = createMemoryCalendar(withBiaExtras());
+    const { sessionId } = await createClientSession(mem.store, {
+      coachId: COACH,
+      clientId: "marta",
+      clientName: "Marta Conti",
+      type: TYPES.pt,
+      scheduledAt: at("2026-10-07", "10:00"),
+      durationMin: 60,
+    });
+    const s = (await mem.store.getEditableSession(sessionId))!;
+    const r = await editSession(mem.store, input(s, { type: TYPES.bia }));
+    expect(r.typeMove?.taken).toEqual({ kind: "extra", id: "m-bia-valido" });
+    expect(mem.db.extras.find((e) => e.id === "m-bia-scaduto")!.quantity_booked).toBe(0);
+    expect(mem.db.extras.find((e) => e.id === "m-bia-valido")!.quantity_booked).toBe(1);
+  });
+
+  it("verso una tipologia con il solo extra scaduto: non si salva e niente cambia", async () => {
+    const db = withBiaExtras();
+    db.extras.find((e) => e.id === "m-bia-valido")!.quantity = 0;
+    const mem = createMemoryCalendar(db);
+    const { sessionId } = await createClientSession(mem.store, {
+      coachId: COACH,
+      clientId: "marta",
+      clientName: "Marta Conti",
+      type: TYPES.pt,
+      scheduledAt: at("2026-10-07", "10:00"),
+      durationMin: 60,
+    });
+    const s = (await mem.store.getEditableSession(sessionId))!;
+    const before = state(mem);
+    await expect(editSession(mem.store, input(s, { type: TYPES.bia }))).rejects.toBeInstanceOf(
+      NoCreditError,
+    );
+    expect(state(mem)).toBe(before);
+  });
+
+  it("tipologia e data insieme, con l'extra di prima che scade in mezzo: un messaggio che dice come fare, e niente cambia", async () => {
+    // Sara: PT pagata dall'extra che scade il 10/10; la sposti al 20/10 e la fai BIA.
+    const db = seedDb();
+    db.extras.find((e) => e.id === "s-pt-late")!.quantity = 0;
+    db.extras.find((e) => e.id === "s-pt-soon")!.expires_at = "2026-10-10T21:59:59.999Z";
+    db.extras.push({
+      id: "s-bia",
+      client_id: "sara",
+      event_type_id: "bia",
+      quantity: 1,
+      quantity_booked: 0,
+      expires_at: "2100-01-01T00:00:00Z",
+    });
+    const mem = createMemoryCalendar(db);
+    const { sessionId } = await createClientSession(mem.store, {
+      coachId: COACH,
+      clientId: "sara",
+      clientName: "Sara",
+      type: TYPES.pt,
+      scheduledAt: at("2026-10-07", "10:00"),
+      durationMin: 60,
+    });
+    const s = (await mem.store.getEditableSession(sessionId))!;
+    const before = state(mem);
+    const err = await editSession(
+      mem.store,
+      input(s, { type: TYPES.bia, scheduledAt: at("2026-10-20", "10:00"), clientName: "Sara" }),
+    ).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(NoCreditError);
+    expect((err as Error).message).toBe(TYPE_THEN_DATE_MESSAGE);
+    expect(state(mem)).toBe(before);
+  });
+});
+
+describe("modifica · tipologia e data insieme, senza la via dei due salvataggi (passata 11)", () => {
+  it("la tipologia nuova ha credito solo alla data nuova: l'errore dello spostamento, non il consiglio", async () => {
+    const db = seedDb();
+    // PT di Marta il 7/10 pagata da un extra PT che scade il 10/10 (i PT di m1 esauriti); la BIA solo in m2.
+    for (const a of db.allocations)
+      if (a.block_id === "m1" && a.event_type_id === "pt") a.quantity_booked = 2;
+    db.extras.push({
+      id: "m-pt-presto",
+      client_id: "marta",
+      event_type_id: "pt",
+      quantity: 1,
+      quantity_booked: 0,
+      expires_at: "2026-10-10T21:59:59.999Z",
+    });
+    db.allocations.find((a) => a.id === "m1-bia")!.quantity_booked = 1;
+    db.extras.find((e) => e.id === "m-bia-extra")!.quantity = 0;
+    db.allocations.push({
+      id: "m2-bia",
+      block_id: "m2",
+      event_type_id: "bia",
+      session_type: "BIA",
+      week_number: 1,
+      quantity_assigned: 1,
+      quantity_booked: 0,
+      valid_until: null,
+      created_at: "2026-10-18T09:05:00Z",
+    });
+    const mem = createMemoryCalendar(db);
+    const { sessionId } = await createClientSession(mem.store, {
+      coachId: COACH,
+      clientId: "marta",
+      clientName: "Marta Conti",
+      type: TYPES.pt,
+      scheduledAt: at("2026-10-07", "10:00"),
+      durationMin: 60,
+    });
+    const s = (await mem.store.getEditableSession(sessionId))!;
+    expect(s.block_id).toBeNull();
+    const before = state(mem);
+    const err = await editSession(
+      mem.store,
+      input(s, { type: TYPES.bia, scheduledAt: at("2026-10-20", "10:00") }),
+    ).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).not.toBe(TYPE_THEN_DATE_MESSAGE);
+    expect((err as Error).message).toMatch(/credit/i);
+    expect(state(mem)).toBe(before);
+  });
+});
+
+describe("«Ripristina» e la durata (passata 11)", () => {
+  it("una BIA tenuta a 60, cambiata in PT e ripristinata, torna BIA di 60 minuti, non di 30", async () => {
+    const mem = createMemoryCalendar(seedDb());
+    // Senza evento Google: il trigger delle durate guarda solo le righe con google_event_id vuoto.
+    mem.google.failCreate = true;
+    const { sessionId } = await createClientSession(mem.store, {
+      coachId: COACH,
+      clientId: "marta",
+      clientName: "Marta Conti",
+      type: TYPES.bia,
+      scheduledAt: at("2026-09-23", "10:00"),
+      durationMin: 30,
+    });
+    let s = (await mem.store.getEditableSession(sessionId))!;
+    // Il coach la tiene a 60 minuti.
+    await editSession(mem.store, input(s, { durationMin: 60 }));
+    s = (await mem.store.getEditableSession(sessionId))!;
+    expect(s.duration_min).toBe(60);
+    const r = await editSession(mem.store, input(s, { type: TYPES.pt }));
+    expect(mem.db.bookings[0]).toMatchObject({ event_type_id: "pt", duration_min: 60 });
+    await undoEdit(mem.store, r);
+    expect(mem.db.bookings[0]).toMatchObject({ event_type_id: "bia", duration_min: 60 });
+  });
+
+  it("l'archivio dei test fa come il trigger anche coi valori nulli", async () => {
+    const mem = createMemoryCalendar(seedDb());
+    const { sessionId } = await createCommitment(mem.store, {
+      coachId: COACH,
+      title: "Dentista",
+      scheduledAt: at("2026-09-28", "13:00"),
+      durationMin: 60,
+    });
+    const b = mem.db.bookings.find((x) => x.id === sessionId)!;
+    (b as unknown as { buffer_min: number | null }).buffer_min = null;
+    (b as unknown as { duration_min: number | null }).duration_min = null;
+    const s = (await mem.store.getEditableSession(sessionId))!;
+    await mem.store.updateSessionFields(
+      sessionId,
+      { status: s.status },
+      { title: "Commercialista" },
+    );
+    // Senza tipologia: durata 60 e margine 0, come le COALESCE in fondo al trigger.
+    expect(b.duration_min).toBe(60);
+    expect(b.buffer_min).toBe(0);
+    expect(Date.parse(b.end_at) - Date.parse(b.scheduled_at)).toBe(60 * 60_000);
   });
 });

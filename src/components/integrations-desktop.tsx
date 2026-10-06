@@ -72,6 +72,7 @@ import {
 } from "@/lib/gcal-sync-run";
 import { sessionLabel } from "@/lib/mock-data";
 import {
+  BOOKINGS_FETCH_LIMIT,
   useCoachBookings,
   useCoachClients,
   useCoachEventTypes,
@@ -250,7 +251,9 @@ export function IntegrationsDesktop({
 
   // ------------------------------------------------------------ completa
   const [full, setFull] = useState<FullSyncView>({ state: "idle" });
-  const estimate = bookings ? estimateFullSync(bookings, now) : null;
+  // Le sessioni lette arrivano al tetto: la stima può essere per difetto (passata 11).
+  const truncated = !!bookings && bookings.length >= BOOKINGS_FETCH_LIMIT;
+  const estimate = bookings ? estimateFullSync(bookings, now, truncated) : null;
 
   async function startFull() {
     const refused = fullSyncBlockedText(chip);
@@ -361,7 +364,10 @@ export function IntegrationsDesktop({
             <IntegrationsFullSyncCard
               view={full}
               description={fullSyncDescription(now)}
-              confirmText={fullSyncConfirmText(estimate ? estimate.total : null)}
+              confirmText={fullSyncConfirmText(
+                estimate ? estimate.total : null,
+                estimate?.partial ?? false,
+              )}
               disabled={busy !== null}
               onStart={() => void startFull()}
               onDismiss={() => setFull({ state: "idle" })}

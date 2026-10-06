@@ -29,7 +29,7 @@ export const supabaseCalendarStore: EditStore = {
   async listClientBlocks(clientId) {
     const { data, error } = await supabase
       .from("training_blocks")
-      .select("id, start_date, end_date")
+      .select("id, start_date, end_date, sequence_order")
       .eq("client_id", clientId)
       .is("deleted_at", null);
     if (error) throw writeError(error);

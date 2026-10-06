@@ -11,8 +11,12 @@
 //     cliente;
 //   - clienti con crediti: un'allocazione con crediti rimasti in un blocco non
 //     eliminato e non ancora finito, oppure un credito extra con crediti
-//     rimasti (gli extra non scadono). Gli archiviati si contano a parte; chi
-//     non è fra i clienti del coach non conta;
+//     rimasti, anche scaduto: eliminare la tipologia lo lascerebbe comunque
+//     senza tipologia, ed è prudente contarlo (passata 11 del lato cliente;
+//     qui prima c'era scritto che non scadono, e i Booster scadono:
+//     i conti del Profilo e dell'elenco Clienti contano solo quelli validi,
+//     extra-credits.ts). Gli archiviati si contano a parte; chi non è fra i
+//     clienti del coach non conta;
 //   - sessioni passate, e se il negozio dei clienti la vende (un pacchetto
 //     attivo col suo nome esatto: checkout e webhook la cercano così).
 // Eliminare una tipologia toglie la tipologia a sessioni, allocazioni e

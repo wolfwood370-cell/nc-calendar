@@ -6,7 +6,11 @@
 // apriva sul 6 (Nicolò, 06/10/2026). Qui la data chiesta vince, se cade nella settimana mostrata.
 import { isValid, parseISO } from "date-fns";
 
-function sameDay(a: Date, b: Date) {
+/**
+ * Lo stesso giorno locale. Uno solo per l'agenda del telefono: dalla 10b ce
+ * n'era una copia anche in mobile-calendar-agenda.tsx (passata 11).
+ */
+export function sameDay(a: Date, b: Date) {
   return (
     a.getFullYear() === b.getFullYear() &&
     a.getMonth() === b.getMonth() &&

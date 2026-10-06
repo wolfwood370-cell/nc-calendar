@@ -124,6 +124,21 @@ describe("push-sw.js · il tocco su una notifica", () => {
     expect(r.opened).toEqual([]);
   });
 
+  it("con l'app già sulla pagina, il fuoco e un messaggio con l'indirizzo, così l'agenda sceglie di nuovo il giorno (passata 11)", async () => {
+    const url = `${ORIGIN}/trainer/calendar?date=2026-10-07&event=b1`;
+    const w = fakeWindow(url) as FakeWindow & { postMessage: (m: unknown) => void };
+    const sent: unknown[] = [];
+    w.postMessage = (m: unknown) => {
+      w.calls.push("postMessage");
+      sent.push(m);
+    };
+    const r = await tap([w], { url: "/trainer/calendar?date=2026-10-07&event=b1" });
+    expect(w.calls).toEqual(["focus", "postMessage"]);
+    expect(sent).toEqual([{ type: "nc-notification-open", url }]);
+    expect(w.navigatedTo).toEqual([]);
+    expect(r.opened).toEqual([]);
+  });
+
   it("una finestra che non si può spostare: si apre la pagina", async () => {
     const w = fakeWindow(`${ORIGIN}/client`, { uncontrolled: true });
     const r = await tap([w], { url: "/client/bookings/b1" });

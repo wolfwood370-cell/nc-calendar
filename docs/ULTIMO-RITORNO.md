@@ -1,147 +1,98 @@
-# CLAUDE.md e i permessi del progetto
+# Lato cliente · Passata 11 · Le voci del coach
 
-Passata di configurazione (Sonnet 5.5), ramo `chore/claude-md-e-permessi`. Nessun cambio al codice: tre file copiati con `cp` da `app\claude-md-e-permessi-2026-10-06\nc-calendar\`, e la prova che le regole mordono. Questo file sostituisce il ritorno della 10b (resta nella cronologia e nella PR #92).
+Ramo `redesign/cliente-11-coach`, base `origin/main` = `62ec56227924bbce3ccfa93f6e265a1ca85e0cda` (PR #93, la passata del `CLAUDE.md`, unita). Sonnet 5.5. Il codice è la patch di Cowork applicata com'è: D11 50/50.
 
-## 0 · Il piano
+## IL PIANO
 
-0. ☑ **La base** (§2), la colonna PRIMA delle sonde, la matrice e i cancelli sulla base. Nessun commit.
-1. ☑ `7148842` **`CLAUDE.md`**: `cp`, id `de4d18c8…` verificato.
-2. ☑ `28369d3` **I permessi**: `.claude/settings.json` e `.gitignore` con `cp`, id `64b1e75e…` e `d8b1a932…`, matrice verificata.
-3. ☑ **La colonna DOPO delle sonde**, R3 e l'elenco degli strumenti MCP. Nessun commit.
-4. ☑ **I cancelli sul ramo**: uguali alla base (la suite alla seconda esecuzione, vedi §9). Nessun commit.
-5. ☑ **Chiusura**: questo file, push, PR (non unita).
+0. ☑ **La base**: fetch, base controllata, ramo creato, cancelli e controlli sulla base. Nessun commit.
+1. ☑ `f8de34c` **La correzione**: `git apply --index` della patch (sha256 `03b09fc41f2da81a…`, 50 file), typecheck 0, D11 50/50. ⚠️ D11 si legge solo dopo il commit (vedi §9).
+2. ☑ **I cancelli, i controlli, le prove rosse**: tutti come attesi, nessun commit di prova.
+3. ☑ **Il browser**: `giro11-cowork.mjs` 19/19 sul ramo, 5/19 sulla base; giri 10 e 10b verdi. Nessun commit.
+4. ☑ **Chiusura**: questo file, push, PR (non unita), `rm -rf dist .output`.
 
 ## 1 · Dove ho girato
 
-- `pwd`: `/c/Coworks/NC App Development/repos/nc-calendar`; `uname -s`: `MINGW64_NT-10.0-26300`; modello: Sonnet 5.5 (`claude-sonnet-5-5`).
-- Albero pulito e `git stash list` vuoto prima di cominciare (quindi S7 lanciata).
+`uname -s`: `MINGW64_NT-10.0-26300` · node v24.12.0 · bun 1.3.14 · `git hash-object bun.lock` = `d93afeddf8068057f6d78347267b94b9ffacace6`, uguale a `git rev-parse origin/main:bun.lock`; la patch non tocca `package.json`, `bun.lock`, `supabase/` né `src/integrations/` (0 file).
 
-## 2 · Ramo e commit
+## 2 · Base, ramo e commit
 
-Ramo `chore/claude-md-e-permessi`, da `origin/main` con `git switch --no-track`.
+- Base `62ec56227924bbce3ccfa93f6e265a1ca85e0cda` (merge della PR #93). `git diff --name-only 85c0b39 origin/main`: `.claude/settings.json`, `.gitignore`, `CLAUDE.md`, `docs/ULTIMO-RITORNO.md`: solo file ammessi (il caso buono del §2).
+- `git log --oneline <base>..origin/main` all'ultimo fetch: vuoto (`main` non è andato avanti).
+- Ramo `redesign/cliente-11-coach`, con `git switch --no-track`:
+  - `f8de34c` Passata 11: Google, Disponibilità del telefono, crediti del coach, l'uscita e il Calendario del telefono (le voci del coach)
+  - il commit di chiusura che riscrive questo file; l'hash e il numero della PR sono nella PR e nel messaggio di Claude Code.
 
-- `7148842` CLAUDE.md: le leggi del codice, il rimando al §8 per modello e impegno, cosa conservare quando si compatta
-- `28369d3` I permessi del progetto in .claude/settings.json, e il .gitignore che li lascia entrare
-- il commit di chiusura, che riscrive questo file (il suo hash e il numero della PR stanno nel messaggio di Claude Code e nella PR stessa)
+## 3 · Manifesto
 
-## 3 · La base
+`git diff --name-status origin/main HEAD`: 51 file, 10 nuovi, 41 modificati.
 
-`origin/main` = `85c0b39d1c955fae321acc4d142714572d974ef9`.
+- **NUOVI (10):** `src/hooks/use-availability-draft.ts`, `src/lib/extra-credits.ts`, `src/lib/extra-credits.test.ts`, `src/lib/gcal-repair.ts`, `src/lib/gcal-repair.test.ts`, `src/lib/notification-open.ts`, `src/lib/notification-open.test.ts`, `src/lib/save-bar.ts`, `src/lib/sign-out.ts`, `src/lib/sign-out.test.ts`.
+- **MODIFICATI (41):** i 40 file della patch non nuovi, più `docs/ULTIMO-RITORNO.md`. Elenco intero: l'uscita dei controlli (§5), riga D11.
+- **NON TOCCATI:** `package.json`, `bun.lock`, `supabase/`, `src/integrations/`, `AGENTS.md`, `CLAUDE.md`, `.claude/`, `.gitignore`.
 
-| condizione              | comando                                                           | esito                                                               |
-| ----------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `096c534` antenato      | `git merge-base --is-ancestor 096c534 origin/main`                | esce 0                                                              |
-| `.gitignore` di Cowork  | `git rev-parse origin/main:.gitignore`                            | `b7843269f4b8c0617871a7a9c89c904d516a541a`                          |
-| `CLAUDE.md` assente     | `git cat-file -e origin/main:CLAUDE.md`                           | fallisce (128)                                                      |
-| `settings.json` assente | `git cat-file -e origin/main:.claude/settings.json`               | fallisce (128)                                                      |
-| `AGENTS.md` presente    | `git cat-file -e origin/main:AGENTS.md`                           | riesce (0)                                                          |
-| lock uguale             | `git hash-object bun.lock` = `git rev-parse origin/main:bun.lock` | `d93afeddf8068057f6d78347267b94b9ffacace6`, `node_modules` presente |
+## 4 · I cancelli
 
-`git log --oneline 096c534..origin/main`: `85c0b39` Merge PR #92 (10b), `78d635b`, `80be56f` (la 10b stessa, già in `main`). Va bene: non toccano i file della passata.
+| cancello                        | base `62ec562`        | ramo                      |
+| ------------------------------- | --------------------- | ------------------------- |
+| typecheck                       | 0                     | 0                         |
+| lint                            | 0 errori, 14 avvisi   | 0 errori, **13** avvisi   |
+| test, Roma (sonda `-120`)       | 71 file, 1433 passati | **75 file, 1470 passati** |
+| test, UTC (sonda `0`)           | —                     | 75 file, 1470 passati     |
+| test, Los Angeles (sonda `420`) | —                     | 75 file, 1470 passati     |
+| build (`LOVABLE_SANDBOX=1`)     | 0                     | 0                         |
 
-I tre file in `app\`: `git hash-object` → `de4d18c8…`, `64b1e75e…`, `d8b1a932…`, quelli del contratto.
+Avvisi per regola: base 10 `react-refresh/only-export-components` + 4 `react-hooks/exhaustive-deps`; ramo 9 + 4. Quello tolto è l'esportazione di `sameDay` da un file di componenti. Le tre suite del ramo sono state lanciate una per volta, senza altro in parallelo: nessun timeout di `clock.test.ts`.
 
-## 4 · Manifesto
+## 5 · I controlli (acceptance)
 
-`git diff --name-status origin/main HEAD`:
+Sulla base `62ec562` l'uscita è **identica** a `oggi-controlli-cli-11-2026-10-06.txt` (D11 0/50, D9 0). A lavoro committato:
 
 ```
-A	.claude/settings.json
-M	.gitignore
-A	CLAUDE.md
-M	docs/ULTIMO-RITORNO.md
+diff /tmp/ctl11.txt atteso-controlli-cli-11-2026-10-06.txt
+10c10
+< D9 file cambiati: 51 · fuori dall'elenco: 0
+---
+> D9 file cambiati: 50 · fuori dall'elenco: 0
 ```
 
-Le quattro righe del contratto, nessun'altra (ordine di Git).
+L'unica riga diversa è D9, come previsto dal prompt (51 col ritorno committato, 0 fuori dall'elenco). `D11 file uguali al ramo di Cowork: 50/50`; tutte le altre righe (D0-D8, D10) uguali all'atteso.
 
-## 5 · Gli id
+## 6 · Le prove rosse
 
-| file                    | `git rev-parse HEAD:<file>`                | atteso |
-| ----------------------- | ------------------------------------------ | ------ |
-| `CLAUDE.md`             | `de4d18c813adddb7aa24311e872d39b2dde2faf0` | uguale |
-| `.claude/settings.json` | `64b1e75e9c1b29815b52f020e7210eba3e804037` | uguale |
-| `.gitignore`            | `d8b1a932572d5cfefc154e81d4be46dc19883674` | uguale |
+`rosse-cli-11-2026-10-06.py` (Python 3.14.5), a lavoro committato: **R1-R23 tutte rosse, ognuna con i test detti che cadono** (R1 4, R2 3, R3 1, R4 2, R5 1, R22 1, R6 1, R7 1, R8 1, R9 1, R10 3, R11 1, R12 8, R13 1, R14 2, R15 1, R23 1, R16 1, R17 1, R18 1, R19 1, R20 1, R21 1).
 
-## 6 · La matrice di `git check-ignore --no-index` (0 = fuori dall'indice, 1 = dentro)
+Ultima riga, tale e quale (la codifica del file di uscita ha mangiato i punti mediani):
 
-| percorso                          | base | ramo  |
-| --------------------------------- | ---- | ----- |
-| `.claude/settings.json`           | 0    | **1** |
-| `.claude/settings.local.json`     | 0    | 0     |
-| `.claude/launch.json`             | 0    | 0     |
-| `.claude/worktrees/x/CLAUDE.md`   | 0    | 0     |
-| `sub/.claude/settings.local.json` | 0    | 0     |
-| `CLAUDE.md`                       | 1    | 1     |
+`rosse come attese: 23 su 23 · a file rimessi, uscita 0 · Test Files  10 passed (10) · Tests  161 passed (161)`
 
-Esattamente l'atteso. `git ls-files .claude` sul ramo: `.claude/settings.json`, una riga sola. (In Git Bash `git rev-parse origin/main:.gitignore` e simili vanno lanciati con `MSYS_NO_PATHCONV=1`, altrimenti i due punti e le barre vengono riscritti.)
+Dopo le rosse `git status --short` è vuoto.
 
-## 7 · Le sonde
+## 7 · Il browser
 
-L'albero era pulito prima di ognuna. Nella colonna DOPO la regola nega con «Permission to use Bash with command … has been denied.»; ogni comando era composto (`cd … && test … && <sonda>`) e la negazione ha colpito l'intero comando per via della sonda dentro.
+Banco copiato da `app\banco-cli-2026-09-30` nello scratchpad (fuori dal repo), `lib-windows.mjs` → `lib.mjs`; Playwright dalla cache di `npx` e Chromium trovati. Un server alla volta, repo non toccato durante i giri.
 
-| sonda | comando                                                        | PRIMA                                                                                                                       | DOPO                                         |
-| ----- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| S1    | `git reset --hard HEAD`                                        | ESEGUITA (0): «HEAD is now at 85c0b39…»                                                                                     | NEGATA DALLA REGOLA                          |
-| S2    | `git rebase HEAD`                                              | ESEGUITA (0): «Current branch chore/claude-md-e-permessi is up to date.»                                                    | NEGATA DALLA REGOLA                          |
-| S3    | `git clean -n`                                                 | ESEGUITA (0), nessun output                                                                                                 | NEGATA DALLA REGOLA                          |
-| S4    | `git checkout -- .`                                            | ESEGUITA (0)                                                                                                                | NEGATA DALLA REGOLA                          |
-| S5    | `git restore .`                                                | ESEGUITA (0)                                                                                                                | NEGATA DALLA REGOLA                          |
-| S6    | `git switch -f chore/claude-md-e-permessi`                     | ESEGUITA (0): «Already on…»                                                                                                 | NEGATA DALLA REGOLA                          |
-| S7    | `git stash drop`                                               | ESEGUITA (1): «No stash entries found.»                                                                                     | NEGATA DALLA REGOLA                          |
-| S8    | `git push --dry-run origin HEAD:main`                          | ESEGUITA (0): «Everything up-to-date»                                                                                       | NEGATA DALLA REGOLA                          |
-| S9    | `git push --dry-run --force origin chore/claude-md-e-permessi` | BLOCCATA DALL'HOOK UTENTE: «BLOCCATO da hook utente: comando potenzialmente distruttivo (pattern: git\s+push\s+.\*--force)» | BLOCCATA DALL'HOOK UTENTE (stesso messaggio) |
-| S10   | `git push --dry-run origin --delete claude/sonda-inesistente`  | ESEGUITA (1): «error: unable to delete 'claude/sonda-inesistente': remote ref does not exist»                               | NEGATA DALLA REGOLA                          |
-| S11   | `gh pr merge --help`                                           | ESEGUITA (0): «Merge a pull request on GitHub.»                                                                             | NEGATA DALLA REGOLA                          |
-| S12   | `supabase --version`                                           | ESEGUITA (127): «supabase: command not found»                                                                               | NEGATA DALLA REGOLA                          |
-| P1    | `git status --short`                                           | ESEGUITA (0)                                                                                                                | ESEGUITA (0)                                 |
-| P2    | `git checkout -- bun.lock`                                     | ESEGUITA (0)                                                                                                                | ESEGUITA (0)                                 |
-| P3    | `git restore CLAUDE.md`                                        | ESEGUITA (1): «error: pathspec 'CLAUDE.md' did not match any file(s) known to git»                                          | ESEGUITA (0)                                 |
-| P4    | `git push --dry-run origin chore/claude-md-e-permessi`         | ESEGUITA (0): «\* [new branch] chore/claude-md-e-permessi -> chore/claude-md-e-permessi»                                    | ESEGUITA (0), stessa riga                    |
-| P5    | `git stash list`                                               | ESEGUITA (0)                                                                                                                | ESEGUITA (0)                                 |
-| P6    | `gh auth status`                                               | ESEGUITA (0): «Logged in to github.com account wolfwood370-cell»                                                            | ESEGUITA (0)                                 |
+| giro                            | dove                     | `ESITO`      |
+| ------------------------------- | ------------------------ | ------------ |
+| `giro11-cowork.mjs` porta 5511  | ramo                     | **19 su 19** |
+| `giro10-cowork.mjs` porta 5512  | ramo                     | **30 su 30** |
+| `giro10b-cowork.mjs` porta 5513 | ramo                     | **9 su 9**   |
+| `giro11-cowork.mjs` porta 5531  | base (worktree staccata) | **5 su 19**  |
 
-Le regole mordono già nella sessione in cui il file è stato creato: nessuna sessione nuova è servita. Nessuna sonda negata è stata ritentata in un'altra forma.
+I KO sulla base, tutti quelli attesi: B1 (le card del desktop senza i tre campi; `trainer_settings` né letta né scritta), B2 (messaggio, «Riprova», Salva spento), B3 (il mercoledì tornando), B4 (la pagina del telefono resta a 1024 px; il giro si ferma a metà con `TimeoutError: locator.click: Timeout 30000ms exceeded`, il difetto, non il banco), B5 (la barra sopra la navigazione), B6 (occupato durante, e libero a fine: due righe), B7 (la barra BIA · extra, niente PT · extra), B8 (Crediti extra 2 di 2, e «Presenza» in `on-surface-variant`: due righe), B9 (Sara 2 di 3 rimasti), B10 (il compleanno nella striscia «Tutto il giorno»). La worktree della base è stata tolta (giunzione staccata prima del remove).
 
-## 8 · Le prove rosse
+## 8 · Non fatto
 
-- **R1** · Matrice sulla base: `.claude/settings.json` dà 0, cioè fuori dall'indice: col `.gitignore` vecchio il file non sarebbe entrato nel commit. Sul ramo dà 1.
-- **R2** · Colonna PRIMA: S1-S8 e S10-S12 non sono negate da nessuna regola (S7 esce 1 e S12 127 per conto loro, non per un permesso). **S9 era già bloccata prima**, da un hook di livello utente (`C:\Users\wolfw\.claude\hooks\block-bash.ps1`, pattern `git\s+push\s+.*--force`): è un dato, non un errore. Conseguenza: S9 non misura la regola di progetto, perché l'hook scatta prima; la colonna DOPO dice solo che l'hook regge ancora.
-- **R3** · Dopo il passo 2:
-  - `printf x >> CLAUDE.md` → `git hash-object CLAUDE.md` = `9cb1ac5204721d26d24738a5785f908d08061c51` (diverso da `de4d18c8…`);
-  - `git checkout -- CLAUDE.md` → uscita 0 (rimettere un file per nome è permesso: nessun difetto delle regole);
-  - `git hash-object CLAUDE.md` = `de4d18c813adddb7aa24311e872d39b2dde2faf0` (uguale); albero pulito.
+Niente. Provato tutto il contratto; non ho toccato database, Google, Supabase o Stripe.
 
-## 9 · I cancelli
+## 9 · Divergenze dal prompt
 
-Suite col fuso `Europe/Rome`, da PowerShell (da Git Bash `TZ` non arriva a Node); build con `LOVABLE_SANDBOX=1`. Alla fine `rm -rf dist .output` dalla radice: uscita 0, le cartelle non ci sono più.
+- **D11 prima del commit non è misurabile.** Il prompt chiede il controllo «dopo l'applicazione, prima del commit», ma lo script legge `git rev-parse HEAD:<file>` e `git diff <base>...HEAD`, cioè i commit. Prima del commit dava D9 0 e D11 0/50 (misurato); dopo il commit D11 50/50. Ho verificato prima del commit solo typecheck 0 e `git diff --cached --name-only | wc -l` = 50. Se D11 fosse stato diverso avrei dovuto annullare un commit locale non pubblicato.
+- Il commit della patch porta anche `docs/ULTIMO-RITORNO.md` col piano (prescritto dal prompt): da qui D9 = 51 e non 50.
 
-| cancello            | base                                            | ramo                                                                             |
-| ------------------- | ----------------------------------------------- | -------------------------------------------------------------------------------- |
-| `bun run typecheck` | 0                                               | 0                                                                                |
-| `bun run lint`      | 0 · 0 errori, 14 avvisi                         | 0 · 0 errori, 14 avvisi                                                          |
-| `bun run test`      | 0 · 71 file, 1433 passati, 0 saltati, 0 falliti | 0 · 71 file, 1433 passati, 0 saltati, 0 falliti (seconda esecuzione, vedi sotto) |
-| `bun run build`     | 0                                               | 0                                                                                |
+## 10 · Trovati e non toccati
 
-**Prima esecuzione della suite sul ramo: 1 fallito su 1433** (`src/lib/clock.test.ts` › «useNow è definito una volta, in hooks/use-now.ts», «Test timed out in 5000ms», 179 s). Era partita in parallelo a typecheck e lint, e `clock.test.ts` cade sotto carico (già noto). Rilanciata da sola: 71/71 file, 1433/1433 test, 83 s. La passata non tocca codice, quindi il timeout non dipende dai file nuovi. Il numero che conta è quello della seconda esecuzione, ma lo dichiaro: non è «una volta sola».
+Nessun difetto trovato nel codice. Una nota sul banco: lo script delle rosse scrive l'uscita in una codifica che sul PC rovina i caratteri non ASCII (`·`, `«»`, `è`) se rediretta su file: non cambia l'esito, che è nella riga finale.
 
-## 10 · Gli strumenti MCP
+## 11 · Resta a Nicolò
 
-I nomi degli strumenti non contengono la parola «supabase» né «github»; il server Supabase si riconosce dal contenuto (prefisso `mcp__e1acde72-affb-48ba-ab72-228ff40a1879__`). Nessuna chiamata fatta:
-
-`apply_migration`, `confirm_cost`, `create_branch`, `create_project`, `delete_branch`, `deploy_edge_function`, `execute_sql`, `generate_typescript_types`, `get_advisors`, `get_cost`, `get_edge_function`, `get_organization`, `get_project`, `get_project_url`, `get_publishable_keys`, `list_branches`, `list_edge_functions`, `list_extensions`, `list_migrations`, `list_organizations`, `list_projects`, `list_tables`, `merge_branch`, `pause_project`, `query_logs`, `rebase_branch`, `reset_branch`, `restore_project`, `search_docs`.
-
-Il server **`github`** non si è connesso (HTTP 401, `AUTH_HEADER_REJECTED`): nessuno strumento da elencare.
-
-## 11 · Non fatto, divergenze, trovati e non toccati
-
-- **Non fatto**: niente di quanto richiesto è rimasto fuori. La colonna DOPO è stata fatta nella stessa sessione, senza riavvio.
-- **Divergenza**: la suite sul ramo è stata lanciata due volte (§9), per il timeout sotto carico.
-- **Divergenza**: il piano chiedeva l'hash accanto alle voci spuntate; ce l'hanno i passi 1 e 2, i passi senza commit no.
-- **Trovato, non toccato**: S9 non è misurabile qui, perché l'hook utente `block-bash.ps1` scatta prima di qualunque regola di progetto (§8, R2). Per provare la regola `--force` di `settings.json` serve una sessione con l'hook spento, e non sono io a spegnerlo.
-- **Trovato, non toccato**: `supabase` non è nel PATH di Git Bash (S12 PRIMA: 127): la sonda prova quindi la regola, non la CLI.
-- **Trovato, non toccato**: `clock.test.ts` cade sotto carico (timeout di 5 s), già noto.
-- Il `docs/ULTIMO-RITORNO.md` precedente (10b) è stato sostituito per intero, come negli altri ritorni.
-
-## 12 · Resta a Nicolò
-
-Il merge della PR `chore/claude-md-e-permessi` verso `main` (aperta, non unita): il link è nel messaggio che l'ha creata.
+Il merge della PR `redesign/cliente-11-coach` verso `main` (aperta, non unita: il link è nel messaggio che l'ha creata), il Publish da Lovable, e la prova sul telefono (Disponibilità, Calendario aperto da una notifica già toccata, uscita con rete caduta, crediti extra del Profilo).

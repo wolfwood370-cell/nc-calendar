@@ -226,13 +226,37 @@ export function sessionKey(accessToken: string | null | undefined): string | nul
 }
 
 /**
- * Segna un'uscita chiesta, prima di signOut(): l'istante e, se si conosce, la
- * sessione che esce (passata 10). Con lo storage negato la sa solo la scheda
- * che esce.
+ * Quante sessioni uscite il segno ricorda (passata 11 del lato cliente): con
+ * una sola, due «Esci» di fila con una scheda ferma in background liberavano il
+ * telefono, perché la scheda si svegliava con la prima sessione e il segno
+ * nominava solo la seconda.
  */
-export function markLeaving(now = Date.now(), session: string | null = null): void {
+export const LEAVING_KEEP = 5;
+
+/** Le sessioni nominate dal segno, la più recente prima. */
+function markedSessions(raw: string | null): string[] {
+  const list = raw?.split("|", 2)[1];
+  return list ? list.split(",").filter((s) => s !== "") : [];
+}
+
+/**
+ * Segna un'uscita chiesta, prima di signOut(): l'istante e, se si conosce, la
+ * sessione che esce (passata 10), insieme alle uscite di prima, al massimo
+ * LEAVING_KEEP («1234|<la più recente>,<quella prima>»; passata 11). `forget`
+ * toglie una sessione dal segno: l'uscita non riuscita non la nomina più. Con
+ * lo storage negato la sa solo la scheda che esce.
+ */
+export function markLeaving(
+  now = Date.now(),
+  session: string | null = null,
+  forget: string | null = null,
+): void {
   try {
-    localStorage.setItem(LEAVING_KEY, session ? `${now}|${session}` : String(now));
+    const before = markedSessions(localStorage.getItem(LEAVING_KEY)).filter(
+      (s) => s !== session && s !== forget,
+    );
+    const list = (session ? [session, ...before] : before).slice(0, LEAVING_KEEP);
+    localStorage.setItem(LEAVING_KEY, list.length > 0 ? `${now}|${list.join(",")}` : String(now));
   } catch {
     // niente: resta il segno in memoria della scheda (auth.tsx)
   }
@@ -272,9 +296,15 @@ export function leftOnPurposeRecently(raw: string | null, now: number): boolean 
  */
 export function leftOnPurpose(raw: string | null, now: number, session: string | null): boolean {
   if (raw === null) return false;
-  const [atText, marked] = raw.split("|", 2);
-  const at = Number(atText);
-  if (session !== null && marked === session && Number.isFinite(at) && now >= at) return true;
+  const at = Number(raw.split("|", 2)[0]);
+  if (
+    session !== null &&
+    markedSessions(raw).includes(session) &&
+    Number.isFinite(at) &&
+    now >= at
+  ) {
+    return true;
+  }
   return leftOnPurposeRecently(raw, now);
 }
 

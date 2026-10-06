@@ -4,7 +4,7 @@ import { AuraCardSkeleton, AuraLineSkeleton } from "@/components/ui/aura-skeleto
 import { sessionLabel } from "@/lib/mock-data";
 import type { BookingRow, ProfileRow, EventTypeRow } from "@/lib/queries";
 import { cn } from "@/lib/utils";
-import { dayIndexOf, initialAgendaDayIndex } from "@/lib/agenda-day";
+import { dayIndexOf, initialAgendaDayIndex, sameDay } from "@/lib/agenda-day";
 
 export const DAY_LABELS = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
 
@@ -99,14 +99,6 @@ export function personalBlockTitle(b: { title: string | null; notes: string | nu
   return "Impegno personale";
 }
 
-export function sameDay(a: Date, b: Date) {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
-}
-
 // ----------------------------------------------------------------------------
 // Mobile Agenda View (audit finding H5)
 // ----------------------------------------------------------------------------
@@ -130,6 +122,11 @@ interface MobileAgendaViewProps {
   /** Il giorno chiesto dall'indirizzo (?date=, il tocco su una notifica): se cade nella settimana
       mostrata, l'agenda sceglie quello invece di oggi (passata 10b del lato cliente). */
   focusDate?: string;
+  /**
+   * Cambia quando la stessa notifica è toccata di nuovo col Calendario aperto:
+   * il giorno chiesto si sceglie di nuovo (passata 11 del lato cliente).
+   */
+  focusKey?: number;
   /** First-load flag from useCoachBookings so we can paint Aura
       skeletons instead of the empty-state placeholder. */
   isLoading: boolean;
@@ -145,6 +142,7 @@ export function MobileAgendaView({
   eventTypesMap,
   today,
   focusDate,
+  focusKey = 0,
   isLoading,
   onSelectAssign,
   onSelectClient,
@@ -169,10 +167,11 @@ export function MobileAgendaView({
   // Il giorno chiesto (una notifica toccata, anche col Calendario già aperto) vince su oggi; viene
   // dopo l'effetto di oggi, così se cambiano insieme resta il giorno chiesto. Cambiando settimana a
   // mano la data esce dall'indirizzo (calendar-mobile.tsx), e qui non succede niente.
+  // focusKey: la stessa notifica toccata di nuovo (passata 11).
   useEffect(() => {
     const i = dayIndexOf(weekDays, focusDate);
     if (i >= 0) setSelectedDayIdx(i);
-  }, [focusDate, weekDays]);
+  }, [focusDate, weekDays, focusKey]);
 
   const dayTimed = useMemo(() => {
     const list = timedByDay[selectedDayIdx] ?? [];

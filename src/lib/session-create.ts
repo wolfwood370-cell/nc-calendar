@@ -9,9 +9,9 @@
 //     credito della tipologia (o dello stesso session_type) fra i blocchi del
 //     cliente che contengono la data, prima quello passato; se nessuno ne ha,
 //     block_id torna vuoto e la sessione la paga un extra. Prima
-//     sceglieva fra tutti i blocchi del cliente, anche finiti:
-//     pickInsertAllocation (credit-order.ts) segue ancora quell'ordine, e la
-//     allinea la passata 11;
+//     sceglieva fra tutti i blocchi del cliente, anche finiti, e
+//     pickInsertAllocation (credit-order.ts) seguiva quell'ordine fino alla
+//     passata 11 del lato cliente;
 //   - validate_booking_extra_credits: senza block_id prende un credito extra
 //     della tipologia che vale alla data della sessione; senza credito
 //     rifiuta.
@@ -42,6 +42,8 @@ export interface ClientBlockLite {
   id: string;
   start_date: string;
   end_date: string;
+  /** L'ordine del blocco nel percorso: il trigger lo usa dopo l'inizio (passata 11). */
+  sequence_order?: number | null;
 }
 
 /** Riga da inserire in bookings. end_at lo ricalcola il trigger delle durate. */
@@ -100,7 +102,8 @@ export interface CreditPlanInput {
 /**
  * Il credito che userà la sessione, con le regole dei due trigger:
  *   1. se un blocco contiene la data, quello che validate_booking_block_allocation
- *      sceglierebbe fra tutti i blocchi del cliente;
+ *      sceglierebbe fra i blocchi del cliente che contengono la data, prima
+ *      quello passato;
  *   2. altrimenti, o se nei blocchi non c'è capienza, un credito extra della
  *      tipologia che vale alla data (validate_booking_extra_credits);
  *   3. null: nessun credito, il server rifiuterebbe.
@@ -116,7 +119,7 @@ export function planSessionCredit(input: CreditPlanInput): CreditPlan | null {
         scheduled_at: input.scheduledAt,
       },
       input.allocations,
-      ref.start_date,
+      input.blocks,
     );
     if (allocation) return { source: "block", refBlockId: ref.id, allocation };
   }

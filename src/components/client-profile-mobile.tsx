@@ -53,6 +53,7 @@ import {
 import { supabaseProfileStore } from "@/lib/profile-store";
 import { snapshotOf } from "@/lib/session-edit";
 import { profileEngagement } from "@/lib/attendance";
+import { extraTotals } from "@/lib/extra-credits";
 import { backToListSearch } from "@/lib/client-list";
 import { getRenewalInfo, type RenewalClient } from "@/lib/renewal";
 import type { PackageMode } from "@/lib/package-actions";
@@ -187,6 +188,13 @@ export function ClientProfileMobile() {
   // percorso. null = chiuso; altrimenti la scelta con cui si apre.
   const [packageMode, setPackageMode] = useState<PackageMode | "auto" | null>(null);
   const [hasExtraCredits, setHasExtraCredits] = useState(false);
+  // Crediti extra che valgono adesso, assegnati e rimasti (passata 11 del lato
+  // cliente): prima la pagina sapeva solo se un extra esisteva, e un extra dato
+  // dal Pacchetto a chi ha un percorso non si vedeva.
+  const [extraCredits, setExtraCredits] = useState<{ total: number; left: number }>({
+    total: 0,
+    left: 0,
+  });
 
   const totalBlocks = blocks.length;
   const totalWeeks = totalBlocks * WEEKS_PER_BLOCK;
@@ -298,11 +306,11 @@ export function ClientProfileMobile() {
     // cliente Libero non ha blocchi ma può avere extra_credits già assegnati).
     const { data: ec } = await supabase
       .from("extra_credits")
-      .select("id")
-      .eq("client_id", clientId)
-      .limit(1);
+      .select("quantity, quantity_booked, expires_at")
+      .eq("client_id", clientId);
     if (isStale()) return;
     setHasExtraCredits((ec ?? []).length > 0);
+    setExtraCredits(extraTotals(ec ?? [], new Date()));
     // M5 (audit): completedByBlockType viene calcolato piu' sotto dai booking
     // del cliente gia' caricati (clientBookings), evitando una seconda query.
 
@@ -795,13 +803,14 @@ export function ClientProfileMobile() {
     );
     const status = expiringSoon
       ? { label: "In scadenza", className: "bg-warning-soft text-warning-text" }
-      : current || hasExtraCredits
+      : // Un cliente con soli extra scaduti non è «Attivo» (passata 11).
+        current || extraCredits.total > 0
         ? { label: "Attivo", className: "bg-success-soft text-success-text" }
         : finished
           ? { label: "Completato", className: "bg-surface-container text-on-surface-variant" }
           : null;
     return { currentNum, expiry, expiringSoon, bars: Array.from(grouped.values()), status };
-  }, [blockAggregates, totalBlocks, hasExtraCredits, today, renewalProfile, blocks, allocations]);
+  }, [blockAggregates, totalBlocks, extraCredits, today, renewalProfile, blocks, allocations]);
 
   // Presenza di getAttendance, la stessa della lista Clienti (passata 05).
   const engage = useMemo(() => profileEngagement(clientBookings, new Date()), [clientBookings]);
@@ -931,8 +940,8 @@ export function ClientProfileMobile() {
               </p>
             )}
             <div className="flex flex-col gap-4">
-              {pkg.bars.length === 0 ? (
-                <p className="text-[13px] text-outline m-0">Nessun credito impostato.</p>
+              {pkg.bars.length === 0 && extraCredits.total === 0 ? (
+                <p className="text-[13px] text-on-surface-variant m-0">Nessun credito impostato.</p>
               ) : (
                 pkg.bars.map((barRow) => {
                   const color = creditColor(barRow.name);
@@ -956,6 +965,15 @@ export function ClientProfileMobile() {
                     </div>
                   );
                 })
+              )}
+              {extraCredits.total > 0 && (
+                <div className="flex justify-between text-[13px]">
+                  <span className="font-semibold text-on-surface-variant">Crediti extra</span>
+                  <span className="tabular-nums text-on-surface">
+                    {extraCredits.left === 1 ? "1 rimasto" : `${extraCredits.left} rimasti`} di{" "}
+                    {extraCredits.total}
+                  </span>
+                </div>
               )}
             </div>
             {pkg.expiringSoon && (
@@ -1246,7 +1264,7 @@ export function ClientProfileMobile() {
                 >
                   {engage.att === null ? "—" : `${engage.att}%`}
                 </p>
-                <p className="text-[11px] text-outline mt-1 m-0">Presenza</p>
+                <p className="text-[11px] text-on-surface-variant mt-1 m-0">Presenza</p>
               </div>
               <div className="w-px bg-surface-container-high" />
               <div className="flex-1 text-center">
@@ -1258,17 +1276,19 @@ export function ClientProfileMobile() {
                 >
                   {engage.noshow}
                 </p>
-                <p className="text-[11px] text-outline mt-1 m-0">Assenze (8 sett.)</p>
+                <p className="text-[11px] text-on-surface-variant mt-1 m-0">Assenze (8 sett.)</p>
               </div>
               <div className="w-px bg-surface-container-high" />
               <div className="flex-1 text-center">
                 <p className="tabular-nums font-display text-2xl font-bold text-on-surface m-0">
                   {engage.perWeek}
                 </p>
-                <p className="text-[11px] text-outline mt-1 m-0">Sess./sett.</p>
+                <p className="text-[11px] text-on-surface-variant mt-1 m-0">Sess./sett.</p>
               </div>
             </div>
-            <p className="text-xs text-outline text-center mt-4 m-0">
+            {/* on-surface-variant e non outline: outline sul bianco fa 4,47:1,
+                sotto il 4,5:1 del testo piccolo (contrast.test.ts; passata 11). */}
+            <p className="text-xs text-on-surface-variant text-center mt-4 m-0">
               Ultima sessione: {engage.lastLabel}
             </p>
           </section>

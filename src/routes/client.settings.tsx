@@ -242,16 +242,14 @@ function ClientSettings() {
   const linkGoogle = async () => {
     setSheet(null);
     toast.info(googleLinkToast(identity.email));
-    await signOut();
-    void navigate({ to: "/auth" });
+    if (await signOut()) void navigate({ to: "/auth" });
   };
 
   // Prima dell'uscita, la riga di chi esce per questo dispositivo: le sue
   // notifiche non arrivano più a chi userà il telefono dopo (passata 08).
   const logout = async () => {
     if (user) await forgetPushForUser(user.id);
-    await signOut();
-    void navigate({ to: "/auth" });
+    if (await signOut()) void navigate({ to: "/auth" });
   };
 
   // «Riprova» del percorso (passata 09, come la Home e Sessioni): riuscito, la
