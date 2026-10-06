@@ -6,26 +6,25 @@
 // errori li mostra il foglio di Prenota, e la pagina resta dov'è.
 //   1. Prima di scrivere: cliente, coach, tipologia, orario, la finestra del
 //      giorno scelto e le 24 ore di preavviso, con l'ora del momento: il foglio
-//      può essere rimasto aperto, e all'inserimento il server il preavviso non
-//      lo guarda (enforce_client_booking_rules guarda solo la tipologia).
+//      può essere rimasto aperto. Dal giro del server del 02/10/2026 preavviso
+//      e orizzonte li controlla anche enforce_client_booking_rules (P0001, «Si
+//      prenota e si sposta da 24 ore a 14 giorni prima.»): qui si evita la
+//      richiesta e si dà il testo dell'app.
 //   2. L'inserimento paga col credito del giorno scelto: block_id è il blocco
 //      della finestra (window.blockId) se la pagano i crediti di un blocco,
 //      nullo se la paga un extra. Ogni credito vale nel suo blocco, e le date
 //      del blocco dopo si prenotano coi suoi (decisioni di Nicolò del
 //      28/09/2026). Sovrapposizione e crediti li controlla il server (23P01,
-//      P0001). Oggi validate_booking_block_allocation sceglie comunque fra
-//      tutti i blocchi del cliente, anche finiti, e riscrive block_id
-//      (20260827143053_4c03121c-…sql:35-61): lo corregge il server il
-//      02/10/2026, e l'app non lo compensa.
+//      P0001): dal giro del 02/10/2026 validate_booking_block_allocation usa
+//      il blocco passato se contiene la data, altrimenti un altro blocco del
+//      cliente che la contiene, e se lì non c'è un credito la sessione la paga
+//      un extra che vale alla data (validate_booking_extra_credits).
 //   3. Chi prenota entro 48 ore risulta già confermato (O3), e il riepilogo lo
-//      promette; il server non lo fa ancora (la migrazione O3 è del
-//      02/10/2026). Quindi, dopo l'inserimento, confirm_booking_attendance, e
-//      se ne aspetta la risposta; un errore va solo in console e la sessione
-//      resta «Da confermare». Con la migrazione O3 diventa una chiamata che non
-//      fa niente, e si toglie. Il server rifiuta ogni modifica del cliente a una
-//      sessione che inizia prima di now() + 24 ore (20260607191854_…sql:15):
-//      un orario preso a pochi secondi dalla soglia fa fallire la conferma, e
-//      vale il ripiego.
+//      promette (confirmsOnBooking): lo scrive il server all'inserimento
+//      (enforce_client_booking_rules, dal giro del 02/10/2026). La chiamata a
+//      confirm_booking_attendance dopo l'inserimento, che col server nuovo
+//      rispondeva false e scriveva un errore in console, è tolta nella
+//      passata 10.
 //   4. Gli effetti di contorno, senza aspettarli: l'evento di Google Calendar
 //      (gcalCreateEvent, lato server; l'invito arriva all'email del cliente),
 //      l'avviso al coach (booking-notifications), la push al cliente.
@@ -39,7 +38,7 @@ import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { CreditWindow } from "@/lib/booking-rules";
-import { NOTICE_GONE, bookingErrorMessage, confirmsOnBooking, noticeOk } from "@/lib/client-book";
+import { NOTICE_GONE, bookingErrorMessage, noticeOk } from "@/lib/client-book";
 import { gcalCreateEvent } from "@/lib/gcal.functions";
 import type { SessionType } from "@/lib/mock-data";
 import { sendPush } from "@/lib/push";
@@ -196,16 +195,6 @@ export function useBookConfirm(input: UseBookConfirmInput): UseBookConfirmReturn
     // Da qui la sessione c'è: niente di quello che segue la trasforma in un
     // errore (un errore rimanderebbe a riprovare, e la prenotazione raddoppierebbe).
     announce({ bookingId, meId, coachId, meName, mePhone, type, iso, endISO });
-    if (confirmsOnBooking(iso, new Date())) {
-      try {
-        const res = await supabase.rpc("confirm_booking_attendance", { p_booking_id: bookingId });
-        if (res.error || res.data === false) {
-          console.error("confirm_booking_attendance failed", res.error ?? "non aggiornata");
-        }
-      } catch (e) {
-        console.error("confirm_booking_attendance failed", e);
-      }
-    }
     refresh();
     return { ok: true, bookingId };
   };

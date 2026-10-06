@@ -7,6 +7,7 @@ import type { CreditWindow } from "@/lib/booking-rules";
 import { NO_COACH, type BookCoach, type BookOption, type BookState } from "@/lib/client-book";
 import {
   LOCKED_TITLE,
+  RATING_NOTE_MAX,
   absentHint,
   actionErrorText,
   canRebook,
@@ -767,5 +768,11 @@ describe("inviteText · l'email del server (passata 09)", () => {
     expect(inviteText(session("d1"), EMAIL, NOW)).not.toBeNull();
     expect(inviteText(session("d1"), "giulia b@example.com", NOW)).toBeNull();
     expect(inviteText(session("d1"), '"giulia"@example.com', NOW)).toBeNull();
+  });
+});
+
+describe("la nota della valutazione (passata 10)", () => {
+  it("RATING_NOTE_MAX è il limite del server: char_length(note) <= 1000 (session_feedback_note_length)", () => {
+    expect(RATING_NOTE_MAX).toBe(1000);
   });
 });

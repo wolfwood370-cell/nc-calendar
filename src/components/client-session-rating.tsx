@@ -13,10 +13,12 @@
 // disattivato finché non c'è una stella. Salvata: le stelle in sola lettura,
 // la nota fra «», e «Modifica valutazione» solo se si valuta ancora
 // (ratingState: entro 14 giorni, creata nell'app).
-// Salva useSetSessionFeedback con la nota: senza la colonna note (migrazione
-// del 02/10/2026) il voto si salva e il toast lo dice. Quello appena salvato
-// si vede subito, finché la rilettura delle valutazioni non lo porta nelle
-// props. I colori sono token, nessun esadecimale.
+// Salva useSetSessionFeedback con la nota, al più RATING_NOTE_MAX caratteri
+// (il limite del server dal giro del 02/10/2026: l'area di testo non ne
+// lascia scrivere di più, passata 10); senza la colonna note il voto si salva
+// e il toast lo dice. Quello appena salvato si vede subito, finché la
+// rilettura delle valutazioni non lo porta nelle props. I colori sono token,
+// nessun esadecimale.
 // ----------------------------------------------------------------------------
 
 import { useRef, useState, type KeyboardEvent } from "react";
@@ -24,7 +26,7 @@ import { toast } from "sonner";
 import { ClientButton } from "@/components/client-button";
 import { useSetSessionFeedback } from "@/hooks/use-session-feedback";
 import type { BookCoach } from "@/lib/client-book";
-import { ratingToast, starsLabel } from "@/lib/client-session-detail";
+import { RATING_NOTE_MAX, ratingToast, starsLabel } from "@/lib/client-session-detail";
 import { CARD_TITLE } from "@/lib/client-type";
 import { segmentKeyTarget } from "@/lib/segment-keys";
 import { cn } from "@/lib/utils";
@@ -184,6 +186,7 @@ export function ClientSessionRating({
           {choice > 0 && (
             <textarea
               rows={2}
+              maxLength={RATING_NOTE_MAX}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               aria-label="Nota per il coach, facoltativa"
