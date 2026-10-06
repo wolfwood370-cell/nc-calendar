@@ -5,10 +5,10 @@
 // manage clients bookings», 20260509204116) e il credito lo scalano i trigger
 // BEFORE INSERT che girano anche quando prenota il cliente, come sono dal giro
 // del server del 02/10/2026:
-//   - validate_booking_block_allocation: con block_id e un cliente, prende il
-//     credito dal blocco passato se contiene la data, altrimenti da un altro
-//     blocco del cliente che la contiene; se lì non c'è un credito della
-//     tipologia, block_id torna vuoto e la sessione la paga un extra. Prima
+//   - validate_booking_block_allocation: con block_id e un cliente, prende un
+//     credito della tipologia (o dello stesso session_type) fra i blocchi del
+//     cliente che contengono la data, prima quello passato; se nessuno ne ha,
+//     block_id torna vuoto e la sessione la paga un extra. Prima
 //     sceglieva fra tutti i blocchi del cliente, anche finiti:
 //     pickInsertAllocation (credit-order.ts) segue ancora quell'ordine, e la
 //     allinea la passata 11;

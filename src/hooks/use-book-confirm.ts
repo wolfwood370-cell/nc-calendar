@@ -15,10 +15,11 @@
 //      nullo se la paga un extra. Ogni credito vale nel suo blocco, e le date
 //      del blocco dopo si prenotano coi suoi (decisioni di Nicolò del
 //      28/09/2026). Sovrapposizione e crediti li controlla il server (23P01,
-//      P0001): dal giro del 02/10/2026 validate_booking_block_allocation usa
-//      il blocco passato se contiene la data, altrimenti un altro blocco del
-//      cliente che la contiene, e se lì non c'è un credito la sessione la paga
-//      un extra che vale alla data (validate_booking_extra_credits).
+//      P0001): dal giro del 02/10/2026 validate_booking_block_allocation
+//      prende un credito della tipologia (o dello stesso session_type) fra i
+//      blocchi del cliente che contengono la data, prima quello passato; se
+//      nessuno ne ha, block_id torna vuoto e la sessione la paga un extra che
+//      vale alla data (validate_booking_extra_credits).
 //   3. Chi prenota entro 48 ore risulta già confermato (O3), e il riepilogo lo
 //      promette (confirmsOnBooking): lo scrive il server all'inserimento
 //      (enforce_client_booking_rules, dal giro del 02/10/2026). La chiamata a

@@ -118,10 +118,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { error } = await supabase.auth.signOut();
       done = !error;
     } finally {
-      // Uscita non riuscita (un errore restituito, come con la rete giù, o
-      // un'eccezione): la sessione resta viva, e il segno non la nomina più,
-      // vale solo il margine di dieci secondi. Se poi quella sessione scade o
-      // la si revoca altrove, il telefono si libera (passata 10).
+      // Uscita non riuscita (un errore restituito o un'eccezione): il segno non
+      // nomina più la sessione, e vale solo il margine di dieci secondi. Di
+      // solito la sessione resta viva (con la rete giù auth-js la tiene), e se
+      // poi scade o la si revoca altrove il telefono si libera. Se invece
+      // auth-js l'ha già tolta (il rinnovo del token rifiutato), una scheda
+      // ferma che riceve SIGNED_OUT dopo i dieci secondi libera il telefono,
+      // come per una sessione scaduta (passata 10).
       if (!done) markLeaving(at);
       leaving.current = false;
     }

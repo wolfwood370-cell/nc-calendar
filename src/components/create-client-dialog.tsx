@@ -292,8 +292,9 @@ export function CreateClientDialog({
           </div>
           {/* Il telefono, come nel dialog del desktop: senza, il cliente creato
               dal telefono nasceva senza numero, e il Profilo senza WhatsApp
-              (passata 10 del lato cliente). Senza autoComplete: col valore tel
-              il browser proporrebbe il numero di chi compila, cioè del coach. */}
+              (passata 10 del lato cliente). Senza autoComplete: il valore tel
+              chiederebbe al browser il numero di chi compila, cioè del coach
+              (Chrome può proporlo lo stesso, dal tipo e dall'etichetta). */}
           <div className="space-y-2">
             <Label htmlFor="new-client-phone">Telefono (facoltativo)</Label>
             <Input
