@@ -68,11 +68,14 @@ const BellButton = React.forwardRef<HTMLButtonElement, BellButtonProps>(function
       )}
     >
       <Bell className="size-[18px]" />
-      {/* Design handoff: badge numerico non-lette (al posto del pallino muto) */}
+      {/* Design handoff: badge numerico non-lette (al posto del pallino muto).
+          Fondo error come il badge del desktop: il bianco a 10 px su
+          error-bright faceva 4,23:1, sotto il 4,5:1 del testo piccolo
+          (contrast.test.ts, passata 10). */}
       {unread > 0 && (
         <span
           aria-hidden
-          className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-error-bright text-white text-[10px] font-bold flex items-center justify-center border-2 border-surface tabular-nums"
+          className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-error text-white text-[10px] font-bold flex items-center justify-center border-2 border-surface tabular-nums"
         >
           {unread}
         </span>

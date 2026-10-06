@@ -18,7 +18,8 @@
 // un'azione si resta sulla sessione: Annulla e Sposta chiudono il foglio,
 // rileggono il dettaglio e lasciano un toast con «Ripristina» per 8 secondi;
 // «Ripristina» riuscito rimette il focus sul titolo, se si era perso col
-// toast (passata 09).
+// toast (passata 09); «Conferma presenza» riuscita lo stesso, se il focus si
+// era perso o stava ancora sul pulsante (passata 10).
 // Il coach viene da useMyCoach (get_my_coach): finché non arriva, o senza
 // nome, i testi dicono «il tuo coach», e la riga «con …» e i pulsanti
 // WhatsApp non ci sono.
@@ -151,11 +152,14 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
   };
   const moveUndo = useMoveUndo(coach, refreshDetail, focusTitleIfLost);
 
-  // «Conferma presenza» sparisce con la rilettura: il focus va sul titolo.
+  // «Conferma presenza» sparisce con la rilettura: il focus va sul titolo, ma
+  // solo se è ancora sul pulsante o si è perso; chi intanto è andato altrove
+  // resta dov'è (passata 10).
+  const confirmRef = useRef<HTMLButtonElement>(null);
   const onConfirmAttendance = () => {
     confirmAttendance.mutate(
       { bookingId: booking.id, clientId: booking.client_id },
-      { onSuccess: () => titleRef.current?.focus({ preventScroll: true }) },
+      { onSuccess: () => focusIfLost(titleRef.current, null, confirmRef.current) },
     );
   };
 
@@ -248,11 +252,14 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
             <DetailRow icon={place.online ? Video : MapPin}>
               <span>{place.text}</span>
               {place.mapsHref && (
+                // L'area di tocco arriva a 44 px senza cambiare l'aspetto: 12 px
+                // sopra e sotto il testo, su spazio che non è di altri controlli
+                // (sopra il luogo, sotto il fondo della sezione). Passata 10.
                 <a
                   href={place.mapsHref}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-0.5 self-start text-sm font-bold text-aura-primary"
+                  className="relative mt-0.5 self-start text-sm font-bold text-aura-primary before:absolute before:inset-x-0 before:-inset-y-3"
                 >
                   Apri in Mappe
                 </a>
@@ -275,6 +282,7 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
           {panel.confirm && (
             <div className="flex flex-col gap-2">
               <ClientButton
+                ref={confirmRef}
                 fullWidth
                 icon={CircleCheck}
                 busy={confirmAttendance.isPending}

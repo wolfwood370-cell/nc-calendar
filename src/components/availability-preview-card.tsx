@@ -132,7 +132,9 @@ export function BookingRulesCard() {
           </Link>
         </div>
       </div>
-      <p className="text-xs leading-normal text-outline">{bookingRulesNote()}</p>
+      {/* on-surface-variant e non outline: outline sul bianco fa 4,47:1, sotto
+          il 4,5:1 del testo piccolo (contrast.test.ts, passata 10). */}
+      <p className="text-xs leading-normal text-on-surface-variant">{bookingRulesNote()}</p>
     </section>
   );
 }

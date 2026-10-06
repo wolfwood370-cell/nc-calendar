@@ -14,9 +14,10 @@
 //   - HomeConcludedCard: il percorso concluso, col WhatsApp del coach solo se
 //     c'è il link (H7: niente Store, niente Prenota).
 // Testi, stati, date e azioni vengono da client-home.ts. Il focus non si
-// perde: dopo «Conferma presenza», dopo lo spostamento e, dalla passata 09,
-// dopo «Ripristina» (se si era perso) va sul titolo della card, che resta
-// anche quando la prossima sessione cambia.
+// perde: dopo lo spostamento va sul titolo della card, che resta anche quando
+// la prossima sessione cambia; dopo «Ripristina» (passata 09) e dopo
+// «Conferma presenza» (passata 10) ci va solo se si era perso, o se stava
+// ancora sul pulsante.
 // ----------------------------------------------------------------------------
 
 import { Link } from "@tanstack/react-router";
@@ -102,15 +103,16 @@ export function HomeNextCard({
   const moved = moving ?? booking;
   const movedName = sessionName(moved, typeOf(moved));
 
-  const focusTitle = () => titleRef.current?.focus({ preventScroll: true });
-
   // Occupato e non disattivato mentre conferma: il pulsante tiene il focus,
-  // che a conferma riuscita va sul titolo («Conferma presenza» sparisce).
+  // che a conferma riuscita va sul titolo («Conferma presenza» sparisce), ma
+  // solo se è ancora sul pulsante o si è perso: chi intanto è andato altrove
+  // resta dov'è (passata 10).
+  const confirmRef = useRef<HTMLButtonElement>(null);
   const onConfirmPresence = () => {
     if (confirmAttendance.isPending) return;
     confirmAttendance.mutate(
       { bookingId: booking.id, clientId: booking.client_id },
-      { onSuccess: focusTitle },
+      { onSuccess: () => focusIfLost(titleRef.current, null, confirmRef.current) },
     );
   };
 
@@ -192,6 +194,7 @@ export function HomeNextCard({
       )}
       {card.confirm && (
         <ClientButton
+          ref={confirmRef}
           fullWidth
           icon={CircleCheck}
           aria-disabled={confirmAttendance.isPending || undefined}
@@ -226,11 +229,18 @@ export function HomeNextCard({
               {card.note.link && (
                 <>
                   {" "}
+                  {/* L'area di tocco cresce di 8 px sopra e 14 sotto senza
+                      cambiare l'aspetto (passata 10): fino a «Dettagli» sopra e
+                      alla riga di «Vedi tutte» sotto, e oltre coprirebbe loro. 39
+                      px e non 44:
+                      è un collegamento dentro una frase, che WCAG 2.5.8 ammette
+                      più piccolo. Su una riga sola, perché l'area si calcola sul
+                      riquadro del collegamento. */}
                   <a
                     href={card.note.link.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="font-bold text-primary-container"
+                    className="relative font-bold whitespace-nowrap text-primary-container before:absolute before:inset-x-0 before:-top-2 before:-bottom-3.5"
                   >
                     {card.note.link.label}
                   </a>

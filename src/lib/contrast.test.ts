@@ -88,6 +88,16 @@ describe("le coppie corrette nella passata 10 stanno sopra 4.5", () => {
     expect(ratio(up!, "surface-container-lowest")).toBeGreaterThanOrEqual(4.5);
     expect(ratio(down!, "surface-container-lowest")).toBeGreaterThanOrEqual(4.5);
   });
+  it("badge delle notifiche del telefono del coach (trainer-notifications-bell.tsx, passata 10 del cliente)", () => {
+    const [cls] = pick("trainer-notifications-bell.tsx", /"([^"]*min-w-4 h-4[^"]*)"/);
+    const bg = cls!.match(/\bbg-(\S+)/)![1]!;
+    expect(cls).toContain("text-white");
+    expect(ratio("white", bg)).toBeGreaterThanOrEqual(4.5);
+  });
+  it("nota della card «Regole di prenotazione» sul bianco (availability-preview-card.tsx, passata 10 del cliente)", () => {
+    const [fg] = pick("availability-preview-card.tsx", /text-xs leading-normal text-(\S+)"/);
+    expect(ratio(fg!, "white")).toBeGreaterThanOrEqual(4.5);
+  });
   it("conteggi nei tab di Clienti e nel filtro delle Sessioni, sulla pista", () => {
     const [clients] = pick("clients-desktop.tsx", /"text-warning-text"\s*:\s*"text-(\S+)"/);
     const [sessions] = pick("profile-sessions.tsx", /tabular-nums text-(\S+)"/);
