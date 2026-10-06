@@ -24,11 +24,13 @@ dist-ssr
 .wrangler/
 .dev.vars
 
-# Claude Code worktrees (created via `git worktree add .claude/worktrees/<branch>`).
-# Sono cartelle di lavoro temporanee dell'agente; il loro contenuto e' gia'
-# tracciato dal rispettivo branch git interno, non deve apparire come modifica
-# del main / di altri branch.
-.claude/
+# Claude Code: .claude/ resta fuori (le worktree in .claude/worktrees/<ramo>, settings.local.json,
+# launch.json): sono cartelle di lavoro dell'agente, e il contenuto di una worktree è già tracciato
+# dal suo ramo. Entra solo .claude/settings.json, i permessi del progetto, che deve arrivare anche
+# nelle worktree (CLAUDE.md, 06/10/2026). La seconda riga tiene fuori una .claude/ in una sottocartella.
+.claude/*
+*/**/.claude/
+!.claude/settings.json
 
 # Editor directories and files
 .vscode/*
