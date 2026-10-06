@@ -342,17 +342,11 @@ export function TrainerNotificationsBell() {
   const openProfile = (clientId: string) =>
     void navigate({ to: "/trainer/clients/$id", params: { id: clientId } });
 
-  const handleItemClick = (n: NotificationRow) => {
-    if (n.read_at == null) markRead.mutate(n.id);
-    setSheetOpen(false);
-    setPopoverOpen(false);
-    const { clientId } = describeNotification(n);
-    if (clientId) openProfile(clientId);
-    else void navigate({ to: "/trainer/calendar" });
-  };
-
-  // Audit S4 (desktop): il Calendario si apre sulla settimana dell'evento;
-  // `event` lo userà il pannello dettagli della passata 04 per selezionarlo.
+  // Audit S4: il Calendario si apre sulla settimana dell'evento; `event` lo
+  // usa il pannello dettagli della passata 04 per selezionarlo. Vale anche
+  // dal telefono (handleItemClick, passata 10 del lato cliente: prima la
+  // notifica apriva il Calendario senza data; quello del telefono legge già
+  // ?date=). Un acquisto apre ancora il profilo.
   const openInCalendar = (n: NotificationRow) => {
     if (n.read_at == null) markRead.mutate(n.id);
     setPopoverOpen(false);
@@ -365,6 +359,12 @@ export function TrainerNotificationsBell() {
       to: "/trainer/calendar",
       search: date ? { date, event: bookingId ?? undefined } : {},
     });
+  };
+
+  // Telefono: lo stesso, chiudendo il foglio.
+  const handleItemClick = (n: NotificationRow) => {
+    setSheetOpen(false);
+    openInCalendar(n);
   };
 
   const handleMarkAllRead = () => {

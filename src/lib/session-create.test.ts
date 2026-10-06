@@ -291,13 +291,13 @@ describe("creazione · Google e «Ripristina»", () => {
     expect(undo.credit).toBe("none");
   });
 
-  it("il server tiene la durata della tipologia se si sceglie 60 minuti (trigger delle durate)", async () => {
+  it("il server tiene i 60 minuti scelti: dal giro del 02/10/2026 una durata esplicita resta (trigger delle durate, passata 10)", async () => {
     const mem = createMemoryCalendar(seedDb());
     const { row } = await createAndCompare(mem, "marta", "Marta Conti", at("2026-10-01", "09:00"), {
       ...TYPES.bia,
       duration: 60,
     });
-    expect(row.duration_min).toBe(30);
+    expect(row.duration_min).toBe(60);
   });
 });
 

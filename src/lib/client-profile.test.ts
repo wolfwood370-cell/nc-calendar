@@ -178,8 +178,8 @@ describe("rinnovo automatico", () => {
     expect(renewalControl("fixed", false)).toBeNull();
   });
 
-  it("fisso ancora acceso: l'avviso con «Spegni», niente interruttore", () => {
-    expect(renewalControl("fixed", true)).toEqual({ kind: "fixed-on" });
+  it("fisso ancora acceso: niente, perché dal giro del 02/10/2026 il server non lo rinnova (passata 10)", () => {
+    expect(renewalControl("fixed", true)).toBeNull();
   });
 
   it("cliente libero: niente", () => {
@@ -189,6 +189,12 @@ describe("rinnovo automatico", () => {
   it("sotto l'interruttore: il giorno del blocco nuovo o cosa succede senza", () => {
     expect(autoRenewHint(true, "2026-10-18")).toBe("Nuovo blocco il 19 ott 2026");
     expect(autoRenewHint(false, "2026-10-18")).toBe("Alla scadenza il cliente non potrà prenotare");
+  });
+
+  it("l'articolo davanti al giorno: «l'8», «l'11», «il 1°» (passata 10)", () => {
+    expect(autoRenewHint(true, "2026-10-07")).toBe("Nuovo blocco l'8 ott 2026");
+    expect(autoRenewHint(true, "2026-10-10")).toBe("Nuovo blocco l'11 ott 2026");
+    expect(autoRenewHint(true, "2026-09-30")).toBe("Nuovo blocco il 1° ott 2026");
   });
 });
 

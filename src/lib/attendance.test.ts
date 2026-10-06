@@ -1,6 +1,6 @@
 import { subDays, subWeeks } from "date-fns";
 import { describe, expect, it } from "vitest";
-import { getAttendance, presenceSummary } from "@/lib/attendance";
+import { getAttendance, presenceSummary, profileEngagement } from "@/lib/attendance";
 
 const NOW = new Date(2026, 8, 25, 10, 40);
 const daysAgo = (days: number, status: string) => ({
@@ -123,5 +123,27 @@ describe("presenceSummary (Profilo desktop, passata 06)", () => {
       perWeek: "0,0",
       lastCompleted: null,
     });
+  });
+});
+
+describe("profileEngagement: le assenze del Profilo del telefono (passata 10 del lato cliente)", () => {
+  it("sono le no_show delle ultime 8 settimane, come il desktop; le annullate tardi no", () => {
+    const list = [
+      daysAgo(3, "completed"),
+      daysAgo(10, "no_show"),
+      daysAgo(12, "late_cancelled"),
+      daysAgo(20, "late_cancelled"),
+      daysAgo(70, "no_show"),
+    ];
+    const e = profileEngagement(list, NOW);
+    expect(e.noshow).toBe(1);
+    expect(e.noshow).toBe(getAttendance(list, NOW)!.noShow);
+    expect(e.noshow).toBe(presenceSummary(list, NOW).absences);
+  });
+
+  it("zero senza sessioni concluse nel periodo", () => {
+    expect(profileEngagement([daysAgo(-2, "scheduled"), daysAgo(80, "no_show")], NOW).noshow).toBe(
+      0,
+    );
   });
 });

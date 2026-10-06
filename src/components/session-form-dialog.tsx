@@ -345,9 +345,6 @@ function FormBody({
     }
   }
 
-  const showDurationNote =
-    !editing && isClient && !!type && duration === 60 && type.duration !== 60;
-
   return (
     <>
       <CoachDialogHeader title={heading} />
@@ -543,11 +540,10 @@ function FormBody({
           </select>
         </label>
       </div>
-      {showDurationNote && (
-        <p className="-mt-2 text-xs text-outline">
-          Con 1h il server salva la durata della tipologia ({formatDuration(type!.duration)}).
-        </p>
-      )}
+      {/* Niente più la nota sui 60 minuti: dal giro del server del 02/10/2026
+          una sessione creata a 60 minuti resta di 60 (set_booking_duration_defaults
+          tiene una durata esplicita), e la nota diceva il contrario (passata 10
+          del lato cliente). */}
       {locked && (
         <p className="-mt-2 text-xs text-outline">
           La sessione non è più programmata: si possono cambiare solo durata e note.

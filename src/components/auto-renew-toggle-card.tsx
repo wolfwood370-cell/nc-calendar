@@ -27,8 +27,12 @@ export function AutoRenewToggleCard({ value, saving, onChange }: AutoRenewToggle
       </CardHeader>
       <CardContent className="flex items-center justify-between gap-4">
         <div className="text-sm text-muted-foreground">
+          {/* I crediti valgono fino alla fine del loro blocco e non passano al
+              blocco dopo (decisione di Nicolò del 28/09, sul server dal giro
+              del 02/10/2026): niente più «7 giorni di tolleranza per
+              consumare i residui» (passata 10 del lato cliente). */}
           {value
-            ? "Quando il blocco corrente termina, ne verrà creato uno nuovo automaticamente con lo stesso template (4 settimane + 7 giorni di tolleranza per consumare i residui)."
+            ? "Quando il blocco corrente termina, ne verrà creato uno nuovo automaticamente con lo stesso template. I crediti valgono fino alla fine del loro blocco: quelli non usati non passano al blocco dopo."
             : "I blocchi non si rinnoveranno automaticamente. Alla fine del blocco corrente dovrai crearne uno nuovo manualmente."}
         </div>
         <Switch

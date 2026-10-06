@@ -21,6 +21,7 @@ import {
 } from "@/lib/current-block";
 import { sessionLabel, type SessionType } from "@/lib/mock-data";
 import { isValidBlock, type RenewalBlock } from "@/lib/renewal";
+import { shortDateWithArticle } from "@/lib/session-time";
 
 // ----------------------------------------------------------------------------
 // Tab e URL
@@ -185,28 +186,29 @@ export function rebaseWeeks(
 // ----------------------------------------------------------------------------
 // Rinnovo automatico (decisione di Nicolò del 26/09)
 // ----------------------------------------------------------------------------
-// L'interruttore è degli abbonamenti mensili. Un percorso fisso che ha
-// ancora il rinnovo acceso (i clienti di prima: la colonna nasce accesa)
-// mostra un avviso con «Spegni»: ensure_client_block_state non guarda il tipo
-// di percorso e a fine percorso creerebbe un blocco nuovo
-// (20260827143325_…sql:1-100). Sui fissi spenti e sui liberi, niente.
+// L'interruttore è degli abbonamenti mensili; sui fissi e sui liberi, niente.
+// Dal giro del server del 02/10/2026 ensure_client_block_state (come già il
+// cron, _auto_renew_cron_run) rinnova solo i percorsi recurring: un fisso col
+// rinnovo ancora acceso (i clienti di prima: la colonna nasce accesa) si
+// ferma comunque a fine percorso. Fino alla passata 10 del lato cliente un
+// fisso acceso mostrava un avviso con «Spegni», che diceva il contrario.
 
-export type RenewalControl = { kind: "toggle"; on: boolean } | { kind: "fixed-on" } | null;
+export type RenewalControl = { kind: "toggle"; on: boolean } | null;
 
 export function renewalControl(
   pathType: string | null,
   autoRenewBlocks: boolean | null,
 ): RenewalControl {
-  if (pathType === "recurring") return { kind: "toggle", on: autoRenewBlocks === true };
-  if (pathType === "free") return null;
-  return autoRenewBlocks === true ? { kind: "fixed-on" } : null;
+  return pathType === "recurring" ? { kind: "toggle", on: autoRenewBlocks === true } : null;
 }
 
 /** Sotto l'interruttore: quando nasce il blocco nuovo, oppure cosa succede senza. */
 export function autoRenewHint(on: boolean, lastBlockEnd: string | null): string {
   if (!on) return "Alla scadenza il cliente non potrà prenotare";
   if (!lastBlockEnd) return "Nuovo blocco alla scadenza";
-  return `Nuovo blocco il ${format(addDays(parseISO(lastBlockEnd), 1), "d MMM yyyy", { locale: it })}`;
+  // Con l'articolo che segue la pronuncia: «l'8 ott», «l'11 ott», «il 1° ott»
+  // (passata 10 del lato cliente; prima «il 8 ott»).
+  return `Nuovo blocco ${shortDateWithArticle(addDays(parseISO(lastBlockEnd), 1))}`;
 }
 
 // ----------------------------------------------------------------------------

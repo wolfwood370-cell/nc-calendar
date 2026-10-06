@@ -1,5 +1,11 @@
-import { createFileRoute, useNavigate, Link, Navigate } from "@tanstack/react-router";
-import { useState } from "react";
+import {
+  createFileRoute,
+  useNavigate,
+  useRouterState,
+  Link,
+  Navigate,
+} from "@tanstack/react-router";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import { useAuth, pathForRole } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,8 +37,47 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+// «Esci» della barra laterale del coach (passata 10 del lato cliente) porta
+// qui con { esci: true } nello stato della cronologia, e la sessione si chiude
+// qui, dopo che la pagina di prima ha lasciato andare: i suoi blocchi (la
+// sincronizzazione completa in corso, le modifiche non salvate di
+// Disponibilità e Profilo) possono fermare l'uscita, e allora la sessione
+// resta aperta. Prima si chiudeva subito, e la pagina fermata restava senza
+// sessione. Nello stato e non nell'indirizzo: un collegamento come
+// /auth?esci=1 incollato in un messaggio farebbe uscire chiunque lo apra, e
+// signOut() di Supabase esce da tutti i dispositivi.
+declare module "@tanstack/history" {
+  interface HistoryState {
+    /** L'uscita chiesta da «Esci» della barra laterale del coach. */
+    esci?: boolean;
+  }
+}
+
+const noSubscription = () => () => {};
+
+/**
+ * Falso sul server e nel disegno che idrata la pagina, vero in ogni altro
+ * disegno del browser, anche il primo di una pagina aperta dall'app. Uno
+ * useState(false) messo a true da un effetto sarebbe falso anche al primo
+ * disegno di /auth aperta da «Esci», e lì il <Navigate> verso l'area del
+ * ruolo partirebbe prima dell'uscita (misurato: /auth, poi /trainer, poi di
+ * nuovo /auth).
+ */
+function useHydrated(): boolean {
+  return useSyncExternalStore(
+    noSubscription,
+    () => true,
+    () => false,
+  );
+}
+
 function AuthPage() {
-  const { session, role, loading } = useAuth();
+  const { session, role, loading, signOut } = useAuth();
+  const esciState = useRouterState({ select: (s) => s.location.state.esci === true });
+  // Lo stato della cronologia il server non lo vede: si legge solo dopo
+  // l'idratazione, così la pagina idratata è uguale a quella del server.
+  const hydrated = useHydrated();
+  const esci = hydrated && esciState;
   const navigate = useNavigate();
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
@@ -40,6 +85,28 @@ function AuthPage() {
   const [fullName, setFullName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  // L'uscita chiesta, una volta sola; poi la voce della cronologia perde il
+  // segno (replace), così «Indietro» e un ricaricamento non escono di nuovo.
+  const leaving = useRef(false);
+  useEffect(() => {
+    if (!esci || loading) return;
+    if (!session) {
+      void navigate({ to: "/auth", state: {}, replace: true });
+      return;
+    }
+    if (leaving.current) return;
+    leaving.current = true;
+    void signOut().finally(() => navigate({ to: "/auth", state: {}, replace: true }));
+  }, [esci, loading, session, signOut, navigate]);
+
+  if (esci) {
+    return (
+      <div className="min-h-screen grid place-items-center" aria-busy="true">
+        <Loader2 className="size-5 animate-spin text-muted-foreground" aria-label="Uscita" />
+      </div>
+    );
+  }
 
   if (!loading && session && role) {
     return <Navigate to={pathForRole(role)} />;

@@ -13,6 +13,13 @@ describe("isToAssign", () => {
     expect(isToAssign({ ...googleEvent, is_personal: true })).toBe(false);
     expect(isToAssign({ ...googleEvent, status: "cancelled" })).toBe(false);
   });
+
+  it("anche un evento annullato tardi non è da assegnare (passata 10 del lato cliente)", () => {
+    expect(isToAssign({ ...googleEvent, status: "late_cancelled" })).toBe(false);
+    expect(
+      countToAssign([googleEvent, { ...googleEvent, status: "late_cancelled" as const }]),
+    ).toBe(1);
+  });
 });
 
 describe("countToAssign", () => {

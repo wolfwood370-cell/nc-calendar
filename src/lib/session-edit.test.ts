@@ -203,3 +203,50 @@ describe("modifica · «Ripristina»", () => {
     expect(mem.db.bookings[0]!.duration_min).toBe(60);
   });
 });
+
+// Il trigger delle durate com'è dal giro del 02/10/2026 (set_booking_duration_defaults, passata
+// 10 del lato cliente): la durata della tipologia vale quando la sessione nasce senza una durata
+// sua o cambia tipologia; uno spostamento non la ricalcola.
+describe("modifica · la durata (trigger delle durate dal giro del 02/10/2026)", () => {
+  it("cambiando tipologia e tenendo 60 minuti, la sessione resta di 60: la durata si scrive dopo la tipologia, e il server non la riporta più a quella della tipologia", async () => {
+    const mem = createMemoryCalendar(seedDb());
+    // Senza evento Google: per le righe con google_event_id il server la durata non la tocca mai.
+    mem.google.failCreate = true;
+    const { sessionId } = await createClientSession(mem.store, {
+      coachId: COACH,
+      clientId: "marta",
+      clientName: "Marta Conti",
+      type: TYPES.pt,
+      scheduledAt: at("2026-09-23", "10:00"),
+      durationMin: 60,
+    });
+    const s = (await mem.store.getEditableSession(sessionId))!;
+    expect(s.google_event_id).toBeNull();
+    const row = () => mem.db.bookings.find((b) => b.id === sessionId)!;
+    await editSession(mem.store, input(s, { type: TYPES.bia, durationMin: 60 }));
+    expect(row()).toMatchObject({ event_type_id: "bia", duration_min: 60 });
+    // e con un'altra durata scelta nel dialog, quella
+    const s2 = (await mem.store.getEditableSession(sessionId))!;
+    await editSession(mem.store, input(s2, { type: TYPES.pt, durationMin: 30 }));
+    expect(row()).toMatchObject({ event_type_id: "pt", duration_min: 30 });
+  });
+
+  it("una sessione creata a 60 minuti di una tipologia da 30 resta di 60, anche spostata", async () => {
+    const mem = createMemoryCalendar(seedDb());
+    // Senza evento Google, come sopra: così lo spostamento prova che il server la durata non la ricalcola.
+    mem.google.failCreate = true;
+    const { sessionId } = await createClientSession(mem.store, {
+      coachId: COACH,
+      clientId: "marta",
+      clientName: "Marta Conti",
+      type: TYPES.bia,
+      scheduledAt: at("2026-09-23", "11:30"),
+      durationMin: 60,
+    });
+    const row = () => mem.db.bookings.find((b) => b.id === sessionId)!;
+    expect(row()).toMatchObject({ duration_min: 60, google_event_id: null });
+    const s = (await mem.store.getEditableSession(sessionId))!;
+    await editSession(mem.store, input(s, { scheduledAt: at("2026-09-24", "11:30") }));
+    expect(row()).toMatchObject({ duration_min: 60, scheduled_at: at("2026-09-24", "11:30") });
+  });
+});

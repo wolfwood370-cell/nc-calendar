@@ -485,6 +485,7 @@ function ClientsPage() {
       firstName: data.firstName,
       lastName: data.lastName,
       email: data.email,
+      phone: data.phone,
       password: data.password,
       pathType: data.pathType,
       totalBlocks: data.totalBlocks,
@@ -517,7 +518,10 @@ function ClientsPage() {
           stays identical to desktop.
           ============================================================ */}
       <div className="block md:hidden bg-background min-h-screen">
-        <header className="fixed top-0 left-0 right-0 z-40 bg-background/80 backdrop-blur-md border-b border-outline-variant/30 flex justify-between items-center h-16 px-4">
+        {/* sticky e non fixed (passata 10 del lato cliente): dentro .page-enter,
+            che dopo l'animazione tiene un transform, un fixed scorreva via col
+            contenuto. Nel flusso, il margine che lo compensava non serve più. */}
+        <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-outline-variant/30 flex justify-between items-center h-16 px-4">
           {/* Menu button is decorative on mobile for now — sidebar is
               desktop-only, navigation lives in the bottom nav. */}
           <span className="w-10 h-10" aria-hidden />
@@ -534,7 +538,7 @@ function ClientsPage() {
           </Button>
         </header>
 
-        <main className="pt-20 pb-24 px-4 max-w-3xl mx-auto w-full flex flex-col gap-4">
+        <main className="pt-4 pb-24 px-4 max-w-3xl mx-auto w-full flex flex-col gap-4">
           {/* Pill search */}
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-outline" />

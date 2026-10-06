@@ -10,17 +10,22 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { ClientActionsStore } from "@/lib/client-actions";
 import type { ClientCreateStore } from "@/lib/client-create";
+import { parseEdgeError } from "@/lib/edge-function-error";
 
 export const supabaseClientCreateStore: ClientCreateStore = {
+  // Con una risposta non 2xx supabase.functions.invoke dà data nullo, e il
+  // motivo che admin-create-user scrive («Email già registrata.») sta nel
+  // corpo, in error.context: lo legge parseEdgeError, come per l'eliminazione.
+  // Prima al coach arrivava «Edge Function returned a non-2xx status code»
+  // (passata 10 del lato cliente).
   async createUser(input) {
     const { data: res, error } = await supabase.functions.invoke("admin-create-user", {
       body: input,
     });
     const errMsg = (res as { error?: string } | null)?.error;
     const userId = (res as { user_id?: string } | null)?.user_id;
-    if (error || errMsg || !userId) {
-      return { error: errMsg ?? error?.message ?? "Creazione cliente non riuscita." };
-    }
+    if (error) return { error: errMsg ?? (await parseEdgeError(error)) };
+    if (errMsg || !userId) return { error: errMsg ?? "Creazione cliente non riuscita." };
     return { userId };
   },
 

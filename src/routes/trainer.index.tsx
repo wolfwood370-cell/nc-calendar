@@ -73,8 +73,11 @@ function Overview() {
   // Assegnare" + dialog di review). La sezione qui era ridondante.
 
   // Today's appointments — solo per il layout mobile: la Panoramica desktop
-  // usa getTodayAgenda (today-agenda.ts), senza tagli.
-  const todayItems = useMemo(() => {
+  // usa getTodayAgenda (today-agenda.ts), senza tagli. Il numero conta tutte
+  // le sessioni di oggi, la lista ne mostra 5 e manda le altre al Calendario
+  // (passata 10 del lato cliente: prima il numero contava la lista tagliata,
+  // e con 7 sessioni diceva 5).
+  const todayAll = useMemo(() => {
     const s = startOfToday().getTime(),
       e = endOfToday().getTime();
     return bookings
@@ -86,9 +89,9 @@ function Overview() {
         const t = new Date(b.scheduled_at).getTime();
         return t >= s && t <= e;
       })
-      .sort((a, b) => +new Date(a.scheduled_at) - +new Date(b.scheduled_at))
-      .slice(0, 5);
+      .sort((a, b) => +new Date(a.scheduled_at) - +new Date(b.scheduled_at));
   }, [bookings]);
+  const todayItems = todayAll.slice(0, 5);
 
   // ignoreBooking / restoreBooking / markPersonalQuick / openReview RIMOSSI
   // insieme al Centro Revisione (2026-06-06): erano usati solo da quella
@@ -124,8 +127,11 @@ function Overview() {
           mutations — nothing new on the data side.
           ============================================================ */}
       <div className="block md:hidden bg-background min-h-screen">
-        {/* Glassmorphic top bar */}
-        <header className="fixed top-0 left-0 right-0 z-40 backdrop-blur-xl bg-surface/80 flex justify-between items-center px-4 py-3 border-b border-outline-variant/20">
+        {/* Glassmorphic top bar. sticky e non fixed (passata 10 del lato
+            cliente): la pagina sta dentro .page-enter, che dopo l'animazione
+            tiene un transform, e un fixed lì dentro scorreva via col
+            contenuto. Nel flusso, il margine che lo compensava non serve più. */}
+        <header className="sticky top-0 z-40 backdrop-blur-xl bg-surface/80 flex justify-between items-center px-4 py-3 border-b border-outline-variant/20">
           <div className="flex items-center gap-3">
             <Sheet>
               <SheetTrigger asChild>
@@ -180,7 +186,7 @@ function Overview() {
         </header>
 
         {/* Main scrollable content */}
-        <main className="px-4 pt-[88px] pb-8 flex flex-col gap-6">
+        <main className="px-4 pt-6 pb-8 flex flex-col gap-6">
           <h2 className="text-[28px] leading-9 font-bold text-on-surface">
             Ciao, {userName.split(" ")[0]}
           </h2>
@@ -205,10 +211,10 @@ function Overview() {
               </p>
               <div className="flex flex-col gap-1">
                 <span className="text-5xl font-extrabold text-primary tracking-tight leading-none">
-                  {todayItems.length}
+                  {todayAll.length}
                 </span>
                 <span className="text-xl font-semibold text-on-surface">
-                  {todayItems.length === 1 ? "Sessione programmata" : "Sessioni programmate"}
+                  {todayAll.length === 1 ? "Sessione programmata" : "Sessioni programmate"}
                 </span>
               </div>
             </section>
@@ -308,6 +314,17 @@ function Overview() {
                   );
                 })}
               </div>
+              {todayAll.length > todayItems.length && (
+                <Link
+                  to="/trainer/calendar"
+                  className="flex min-h-11 items-center justify-between px-1 text-sm font-semibold text-primary"
+                >
+                  {todayAll.length - todayItems.length === 1
+                    ? "Un'altra nel Calendario"
+                    : `Altre ${todayAll.length - todayItems.length} nel Calendario`}
+                  <ArrowRight className="size-4" aria-hidden />
+                </Link>
+              )}
             </section>
           ) : null}
 
