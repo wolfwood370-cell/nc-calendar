@@ -6,7 +6,7 @@ Passata di configurazione (Sonnet 5.5), ramo `chore/claude-md-e-permessi`. Nessu
 
 0. ☑ **La base** (§2), la colonna PRIMA delle sonde e i cancelli sulla base. Nessun commit.
 1. ☑ **`CLAUDE.md`**: copiato con `cp`, id verificato.
-2. ☐ **I permessi**: `.claude/settings.json` e `.gitignore`.
+2. ☑ **I permessi**: `.claude/settings.json` e `.gitignore` copiati con `cp`, id e matrice verificati.
 3. ☐ **La colonna DOPO delle sonde**, la prova rossa R3 e l'elenco degli strumenti MCP.
 4. ☐ **I cancelli sul ramo**.
 5. ☐ **Chiusura**: ritorno finito, push, PR.
@@ -36,6 +36,8 @@ I tre file in `app\`: `git hash-object` dà `de4d18c8…`, `64b1e75e…`, `d8b1a
 ## 6 · La matrice di `git check-ignore` sulla base
 
 `.claude/settings.json` 0 · `.claude/settings.local.json` 0 · `.claude/launch.json` 0 · `.claude/worktrees/x/CLAUDE.md` 0 · `sub/.claude/settings.local.json` 0 · `CLAUDE.md` 1. `git ls-files .claude` vuoto.
+
+Sul ramo (dopo il passo 2): `.claude/settings.json` **1** · `.claude/settings.local.json` 0 · `.claude/launch.json` 0 · `.claude/worktrees/x/CLAUDE.md` 0 · `sub/.claude/settings.local.json` 0 · `CLAUDE.md` 1. `git ls-files .claude` = `.claude/settings.json`, una riga.
 
 ## 7 · Le sonde (colonna PRIMA)
 
