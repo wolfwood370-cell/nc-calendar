@@ -8,7 +8,9 @@
 
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { CalendarPlus, ChevronDown, ChevronRight, Plus, UserPlus } from "lucide-react";
+import { useMemo } from "react";
 import { useAuth } from "@/lib/auth";
+import { backToListSearch } from "@/lib/client-list";
 import { useCoachClients } from "@/lib/queries";
 import type { FileRoutesById } from "@/routeTree.gen";
 import {
@@ -64,6 +66,12 @@ function useCrumb(): Crumb | null {
 
 function Breadcrumb() {
   const crumb = useCrumb();
+  // «Clienti» riporta alla lista con ricerca, tab, ordine e vista da cui si è
+  // aperto il Profilo (backToListSearch, dallo stato della cronologia), come
+  // la freccia del Profilo. Prima la lista tornava quella di base (passata 10
+  // del lato cliente).
+  const listState = useRouterState({ select: (s) => s.location.state.clientsSearch });
+  const listSearch = useMemo(() => backToListSearch({ clientsSearch: listState }), [listState]);
   if (!crumb) return null;
   return (
     // Il percorso non si restringe: si accorcia con l'ellissi solo oltre lo
@@ -75,6 +83,7 @@ function Breadcrumb() {
             {crumb.parent.to ? (
               <Link
                 to={crumb.parent.to}
+                search={listSearch}
                 // exact: sulla pagina figlia il genitore non è la pagina corrente
                 // (niente aria-current="page" doppio nel percorso).
                 activeOptions={{ exact: true }}

@@ -68,11 +68,14 @@ const BellButton = React.forwardRef<HTMLButtonElement, BellButtonProps>(function
       )}
     >
       <Bell className="size-[18px]" />
-      {/* Design handoff: badge numerico non-lette (al posto del pallino muto) */}
+      {/* Design handoff: badge numerico non-lette (al posto del pallino muto).
+          Fondo error come il badge del desktop: il bianco a 10 px su
+          error-bright faceva 4,23:1, sotto il 4,5:1 del testo piccolo
+          (contrast.test.ts, passata 10). */}
       {unread > 0 && (
         <span
           aria-hidden
-          className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-error-bright text-white text-[10px] font-bold flex items-center justify-center border-2 border-surface tabular-nums"
+          className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-error text-white text-[10px] font-bold flex items-center justify-center border-2 border-surface tabular-nums"
         >
           {unread}
         </span>
@@ -339,17 +342,11 @@ export function TrainerNotificationsBell() {
   const openProfile = (clientId: string) =>
     void navigate({ to: "/trainer/clients/$id", params: { id: clientId } });
 
-  const handleItemClick = (n: NotificationRow) => {
-    if (n.read_at == null) markRead.mutate(n.id);
-    setSheetOpen(false);
-    setPopoverOpen(false);
-    const { clientId } = describeNotification(n);
-    if (clientId) openProfile(clientId);
-    else void navigate({ to: "/trainer/calendar" });
-  };
-
-  // Audit S4 (desktop): il Calendario si apre sulla settimana dell'evento;
-  // `event` lo userà il pannello dettagli della passata 04 per selezionarlo.
+  // Audit S4: il Calendario si apre sulla settimana dell'evento; `event` lo
+  // usa il pannello dettagli della passata 04 per selezionarlo. Vale anche
+  // dal telefono (handleItemClick, passata 10 del lato cliente: prima la
+  // notifica apriva il Calendario senza data; quello del telefono legge già
+  // ?date=). Un acquisto apre ancora il profilo.
   const openInCalendar = (n: NotificationRow) => {
     if (n.read_at == null) markRead.mutate(n.id);
     setPopoverOpen(false);
@@ -362,6 +359,12 @@ export function TrainerNotificationsBell() {
       to: "/trainer/calendar",
       search: date ? { date, event: bookingId ?? undefined } : {},
     });
+  };
+
+  // Telefono: lo stesso, chiudendo il foglio.
+  const handleItemClick = (n: NotificationRow) => {
+    setSheetOpen(false);
+    openInCalendar(n);
   };
 
   const handleMarkAllRead = () => {

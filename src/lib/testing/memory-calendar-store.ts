@@ -10,8 +10,13 @@
 //     che inizia entro la sua expires_at, e se gli extra con residuo sono
 //     tutti scaduti per quella data lo dice;
 //   - reschedule_booking (stesso file, :130-298);
-//   - il trigger delle durate anche sugli UPDATE di scheduled_at,
-//     duration_min ed event_type_id;
+//   - il trigger delle durate com'è dal giro del 02/10/2026
+//     (set_booking_duration_defaults): durata e margine della tipologia solo
+//     quando la sessione nasce o cambia tipologia, e una sessione creata a
+//     60 minuti (end_at a 60 minuti dall'inizio, come la manda
+//     session-create.ts) resta di 60; negli altri UPDATE si ricalcola solo
+//     end_at (passata 10 del lato cliente: prima ogni scrittura riportava i
+//     60 minuti alla durata della tipologia);
 //   - il vincolo bookings_no_overlap_per_coach (20260522204517_…sql:147-150).
 // Ogni scrittura è una transazione: se fallisce non resta niente a metà.
 // Lo usano solo i test; l'app usa session-store.ts.
@@ -165,12 +170,25 @@ export function createMemoryCalendar(db: MemDb): MemoryCalendar {
     db.blocks.filter((b) => b.client_id === clientId && !b.deleted_at);
   const booking = (id: string) => db.bookings.find((b) => b.id === id) ?? null;
 
-  function applyDurations(b: MemBooking) {
-    if (b.event_type_id) {
+  /**
+   * set_booking_duration_defaults dal giro del 02/10/2026. `typeSet`: la
+   * sessione nasce (op "insert") o cambia tipologia; solo allora valgono
+   * durata e margine della tipologia. Le righe di Google non cambiano mai
+   * durata; end_at si ricalcola sempre.
+   */
+  function applyDurations(b: MemBooking, op: "insert" | "update", typeSet: boolean) {
+    if (b.event_type_id && typeSet) {
       const t = db.types.find((x) => x.id === b.event_type_id);
       if (t) {
         b.buffer_min = t.buffer_minutes;
-        if (!b.google_event_id && (b.duration_min == null || b.duration_min === 60)) {
+        const explicit60 =
+          op === "insert" &&
+          b.end_at != null &&
+          Date.parse(b.end_at) - Date.parse(b.scheduled_at) === 60 * 60_000;
+        if (
+          !b.google_event_id &&
+          (b.duration_min == null || (b.duration_min === 60 && !explicit60))
+        ) {
           b.duration_min = t.duration;
         }
       }
@@ -345,7 +363,7 @@ export function createMemoryCalendar(db: MemDb): MemoryCalendar {
         }
       }
       b.scheduled_at = at;
-      applyDurations(b);
+      applyDurations(b, "update", false);
       checkOverlap(b);
     });
   }
@@ -378,8 +396,9 @@ export function createMemoryCalendar(db: MemDb): MemoryCalendar {
           if (!same) return false;
         }
         if (patch.scheduled_at !== undefined) timeUpdates.push(id);
+        const typeBefore = b.event_type_id;
         Object.assign(b, patch);
-        applyDurations(b);
+        applyDurations(b, "update", b.event_type_id !== typeBefore);
         checkOverlap(b);
         return true;
       });
@@ -451,7 +470,7 @@ export function createMemoryCalendar(db: MemDb): MemoryCalendar {
             buffer_min: 0,
             end_at: row.end_at,
           };
-          applyDurations(b);
+          applyDurations(b, "insert", true);
           if (hasClient(b)) {
             if (b.block_id) takeBlockCredit(b);
             else takeExtraCredit(b);

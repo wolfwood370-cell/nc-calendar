@@ -14,7 +14,10 @@
 // sessione…» per una lettura che non è arrivata, né qui né nell'intestazione);
 // elenco non pronto (lo scheletro); l'elenco della scheda, o la sua card vuota.
 // Al cambio di scheda la pagina torna in cima: l'altro elenco comincia da lì.
-// Il contenuto è il pannello dei due tab (role="tabpanel", passata 09).
+// Il contenuto è il pannello dei due tab (role="tabpanel", passata 09), nel
+// giro del Tab (tabIndex 0, passata 10): il suo primo contenuto è un titolo,
+// che il Tab non raggiunge, e le linee guida WAI-ARIA dei tab vogliono allora
+// il pannello raggiungibile, col contorno del focus visibile.
 // ----------------------------------------------------------------------------
 
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
@@ -271,8 +274,8 @@ function ClientSessionsPage() {
         role="tabpanel"
         id={tabPanelId(TABS_ID)}
         aria-labelledby={tabId(TABS_ID, tab)}
-        tabIndex={-1}
-        className="flex flex-col gap-5 px-4 pt-2 pb-6 outline-none"
+        tabIndex={0}
+        className="flex flex-col gap-5 px-4 pt-2 pb-6"
       >
         {content}
       </div>

@@ -54,8 +54,8 @@ export function useClientBookState(now: Date, coach: BookCoach) {
   const { user } = useAuth();
   const meId = user?.id;
 
-  // Il profilo con una chiave sua: quella condivisa del profilo (query-keys.ts)
-  // la usa la Home con altre colonne, e la cache le mescolerebbe.
+  // Il profilo con una chiave sua: la cornice (use-client-shell.ts) lo legge
+  // con altre colonne, e una chiave in comune le mescolerebbe nella cache.
   const profileQ = useQuery({
     queryKey: ["client-book", "profile", meId],
     enabled: !!meId,

@@ -61,8 +61,11 @@ export function getAttendance(
 // ----------------------------------------------------------------------------
 // Il calcolo era dentro trainer.clients.$id.tsx. Cambia solo la presenza, che
 // ora è getAttendance come nella lista Clienti (prima: svolte su tutte le
-// sessioni non programmate, annullate comprese, 100 senza dati). No-show,
-// frequenza e ultima sessione restano quelli di prima.
+// sessioni non programmate, annullate comprese, 100 senza dati). Frequenza e
+// ultima sessione restano quelle di prima. Le assenze, dalla passata 10 del
+// lato cliente, sono le no_show di getAttendance (le ultime 8 settimane),
+// come «Assenze (8 sett.)» del desktop: prima il riquadro «No-show» contava
+// le annullate tardi di sempre, e nessuna assenza vera.
 
 export interface EngagementBooking extends AttendanceBooking {
   status: string;
@@ -72,6 +75,7 @@ export interface EngagementBooking extends AttendanceBooking {
 export interface Engagement {
   /** Presenza di getAttendance; null senza sessioni concluse nel periodo. */
   att: number | null;
+  /** Assenze di getAttendance (no_show delle ultime 8 settimane); 0 senza dati. */
   noshow: number;
   perWeek: string;
   lastLabel: string;
@@ -83,7 +87,7 @@ export function profileEngagement(
   now: Date = new Date(),
 ): Engagement {
   const past = bookings.filter((b) => b.status !== "scheduled");
-  const noshow = past.filter((b) => b.status === "late_cancelled").length;
+  const attendance = getAttendance(bookings, now);
   const completedTimes = bookings
     .filter((b) => b.status === "completed")
     .map((b) => new Date(b.scheduled_at).getTime());
@@ -98,8 +102,8 @@ export function profileEngagement(
   }
   const last = past[0];
   return {
-    att: getAttendance(bookings, now)?.percent ?? null,
-    noshow,
+    att: attendance?.percent ?? null,
+    noshow: attendance?.noShow ?? 0,
     perWeek,
     lastLabel: last ? format(new Date(last.scheduled_at), "EEE d MMM", { locale: it }) : "—",
   };
@@ -109,8 +113,8 @@ export function profileEngagement(
 // Riquadro «Presenza» del Profilo desktop (passata 06)
 // ----------------------------------------------------------------------------
 // «Assenze (8 sett.)» conta le stesse sessioni che getAttendance conta come
-// assenze (no_show nelle ultime 8 settimane). profileEngagement, qui sopra,
-// resta com'è perché la usa il Profilo del telefono, che non cambia.
+// assenze (no_show nelle ultime 8 settimane), come profileEngagement del
+// Profilo del telefono, qui sopra (passata 10 del lato cliente).
 
 export const SESSIONS_PER_WEEK_WEEKS = 4;
 

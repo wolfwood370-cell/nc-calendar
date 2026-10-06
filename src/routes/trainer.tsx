@@ -74,8 +74,12 @@ function TrainerLayout() {
         <TrainerSidebar />
       </div>
       {/* Colonna contenuto: su desktop niente fondo, così il gradiente
-          traspare sotto l'header come nel mock (su mobile resta bg-background). */}
-      <div className="relative flex w-full flex-1 flex-col bg-background md:bg-transparent">
+          traspare sotto l'header come nel mock (su mobile resta bg-background).
+          min-w-0: la colonna non si allarga per l'intestazione, che sa
+          stringersi (la ricerca, il percorso con l'ellissi). Senza, a 820 px
+          le Tipologie scorrevano di lato (63 px misurati nella 07 del coach;
+          passata 10 del lato cliente). */}
+      <div className="relative flex w-full min-w-0 flex-1 flex-col bg-background md:bg-transparent">
         {/* Desktop header (percorso, ricerca, «Nuovo», notifiche). The
             mobile views render their own glassmorphic header inside each page. */}
         <TrainerHeader />

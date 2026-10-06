@@ -53,7 +53,7 @@ const groups: { label: string; items: NavItem[] }[] = [
 
 /** Sidebar desktop del coach (256px): Link imposta aria-current="page" sulla voce attiva. */
 export function TrainerSidebar() {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const displayName = (user?.user_metadata?.full_name as string) || user?.email || "";
 
@@ -144,10 +144,11 @@ export function TrainerSidebar() {
           </div>
           <button
             type="button"
-            onClick={async () => {
-              await signOut();
-              navigate({ to: "/auth" });
-            }}
+            // Prima si lascia la pagina, poi si chiude la sessione (su /auth, con
+            // esci nello stato della cronologia): se la pagina ferma l'uscita
+            // (la sincronizzazione completa in corso, modifiche non salvate) la
+            // sessione resta aperta. Passata 10 del lato cliente.
+            onClick={() => void navigate({ to: "/auth", state: { esci: true } })}
             className="flex h-8 w-full items-center gap-2 rounded-full px-2.5 text-xs font-semibold text-on-surface-variant transition-colors hover:bg-surface-container"
           >
             <LogOut className="size-4" aria-hidden /> Esci

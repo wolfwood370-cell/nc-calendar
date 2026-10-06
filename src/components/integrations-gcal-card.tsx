@@ -4,8 +4,8 @@
 // Chip dello stato misurato (gcal-integration.ts), «Sincronizza ora», il
 // riquadro d'errore, le tre caselle, gli elenchi (dalla pagina) e «Cosa fa»
 // scritto su quello che l'app fa davvero:
-//   1. crea l'evento alla prenotazione (use-book-confirm.ts:244,
-//      session-store.ts:104);
+//   1. crea l'evento alla prenotazione (gcalCreateEvent, in use-book-confirm.ts
+//      e in createGoogleEvent di session-store.ts);
 //   2. invito al cliente e aggiornamenti a ogni modifica o cancellazione
 //      (gcal.server.ts, sendUpdates in gcalCreate, gcalUpdate e gcalDelete);
 //   3. i due promemoria stanno sul calendario dello studio: per Google i
@@ -13,7 +13,8 @@
 //      (gcal.server.ts, buildReminders);
 //   4. link Meet alle sessioni online in tutti i percorsi di creazione;
 //   5. la riconciliazione all'apertura del Calendario, ogni 10 minuti al
-//      massimo, sui prossimi 16 giorni (use-gcal-sync.ts, gcal.functions.ts:386-393).
+//      massimo, sui prossimi 16 giorni (use-gcal-sync.ts, gcalReconcileEvents
+//      in gcal.functions.ts).
 // ----------------------------------------------------------------------------
 
 import { Link } from "@tanstack/react-router";

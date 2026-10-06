@@ -98,6 +98,7 @@ import { queryKeys } from "@/lib/query-keys";
 import { getRenewalInfo } from "@/lib/renewal";
 import { toastWithUndo, UNDO_TOAST_DURATION } from "@/lib/toast";
 import { initials } from "@/lib/initials";
+import { tabId, tabPanelId } from "@/lib/segment-keys";
 import { cn, errorMessage } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
 
@@ -107,6 +108,9 @@ const STATUS_TONE: Record<ClientStatus, string> = {
   completed: "bg-surface-container text-on-surface-variant",
   archived: "bg-surface-container text-on-surface-variant",
 };
+
+/** I tab del profilo e il loro pannello (tabId, tabPanelId). */
+const TABS_ID = "profilo";
 
 const TABS: ReadonlyArray<{ value: ProfileTab; label: string }> = [
   { value: "panoramica", label: "Panoramica" },
@@ -557,6 +561,7 @@ export function ClientProfileDesktop({
         kind="tabs"
         size="tab"
         ariaLabel="Sezioni del profilo"
+        idBase={TABS_ID}
         className="w-fit"
         itemClassName="px-[18px]"
         value={tab}
@@ -582,73 +587,84 @@ export function ClientProfileDesktop({
         })}
       />
 
-      {tab === "panoramica" && user && (
-        <ProfileOverview
-          clientId={clientId}
-          coachId={user.id}
-          pathType={client.path_type}
-          bookings={bookings}
-          extras={data.extras}
-          eventTypes={eventTypes}
-          summary={summary}
-          renewal={renewal}
-          presence={presence}
-          now={now}
-          onGoPath={() => goTab("percorso")}
-          onGoSessions={() => goTab("sessioni")}
-          onRenew={() => setPackageMode("renew")}
-          onEdit={setEditing}
-        />
-      )}
+      {/* Il pannello dei tab (passata 10), nel giro del Tab: il suo primo
+          contenuto non sempre è un controllo, e le linee guida WAI-ARIA dei
+          tab vogliono allora il pannello raggiungibile. */}
+      <div
+        role="tabpanel"
+        id={tabPanelId(TABS_ID)}
+        aria-labelledby={tabId(TABS_ID, tab)}
+        tabIndex={0}
+        className="flex min-w-0 flex-col gap-5"
+      >
+        {tab === "panoramica" && user && (
+          <ProfileOverview
+            clientId={clientId}
+            coachId={user.id}
+            pathType={client.path_type}
+            bookings={bookings}
+            extras={data.extras}
+            eventTypes={eventTypes}
+            summary={summary}
+            renewal={renewal}
+            presence={presence}
+            now={now}
+            onGoPath={() => goTab("percorso")}
+            onGoSessions={() => goTab("sessioni")}
+            onRenew={() => setPackageMode("renew")}
+            onEdit={setEditing}
+          />
+        )}
 
-      {tab === "percorso" && (
-        <ProfilePath
-          clientName={clientName}
-          pathType={client.path_type}
-          blocks={blocks}
-          allocations={allocations}
-          bookings={bookings}
-          eventTypes={eventTypes}
-          rows={sched.rows}
-          savedRows={sched.saved}
-          pathStart={sched.start}
-          renewal={control}
-          renewalSaving={renewalSaving}
-          now={now}
-          onMoveWeek={(idx, d) => setSched((p) => ({ ...p, rows: moveWeek(p.rows, idx, d) }))}
-          onStartChange={(d) => {
-            const m = mondayOf(d);
-            setSched((p) => ({
-              ...p,
-              start: format(m, "yyyy-MM-dd"),
-              rows: regenerateWeeks(p.rows, m),
-            }));
-          }}
-          onStandardDates={() =>
-            setSched((p) =>
-              p.start ? { ...p, rows: regenerateWeeks(p.rows, parseISO(p.start)) } : p,
-            )
-          }
-          onRenewalChange={(on) => void setAutoRenew(on)}
-          onEdit={setEditing}
-          onAssignPath={() => setPackageMode("path")}
-          onCreditsSaved={refresh}
-        />
-      )}
+        {tab === "percorso" && (
+          <ProfilePath
+            clientName={clientName}
+            pathType={client.path_type}
+            blocks={blocks}
+            allocations={allocations}
+            bookings={bookings}
+            eventTypes={eventTypes}
+            rows={sched.rows}
+            savedRows={sched.saved}
+            pathStart={sched.start}
+            renewal={control}
+            renewalSaving={renewalSaving}
+            now={now}
+            onMoveWeek={(idx, d) => setSched((p) => ({ ...p, rows: moveWeek(p.rows, idx, d) }))}
+            onStartChange={(d) => {
+              const m = mondayOf(d);
+              setSched((p) => ({
+                ...p,
+                start: format(m, "yyyy-MM-dd"),
+                rows: regenerateWeeks(p.rows, m),
+              }));
+            }}
+            onStandardDates={() =>
+              setSched((p) =>
+                p.start ? { ...p, rows: regenerateWeeks(p.rows, parseISO(p.start)) } : p,
+              )
+            }
+            onRenewalChange={(on) => void setAutoRenew(on)}
+            onEdit={setEditing}
+            onAssignPath={() => setPackageMode("path")}
+            onCreditsSaved={refresh}
+          />
+        )}
 
-      {tab === "sessioni" && (
-        <ProfileSessions
-          bookings={bookings}
-          orphans={data.orphans}
-          blocks={blocks}
-          eventTypes={eventTypes}
-          now={now}
-          busy={busyOrphan}
-          onLink={(o) => void linkOne(o)}
-          onIgnore={(o) => void ignoreOne(o)}
-          onEdit={setEditing}
-        />
-      )}
+        {tab === "sessioni" && (
+          <ProfileSessions
+            bookings={bookings}
+            orphans={data.orphans}
+            blocks={blocks}
+            eventTypes={eventTypes}
+            now={now}
+            busy={busyOrphan}
+            onLink={(o) => void linkOne(o)}
+            onIgnore={(o) => void ignoreOne(o)}
+            onEdit={setEditing}
+          />
+        )}
+      </div>
 
       {/* Barra fissa sulla finestra: in un portal, perché il contenitore
           dell'animazione d'ingresso (.page-enter) ha un transform e un fixed

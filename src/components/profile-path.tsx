@@ -1,16 +1,17 @@
 // ----------------------------------------------------------------------------
 // Tab «Percorso» del Profilo desktop (passata 06, K1 e K5)
 // ----------------------------------------------------------------------------
-// Riepilogo (inizio percorso, struttura, rinnovo automatico per i mensili;
-// per i fissi ancora accesi l'avviso con «Spegni»), «Ripristina le date
-// standard» se ci sono settimane spostate, blocchi espandibili con le quattro
-// settimane: la data si cambia sul posto e la settimana resta «da salvare»
-// finché il coach non usa la barra in basso (nel componente principale).
+// Riepilogo (inizio percorso, struttura, rinnovo automatico solo per i
+// mensili: dalla passata 10 niente avviso per i fissi ancora accesi, che il
+// server non rinnova), «Ripristina le date standard» se ci sono settimane
+// spostate, blocchi espandibili con le quattro settimane: la data si cambia
+// sul posto e la settimana resta «da salvare» finché il coach non usa la
+// barra in basso (nel componente principale).
 // ----------------------------------------------------------------------------
 
 import { addDays, format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
-import { ChevronDown, ChevronRight, RotateCcw, TriangleAlert } from "lucide-react";
+import { ChevronDown, ChevronRight, RotateCcw } from "lucide-react";
 import { useState } from "react";
 import { BlockCreditsDialog } from "@/components/block-credits-dialog";
 import {
@@ -215,26 +216,6 @@ export function ProfilePath(props: ProfilePathProps) {
           </button>
         )}
       </section>
-
-      {renewal?.kind === "fixed-on" && (
-        <div
-          role="status"
-          className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-warning-line bg-warning-soft px-4 py-3"
-        >
-          <span className="flex items-center gap-2 text-sm font-semibold text-warning-text">
-            <TriangleAlert className="size-4 shrink-0" aria-hidden />
-            Il rinnovo automatico è ancora acceso: a fine percorso verrebbe creato un blocco nuovo.
-          </span>
-          <button
-            type="button"
-            disabled={renewalSaving}
-            onClick={() => onRenewalChange(false)}
-            className="h-[34px] rounded-full bg-aura-primary px-4 text-[13px] font-semibold text-white hover:bg-primary-container disabled:opacity-60"
-          >
-            Spegni
-          </button>
-        </div>
-      )}
 
       <p className="m-0 text-[13px] text-on-surface-variant">
         Cambia la data di una settimana per spostarla; le modifiche si salvano dalla barra in basso.

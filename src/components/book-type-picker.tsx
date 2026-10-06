@@ -91,7 +91,11 @@ export function BookTypePicker({
                 <Icon className="size-5" />
               </span>
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="text-[15px] font-bold text-on-surface">{o.name}</span>
+                {/* Un nome di una parola lunga va a capo dentro la parola invece
+                    di uscire dalla riga (passata 10). */}
+                <span className="text-[15px] font-bold text-on-surface [overflow-wrap:anywhere]">
+                  {o.name}
+                </span>
                 <span
                   className={cn(
                     "text-[13px] font-semibold",

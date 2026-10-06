@@ -49,6 +49,7 @@ import {
 } from "@/lib/client-list";
 import { initials } from "@/lib/initials";
 import type { EventTypeRow } from "@/lib/queries";
+import { tabId, tabPanelId } from "@/lib/segment-keys";
 import { cn } from "@/lib/utils";
 
 export interface PendingInvitation {
@@ -72,6 +73,9 @@ export interface ClientsDesktopProps {
   onToggleArchive: (row: ClientRow) => void;
   onDelete: (row: ClientRow) => Promise<void>;
 }
+
+/** I tab «Stato» e il loro pannello (tabId, tabPanelId). */
+const TABS_ID = "clienti-stato";
 
 const STATUS_CHIP: Record<ClientStatus, string> = {
   active: "bg-success-soft text-success-text",
@@ -201,6 +205,7 @@ export function ClientsDesktop(p: ClientsDesktopProps) {
           kind="tabs"
           size="tab"
           ariaLabel="Stato"
+          idBase={TABS_ID}
           className="w-fit flex-wrap"
           value={st.tab}
           onChange={(t) => setState({ tab: t })}
@@ -224,166 +229,176 @@ export function ClientsDesktop(p: ClientsDesktopProps) {
           }))}
         />
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="relative max-w-[420px] flex-[1_1_280px]">
-            <Search
-              className="pointer-events-none absolute left-3.5 top-3 size-4 text-outline"
-              aria-hidden
-            />
-            <input
-              value={q}
-              onChange={(e) => {
-                setQ(e.target.value);
-                setState({ q: e.target.value });
-              }}
-              placeholder="Cerca per nome, email o telefono"
-              aria-label="Cerca clienti"
-              className="h-10 w-full rounded-full border border-surface-variant bg-white pl-[38px] pr-4 text-sm outline-none focus:border-primary-container focus:ring-[3px] focus:ring-primary-container/15"
-            />
-          </div>
-          <div className="flex items-center gap-2.5">
-            <label className="flex items-center gap-2 text-[13px] text-on-surface-variant">
-              Ordina per
-              <select
-                value={st.sort}
-                onChange={(e) => setState({ sort: e.target.value as ClientSort })}
-                className="h-9 rounded-full border border-surface-variant bg-white px-3 text-[13px] font-semibold text-on-surface"
-              >
-                {CLIENT_SORTS.map((s) => (
-                  <option key={s} value={s}>
-                    {SORT_LABEL[s]}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <SegmentedControl
-              ariaLabel="Vista"
-              itemClassName="w-[38px] justify-center px-0"
-              value={st.view}
-              onChange={(v) => setState({ view: v })}
-              options={[
-                {
-                  value: "grid",
-                  ariaLabel: "Vista a schede",
-                  label: <LayoutGrid className="size-4" aria-hidden />,
-                },
-                {
-                  value: "table",
-                  ariaLabel: "Vista tabella",
-                  label: <List className="size-4" aria-hidden />,
-                },
-              ]}
-            />
-          </div>
-        </div>
-
-        {st.tab === "all" && invitations.length > 0 && (
-          <section
-            aria-labelledby="pending-invites"
-            className="flex flex-col gap-2.5 rounded-[24px] border border-dashed border-outline-variant bg-white px-5 py-4"
-          >
-            <div className="flex items-center gap-2">
-              <Mail className="size-4 text-aura-primary" aria-hidden />
-              <h2 id="pending-invites" className="text-[15px] font-bold">
-                Inviti in attesa
-              </h2>
-              <span className="text-[13px] text-outline">{invitations.length}</span>
-            </div>
-            {invitations.map((i) => {
-              const name = i.full_name?.trim() || i.email;
-              return (
-                <div
-                  key={i.id}
-                  className="flex flex-wrap items-center gap-3.5 border-t border-surface-container-low py-2.5"
-                >
-                  <span className="grid size-9 shrink-0 place-items-center rounded-full border-[1.5px] border-dashed border-outline-variant text-xs font-bold text-outline">
-                    {initials(i.full_name, i.email)}
-                  </span>
-                  <div className="flex min-w-0 flex-[1_1_220px] flex-col">
-                    <span className="text-sm font-semibold">{name}</span>
-                    <span className="text-xs text-outline">
-                      {i.email} · {i.sent}
-                    </span>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => p.onResendInvite(i)}
-                      className="h-[34px] rounded-full border border-surface-variant px-3.5 text-[13px] font-semibold text-aura-primary transition-colors hover:border-primary-container"
-                    >
-                      Reinvia
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => p.onCancelInvite(i)}
-                      className="h-[34px] rounded-full px-3.5 text-[13px] font-semibold text-on-surface-variant transition-colors hover:bg-surface-container"
-                    >
-                      Annulla invito
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </section>
-        )}
-
-        {p.loading ? (
-          <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="h-[196px] rounded-[24px]" />
-            ))}
-          </div>
-        ) : visible.length === 0 ? (
-          <div className="flex flex-col items-center gap-3 rounded-[24px] bg-white p-10 text-center">
-            <UserSearch className="size-8 text-outline-variant" aria-hidden />
-            <p className="text-[15px] font-semibold text-on-surface-variant">{emptyMsg}</p>
-            {q.trim() && (
-              <button
-                type="button"
-                onClick={() => {
-                  setQ("");
-                  setState({ q: "" });
+        {/* Il pannello dei tab (passata 10): ricerca, ordine, inviti ed elenco
+            cambiano col tab scelto. Il primo contenuto è la ricerca, che il
+            Tab raggiunge: il pannello non serve nel giro del Tab. */}
+        <div
+          role="tabpanel"
+          id={tabPanelId(TABS_ID)}
+          aria-labelledby={tabId(TABS_ID, st.tab)}
+          className="flex min-w-0 flex-col gap-5"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="relative max-w-[420px] flex-[1_1_280px]">
+              <Search
+                className="pointer-events-none absolute left-3.5 top-3 size-4 text-outline"
+                aria-hidden
+              />
+              <input
+                value={q}
+                onChange={(e) => {
+                  setQ(e.target.value);
+                  setState({ q: e.target.value });
                 }}
-                className="text-sm font-semibold text-aura-primary"
-              >
-                Cancella la ricerca
-              </button>
-            )}
-          </div>
-        ) : st.view === "grid" ? (
-          <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]">
-            {visible.map((r) => (
-              <ClientCard
-                key={r.client.id}
-                row={r}
-                onOpen={() => openProfile(r.client.id)}
-                onKeyDown={onKey(r.client.id)}
-                menu={
-                  <ClientRowMenu
-                    archived={r.status === "archived"}
-                    onOpen={() => openProfile(r.client.id)}
-                    onArchive={() => p.onToggleArchive(r)}
-                    onDelete={() => setDeleting(r)}
-                  />
-                }
+                placeholder="Cerca per nome, email o telefono"
+                aria-label="Cerca clienti"
+                className="h-10 w-full rounded-full border border-surface-variant bg-white pl-[38px] pr-4 text-sm outline-none focus:border-primary-container focus:ring-[3px] focus:ring-primary-container/15"
               />
-            ))}
-          </div>
-        ) : (
-          <ClientsTable
-            rows={visible}
-            onOpen={openProfile}
-            onKey={onKey}
-            menuFor={(r) => (
-              <ClientRowMenu
-                archived={r.status === "archived"}
-                onOpen={() => openProfile(r.client.id)}
-                onArchive={() => p.onToggleArchive(r)}
-                onDelete={() => setDeleting(r)}
+            </div>
+            <div className="flex items-center gap-2.5">
+              <label className="flex items-center gap-2 text-[13px] text-on-surface-variant">
+                Ordina per
+                <select
+                  value={st.sort}
+                  onChange={(e) => setState({ sort: e.target.value as ClientSort })}
+                  className="h-9 rounded-full border border-surface-variant bg-white px-3 text-[13px] font-semibold text-on-surface"
+                >
+                  {CLIENT_SORTS.map((s) => (
+                    <option key={s} value={s}>
+                      {SORT_LABEL[s]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <SegmentedControl
+                ariaLabel="Vista"
+                itemClassName="w-[38px] justify-center px-0"
+                value={st.view}
+                onChange={(v) => setState({ view: v })}
+                options={[
+                  {
+                    value: "grid",
+                    ariaLabel: "Vista a schede",
+                    label: <LayoutGrid className="size-4" aria-hidden />,
+                  },
+                  {
+                    value: "table",
+                    ariaLabel: "Vista tabella",
+                    label: <List className="size-4" aria-hidden />,
+                  },
+                ]}
               />
-            )}
-          />
-        )}
+            </div>
+          </div>
+
+          {st.tab === "all" && invitations.length > 0 && (
+            <section
+              aria-labelledby="pending-invites"
+              className="flex flex-col gap-2.5 rounded-[24px] border border-dashed border-outline-variant bg-white px-5 py-4"
+            >
+              <div className="flex items-center gap-2">
+                <Mail className="size-4 text-aura-primary" aria-hidden />
+                <h2 id="pending-invites" className="text-[15px] font-bold">
+                  Inviti in attesa
+                </h2>
+                <span className="text-[13px] text-outline">{invitations.length}</span>
+              </div>
+              {invitations.map((i) => {
+                const name = i.full_name?.trim() || i.email;
+                return (
+                  <div
+                    key={i.id}
+                    className="flex flex-wrap items-center gap-3.5 border-t border-surface-container-low py-2.5"
+                  >
+                    <span className="grid size-9 shrink-0 place-items-center rounded-full border-[1.5px] border-dashed border-outline-variant text-xs font-bold text-outline">
+                      {initials(i.full_name, i.email)}
+                    </span>
+                    <div className="flex min-w-0 flex-[1_1_220px] flex-col">
+                      <span className="text-sm font-semibold">{name}</span>
+                      <span className="text-xs text-outline">
+                        {i.email} · {i.sent}
+                      </span>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => p.onResendInvite(i)}
+                        className="h-[34px] rounded-full border border-surface-variant px-3.5 text-[13px] font-semibold text-aura-primary transition-colors hover:border-primary-container"
+                      >
+                        Reinvia
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => p.onCancelInvite(i)}
+                        className="h-[34px] rounded-full px-3.5 text-[13px] font-semibold text-on-surface-variant transition-colors hover:bg-surface-container"
+                      >
+                        Annulla invito
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </section>
+          )}
+
+          {p.loading ? (
+            <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-[196px] rounded-[24px]" />
+              ))}
+            </div>
+          ) : visible.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 rounded-[24px] bg-white p-10 text-center">
+              <UserSearch className="size-8 text-outline-variant" aria-hidden />
+              <p className="text-[15px] font-semibold text-on-surface-variant">{emptyMsg}</p>
+              {q.trim() && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQ("");
+                    setState({ q: "" });
+                  }}
+                  className="text-sm font-semibold text-aura-primary"
+                >
+                  Cancella la ricerca
+                </button>
+              )}
+            </div>
+          ) : st.view === "grid" ? (
+            <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]">
+              {visible.map((r) => (
+                <ClientCard
+                  key={r.client.id}
+                  row={r}
+                  onOpen={() => openProfile(r.client.id)}
+                  onKeyDown={onKey(r.client.id)}
+                  menu={
+                    <ClientRowMenu
+                      archived={r.status === "archived"}
+                      onOpen={() => openProfile(r.client.id)}
+                      onArchive={() => p.onToggleArchive(r)}
+                      onDelete={() => setDeleting(r)}
+                    />
+                  }
+                />
+              ))}
+            </div>
+          ) : (
+            <ClientsTable
+              rows={visible}
+              onOpen={openProfile}
+              onKey={onKey}
+              menuFor={(r) => (
+                <ClientRowMenu
+                  archived={r.status === "archived"}
+                  onOpen={() => openProfile(r.client.id)}
+                  onArchive={() => p.onToggleArchive(r)}
+                  onDelete={() => setDeleting(r)}
+                />
+              )}
+            />
+          )}
+        </div>
       </div>
 
       <NewClientDialog

@@ -11,13 +11,12 @@ import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { parseISO } from "date-fns";
-import { toast } from "sonner";
 import { CalendarContextPanel } from "@/components/calendar-context-panel";
 import { CalendarGcalReview } from "@/components/calendar-gcal-review";
 import { CalendarHeader } from "@/components/calendar-header";
 import { GcalFullSyncButton } from "@/components/gcal-full-sync-button";
 import { sameDay, MobileAgendaView } from "@/components/mobile-calendar-agenda";
-import type { GcalSync } from "@/hooks/use-gcal-sync";
+import { notifySync, type GcalSync } from "@/hooks/use-gcal-sync";
 import { useIsBelowXl } from "@/hooks/use-mobile";
 import { supabase } from "@/integrations/supabase/client";
 import { isAllDayEvent } from "@/lib/all-day-event";
@@ -28,6 +27,7 @@ import {
   useCoachEventTypes,
   type BookingRow,
 } from "@/lib/queries";
+import { quickSyncMessage } from "@/lib/gcal-sync-run";
 import { queryKeys } from "@/lib/query-keys";
 import { isToAssign } from "@/lib/to-assign";
 
@@ -211,13 +211,17 @@ export function CalendarMobile({ sync }: { sync: GcalSync }) {
             })
           }
           onClearTypes={() => setSelectedTypeIds(new Set())}
-          onRefresh={() => {
+          onRefresh={async () => {
             qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(user?.id) });
             qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(user?.id) });
             qc.invalidateQueries({ queryKey: queryKeys.clients.coach(user?.id) });
-            void runReconcile();
+            // L'esito vero, come «Sincronizza ora» del desktop: con modifiche il
+            // messaggio lo dà già runReconcile; senza, quello di
+            // quickSyncMessage, anche quando Google non risponde. Prima diceva
+            // sempre «Calendario aggiornato» (passata 10 del lato cliente).
+            const r = await runReconcile();
             markSynced();
-            toast.success("Calendario aggiornato");
+            if (!r.changed) notifySync(quickSyncMessage(r));
           }}
           lastSyncAt={lastSyncAt}
           hasBookingsError={bookingsQ.isError}

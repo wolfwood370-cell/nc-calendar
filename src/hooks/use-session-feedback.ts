@@ -65,8 +65,9 @@ export function useSetSessionFeedback() {
       note?: string | null;
     }): Promise<{ noteSaved: boolean }> => {
       const { note, ...row } = input;
-      // I tipi generati non hanno ancora la colonna note.
-      const values = (note === undefined ? row : { ...row, note }) as FeedbackInsert;
+      // La colonna note c'è dal giro del 02/10/2026 e i tipi rigenerati la
+      // portano: niente cast. Senza la chiave la nota salvata resta com'è.
+      const values: FeedbackInsert = note === undefined ? row : { ...row, note };
       const { error } = await supabase
         .from("session_feedback")
         .upsert(values, { onConflict: "booking_id" });

@@ -4,8 +4,8 @@
 // Uno per tutti i fogli del cliente (Sposta, Annulla, riepiloghi, password,
 // installazione, «Come si prenota»), sui primitivi di vaul e non su
 // components/ui/drawer.tsx, che ha lo scrim nero all'80% e una maniglia larga
-// 100 px e resta a reschedule-drawer.tsx. Tre cose che vaul 1.1.2 e Radix
-// Dialog 1.1.15 non fanno da soli:
+// 100 px (resta nel kit di ui/, ma non lo importa più nessuno). Tre cose che
+// vaul 1.1.2 e Radix Dialog 1.1.15 non fanno da soli:
 //   - aria-modal: Radix non lo scrive (nasconde il resto con aria-hidden);
 //   - il focus all'apertura: vaul ha autoFocus spento e annulla quello di
 //     Radix, e il focus resterebbe sul pulsante fuori dal foglio, che Radix

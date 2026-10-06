@@ -2,9 +2,11 @@
 // Eventi «da assegnare»
 // ----------------------------------------------------------------------------
 // Eventi importati da Google Calendar a cui manca il cliente: non impegni
-// personali, non annullati. Stesso criterio per il filtro «Da assegnare» del
-// Calendario e per il badge accanto a «Calendario» nella sidebar (audit V12),
-// così i due numeri coincidono.
+// personali, non annullati, né in tempo né tardi (late_cancelled, dalla
+// passata 10 del lato cliente: prima un evento annullato tardi restava da
+// assegnare). Stesso criterio per il filtro «Da assegnare» del Calendario e
+// per il badge accanto a «Calendario» nella sidebar (audit V12), così i due
+// numeri coincidono.
 // ----------------------------------------------------------------------------
 
 import type { BookingRow } from "@/lib/queries";
@@ -12,7 +14,9 @@ import type { BookingRow } from "@/lib/queries";
 type ToAssignFields = Pick<BookingRow, "client_id" | "is_personal" | "status">;
 
 export function isToAssign(b: ToAssignFields): boolean {
-  return !b.is_personal && !b.client_id && b.status !== "cancelled";
+  return (
+    !b.is_personal && !b.client_id && b.status !== "cancelled" && b.status !== "late_cancelled"
+  );
 }
 
 export function countToAssign(bookings: readonly ToAssignFields[] | undefined): number {

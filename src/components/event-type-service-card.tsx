@@ -106,12 +106,12 @@ export function EventTypeServiceCard({ type: t, onEdit, onDelete }: EventTypeSer
         </button>
       </div>
 
-      {/* Stepper Durata / Buffer / Prezzo */}
+      {/* Durata e buffer. Niente riga «Prezzo — €»: una tipologia non ha prezzo
+          (i Booster l'hanno nei loro pacchetti), e il segnaposto lo faceva
+          credere (passata 10 del lato cliente). */}
       <div className="flex flex-col gap-3 border-t border-surface-container-low pt-4">
         <StepperRow label="Durata" value={`${t.duration} min`} onEdit={onEdit} />
         <StepperRow label="Buffer" value={`${t.buffer_minutes} min`} onEdit={onEdit} />
-        {/* Prezzo: campo non ancora presente nei dati, placeholder visivo */}
-        <StepperRow label="Prezzo" value="— €" onEdit={onEdit} />
       </div>
 
       {/* Footer: contatore prenotazioni + azioni discrete */}
@@ -159,8 +159,14 @@ export function EventTypeServiceCard({ type: t, onEdit, onDelete }: EventTypeSer
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Eliminare la tipologia?</AlertDialogTitle>
+                {/* Quello che fa deleteEventType: rifiuta una tipologia in uso
+                    (isTypeInUse), e le sessioni passate perdono la tipologia
+                    (event_type_id ON DELETE SET NULL). Prima diceva che le
+                    prenotazioni non sarebbero cambiate (passata 10). */}
                 <AlertDialogDescription>
-                  "{t.name}" verrà rimossa. Le prenotazioni esistenti non saranno modificate.
+                  "{t.name}" verrà eliminata, se non è in uso (sessioni future, clienti con crediti,
+                  un Booster in vendita). Le sessioni passate restano nello storico, senza più
+                  questa tipologia.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

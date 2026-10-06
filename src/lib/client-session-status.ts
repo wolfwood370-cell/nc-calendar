@@ -5,14 +5,14 @@
 // Un elenco solo di stati, etichette, righe del dettaglio e icone, più quando
 // una sessione si sposta, si annulla senza perdere il credito e si valuta. Le
 // soglie sono quelle del server, lette da booking-rules.ts:
-//   - spostare: validate_client_booking_update rifiuta se l'inizio è prima di
-//     now() + 24 ore, quindi a 24 ore esatte si sposta ancora;
+//   - spostare: reschedule_booking rifiuta se l'inizio è prima di now() + 24
+//     ore, quindi a 24 ore esatte si sposta ancora;
 //   - annullare: cancel_booking segna tardivo da now() >= inizio − 24 ore,
 //     quindi a 24 ore esatte il credito si perde già.
-// La conferma entro 48 ore oggi non la mette nessuno (solo
-// confirm_booking_attendance scrive client_confirmed_at, e ogni spostamento la
-// azzera): una sessione prenotata a meno di 48 ore risulta «Da confermare»
-// finché la migrazione O3 non c'è. Puri: l'ora entra come parametro.
+// La conferma entro 48 ore (O3) la scrive il server dal giro del 02/10/2026:
+// una sessione che il cliente prenota, o sposta lui, a meno di 48 ore risulta
+// già confermata; ogni altro spostamento azzera la conferma, e allora la
+// scrive confirm_booking_attendance. Puri: l'ora entra come parametro.
 // ----------------------------------------------------------------------------
 
 import { format } from "date-fns";

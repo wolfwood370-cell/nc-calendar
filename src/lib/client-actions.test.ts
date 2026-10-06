@@ -84,10 +84,14 @@ describe("«Archivia» e «Ripristina»", () => {
 });
 
 describe("«inviato … fa»", () => {
-  const now = new Date("2026-09-25T10:40:00+02:00");
+  // Ore locali, come le altre prove con le date: sentAgo conta i giorni del
+  // calendario di chi guarda, e con +02:00 scritto nelle stringhe la prova a
+  // Los Angeles cadeva («ieri» invece di «oggi»). Passata 10 del lato cliente.
+  const now = new Date(2026, 8, 25, 10, 40);
+  const at = (day: number, h: number) => new Date(2026, 8, day, h, 0).toISOString();
   it("oggi, ieri, N giorni", () => {
-    expect(sentAgo("2026-09-25T07:00:00+02:00", now)).toBe("inviato oggi");
-    expect(sentAgo("2026-09-24T20:00:00+02:00", now)).toBe("inviato ieri");
-    expect(sentAgo("2026-09-22T09:00:00+02:00", now)).toBe("inviato 3 giorni fa");
+    expect(sentAgo(at(25, 7), now)).toBe("inviato oggi");
+    expect(sentAgo(at(24, 20), now)).toBe("inviato ieri");
+    expect(sentAgo(at(22, 9), now)).toBe("inviato 3 giorni fa");
   });
 });

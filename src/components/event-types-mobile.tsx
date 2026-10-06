@@ -134,9 +134,11 @@ export function EventTypesMobile() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-3 mb-3">
         <div>
           <PageTitle>Tipologie di sessione</PageTitle>
+          {/* Niente «prezzo»: una tipologia non ha prezzo (passata 10 del lato
+              cliente; i Booster l'hanno nei loro pacchetti). */}
           <p className="text-sm text-on-surface-variant mt-1">
-            La fonte di verità delle tue tipologie di sessione: durata, buffer, prezzo e colore
-            usati da calendario e prenotazioni.
+            La fonte di verità delle tue tipologie di sessione: durata, buffer e colore usati da
+            calendario e prenotazioni.
           </p>
         </div>
         <Dialog

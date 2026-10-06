@@ -342,6 +342,15 @@ export function ratingState(
   return { show: b.status === "completed" && (editable || hasFeedback), editable };
 }
 
+/**
+ * La nota della valutazione, al più: dal giro del server del 02/10/2026
+ * session_feedback rifiuta una nota più lunga (session_feedback_note_length,
+ * char_length(note) <= 1000), e col rifiuto si perderebbe anche il voto. Lo
+ * applica maxLength sull'area di testo, che conta le unità UTF-16: mai più
+ * dei caratteri che conta il server (passata 10).
+ */
+export const RATING_NOTE_MAX = 1000;
+
 /** Il nome di una stella: «1 stella», «4 stelle». */
 export function starsLabel(n: number): string {
   return n === 1 ? "1 stella" : `${n} stelle`;

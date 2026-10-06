@@ -1044,16 +1044,20 @@ export function ClientProfileMobile() {
             weeksPerBlock={WEEKS_PER_BLOCK}
           />
 
-          {/* Auto-renew toggle for monthly blocks. Default ON for new clients.
-              When OFF, the ensure_client_block_state RPC stops creating new
-              blocks once the current one expires past its grace period —
-              the cliente will see the empty state until the coach manually
-              intervenes. */}
-          <AutoRenewToggleCard
-            value={autoRenewBlocks}
-            saving={autoRenewSaving}
-            onChange={toggleAutoRenew}
-          />
+          {/* Il rinnovo automatico, solo per gli abbonamenti mensili: dal giro
+              del server del 02/10/2026 ensure_client_block_state e il cron
+              rinnovano solo i percorsi recurring, e per un fisso o un libero
+              l'interruttore non farebbe niente (come renewalControl del
+              desktop; passata 10 del lato cliente). Spento, alla fine del
+              blocco corrente non ne nasce uno nuovo: il cliente non prenota
+              finché il coach non lo rinnova. */}
+          {renewalProfile?.path_type === "recurring" && (
+            <AutoRenewToggleCard
+              value={autoRenewBlocks}
+              saving={autoRenewSaving}
+              onChange={toggleAutoRenew}
+            />
+          )}
 
           {/* Timeline del percorso */}
           <div>
@@ -1254,7 +1258,7 @@ export function ClientProfileMobile() {
                 >
                   {engage.noshow}
                 </p>
-                <p className="text-[11px] text-outline mt-1 m-0">No-show</p>
+                <p className="text-[11px] text-outline mt-1 m-0">Assenze (8 sett.)</p>
               </div>
               <div className="w-px bg-surface-container-high" />
               <div className="flex-1 text-center">

@@ -39,6 +39,8 @@ export interface CreateClientPayload {
   firstName: string;
   lastName: string;
   email: string;
+  /** Facoltativo, come nel dialog del desktop (passata 10 del lato cliente). */
+  phone?: string;
   password: string;
   pathType: "fixed" | "recurring" | "free";
   totalBlocks: number;
@@ -90,6 +92,7 @@ export function CreateClientDialog({
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [pathType, setPathType] = useState<"fixed" | "recurring" | "free">("fixed");
   const [durationPreset, setDurationPreset] = useState<string>("3");
   const [customMonths, setCustomMonths] = useState<number>(3);
@@ -113,6 +116,7 @@ export function CreateClientDialog({
       setFirstName("");
       setLastName("");
       setEmail("");
+      setPhone("");
       setPathType("fixed");
       setDurationPreset("3");
       setCustomMonths(3);
@@ -224,6 +228,7 @@ export function CreateClientDialog({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         email,
+        phone: phone.trim() || undefined,
         password: generateSecurePassword(),
         pathType,
         totalBlocks: pathType === "free" ? 0 : totalBlocks,
@@ -283,6 +288,20 @@ export function CreateClientDialog({
               onChange={(e) => setEmail(e.target.value)}
               required
               aria-required="true"
+            />
+          </div>
+          {/* Il telefono, come nel dialog del desktop: senza, il cliente creato
+              dal telefono nasceva senza numero, e il Profilo senza WhatsApp
+              (passata 10 del lato cliente). Senza autoComplete: il valore tel
+              chiederebbe al browser il numero di chi compila, cioè del coach
+              (Chrome può proporlo lo stesso, dal tipo e dall'etichetta). */}
+          <div className="space-y-2">
+            <Label htmlFor="new-client-phone">Telefono (facoltativo)</Label>
+            <Input
+              id="new-client-phone"
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
             />
           </div>
           <p className="text-xs text-muted-foreground">
