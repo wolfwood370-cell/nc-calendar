@@ -188,21 +188,51 @@ export async function forgetPushForUser(profileId: string): Promise<void> {
   }
 }
 
-/** Dove una scheda scrive l'istante in cui ha chiesto l'uscita (markLeaving): lo leggono anche le altre. */
+/**
+ * Dove una scheda scrive l'uscita chiesta (markLeaving): l'istante e, se la
+ * conosce, la sessione che esce («1234|<session_id>»). Lo leggono anche le
+ * altre schede.
+ */
 export const LEAVING_KEY = "nc-push-leaving-at";
 
 /**
- * Per quanto vale quel segno: Supabase manda SIGNED_OUT alle altre schede
- * subito dopo l'uscita. Una scheda ferma in background (Chrome su Android la
- * congela) lo riceve quando torna: oltre questo margine lo prende per
- * un'uscita non chiesta, e libera il telefono.
+ * Per quanto vale il segno quando non nomina la sessione della scheda che
+ * riceve SIGNED_OUT (il segno di prima della passata 10, l'uscita non
+ * riuscita, la sessione illeggibile): Supabase manda SIGNED_OUT alle altre
+ * schede subito dopo l'uscita. Una scheda ferma in background (Chrome su
+ * Android la congela) lo riceve quando torna, anche minuti dopo: per lei
+ * decide la sessione scritta nel segno (leftOnPurpose, passata 10), non
+ * questo margine.
  */
 export const LEAVING_WINDOW_MS = 10_000;
 
-/** Segna un'uscita chiesta, prima di signOut(); con lo storage negato la sa solo la scheda che esce. */
-export function markLeaving(now = Date.now()): void {
+/**
+ * La sessione di un access token di Supabase: il claim session_id del JWT
+ * (il payload in base64url), che resta lo stesso a ogni rinnovo del token e
+ * cambia a ogni nuovo accesso. null se il token non si legge o il claim non
+ * è una stringa piena (passata 10).
+ */
+export function sessionKey(accessToken: string | null | undefined): string | null {
+  const part = accessToken?.split(".")[1];
+  if (!part) return null;
   try {
-    localStorage.setItem(LEAVING_KEY, String(now));
+    const padded = part + "=".repeat((4 - (part.length % 4)) % 4);
+    const payload: unknown = JSON.parse(atob(padded.replace(/-/g, "+").replace(/_/g, "/")));
+    const id = (payload as { session_id?: unknown } | null)?.session_id;
+    return typeof id === "string" && id !== "" ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Segna un'uscita chiesta, prima di signOut(): l'istante e, se si conosce, la
+ * sessione che esce (passata 10). Con lo storage negato la sa solo la scheda
+ * che esce.
+ */
+export function markLeaving(now = Date.now(), session: string | null = null): void {
+  try {
+    localStorage.setItem(LEAVING_KEY, session ? `${now}|${session}` : String(now));
   } catch {
     // niente: resta il segno in memoria della scheda (auth.tsx)
   }
@@ -221,12 +251,31 @@ export function readLeaving(): string | null {
  * Un'uscita chiesta da poco, in questa scheda o in un'altra (passata 09):
  * Supabase manda SIGNED_OUT a tutte le schede aperte (BroadcastChannel), e
  * solo quella che ha chiamato signOut() ha il segno in memoria. Vale per
- * LEAVING_WINDOW_MS dal segno, e solo per un istante già passato.
+ * LEAVING_WINDOW_MS dal segno, e solo per un istante già passato; l'istante
+ * si legge anche dal segno che nomina la sessione. Dalla passata 10 la usa
+ * leftOnPurpose, quando il segno non nomina la sessione della scheda.
  */
 export function leftOnPurposeRecently(raw: string | null, now: number): boolean {
   if (raw === null) return false;
-  const at = Number(raw);
+  const at = Number(raw.split("|")[0]);
   return Number.isFinite(at) && now >= at && now - at < LEAVING_WINDOW_MS;
+}
+
+/**
+ * Un'uscita chiesta, per la scheda che riceve SIGNED_OUT (passata 10): il
+ * segno nomina la sessione che la scheda conosceva (`session`, da
+ * sessionKey) con un istante già passato, a qualunque distanza; altrimenti
+ * vale il margine di leftOnPurposeRecently. Così una scheda ferma in
+ * background che si sveglia minuti dopo un «Esci» non libera il telefono,
+ * mentre una sessione nata dopo (un nuovo accesso, un altro utente) ha un
+ * altro id, e se poi scade il telefono si libera.
+ */
+export function leftOnPurpose(raw: string | null, now: number, session: string | null): boolean {
+  if (raw === null) return false;
+  const [atText, marked] = raw.split("|", 2);
+  const at = Number(atText);
+  if (session !== null && marked === session && Number.isFinite(at) && now >= at) return true;
+  return leftOnPurposeRecently(raw, now);
 }
 
 /** Un'uscita che nessuno ha chiesto: SIGNED_OUT senza il segno di un'uscita chiesta (passata 09). */

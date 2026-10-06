@@ -58,10 +58,12 @@ import {
   VAPID_PUBLIC_KEY,
   forgetPushForUser,
   isPushEnabledFor,
+  leftOnPurpose,
   leftOnPurposeRecently,
   markLeaving,
   readLeaving,
   releasePushDevice,
+  sessionKey,
   shouldReleaseOnAuthEvent,
   subscribeToPush,
   subscriptionKeyMatches,
@@ -441,5 +443,69 @@ describe("il segno dell'uscita chiesta, letto anche dalle altre schede", () => {
     });
     expect(() => markLeaving()).not.toThrow();
     expect(readLeaving()).toBeNull();
+  });
+});
+
+describe("il segno nomina la sessione che esce (passata 10)", () => {
+  // Un access token finto: header e payload in base64url, la firma non si guarda.
+  const b64url = (text: string) =>
+    btoa(text).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const token = (payload: unknown) =>
+    `${b64url('{"alg":"HS256","typ":"JWT"}')}.${b64url(JSON.stringify(payload))}.firma`;
+  const S1 = "6f1c2a9e-3b7d-4f0a-9c55-2d8e1b4a7f30";
+  const S2 = "0b7e4d21-9a3c-4e8f-8d12-7c6b5a4f3e21";
+
+  it("sessionKey legge session_id dal token, e null se non c'è o non si legge", () => {
+    expect(sessionKey(token({ sub: "u1", session_id: S1 }))).toBe(S1);
+    // la codifica di questo payload ha «-» e «_» (base64url), e nessun «=» finale
+    const encoded = token({ session_id: S2, n: "??>>~~" }).split(".")[1]!;
+    expect(encoded).toMatch(/[-_]/);
+    expect(sessionKey(token({ session_id: S2, n: "??>>~~" }))).toBe(S2);
+    expect(sessionKey(token({ sub: "u1" }))).toBeNull();
+    expect(sessionKey(token({ session_id: 42 }))).toBeNull();
+    expect(sessionKey(token({ session_id: "" }))).toBeNull();
+    expect(sessionKey("non-un-token")).toBeNull();
+    expect(sessionKey("a.%%%.c")).toBeNull();
+    expect(sessionKey(null)).toBeNull();
+    expect(sessionKey(undefined)).toBeNull();
+  });
+
+  it("markLeaving scrive la sessione accanto all'istante, se la conosce", () => {
+    const store = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      setItem: (k: string, v: string) => store.set(k, v),
+      getItem: (k: string) => store.get(k) ?? null,
+    });
+    markLeaving(1234, S1);
+    expect(store.get(LEAVING_KEY)).toBe(`1234|${S1}`);
+    markLeaving(1234, null);
+    expect(store.get(LEAVING_KEY)).toBe("1234");
+  });
+
+  it("leftOnPurpose: la sessione del segno vale a qualunque distanza; senza, il margine di dieci secondi", () => {
+    const at = 1_000_000;
+    const mark = `${at}|${S1}`;
+    // la scheda ferma in background che si sveglia cinque minuti dopo «Esci»
+    expect(leftOnPurpose(mark, at + 5 * 60_000, S1)).toBe(true);
+    // un'altra sessione (un nuovo accesso dopo «Esci») che poi scade: il telefono si libera
+    expect(leftOnPurpose(mark, at + 5 * 60_000, S2)).toBe(false);
+    expect(leftOnPurpose(mark, at + 5 * 60_000, null)).toBe(false);
+    // dentro i dieci secondi vale come prima, con qualunque sessione
+    expect(leftOnPurpose(mark, at + 5_000, S2)).toBe(true);
+    expect(leftOnPurpose(mark, at + 9_999, null)).toBe(true);
+    expect(leftOnPurpose(mark, at + 10_000, null)).toBe(false);
+    // il segno di prima, senza la sessione: solo il margine
+    expect(leftOnPurpose(String(at), at + 5_000, S1)).toBe(true);
+    expect(leftOnPurpose(String(at), at + 60_000, S1)).toBe(false);
+    // un istante nel futuro, un segno illeggibile, nessun segno
+    expect(leftOnPurpose(`${at + 5_000}|${S1}`, at, S1)).toBe(false);
+    expect(leftOnPurpose(`abc|${S1}`, at, S1)).toBe(false);
+    expect(leftOnPurpose(null, at, S1)).toBe(false);
+  });
+
+  it("leftOnPurposeRecently legge l'istante anche dal segno con la sessione", () => {
+    const at = 1_000_000;
+    expect(leftOnPurposeRecently(`${at}|${S1}`, at + 5_000)).toBe(true);
+    expect(leftOnPurposeRecently(`${at}|${S1}`, at + 10_000)).toBe(false);
   });
 });

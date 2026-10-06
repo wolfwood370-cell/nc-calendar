@@ -4,10 +4,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  leftOnPurposeRecently,
+  leftOnPurpose,
   markLeaving,
   readLeaving,
   releasePushDevice,
+  sessionKey,
   shouldReleaseOnAuthEvent,
 } from "@/lib/push";
 import { setSentryUser, setSentryRoleTag } from "@/lib/sentry";
@@ -41,15 +42,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Le uscite chieste (signOut qui sotto: «Esci» ed «Esci e collega Google»):
   // questa scheda ha il segno in memoria, le altre leggono quello di
   // markLeaving. Le altre uscite (la sessione scaduta o revocata) arrivano
-  // come SIGNED_OUT senza segno, e liberano il telefono (passata 09).
+  // come SIGNED_OUT senza un segno che le riguardi, e liberano il telefono
+  // (passata 09).
   const leaving = useRef(false);
+  // La sessione che questa scheda conosce (sessionKey, passata 10): il segno
+  // di markLeaving la nomina, e una scheda ferma in background che riceve
+  // SIGNED_OUT minuti dopo un «Esci» la riconosce, invece di prenderlo per
+  // un'uscita non chiesta e liberare il telefono. La decisione si prende con
+  // la sessione di prima dell'evento: SIGNED_OUT arriva senza sessione.
+  const knownSession = useRef<string | null>(null);
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
+      const before = knownSession.current;
+      if (s) knownSession.current = sessionKey(s.access_token);
       if (
         shouldReleaseOnAuthEvent(
           event,
-          leaving.current || leftOnPurposeRecently(readLeaving(), Date.now()),
+          leaving.current || leftOnPurpose(readLeaving(), Date.now(), before),
         )
       ) {
         void releasePushDevice();
@@ -68,6 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     supabase.auth.getSession().then(({ data: { session: s } }) => {
+      if (s) knownSession.current = sessionKey(s.access_token);
       setSession(s);
       setUser(s?.user ?? null);
       setSentryUser(s?.user ? { id: s.user.id, email: s.user.email } : null);
@@ -100,10 +111,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     leaving.current = true;
-    markLeaving();
+    const at = Date.now();
+    markLeaving(at, knownSession.current);
+    let done = false;
     try {
-      await supabase.auth.signOut();
+      const { error } = await supabase.auth.signOut();
+      done = !error;
     } finally {
+      // Uscita non riuscita (un errore restituito, come con la rete giù, o
+      // un'eccezione): la sessione resta viva, e il segno non la nomina più,
+      // vale solo il margine di dieci secondi. Se poi quella sessione scade o
+      // la si revoca altrove, il telefono si libera (passata 10).
+      if (!done) markLeaving(at);
       leaving.current = false;
     }
     setSession(null);
