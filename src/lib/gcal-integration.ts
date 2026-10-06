@@ -126,8 +126,8 @@ export function lastUpdateText(lastOk: number | null, now: Date): string {
 // ----------------------------------------------------------------------------
 
 /**
- * Inizio fisso della finestra del ripristino sul server
- * (gcal.functions.ts:525); quella della riconciliazione parte dal 1° gennaio
+ * Inizio fisso della finestra del ripristino sul server (timeMinISO di
+ * gcalRepairMissingEvents); quella della riconciliazione parte dal 1° gennaio
  * dell'anno in corso. Nel 2026 coincidono.
  */
 export const REPAIR_FROM_ISO = "2026-01-01T00:00:00.000Z";
@@ -153,8 +153,9 @@ function within(iso: string, fromMs: number, toMs: number): boolean {
 /**
  * Quante sessioni la completa controlla, coi filtri dei due server. È una
  * stima del solo coach: useCoachBookings legge le sue sessioni (al massimo
- * 1000, queries.ts:235), mentre la riconciliazione del server guarda quelle
- * di tutti i coach (gcal.functions.ts:396-403). Con un coach solo coincidono.
+ * 1000, BOOKINGS_FETCH_LIMIT in queries.ts), mentre la riconciliazione del
+ * server guarda quelle di tutti i coach (gcalReconcileEvents). Con un coach
+ * solo coincidono.
  * Le completed con evento non contano: nessuno le confronta.
  */
 export function estimateFullSync(

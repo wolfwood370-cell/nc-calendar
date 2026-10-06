@@ -37,9 +37,9 @@
 // Con lo storage negato o pieno (Safari in navigazione privata) le lette dei
 // promemoria restano in memoria per la vita della pagina (passata 09).
 // Il profilo (coach_id per i nomi delle tipologie, path_start_date per il
-// percorso nuovo) si legge con una chiave sua: quella di Home e Prenota
-// («profile» e l'id, la stessa di query-keys.ts) ha due select diversi, e la
-// cache mescolerebbe le colonne anche qui.
+// percorso nuovo) si legge con una chiave sua: Prenota lo legge con altre
+// colonne (use-client-book-state.ts), e una chiave in comune le mescolerebbe
+// nella cache.
 // ----------------------------------------------------------------------------
 
 import {

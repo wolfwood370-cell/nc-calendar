@@ -205,7 +205,7 @@ describe("coachCard · il tuo coach", () => {
     });
   });
 
-  it("il coach di oggi, senza telefono: la sola email", () => {
+  it("un coach senza telefono: la sola email", () => {
     expect(
       coachCard({
         id: "co",

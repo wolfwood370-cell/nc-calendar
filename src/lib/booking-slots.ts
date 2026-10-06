@@ -1,15 +1,15 @@
 // ----------------------------------------------------------------------------
-// booking-slots — pure slot-generation primitives shared by the booking flow
-// and the reschedule sheet
+// booking-slots — pure slot-generation primitives
 // ----------------------------------------------------------------------------
-// Extracted from client.book.tsx so the reschedule sheet
-// (client-reschedule-sheet.tsx) can produce the same set of candidate
-// slots without forking the logic. Pure functions only — no React, no
-// Supabase. Inputs are plain rows + Date primitives; outputs are
-// sorted Slot[].
+// Le funzioni le chiama solo client-slots.ts, per i giorni e gli orari di
+// Prenota, dello spostamento e della Home (use-coach-slot-inputs.ts ne usa
+// solo il tipo BlockedRange). Il foglio di riprogrammazione per cui erano
+// state estratte da client.book.tsx non c'è più (passata 10). Pure functions
+// only — no React, no Supabase. Inputs are plain rows + Date primitives;
+// outputs are sorted Slot[].
 //
 // Key invariants:
-//   - Slots respect coach availability (weekly_schedule rows) and
+//   - Slots respect coach availability (trainer_availability rows) and
 //     full-day or partial exceptions (availability_exceptions).
 //   - Slots avoid colliding with any blocked range, where each range is
 //     [scheduled_at, scheduled_at + duration + buffer].
@@ -80,8 +80,9 @@ export function generateSlots(
   rangeStart?: Date,
   rangeEnd?: Date,
   optimization?: { enabled: boolean },
-  // Preavviso minimo in ore. Di default quello del cliente (booking-rules.ts),
-  // che il foglio di riprogrammazione usa senza passarlo.
+  // Preavviso minimo in ore. Di default quello del cliente (booking-rules.ts);
+  // i due chiamanti di client-slots.ts lo passano sempre: quello del cliente
+  // per gli orari, 0 per capire perché un giorno è vuoto.
   minNoticeHours: number = CLIENT_MIN_NOTICE_HOURS,
   // L'ora da cui partono giorni e preavviso; i test la fissano.
   now: Date = new Date(),

@@ -73,10 +73,11 @@ export type SessionBooking = Pick<
 >;
 
 /**
- * Si vede: deleted_at vuoto, oppure un'annullata tardi. cancel_booking scrive
- * deleted_at anche su quelle, e il cliente le deve vedere perché il credito
- * l'ha preso. Le altre con deleted_at sono l'«Elimina» del coach (sessioni
- * inserite per errore) e non ricompaiono. Lo stesso filtro della lettura
+ * Si vede: deleted_at vuoto, oppure un'annullata tardi. Fino al giro del
+ * server del 02/10/2026 cancel_booking scriveva deleted_at anche sulle
+ * annullate tardi, e quelle righe lo tengono: il cliente le deve vedere
+ * perché il credito l'ha preso. Le altre con deleted_at sono l'«Elimina» del
+ * coach (sessioni inserite per errore) e non ricompaiono. Lo stesso filtro della lettura
  * (useClientBookingsForCredits), scritto anche qui perché si provi coi test.
  */
 export function isVisibleSession(b: Pick<SessionBooking, "deleted_at" | "status">): boolean {
@@ -342,8 +343,9 @@ export function ratingsById(
 /**
  * La presenza del cliente: getAttendance sulle sessioni con deleted_at vuoto,
  * importate da Google comprese, le stesse del Profilo del coach e della lista
- * Clienti (il cliente ha un coach solo). L'annullata tardi di cancel_booking,
- * che ha deleted_at, si vede nell'elenco ma qui non conta, come per il coach.
+ * Clienti (il cliente ha un coach solo). Un'annullata tardi di dopo il giro
+ * del server del 02/10/2026 non ha deleted_at e conta; quelle di prima, che
+ * lo hanno, si vedono nell'elenco ma qui non contano, come per il coach.
  * La leggono Sessioni (attendanceSummary) e il Profilo del cliente (passata
  * 07): il filtro sta in un posto solo, così le due pagine dicono lo stesso
  * numero. null senza sessioni concluse nel periodo.

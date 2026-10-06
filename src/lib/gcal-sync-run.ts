@@ -48,7 +48,10 @@ const DAY_MS = 24 * 60 * 60_000;
 /** Passate massime del ripristino nella completa, come prima della passata 09. */
 export const REPAIR_MAX_PASSES = 20;
 
-/** Sessioni al massimo per passata del ripristino sul server (gcal.functions.ts:551). */
+/**
+ * Sessioni al massimo per passata del ripristino sul server (il `.limit(50)`
+ * di gcalRepairMissingEvents).
+ */
 export const REPAIR_PAGE = 50;
 
 const APP_ERRORS = ["Permesso negato", "Lettura prenotazioni fallita"];

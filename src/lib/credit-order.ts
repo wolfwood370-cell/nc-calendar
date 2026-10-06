@@ -6,7 +6,9 @@
 // stessa allocazione che toccherebbe il server. L'ordine è quello di
 // validate_booking_block_allocation (consumo) e di reschedule_booking
 // (restituzione del credito della vecchia data), entrambe in
-// supabase/migrations/20260827143053_4c03121c-40d9-4f2d-8501-15475d9eab70.sql:
+// supabase/migrations/20260827143053_4c03121c-40d9-4f2d-8501-15475d9eab70.sql
+// e riscritte dal giro del server del 02/10/2026 con lo stesso ordine dentro
+// il blocco (il consumo, prima, sceglie un blocco che contiene la data):
 //   1. valid_until crescente, le allocazioni senza scadenza in fondo;
 //   2. prima la stessa tipologia (event_type_id);
 //   3. prima la settimana del blocco in cui cade la sessione;
@@ -19,9 +21,10 @@
 // scalarlo, come validate_booking_extra_credits dal giro del server del
 // 02/10/2026 (decisioni 10 e 13); per restituirlo, come lo stesso giro prevede
 // per cancel_booking, perché da quel giro una sessione inserita la paga un
-// extra che vale alla sua data. reschedule_booking la scadenza non la guarda
-// ancora: una sessione spostata oltre quella del suo extra non trova un extra
-// a cui restituire il credito.
+// extra che vale alla sua data. Dallo stesso giro reschedule_booking libera
+// l'extra che vale alla data vecchia e ne prende uno che vale alla data
+// nuova; una sessione spostata oltre la scadenza del suo extra prima del giro
+// non trova un extra a cui restituire il credito (pickRefundExtraCredit).
 // ----------------------------------------------------------------------------
 
 /** Campi della sessione che decidono quale credito toccare. */
@@ -164,12 +167,15 @@ export function pickConsumeAllocation(
 }
 
 /**
- * Allocazione che il trigger validate_booking_block_allocation scalerà
- * all'inserimento di una sessione con `block_id = s.block_id`
- * (20260827143053_…sql:37-53): tra le allocazioni con capienza di **tutti** i
- * blocchi del cliente (il chiamante passa solo quelle dei blocchi non
- * eliminati), la prima nell'ordine del server. La settimana si conta
- * dall'inizio del blocco passato, `refBlockStart`, come fa il trigger.
+ * Allocazione che il trigger validate_booking_block_allocation scalava,
+ * prima del giro del server del 02/10/2026, all'inserimento di una sessione
+ * con `block_id = s.block_id` (20260827143053_…sql:37-53): tra le allocazioni
+ * con capienza di **tutti** i blocchi del cliente (il chiamante passa solo
+ * quelle dei blocchi non eliminati), la prima nell'ordine del server. La
+ * settimana si conta dall'inizio del blocco passato, `refBlockStart`, come
+ * faceva il trigger. Dal giro il trigger sceglie solo fra i blocchi che
+ * contengono la data della sessione, prima quello passato: questa funzione
+ * segue ancora l'ordine di prima, e la allinea la passata 11.
  */
 export function pickInsertAllocation(
   s: CreditSession,

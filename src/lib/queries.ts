@@ -117,8 +117,8 @@ export interface ProfileRow {
 // M3: staleTime tuning. The default of 0 caused refetches on every window
 // focus for read-heavy, slowly-changing data (event types, weekly
 // availability, settings). Configuration tables get a 5-minute stale time;
-// bookings/blocks/credits stay reactive (staleTime: 0) so a mutation
-// elsewhere is immediately reflected in derived views.
+// le sessioni 30 secondi (B20, più sotto); blocchi ed extra di questo file
+// restano a 0, così una modifica altrove si vede subito nelle viste derivate.
 const STALE_CONFIG = 5 * 60 * 1000;
 
 export function useCoachClients(coachId?: string) {
@@ -371,8 +371,10 @@ export function useClientExtraCredits(clientId?: string) {
     queryKey: ["extra_credits", "client", clientId],
     enabled: !!clientId,
     queryFn: async (): Promise<ExtraCreditRow[]> => {
-      // Nessun filtro sulla scadenza: la guardano le regole, sulla data della
-      // sessione (client-credits.ts per il cliente, credit-order.ts per il coach).
+      // Nessun filtro sulla scadenza: la guardano le regole. Il conto dei
+      // crediti del cliente la guarda a oggi (getClientPools); le finestre di
+      // prenotazione e di spostamento (client-credits.ts) e l'ordine del coach
+      // (credit-order.ts), alla data della sessione.
       const { data, error } = await supabase
         .from("extra_credits")
         .select(
@@ -603,8 +605,9 @@ export function useCancelBooking() {
     // longer chooses; it just calls and reads the result. Google Calendar
     // sync stays here because it lives outside the DB transaction.
     mutationFn: async (input: { id: string }): Promise<CancelBookingResult> => {
-      // Snapshot the minimal metadata needed for the post-cancel sync
-      // before the row is soft-deleted by the RPC.
+      // Legge prima dell'RPC i dati che servono alla sincronizzazione con
+      // Google. Dal giro del server del 02/10/2026 l'RPC cambia solo lo stato e
+      // cancelled_at: la riga resta, senza deleted_at.
       const { data: bk } = await supabase
         .from("bookings")
         .select("id, coach_id, client_id, google_event_id, event_type_id")
@@ -648,19 +651,17 @@ export function useCancelBooking() {
 }
 
 // ----------------------------------------------------------------------------
-// useRescheduleBooking — client self-service reschedule via UPDATE-only path.
+// useRescheduleBooking — lo spostamento del cliente con l'RPC reschedule_booking
 // ----------------------------------------------------------------------------
-// Pure UPDATE on scheduled_at. The new DB trigger
-// z_trg_validate_client_booking_update (migration 20260522100000) enforces:
-//   - 24h cutoff against OLD.scheduled_at
-//   - whitelist: only scheduled_at may change
-// On client-driven UPDATEs, the trigger raises P0001 with an Italian message
-// when violated, so callers can pass error.message straight into a toast.
+// L'RPC fa tutto in una transazione (dal giro del server del 02/10/2026): per
+// il cliente rifiuta una sessione che inizia fra meno di 24 ore e una data
+// nuova fuori da 24 ore - 14 giorni o fuori dal suo blocco; sposta il credito
+// alla settimana della data nuova, o su un extra che vale a quella data, e
+// aggiorna scheduled_at. I messaggi P0001 sono in italiano: i chiamanti li
+// mostrano così come arrivano (actionErrorText, client-session-detail.ts).
 //
 // Same booking row → same id → same google_event_id → same meeting_link.
-// No credit refund/re-consume (the credit was already debited at create
-// time and stays accounted against the same allocation). After a successful
-// UPDATE we fire-and-forget a sync-calendar action=update so the coach's
+// After a successful RPC we fire-and-forget gcalUpdateEvent so the coach's
 // Google Calendar event shifts too.
 //
 // Optimistic patch: shifts scheduled_at in every cached bookings list
@@ -726,10 +727,10 @@ export function useRescheduleBooking() {
           },
         }).catch((e) => console.error("gcalUpdateEvent failed", e));
       }
-      // M4 (audit): notifica il coach (booking.rescheduled) dalla mutation
-      // CONDIVISA, così OGNI percorso di reschedule cliente avvisa il coach.
-      // Prima solo client-reschedule-sheet (dal dettaglio) notificava;
-      // reschedule-drawer (dalla dashboard) no. Fire-and-forget.
+      // M4 (audit): l'avviso al coach (booking.rescheduled) parte da questa
+      // mutation, che usano il foglio dello spostamento (client-move-sheet.tsx)
+      // e il suo «Annulla» (use-move-undo.ts): ogni spostamento del cliente lo
+      // avvisa. Fire-and-forget.
       void supabase.functions
         .invoke("booking-notifications", {
           body: {

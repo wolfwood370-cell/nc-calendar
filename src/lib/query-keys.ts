@@ -54,12 +54,6 @@ export const queryKeys = {
   },
   coachNotes: (coachId: string | null | undefined, clientId: string | null | undefined) =>
     ["coach_client_notes", coachId, clientId] as const,
-  profile: (userId: string | null | undefined) => ["profile", userId] as const,
-  trainerAvailability: (coachId: string | null | undefined) =>
-    ["trainer_availability", coachId] as const,
-  trainerSettings: (coachId: string | null | undefined) => ["trainer_settings", coachId] as const,
-  availabilityExceptions: (coachId: string | null | undefined) =>
-    ["availability_exceptions", coachId] as const,
 } as const;
 
 // Helper: a single mutation that touches a coach↔client booking invalidates

@@ -7,8 +7,8 @@
 // server rifiuterebbe comunque (sovrapposizione con un evento programmato:
 // vincolo bookings_no_overlap_per_coach).
 // Disponibilità: trainer_availability (day_of_week 1 = lunedì … 7 = domenica,
-// booking-slots.ts:36) meno availability_exceptions (senza orari = tutto il
-// giorno), in ora locale come le fasce che vedono i clienti.
+// jsDowToIso in booking-slots.ts) meno availability_exceptions (senza orari =
+// tutto il giorno), in ora locale come le fasce che vedono i clienti.
 // ----------------------------------------------------------------------------
 
 import { format } from "date-fns";
