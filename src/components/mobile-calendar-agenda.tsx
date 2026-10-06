@@ -4,6 +4,7 @@ import { AuraCardSkeleton, AuraLineSkeleton } from "@/components/ui/aura-skeleto
 import { sessionLabel } from "@/lib/mock-data";
 import type { BookingRow, ProfileRow, EventTypeRow } from "@/lib/queries";
 import { cn } from "@/lib/utils";
+import { dayIndexOf, initialAgendaDayIndex } from "@/lib/agenda-day";
 
 export const DAY_LABELS = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
 
@@ -126,6 +127,9 @@ interface MobileAgendaViewProps {
   clientsMap: Map<string, ProfileRow>;
   eventTypesMap: Map<string, EventTypeRow>;
   today: Date;
+  /** Il giorno chiesto dall'indirizzo (?date=, il tocco su una notifica): se cade nella settimana
+      mostrata, l'agenda sceglie quello invece di oggi (passata 10b del lato cliente). */
+  focusDate?: string;
   /** First-load flag from useCoachBookings so we can paint Aura
       skeletons instead of the empty-state placeholder. */
   isLoading: boolean;
@@ -140,13 +144,16 @@ export function MobileAgendaView({
   clientsMap,
   eventTypesMap,
   today,
+  focusDate,
   isLoading,
   onSelectAssign,
   onSelectClient,
 }: MobileAgendaViewProps) {
   // Default to today's index within the visible week; fall back to Monday.
   const todayIdx = useMemo(() => weekDays.findIndex((d) => sameDay(d, today)), [weekDays, today]);
-  const [selectedDayIdx, setSelectedDayIdx] = useState<number>(todayIdx >= 0 ? todayIdx : 0);
+  const [selectedDayIdx, setSelectedDayIdx] = useState<number>(() =>
+    initialAgendaDayIndex(weekDays, focusDate, today),
+  );
 
   // When the user navigates weeks, keep the selected weekday index — so
   // "Tuesday" stays selected when moving across weeks. If today appears in
@@ -158,6 +165,14 @@ export function MobileAgendaView({
     }
     lastTodayIdxRef.current = todayIdx;
   }, [todayIdx]);
+
+  // Il giorno chiesto (una notifica toccata, anche col Calendario già aperto) vince su oggi; viene
+  // dopo l'effetto di oggi, così se cambiano insieme resta il giorno chiesto. Cambiando settimana a
+  // mano la data esce dall'indirizzo (calendar-mobile.tsx), e qui non succede niente.
+  useEffect(() => {
+    const i = dayIndexOf(weekDays, focusDate);
+    if (i >= 0) setSelectedDayIdx(i);
+  }, [focusDate, weekDays]);
 
   const dayTimed = useMemo(() => {
     const list = timedByDay[selectedDayIdx] ?? [];

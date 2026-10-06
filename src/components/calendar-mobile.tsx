@@ -249,6 +249,7 @@ export function CalendarMobile({ sync }: { sync: GcalSync }) {
           clientsMap={clientsMap}
           eventTypesMap={eventTypesMap}
           today={today}
+          focusDate={date}
           isLoading={bookingsQ.isLoading}
           onSelectAssign={(b) => openReview(b.id)}
           onSelectClient={(clientId) => setFocusClientId(clientId)}
