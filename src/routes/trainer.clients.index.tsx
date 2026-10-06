@@ -126,6 +126,7 @@ interface ExtraLite {
   client_id: string;
   quantity: number;
   quantity_booked: number;
+  expires_at: string;
 }
 
 function ClientsPage() {
@@ -243,7 +244,7 @@ function ClientsPage() {
       // Crediti extra dei clienti liberi («Crediti extra» in scheda, L8).
       const { data: ecs } = await supabase
         .from("extra_credits")
-        .select("client_id, quantity, quantity_booked")
+        .select("client_id, quantity, quantity_booked, expires_at")
         .in("client_id", ids);
       if (signal.cancelled) return;
       setExtras((ecs as ExtraLite[]) ?? []);

@@ -16,6 +16,7 @@
 //     «Nuovo cliente» e poi si toglie.
 // ----------------------------------------------------------------------------
 
+import { extraTotals } from "@/lib/extra-credits";
 import { getAttendance } from "@/lib/attendance";
 import { matchesClient } from "@/lib/client-search";
 import { formatCreditsOf, getBlockCredits, sumCredits, type CreditAllocation } from "@/lib/credits";
@@ -101,6 +102,8 @@ export interface ListExtraCredit {
   client_id: string;
   quantity: number;
   quantity_booked: number;
+  /** La scadenza: si contano solo i crediti che valgono adesso (extraTotals, passata 11). */
+  expires_at: string;
 }
 
 /**
@@ -181,8 +184,9 @@ export function cardCredits(
   let total: number;
   if (client.path_type === "free") {
     title = "Crediti extra";
-    total = extras.reduce((s, e) => s + e.quantity, 0);
-    left = extras.reduce((s, e) => s + Math.max(0, e.quantity - e.quantity_booked), 0);
+    // Solo quelli che valgono adesso: un Booster scaduto non è più un credito
+    // (passata 11 del lato cliente; prima si sommavano tutti).
+    ({ total, left } = extraTotals(extras, now));
   } else {
     const valid = [...blocks.filter(isValidBlock)].sort(
       (a, b) => a.sequence_order - b.sequence_order,

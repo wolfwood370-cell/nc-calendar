@@ -25,6 +25,7 @@ import {
   typeInfo,
 } from "@/lib/client-profile";
 import { formatCreditsOfTail } from "@/lib/credits";
+import { validExtras } from "@/lib/extra-credits";
 import type { ProfileBooking, ProfileExtra } from "@/lib/profile-load";
 import type { EventTypeRow } from "@/lib/queries";
 import type { RenewalInfo } from "@/lib/renewal";
@@ -75,12 +76,30 @@ function Bars({ rows }: { rows: CreditBar[] }) {
   );
 }
 
-function extraBars(extras: readonly ProfileExtra[], eventTypes: readonly EventTypeRow[]) {
+/**
+ * Le barre dei crediti extra, per tipologia, coi soli extra che valgono adesso
+ * (passata 11 del lato cliente: prima contavano anche i Booster scaduti). Per
+ * un cliente con percorso stanno sotto quelle del blocco, col nome «· extra»:
+ * prima comparivano solo per i clienti liberi, e un extra dato dal Pacchetto
+ * a chi ha un percorso non si vedeva.
+ */
+function extraBars(
+  extras: readonly ProfileExtra[],
+  eventTypes: readonly EventTypeRow[],
+  now: Date,
+  suffix = "",
+) {
   const by = new Map<string, CreditBar>();
-  for (const e of extras) {
-    const key = e.event_type_id ?? "—";
+  for (const e of validExtras(extras, now)) {
+    const key = `extra:${e.event_type_id ?? "—"}`;
     const t = typeInfo(eventTypes, e.event_type_id, "PT Session");
-    const row = by.get(key) ?? { key, name: t.name, color: t.color, left: 0, total: 0 };
+    const row = by.get(key) ?? {
+      key,
+      name: `${t.name}${suffix}`,
+      color: t.color,
+      left: 0,
+      total: 0,
+    };
     row.total += e.quantity;
     row.left += Math.max(0, e.quantity - e.quantity_booked);
     by.set(key, row);
@@ -123,15 +142,18 @@ export function ProfileOverview({
 }: ProfileOverviewProps) {
   const free = pathType === "free";
   const bars: CreditBar[] = free
-    ? extraBars(extras, eventTypes)
-    : summary.credits
-        .filter((c) => c.assigned > 0)
-        .map((c) => ({
-          key: c.key,
-          left: c.left,
-          total: c.assigned,
-          ...typeInfo(eventTypes, c.eventTypeId, c.sessionType),
-        }));
+    ? extraBars(extras, eventTypes, now)
+    : [
+        ...summary.credits
+          .filter((c) => c.assigned > 0)
+          .map((c) => ({
+            key: c.key,
+            left: c.left,
+            total: c.assigned,
+            ...typeInfo(eventTypes, c.eventTypeId, c.sessionType),
+          })),
+        ...extraBars(extras, eventTypes, now, " · extra"),
+      ];
   const upcoming = upcomingSessions(bookings, now, 3);
   const recent = recentSessions(bookings, now, 5);
   const att = presence.percent;

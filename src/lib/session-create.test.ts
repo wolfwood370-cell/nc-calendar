@@ -107,10 +107,12 @@ describe("creazione · il credito previsto è quello che prende il trigger", () 
     expect(changedAllocs.map((a) => a.id)).toEqual(["m1-pt-2"]);
   });
 
-  it("blocco della data esaurito: il credito viene dall'altro blocco e block_id lo segue", async () => {
+  it("blocco della data esaurito: un altro blocco che contiene la data paga, e block_id lo segue", async () => {
     const db = seedDb();
     for (const a of db.allocations)
       if (a.block_id === "m1" && a.event_type_id === "pt") a.quantity_booked = 2;
+    // m2 anticipato al 1° ottobre: il 7 lo contengono tutti e due.
+    db.blocks.find((b) => b.id === "m2")!.start_date = "2026-10-01";
     const mem = createMemoryCalendar(db);
     const { predicted, changedAllocs, row } = await createAndCompare(
       mem,
@@ -121,6 +123,77 @@ describe("creazione · il credito previsto è quello che prende il trigger", () 
     expect(predicted?.source === "block" && predicted.allocation.id).toBe("m2-pt-1");
     expect(changedAllocs.map((a) => a.id)).toEqual(["m2-pt-1"]);
     expect(row.block_id).toBe("m2");
+  });
+
+  it("blocco della data esaurito: un blocco che non contiene la data non paga (giro del 02/10, passata 11)", async () => {
+    const db = seedDb();
+    for (const a of db.allocations)
+      if (a.block_id === "m1" && a.event_type_id === "pt") a.quantity_booked = 2;
+    const mem = createMemoryCalendar(db);
+    // m2 comincia il 19: il trigger non lo guarda, e Marta non ha extra PT.
+    expect(await plan(mem, "marta", at("2026-10-07", "10:00"))).toBeNull();
+    await expect(
+      createClientSession(mem.store, {
+        coachId: COACH,
+        clientId: "marta",
+        clientName: "Marta Conti",
+        type: pt,
+        scheduledAt: at("2026-10-07", "10:00"),
+        durationMin: pt.duration,
+      }),
+    ).rejects.toBeInstanceOf(NoCreditError);
+    expect(mem.db.allocations.find((a) => a.id === "m2-pt-1")!.quantity_booked).toBe(0);
+  });
+
+  it("i crediti avanzati di un blocco finito non pagano: paga l'extra della tipologia (passata 11)", async () => {
+    const db = seedDb();
+    // m1 finito il 18 con PT avanzati; la sessione del 20 sta in m2, esaurito.
+    db.allocations.find((a) => a.id === "m2-pt-1")!.quantity_booked = 2;
+    db.extras.push({
+      id: "m-pt-extra",
+      client_id: "marta",
+      event_type_id: "pt",
+      quantity: 1,
+      quantity_booked: 0,
+      expires_at: "2100-01-01T00:00:00Z",
+    });
+    const mem = createMemoryCalendar(db);
+    const { predicted, changedAllocs, changedExtras, row } = await createAndCompare(
+      mem,
+      "marta",
+      "Marta Conti",
+      at("2026-10-20", "10:00"),
+    );
+    expect(predicted).toMatchObject({ source: "extra", credit: { id: "m-pt-extra" } });
+    expect(changedAllocs).toEqual([]);
+    expect(changedExtras.map((e) => e.id)).toEqual(["m-pt-extra"]);
+    expect(row.block_id).toBeNull();
+  });
+
+  it("l'archivio dei test, come il trigger del giro: con il blocco passato esaurito non prende dai blocchi che non contengono la data (passata 11)", async () => {
+    const db = seedDb();
+    // m2 (dal 19/10) esaurito, m1 finito il 18 con PT avanzati; Marta senza extra PT.
+    db.allocations.find((a) => a.id === "m2-pt-1")!.quantity_booked = 2;
+    const mem = createMemoryCalendar(db);
+    await expect(
+      mem.store.insertSession({
+        coach_id: COACH,
+        client_id: "marta",
+        block_id: "m2",
+        event_type_id: "pt",
+        session_type: "PT Session",
+        scheduled_at: at("2026-10-20", "10:00"),
+        end_at: at("2026-10-20", "11:00"),
+        duration_min: 60,
+        status: "scheduled",
+        is_personal: false,
+        category: "client_session",
+        title: null,
+      }),
+    ).rejects.toThrow();
+    expect(
+      mem.db.allocations.filter((a) => a.block_id === "m1").every((a) => a.quantity_booked === 0),
+    ).toBe(true);
   });
 
   it("blocchi senza capienza: credito extra, con block_id vuoto", async () => {

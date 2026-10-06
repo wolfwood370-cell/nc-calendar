@@ -8,14 +8,16 @@
 // ----------------------------------------------------------------------------
 
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { parseISO } from "date-fns";
 import { CalendarContextPanel } from "@/components/calendar-context-panel";
 import { CalendarGcalReview } from "@/components/calendar-gcal-review";
 import { CalendarHeader } from "@/components/calendar-header";
 import { GcalFullSyncButton } from "@/components/gcal-full-sync-button";
-import { sameDay, MobileAgendaView } from "@/components/mobile-calendar-agenda";
+import { MobileAgendaView } from "@/components/mobile-calendar-agenda";
+import { sameDay } from "@/lib/agenda-day";
+import { notificationOpenUrl, opensCoachCalendar } from "@/lib/notification-open";
 import { notifySync, type GcalSync } from "@/hooks/use-gcal-sync";
 import { useIsBelowXl } from "@/hooks/use-mobile";
 import { supabase } from "@/integrations/supabase/client";
@@ -82,6 +84,23 @@ export function CalendarMobile({ sync }: { sync: GcalSync }) {
     }
   };
   const [showAvailability, setShowAvailability] = useState(false);
+  // La stessa notifica toccata di nuovo col Calendario aperto: il service
+  // worker manda un messaggio (notification-open.ts), e l'agenda sceglie di
+  // nuovo il giorno della data (passata 11 del lato cliente).
+  const [focusKey, setFocusKey] = useState(0);
+  useEffect(() => {
+    const sw = typeof navigator !== "undefined" ? navigator.serviceWorker : undefined;
+    if (!sw) return;
+    const onMessage = (e: MessageEvent) => {
+      const url = notificationOpenUrl(e.data);
+      if (url && opensCoachCalendar(url)) setFocusKey((k) => k + 1);
+    };
+    sw.addEventListener("message", onMessage);
+    return () => sw.removeEventListener("message", onMessage);
+  }, []);
+  // «Aggiorna» in corso: un tocco solo alla volta (passata 11 del lato cliente).
+  const [refreshing, setRefreshing] = useState(false);
+  const refreshingRef = useRef(false);
   const [onlyPersonal, setOnlyPersonal] = useState(false);
   const [onlyToAssign, setOnlyToAssign] = useState(false);
   const [selectedTypeIds, setSelectedTypeIds] = useState<Set<string>>(new Set());
@@ -211,17 +230,26 @@ export function CalendarMobile({ sync }: { sync: GcalSync }) {
             })
           }
           onClearTypes={() => setSelectedTypeIds(new Set())}
+          refreshing={refreshing}
           onRefresh={async () => {
-            qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(user?.id) });
-            qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(user?.id) });
-            qc.invalidateQueries({ queryKey: queryKeys.clients.coach(user?.id) });
-            // L'esito vero, come «Sincronizza ora» del desktop: con modifiche il
-            // messaggio lo dà già runReconcile; senza, quello di
-            // quickSyncMessage, anche quando Google non risponde. Prima diceva
-            // sempre «Calendario aggiornato» (passata 10 del lato cliente).
-            const r = await runReconcile();
-            markSynced();
-            if (!r.changed) notifySync(quickSyncMessage(r));
+            if (refreshingRef.current) return;
+            refreshingRef.current = true;
+            setRefreshing(true);
+            try {
+              qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(user?.id) });
+              qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(user?.id) });
+              qc.invalidateQueries({ queryKey: queryKeys.clients.coach(user?.id) });
+              // L'esito vero, come «Sincronizza ora» del desktop: con modifiche il
+              // messaggio lo dà già runReconcile; senza, quello di
+              // quickSyncMessage, anche quando Google non risponde. Prima diceva
+              // sempre «Calendario aggiornato» (passata 10 del lato cliente).
+              const r = await runReconcile();
+              markSynced();
+              if (!r.changed) notifySync(quickSyncMessage(r));
+            } finally {
+              refreshingRef.current = false;
+              setRefreshing(false);
+            }
           }}
           lastSyncAt={lastSyncAt}
           hasBookingsError={bookingsQ.isError}
@@ -250,6 +278,7 @@ export function CalendarMobile({ sync }: { sync: GcalSync }) {
           eventTypesMap={eventTypesMap}
           today={today}
           focusDate={date}
+          focusKey={focusKey}
           isLoading={bookingsQ.isLoading}
           onSelectAssign={(b) => openReview(b.id)}
           onSelectClient={(clientId) => setFocusClientId(clientId)}

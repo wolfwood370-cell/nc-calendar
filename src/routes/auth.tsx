@@ -97,7 +97,10 @@ function AuthPage() {
     }
     if (leaving.current) return;
     leaving.current = true;
-    void signOut().finally(() => navigate({ to: "/auth", state: {}, replace: true }));
+    // signOut non lancia: se non riesce lo dice con un toast e la sessione
+    // resta, e la pagina torna all'area del ruolo (passata 11 del lato
+    // cliente; prima un rifiuto restava senza gestione e senza messaggio).
+    void signOut().then(() => navigate({ to: "/auth", state: {}, replace: true }));
   }, [esci, loading, session, signOut, navigate]);
 
   if (esci) {

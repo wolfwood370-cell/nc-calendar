@@ -205,14 +205,39 @@ describe("stima della completa", () => {
       booking({ scheduled_at: "2027-01-10T09:00:00+00:00" }),
       booking({ scheduled_at: "2026-10-10T00:00:00Z" }),
     ];
-    expect(estimateFullSync(list, NOW)).toEqual({ reconcile: 3, repair: 3, total: 6 });
+    expect(estimateFullSync(list, NOW)).toEqual({
+      reconcile: 3,
+      repair: 3,
+      total: 6,
+      partial: false,
+    });
   });
 
-  it("difetto noto: la mezzanotte UTC scritta «+00:00» non è giornaliera, come per il server", () => {
-    const list = [booking({ scheduled_at: "2026-10-11T00:00:00+00:00" })];
-    expect(estimateFullSync(list, NOW).repair).toBe(1);
-    expect(estimateFullSync([booking({ scheduled_at: "2026-10-11T00:00:00Z" })], NOW).repair).toBe(
-      0,
+  it("la mezzanotte UTC scritta come la scrive il database («+00:00») è giornaliera (passata 11)", () => {
+    for (const at of [
+      "2026-10-11T00:00:00+00:00",
+      "2026-10-11T00:00:00Z",
+      "2026-10-11T00:00:00.000Z",
+    ]) {
+      expect(estimateFullSync([booking({ scheduled_at: at })], NOW).repair).toBe(0);
+    }
+    // Mezzanotte di Roma: alle 22:00 UTC del giorno prima, una sessione vera.
+    expect(
+      estimateFullSync([booking({ scheduled_at: "2026-10-10T22:00:00+00:00" })], NOW).repair,
+    ).toBe(1);
+  });
+
+  it("al tetto delle sessioni lette e senza arrivare al 1° gennaio la stima è «almeno» (passata 11)", () => {
+    const recent = [booking({ scheduled_at: "2026-10-01T09:00:00+00:00" })];
+    expect(estimateFullSync(recent, NOW, true).partial).toBe(true);
+    expect(estimateFullSync(recent, NOW, false).partial).toBe(false);
+    const fromJanuary = [...recent, booking({ scheduled_at: "2025-12-20T09:00:00+00:00" })];
+    expect(estimateFullSync(fromJanuary, NOW, true).partial).toBe(false);
+    expect(fullSyncConfirmText(37, true)).toBe(
+      "Vengono controllate almeno 37 sessioni. Può richiedere qualche minuto e la pagina deve restare aperta fino alla fine.",
+    );
+    expect(fullSyncConfirmText(1, true)).toBe(
+      "Viene controllata almeno 1 sessione. Può richiedere qualche minuto e la pagina deve restare aperta fino alla fine.",
     );
   });
 

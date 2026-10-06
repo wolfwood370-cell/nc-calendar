@@ -98,6 +98,7 @@ import { queryKeys } from "@/lib/query-keys";
 import { getRenewalInfo } from "@/lib/renewal";
 import { toastWithUndo, UNDO_TOAST_DURATION } from "@/lib/toast";
 import { initials } from "@/lib/initials";
+import { SAVE_BAR_POSITION } from "@/lib/save-bar";
 import { tabId, tabPanelId } from "@/lib/segment-keys";
 import { cn, errorMessage } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
@@ -674,7 +675,10 @@ export function ClientProfileDesktop({
           <div
             role="region"
             aria-label="Modifiche non salvate"
-            className="fixed bottom-6 left-[calc(256px+24px)] right-6 z-40 flex flex-wrap items-center justify-between gap-4 rounded-[20px] bg-[#191c1f] py-3.5 pl-5 pr-4 text-white shadow-[0_20px_60px_rgba(0,0,0,0.3)]"
+            className={cn(
+              SAVE_BAR_POSITION,
+              "z-40 flex flex-wrap items-center justify-between gap-4 rounded-[20px] bg-[#191c1f] py-3.5 pl-5 pr-4 text-white shadow-[0_20px_60px_rgba(0,0,0,0.3)]",
+            )}
           >
             <span className="flex items-center gap-2.5 text-sm font-semibold">
               <CalendarClock className="size-[18px]" aria-hidden />

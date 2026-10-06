@@ -22,6 +22,7 @@
 // ----------------------------------------------------------------------------
 
 import type { gcalReconcileEvents, gcalRepairMissingEvents } from "@/lib/gcal.functions";
+import { yearStartISO } from "@/lib/gcal-repair";
 
 export type ReconcileResult = Awaited<ReturnType<typeof gcalReconcileEvents>>;
 export type RepairResult = Awaited<ReturnType<typeof gcalRepairMissingEvents>>;
@@ -84,7 +85,7 @@ export function reconcileOutcome(pull: ReconcileResult): SyncOutcome {
 /** La finestra della completa: dal 1° gennaio dell'anno a 90 giorni da adesso. */
 export function fullSyncWindow(now: Date): SyncWindow {
   return {
-    timeMinISO: `${now.getFullYear()}-01-01T00:00:00.000Z`,
+    timeMinISO: yearStartISO(now),
     timeMaxISO: new Date(now.getTime() + 90 * DAY_MS).toISOString(),
   };
 }
@@ -255,6 +256,9 @@ export async function runFullSync(api: GcalSyncApi, opts: FullSyncOptions): Prom
   let created = 0;
   let notCreated = 0;
   let lastTotal = 0;
+  // La passata si è fermata al tetto di pagine con altre sessioni da leggere
+  // (`more`, passata 11): non è l'ultima anche se ne ha trattate meno di 50.
+  let lastMore = false;
   let stop: RepairStop = "limit";
   let repairError: string | undefined;
   report({ phase: "repair", done: 0, total });
@@ -269,9 +273,10 @@ export async function runFullSync(api: GcalSyncApi, opts: FullSyncOptions): Prom
     created += r.created ?? 0;
     notCreated = r.failed ?? 0;
     lastTotal = r.total ?? 0;
+    lastMore = r.more === true;
     report({ phase: "repair", done: created + notCreated, total });
     if ((r.total ?? 0) === 0) {
-      stop = "done";
+      stop = lastMore ? "no-progress" : "done";
       break;
     }
     if ((r.created ?? 0) === 0) {
@@ -292,7 +297,8 @@ export async function runFullSync(api: GcalSyncApi, opts: FullSyncOptions): Prom
       created,
       notCreated,
       stop,
-      complete: stop === "done" || (stop === "no-progress" && lastTotal < REPAIR_PAGE),
+      complete:
+        !lastMore && (stop === "done" || (stop === "no-progress" && lastTotal < REPAIR_PAGE)),
     },
     reconcile,
   };

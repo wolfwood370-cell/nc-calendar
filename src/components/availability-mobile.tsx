@@ -2,17 +2,30 @@
 // Disponibilità sul telefono (passata 08)
 // ----------------------------------------------------------------------------
 // È la pagina di prima, spostata qui da src/routes/trainer.availability.tsx
-// senza cambiarne l'aspetto: il redesign vale da md in su
+// senza cambiarne l'aspetto dell'orario: il redesign vale da md in su
 // (availability-desktop.tsx), e la route ne monta una sola.
+// Passata 11 del lato cliente: le regole e i dati del desktop.
+//   - Bozza, lettura e salvataggio sono quelli del desktop
+//     (use-availability-draft.ts): la bozza nasce da una lettura fresca e non
+//     dalla cache, segue le letture nuove finché non la modifichi (anche dopo
+//     un «Ripristina» fatto dal computer), e una lettura fallita lo dice
+//     invece di sembrare una settimana vuota.
+//   - L'anteprima e le regole di prenotazione sono le card del desktop: la
+//     stima usa la durata e il margine della tipologia, e le regole si leggono
+//     e basta. Prima tre campi (margine, preavviso, orizzonte) si salvavano
+//     in trainer_settings senza effetto, e con la lettura fallita ci si
+//     scrivevano 15, 24 e 60.
+//   - Con una modifica non salvata la pagina resta montata anche se la
+//     finestra si allarga oltre md (onHoldChange), così la bozza non si perde
+//     ruotando il telefono.
 // ----------------------------------------------------------------------------
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { AlertCircle, Plus, Trash2, Copy, Loader2, Info, Save } from "lucide-react";
+import { AvailabilityExceptionsCard } from "@/components/availability-exceptions-card";
+import { AvailabilityPreviewCard, BookingRulesCard } from "@/components/availability-preview-card";
+import { PageTitle } from "@/components/page-title";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectTrigger,
@@ -20,307 +33,56 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import { Plus, Trash2, Copy, Loader2, Info, Save, ChartLine, TriangleAlert } from "lucide-react";
-import { PageTitle } from "@/components/page-title";
-import { supabase } from "@/integrations/supabase/client";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
+import { useAvailabilityDraft } from "@/hooks/use-availability-draft";
+import { HOURS } from "@/lib/availability-helpers";
+import {
+  WEEK_DAYS,
+  copyDay,
+  removeRange,
+  toggleDay,
+  updateRange,
+  type Dow,
+  type WeekDraft,
+} from "@/lib/availability-week";
 import { useAuth } from "@/lib/auth";
+import { useCoachEventTypes } from "@/lib/queries";
 import { toast } from "sonner";
-import { HOURS, fmt } from "@/lib/availability-helpers";
-import { AvailabilityExceptionsCard } from "@/components/availability-exceptions-card";
-import { saveWeek } from "@/lib/availability-actions";
-import { supabaseAvailabilityStore } from "@/lib/availability-store";
-import type { WeekSlot } from "@/lib/availability-week";
 
-interface AvailabilityRow {
-  id: string;
-  coach_id: string;
-  day_of_week: number;
-  start_time: string;
-  end_time: string;
+/** «+» del telefono: una fascia 14:00-18:00, come prima. */
+function addAfternoon(week: WeekDraft, dow: Dow): WeekDraft {
+  const day = week[dow];
+  return {
+    ...week,
+    [dow]: { active: true, ranges: [...day.ranges, { start: "14:00", end: "18:00" }] },
+  };
 }
 
-interface TimeBlock {
-  start: string;
-  end: string;
+/** Le fasce del giorno sugli altri giorni accesi, come prima. */
+function copyToActive(week: WeekDraft, source: Dow): WeekDraft {
+  const targets = WEEK_DAYS.map((d) => d.dow).filter((d) => d !== source && week[d].active);
+  return copyDay(week, source, targets);
 }
 
-interface DayState {
-  active: boolean;
-  blocks: TimeBlock[];
-}
-
-const DAYS: { dow: number; label: string; short: string }[] = [
-  { dow: 1, label: "Lunedì", short: "Lun" },
-  { dow: 2, label: "Martedì", short: "Mar" },
-  { dow: 3, label: "Mercoledì", short: "Mer" },
-  { dow: 4, label: "Giovedì", short: "Gio" },
-  { dow: 5, label: "Venerdì", short: "Ven" },
-  { dow: 6, label: "Sabato", short: "Sab" },
-  { dow: 7, label: "Domenica", short: "Dom" },
-];
-
-function emptyWeek(): Record<number, DayState> {
-  const w: Record<number, DayState> = {};
-  for (const d of DAYS) w[d.dow] = { active: false, blocks: [] };
-  return w;
-}
-
-// L4: emptyWeek() guarantees all seven dows are populated, but the strict
-// `noUncheckedIndexedAccess` flag still narrows `Record<number, _>[k]` to
-// `DayState | undefined`. This helper centralizes the safe fallback so call
-// sites can read a DayState directly without scattering null checks.
-function dayOf(w: Record<number, DayState>, dow: number): DayState {
-  return w[dow] ?? { active: false, blocks: [] };
-}
-
-export function AvailabilityMobile() {
+export function AvailabilityMobile({
+  onHoldChange,
+}: {
+  /** true finché ci sono orari non salvati: la route tiene montato il telefono. */
+  onHoldChange?: (hold: boolean) => void;
+}) {
   const { user } = useAuth();
   const meId = user?.id;
-  const qc = useQueryClient();
+  const draft = useAvailabilityDraft(meId);
+  const { week, errors, withErrors, dirty, saving, readFailed } = draft;
+  const typesQ = useCoachEventTypes(meId);
 
-  const availQ = useQuery({
-    queryKey: ["trainer_availability", meId],
-    enabled: !!meId,
-    queryFn: async (): Promise<AvailabilityRow[]> => {
-      const { data, error } = await supabase
-        .from("trainer_availability")
-        .select("id, coach_id, day_of_week, start_time, end_time")
-        .eq("coach_id", meId!)
-        .order("day_of_week", { ascending: true })
-        .order("start_time", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as AvailabilityRow[];
-    },
-  });
+  useEffect(() => onHoldChange?.(dirty || saving), [dirty, saving, onHoldChange]);
 
-  const settingsQ = useQuery({
-    queryKey: ["trainer_settings", meId],
-    enabled: !!meId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("trainer_settings")
-        .select("buffer_minutes, min_notice_hours, booking_horizon_days")
-        .eq("coach_id", meId!)
-        .maybeSingle();
-      if (error) throw error;
-      return data ?? null;
-    },
-  });
-
-  const [week, setWeek] = useState<Record<number, DayState>>(emptyWeek());
-  const [bufferMin, setBufferMin] = useState(15);
-  const [minNotice, setMinNotice] = useState(24);
-  const [horizon, setHorizon] = useState(60);
-
-  // Design handoff: "Anteprima settimana" — stima live degli slot prenotabili
-  // (sessioni da 60 min + buffer) ricalcolata a ogni modifica di orari/buffer.
-  // Funzione pura sullo stato del form: nessuna scrittura, nessuna query.
-  const slotPreview = useMemo(() => {
-    const toMin = (t: string) => {
-      const parts = t.split(":");
-      return Number(parts[0] ?? 0) * 60 + Number(parts[1] ?? 0);
-    };
-    const perDay = DAYS.map((d) => {
-      const ds = dayOf(week, d.dow);
-      let count = 0;
-      if (ds.active) {
-        for (const b of ds.blocks) {
-          const mins = toMin(b.end) - toMin(b.start);
-          if (mins > 0) count += Math.floor(mins / (60 + bufferMin));
-        }
-      }
-      return { short: d.short, count };
-    });
-    const total = perDay.reduce((s, x) => s + x.count, 0);
-    const max = Math.max(1, ...perDay.map((x) => x.count));
-    return { perDay, total, max };
-  }, [week, bufferMin]);
-
-  // M2: hydrate local form state from the query ONCE, on first arrival of
-  // the data. Subsequent background refetches (window focus, mutations
-  // elsewhere) would otherwise overwrite the user's unsaved edits — the
-  // didHydrate refs gate the effect so editing in progress is preserved.
-  const didHydrateWeek = useRef(false);
-  useEffect(() => {
-    if (!availQ.data || didHydrateWeek.current) return;
-    const w = emptyWeek();
-    for (const r of availQ.data) {
-      const d = w[r.day_of_week];
-      if (!d) continue;
-      d.active = true;
-      d.blocks.push({ start: fmt(r.start_time), end: fmt(r.end_time) });
-    }
-    setWeek(w);
-    didHydrateWeek.current = true;
-  }, [availQ.data]);
-
-  const didHydrateSettings = useRef(false);
-  useEffect(() => {
-    if (!settingsQ.data || didHydrateSettings.current) return;
-    setBufferMin(settingsQ.data.buffer_minutes);
-    setMinNotice(settingsQ.data.min_notice_hours);
-    setHorizon(settingsQ.data.booking_horizon_days);
-    didHydrateSettings.current = true;
-  }, [settingsQ.data]);
-
-  const toggleDay = (dow: number, active: boolean) => {
-    setWeek((prev) => {
-      const cur = dayOf(prev, dow);
-      return {
-        ...prev,
-        [dow]: {
-          active,
-          blocks:
-            active && cur.blocks.length === 0 ? [{ start: "09:00", end: "13:00" }] : cur.blocks,
-        },
-      };
-    });
-  };
-
-  const updateBlock = (dow: number, idx: number, field: "start" | "end", value: string) => {
-    setWeek((prev) => {
-      const cur = dayOf(prev, dow);
-      const blocks = cur.blocks.map((b, i) => (i === idx ? { ...b, [field]: value } : b));
-      return { ...prev, [dow]: { ...cur, blocks } };
-    });
-  };
-
-  const addBlock = (dow: number) => {
-    setWeek((prev) => {
-      const cur = dayOf(prev, dow);
-      return {
-        ...prev,
-        [dow]: { ...cur, blocks: [...cur.blocks, { start: "14:00", end: "18:00" }] },
-      };
-    });
-  };
-
-  const removeBlock = (dow: number, idx: number) => {
-    setWeek((prev) => {
-      const cur = dayOf(prev, dow);
-      const blocks = cur.blocks.filter((_, i) => i !== idx);
-      return { ...prev, [dow]: { ...cur, blocks } };
-    });
-  };
-
-  const copyToAll = (sourceDow: number) => {
-    setWeek((prev) => {
-      const src = dayOf(prev, sourceDow).blocks.map((b) => ({ ...b }));
-      const next = { ...prev };
-      for (const d of DAYS) {
-        if (d.dow === sourceDow) continue;
-        const cur = dayOf(next, d.dow);
-        if (cur.active) {
-          next[d.dow] = { ...cur, blocks: src.map((b) => ({ ...b })) };
-        }
-      }
-      return next;
-    });
+  const copyToAll = (sourceDow: Dow) => {
+    draft.edit((w) => copyToActive(w, sourceDow));
     toast.success("Orari copiati sui giorni attivi");
   };
-
-  // M5: per-day validation errors surfaced inline beside the offending row
-  // instead of as a single toast. The user can immediately see which day
-  // needs attention rather than parsing prose.
-  const [dayErrors, setDayErrors] = useState<Record<number, string>>({});
-
-  const saveMut = useMutation({
-    mutationFn: async () => {
-      if (!meId) throw new Error("Non autenticato");
-      // Passata 08: se l'orario non si è letto la settimana mostrata è vuota
-      // (o viene da una cache che l'ultima lettura non ha confermato), e
-      // salvarla cancellerebbe gli orari veri.
-      if (!didHydrateWeek.current || availQ.isError) {
-        throw new Error("Non riesco a leggere l'orario: ricarica la pagina prima di salvare.");
-      }
-
-      // Validate — collect every offending day's first error before bailing.
-      const newErrors: Record<number, string> = {};
-      const rows: {
-        coach_id: string;
-        day_of_week: number;
-        start_time: string;
-        end_time: string;
-      }[] = [];
-      for (const d of DAYS) {
-        const ds = dayOf(week, d.dow);
-        if (!ds.active) continue;
-        const dayBlocks: { start: string; end: string }[] = [];
-        let invalid = false;
-        for (const b of ds.blocks) {
-          if (!b.start || !b.end) {
-            newErrors[d.dow] = "Completa entrambi gli orari di ogni fascia.";
-            invalid = true;
-            break;
-          }
-          if (b.end <= b.start) {
-            newErrors[d.dow] = "L'ora di fine deve essere successiva a quella di inizio.";
-            invalid = true;
-            break;
-          }
-          dayBlocks.push({ start: b.start, end: b.end });
-        }
-        if (invalid) continue;
-        // Overlap detection
-        const sorted = [...dayBlocks].sort((a, b) => a.start.localeCompare(b.start));
-        for (let i = 1; i < sorted.length; i++) {
-          const cur = sorted[i];
-          const prev = sorted[i - 1];
-          if (cur && prev && cur.start < prev.end) {
-            newErrors[d.dow] = "Le fasce orarie non possono sovrapporsi.";
-            invalid = true;
-            break;
-          }
-        }
-        if (invalid) continue;
-        for (const b of dayBlocks) {
-          rows.push({
-            coach_id: meId,
-            day_of_week: d.dow,
-            start_time: `${b.start}:00`,
-            end_time: `${b.end}:00`,
-          });
-        }
-      }
-
-      if (Object.keys(newErrors).length > 0) {
-        setDayErrors(newErrors);
-        throw new Error("Verifica gli orari evidenziati.");
-      }
-      setDayErrors({});
-
-      // Passata 08: lo stesso salvataggio del desktop (availability-actions.ts):
-      // rilegge, scrive solo quello che cambia, prima inserisce e poi cancella.
-      // Prima si cancellava tutto e poi si inseriva: un inserimento fallito
-      // lasciava il coach senza disponibilità.
-      const slots: WeekSlot[] = rows.map((r) => ({
-        day_of_week: r.day_of_week as WeekSlot["day_of_week"],
-        start: fmt(r.start_time),
-        end: fmt(r.end_time),
-      }));
-      await saveWeek(supabaseAvailabilityStore, meId, slots);
-
-      // Upsert settings
-      const up = await supabase.from("trainer_settings").upsert(
-        {
-          coach_id: meId,
-          buffer_minutes: bufferMin,
-          min_notice_hours: minNotice,
-          booking_horizon_days: horizon,
-        },
-        { onConflict: "coach_id" },
-      );
-      if (up.error) throw up.error;
-    },
-    onSuccess: () => {
-      toast.success("Modifiche salvate");
-      qc.invalidateQueries({ queryKey: ["trainer_availability", meId] });
-      qc.invalidateQueries({ queryKey: ["trainer_settings", meId] });
-    },
-    onError: (e: Error) => toast.error("Errore", { description: e.message }),
-  });
-
-  const loading = availQ.isLoading || settingsQ.isLoading;
 
   return (
     <div className="min-h-screen bg-surface -m-4 sm:-m-6 p-4 sm:p-6 lg:p-8">
@@ -333,11 +95,11 @@ export function AvailabilityMobile() {
             </p>
           </div>
           <Button
-            onClick={() => saveMut.mutate()}
-            disabled={saveMut.isPending || loading}
+            onClick={() => void draft.save()}
+            disabled={saving || !dirty || withErrors}
             className="rounded-full px-6 h-11 bg-reschedule text-white text-sm font-semibold hover:bg-reschedule/90"
           >
-            {saveMut.isPending ? (
+            {saving ? (
               <Loader2 className="size-4 animate-spin mr-2" />
             ) : (
               <Save className="size-4 mr-2" />
@@ -366,16 +128,26 @@ export function AvailabilityMobile() {
                 Definisci gli intervalli in cui sei disponibile per le sessioni.
               </p>
 
-              {loading ? (
-                <div className="space-y-3">
+              {!week && readFailed ? (
+                <div className="flex flex-col items-start gap-3 py-4">
+                  <p className="flex items-center gap-2 text-sm font-semibold text-on-surface">
+                    <AlertCircle className="size-4 text-danger-text" aria-hidden />
+                    Non riesco a leggere l'orario settimanale.
+                  </p>
+                  <Button variant="outline" className="rounded-full" onClick={draft.retry}>
+                    Riprova
+                  </Button>
+                </div>
+              ) : !week ? (
+                <div className="space-y-3" aria-busy="true">
                   {Array.from({ length: 7 }).map((_, i) => (
                     <Skeleton key={i} className="h-16 w-full rounded-[24px]" />
                   ))}
                 </div>
               ) : (
                 <div className="divide-y divide-surface-container-low">
-                  {DAYS.map((d, dayIdx) => {
-                    const ds = dayOf(week, d.dow);
+                  {WEEK_DAYS.map((d, dayIdx) => {
+                    const ds = week[d.dow];
                     return (
                       <div
                         key={d.dow}
@@ -384,7 +156,8 @@ export function AvailabilityMobile() {
                         <div className="flex items-center gap-3 sm:w-40 shrink-0 pt-2">
                           <Switch
                             checked={ds.active}
-                            onCheckedChange={(v) => toggleDay(d.dow, v)}
+                            disabled={saving}
+                            onCheckedChange={(v) => draft.edit((w) => toggleDay(w, d.dow, v))}
                             aria-label={`Attiva ${d.label.toLowerCase()}`}
                             className="data-[state=checked]:bg-reschedule data-[state=unchecked]:bg-outline-variant"
                           />
@@ -402,11 +175,14 @@ export function AvailabilityMobile() {
                             </p>
                           ) : (
                             <div className="space-y-2">
-                              {ds.blocks.map((b, idx) => (
+                              {ds.ranges.map((b, idx) => (
                                 <div key={idx} className="flex items-center gap-2 flex-wrap">
                                   <Select
                                     value={b.start}
-                                    onValueChange={(v) => updateBlock(d.dow, idx, "start", v)}
+                                    disabled={saving}
+                                    onValueChange={(v) =>
+                                      draft.edit((w) => updateRange(w, d.dow, idx, "start", v))
+                                    }
                                   >
                                     <SelectTrigger
                                       aria-label={`${d.label}: orario di inizio`}
@@ -426,7 +202,10 @@ export function AvailabilityMobile() {
                                   <span className="text-outline-variant">—</span>
                                   <Select
                                     value={b.end}
-                                    onValueChange={(v) => updateBlock(d.dow, idx, "end", v)}
+                                    disabled={saving}
+                                    onValueChange={(v) =>
+                                      draft.edit((w) => updateRange(w, d.dow, idx, "end", v))
+                                    }
                                   >
                                     <SelectTrigger
                                       aria-label={`${d.label}: orario di fine`}
@@ -447,7 +226,8 @@ export function AvailabilityMobile() {
                                     variant="ghost"
                                     size="icon"
                                     className="h-9 w-9 rounded-full text-outline hover:text-error"
-                                    onClick={() => removeBlock(d.dow, idx)}
+                                    disabled={saving}
+                                    onClick={() => draft.edit((w) => removeRange(w, d.dow, idx))}
                                     aria-label="Rimuovi fascia"
                                   >
                                     <Trash2 className="size-4" />
@@ -456,9 +236,9 @@ export function AvailabilityMobile() {
                               ))}
                             </div>
                           )}
-                          {dayErrors[d.dow] && (
+                          {errors[d.dow] && (
                             <p role="alert" className="text-xs text-error pt-1 font-medium">
-                              {dayErrors[d.dow]}
+                              {errors[d.dow]}
                             </p>
                           )}
                         </div>
@@ -469,7 +249,8 @@ export function AvailabilityMobile() {
                               variant="ghost"
                               size="icon"
                               className="h-9 w-9 rounded-full text-outline hover:bg-surface-container-low"
-                              onClick={() => addBlock(d.dow)}
+                              disabled={saving}
+                              onClick={() => draft.edit((w) => addAfternoon(w, d.dow))}
                               aria-label="Aggiungi fascia"
                             >
                               <Plus className="size-4" />
@@ -480,6 +261,7 @@ export function AvailabilityMobile() {
                               variant="ghost"
                               size="icon"
                               className="h-9 w-9 rounded-full text-outline hover:bg-surface-container-low"
+                              disabled={saving}
                               onClick={() => copyToAll(d.dow)}
                               aria-label="Copia su tutti i giorni"
                               title="Copia su tutti i giorni attivi"
@@ -498,95 +280,16 @@ export function AvailabilityMobile() {
 
           {/* RIGHT: Anteprima + booking rules + exceptions */}
           <div className="space-y-6">
-            {/* Design handoff: anteprima live slot prenotabili (card scura) */}
-            <div className="rounded-[32px] bg-aura-primary text-white shadow-[0px_4px_20px_rgba(0,86,133,0.15)] p-6 sm:px-8 sm:py-7">
-              <div className="flex items-center gap-2.5 mb-1">
-                <ChartLine className="size-[18px] text-[#91cbff]" aria-hidden="true" />
-                <h2 className="font-display text-base font-semibold text-[#cfe6ff]">
-                  Anteprima settimana
-                </h2>
-              </div>
-              <div className="flex items-baseline gap-2 mt-2">
-                <span className="font-display text-5xl font-extrabold leading-none tabular-nums">
-                  {slotPreview.total}
-                </span>
-                <span className="text-sm text-[#91cbff]">slot prenotabili / settimana</span>
-              </div>
-              <p className="text-xs text-white/70 mt-2 mb-4">
-                Stimati da orario, durata sessione (60 min) e buffer attuale.
-              </p>
-              <div className="flex items-end gap-2 h-14">
-                {slotPreview.perDay.map((d) => (
-                  <div key={d.short} className="flex-1 flex flex-col justify-end h-full">
-                    <div
-                      className={`w-full rounded-t-[6px] transition-[height] duration-300 ${
-                        d.count > 0 ? "bg-[#91cbff]" : "bg-white/15"
-                      }`}
-                      style={{
-                        height: `${Math.max(6, (d.count / slotPreview.max) * 100)}%`,
-                      }}
-                    />
-                  </div>
-                ))}
-              </div>
-              <div className="flex justify-between mt-2 text-[10px] text-white/60">
-                {slotPreview.perDay.map((d) => (
-                  <span key={d.short}>{d.short}</span>
-                ))}
-              </div>
-            </div>
-
-            <div className="bg-white rounded-[32px] shadow-[0px_4px_20px_rgba(0,86,133,0.05)] p-6 sm:p-8">
-              <h2 className="card-title mb-1">Regole di prenotazione</h2>
-              <p className="text-sm text-muted-foreground mb-3">
-                Imposta i vincoli che i tuoi clienti devono rispettare.
-              </p>
-              {/* M3 (audit 2026-06-06): questi valori sono salvati ma NON ancora
-                  applicati dal motore di generazione slot (preavviso 24h e
-                  orizzonte 14 giorni sono per ora fissi). Avviso onesto finche'
-                  non vengono collegati, per non promettere un controllo inattivo. */}
-              <div className="mb-6 flex items-start gap-2 rounded-2xl bg-warning-soft border border-warning-line px-4 py-3 text-xs text-warning-text">
-                <TriangleAlert className="size-4 shrink-0" aria-hidden />
-                <span>
-                  Funzione in arrivo: al momento i clienti possono prenotare con 24h di preavviso
-                  fino a 2 settimane in avanti. Questi valori vengono salvati ma non ancora
-                  applicati.
-                </span>
-              </div>
-
-              <div className="space-y-5">
-                <div>
-                  <Label className="text-sm font-medium">Buffer tra sessioni (minuti)</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={bufferMin}
-                    onChange={(e) => setBufferMin(Math.max(0, Number(e.target.value) || 0))}
-                    className="mt-2 h-11 rounded-full bg-surface border-surface-variant px-5"
-                  />
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Preavviso minimo (ore)</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={minNotice}
-                    onChange={(e) => setMinNotice(Math.max(0, Number(e.target.value) || 0))}
-                    className="mt-2 h-11 rounded-full bg-surface border-surface-variant px-5"
-                  />
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Orizzonte di prenotazione (giorni)</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={horizon}
-                    onChange={(e) => setHorizon(Math.max(1, Number(e.target.value) || 1))}
-                    className="mt-2 h-11 rounded-full bg-surface border-surface-variant px-5"
-                  />
-                </div>
-              </div>
-            </div>
+            {/* Anteprima e regole: le card del desktop (passata 11 del lato
+                cliente). La stima usa durata e margine della tipologia; le
+                regole si leggono e basta. */}
+            <AvailabilityPreviewCard
+              week={week}
+              weekFailed={readFailed}
+              types={typesQ.data}
+              typesFailed={typesQ.isError && !typesQ.data}
+            />
+            <BookingRulesCard />
 
             <AvailabilityExceptionsCard coachId={meId} />
           </div>

@@ -317,6 +317,41 @@ export async function checkEditCredit(
   return plan ? null : noCreditMessage(input.clientName ?? "Il cliente", input.type.name);
 }
 
+/**
+ * Tipologia e data cambiate insieme, e lo spostamento rifiutato per il credito:
+ * la data va per prima (reschedule_booking con la tipologia di prima), e se il
+ * credito che paga la sessione (un Booster) scade prima della data nuova il
+ * server rifiuta, anche se con la tipologia nuova il credito ci sarebbe
+ * (passata 11 del lato cliente). Il coach lo fa in due salvataggi; il messaggio
+ * lo propone solo se la tipologia nuova ha un credito anche alla data di prima,
+ * cioè se il primo dei due salvataggi può riuscire.
+ */
+export const TYPE_THEN_DATE_MESSAGE =
+  "Il credito della tipologia di prima non vale alla data nuova: cambia prima la tipologia e salva, poi sposta la data.";
+
+function messageOf(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
+
+/** La tipologia nuova ha un credito alla data di prima (il primo dei due salvataggi). */
+async function typeFitsAtOldDate(
+  store: EditStore,
+  s: EditableSession,
+  type: NonNullable<EditInput["type"]>,
+): Promise<boolean> {
+  try {
+    const plan = planSessionCredit({
+      scheduledAt: s.scheduled_at,
+      eventTypeId: type.id,
+      sessionType: type.base_type,
+      ...(await loadClientCredits(store, s.client_id!)),
+    });
+    return plan !== null;
+  } catch {
+    return false;
+  }
+}
+
 export async function editSession(store: EditStore, input: EditInput): Promise<EditResult> {
   const first = await mustRead(store, input.sessionId);
   const before = snapshotOf(first);
@@ -338,7 +373,18 @@ export async function editSession(store: EditStore, input: EditInput): Promise<E
 
   let rescheduled = false;
   if (timeChanged) {
-    await moveTime(store, first, isClient, input.scheduledAt);
+    try {
+      await moveTime(store, first, isClient, input.scheduledAt);
+    } catch (e) {
+      if (
+        typeChanged &&
+        /credit/i.test(messageOf(e)) &&
+        (await typeFitsAtOldDate(store, first, input.type!))
+      ) {
+        throw new NoCreditError(TYPE_THEN_DATE_MESSAGE);
+      }
+      throw e;
+    }
     rescheduled = isClient;
   }
 
@@ -427,10 +473,15 @@ export async function undoEdit(
   if (cur.trainer_notes !== b.trainer_notes) back.trainer_notes = b.trainer_notes;
   if (cur.title !== b.title) back.title = b.title;
   // 2. Tipologia: si riprende il credito vecchio, poi si restituisce il nuovo.
+  // La durata si scrive dopo, a parte, come fa editSession in avanti: il
+  // trigger delle durate (set_booking_duration_defaults, giro del 02/10), su
+  // un UPDATE che cambia tipologia con 60 minuti, rimette la durata della
+  // tipologia, e una BIA tenuta a 60 sarebbe tornata di 30 (passata 11).
   const typeBack = cur.event_type_id !== b.event_type_id;
   if (typeBack) {
     const blockNow = r.typeMove ? r.typeMove.blockAfter : cur.block_id;
     const blockThen = r.typeMove ? r.typeMove.blockBefore : cur.block_id;
+    const { duration_min: durationBack, ...rest } = back;
     const ok = await store.updateSessionFields(
       cur.id,
       { status: cur.status, event_type_id: cur.event_type_id, block_id: blockNow },
@@ -438,7 +489,7 @@ export async function undoEdit(
         event_type_id: b.event_type_id,
         session_type: b.session_type,
         block_id: blockThen,
-        ...back,
+        ...rest,
       },
     );
     if (!ok) throw new SessionChangedError("La sessione è stata modificata nel frattempo.");
@@ -451,16 +502,34 @@ export async function undoEdit(
             event_type_id: cur.event_type_id,
             session_type: cur.session_type,
             block_id: blockNow,
-            duration_min: cur.duration_min,
             trainer_notes: cur.trainer_notes,
             title: cur.title,
           },
+        );
+        // La durata di adesso, a parte: il trigger l'avrebbe cambiata.
+        await store.updateSessionFields(
+          cur.id,
+          { event_type_id: cur.event_type_id },
+          { duration_min: cur.duration_min },
         );
         throw new CreditUnavailableError(
           "Il credito di prima è stato usato nel frattempo: la sessione resta com'è.",
         );
       }
       if (!r.refundFailed) await tryMove(store, r.typeMove.taken, -1);
+    }
+    // La durata di prima, dopo la tipologia.
+    const now = await mustRead(store, cur.id);
+    const durationTarget = durationBack ?? cur.duration_min;
+    if (now.duration_min !== durationTarget) {
+      const okDuration = await store.updateSessionFields(
+        cur.id,
+        { status: now.status, event_type_id: b.event_type_id, duration_min: now.duration_min },
+        { duration_min: durationTarget },
+      );
+      if (!okDuration) {
+        throw new SessionChangedError("La sessione è stata modificata nel frattempo.");
+      }
     }
   } else if (Object.keys(back).length) {
     const ok = await store.updateSessionFields(

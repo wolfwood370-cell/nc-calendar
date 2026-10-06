@@ -46,11 +46,22 @@ self.addEventListener("notificationclick", (event) => {
       for (const c of list) {
         if (!("focus" in c)) continue;
         if (c.url === url) {
-          // Già sulla pagina: il fuoco e basta.
+          // Già sulla pagina: il fuoco, e un messaggio con l'indirizzo. La
+          // pagina non cambia indirizzo, e senza il messaggio l'agenda del
+          // telefono restava sul giorno toccato a mano invece di tornare a
+          // quello della notifica (passata 11 del lato cliente:
+          // src/lib/notification-open.ts).
           try {
             await c.focus();
           } catch {
             // Il fuoco non è più concesso: la pagina è comunque quella giusta.
+          }
+          if ("postMessage" in c) {
+            try {
+              c.postMessage({ type: "nc-notification-open", url });
+            } catch {
+              // Niente: la pagina resta quella giusta.
+            }
           }
           return;
         }

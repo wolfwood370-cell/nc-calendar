@@ -478,8 +478,32 @@ describe("il segno nomina la sessione che esce (passata 10)", () => {
     });
     markLeaving(1234, S1);
     expect(store.get(LEAVING_KEY)).toBe(`1234|${S1}`);
-    markLeaving(1234, null);
+    // l'uscita non riuscita: il segno non la nomina più (passata 11: `forget`)
+    markLeaving(1234, null, S1);
     expect(store.get(LEAVING_KEY)).toBe("1234");
+  });
+
+  it("due «Esci» di fila: il segno ricorda tutte e due le sessioni, e la scheda ferma con la prima non libera il telefono (passata 11)", () => {
+    const store = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      setItem: (k: string, v: string) => store.set(k, v),
+      getItem: (k: string) => store.get(k) ?? null,
+    });
+    const at = 1_000_000;
+    markLeaving(at, S1);
+    markLeaving(at + 60_000, S2);
+    expect(store.get(LEAVING_KEY)).toBe(`${at + 60_000}|${S2},${S1}`);
+    const mark = store.get(LEAVING_KEY)!;
+    expect(leftOnPurpose(mark, at + 10 * 60_000, S1)).toBe(true);
+    expect(leftOnPurpose(mark, at + 10 * 60_000, S2)).toBe(true);
+    // una sessione mai uscita, dopo i dieci secondi, libera il telefono
+    expect(leftOnPurpose(mark, at + 10 * 60_000, "altra")).toBe(false);
+    // al massimo LEAVING_KEEP, le più recenti
+    for (let i = 0; i < 6; i++) markLeaving(at + 120_000 + i, `s${i}`);
+    expect(store.get(LEAVING_KEY)).toBe(`${at + 120_005}|s5,s4,s3,s2,s1`);
+    // togliere una sessione lascia le altre
+    markLeaving(at + 200_000, null, "s3");
+    expect(store.get(LEAVING_KEY)).toBe(`${at + 200_000}|s5,s4,s2,s1`);
   });
 
   it("leftOnPurpose: la sessione del segno vale a qualunque distanza; senza, il margine di dieci secondi", () => {

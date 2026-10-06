@@ -166,27 +166,57 @@ export function pickConsumeAllocation(
   return firstInServerOrder(candidates, s, blockStartDate);
 }
 
+/** Blocco del cliente coi campi che il trigger d'inserimento guarda. */
+export interface OrderedBlock {
+  id: string;
+  start_date: string;
+  end_date: string;
+  sequence_order?: number | null;
+}
+
 /**
- * Allocazione che il trigger validate_booking_block_allocation scalava,
- * prima del giro del server del 02/10/2026, all'inserimento di una sessione
- * con `block_id = s.block_id` (20260827143053_…sql:37-53): tra le allocazioni
- * con capienza di **tutti** i blocchi del cliente (il chiamante passa solo
- * quelle dei blocchi non eliminati), la prima nell'ordine del server. La
- * settimana si conta dall'inizio del blocco passato, `refBlockStart`, come
- * faceva il trigger. Dal giro il trigger sceglie solo fra i blocchi che
- * contengono la data della sessione, prima quello passato: questa funzione
- * segue ancora l'ordine di prima, e la allinea la passata 11.
+ * Allocazione che il trigger validate_booking_block_allocation scala
+ * all'inserimento di una sessione con `block_id = s.block_id`, come è dal
+ * giro del server del 02/10/2026 (app/server-giro-2026-10-02.sql, 3a): fra le
+ * allocazioni con capienza dei blocchi del cliente che **contengono la data**
+ * della sessione (a Roma), nell'ordine del trigger: prima il blocco passato,
+ * poi per inizio del blocco e sequence_order, poi l'ordine del server dentro
+ * il blocco, con la settimana contata dall'inizio del blocco di ogni
+ * allocazione. null se nessuno ne ha: il trigger svuota block_id e la
+ * sessione la paga un extra. Il chiamante passa solo i blocchi non eliminati.
+ * Fino alla passata 11 del lato cliente sceglieva fra tutti i blocchi, anche
+ * finiti, e il dialog poteva dire «blocco» quando il server pagava con un
+ * extra o rifiutava.
  */
 export function pickInsertAllocation(
   s: CreditSession,
   allocations: readonly OrderedAllocation[],
-  refBlockStart: string,
+  blocks: readonly OrderedBlock[],
 ): OrderedAllocation | null {
   if (!s.block_id) return null;
+  const day = romeDate(s.scheduled_at);
+  const byId = new Map(blocks.map((b) => [b.id, b]));
+  const containing = (a: OrderedAllocation): OrderedBlock | null => {
+    const b = byId.get(a.block_id);
+    if (!b) return null;
+    return b.start_date.slice(0, 10) <= day && day <= b.end_date.slice(0, 10) ? b : null;
+  };
   const candidates = allocations.filter(
-    (a) => a.quantity_assigned > a.quantity_booked && inPool(a, s),
+    (a) => a.quantity_assigned > a.quantity_booked && inPool(a, s) && containing(a) !== null,
   );
-  return firstInServerOrder(candidates, s, refBlockStart);
+  return (
+    [...candidates].sort((a, b) => {
+      const ba = containing(a)!;
+      const bb = containing(b)!;
+      const passed = Number(bb.id === s.block_id) - Number(ba.id === s.block_id);
+      if (passed !== 0) return passed;
+      const start = ba.start_date.slice(0, 10).localeCompare(bb.start_date.slice(0, 10));
+      if (start !== 0) return start;
+      const order = (ba.sequence_order ?? 0) - (bb.sequence_order ?? 0);
+      if (order !== 0) return order;
+      return compareServerOrder(a, b, s, weekInBlock(s.scheduled_at, ba.start_date));
+    })[0] ?? null
+  );
 }
 
 function byExpiry(credits: OrderedExtraCredit[]): OrderedExtraCredit | null {

@@ -601,7 +601,12 @@ export const NOTICE_GONE = `Mancano meno di ${CLIENT_MIN_NOTICE_HOURS} ore a que
 
 /**
  * Chi prenota entro 48 ore, comprese, risulta già confermato (O3): la stessa
- * soglia di «Da confermare» in getClientSessionStatus.
+ * soglia di «Da confermare» in getClientSessionStatus. La conferma la scrive
+ * il server, non l'app: dal giro del 02/10/2026 il trigger
+ * enforce_client_booking_rules mette client_confirmed_at all'inserimento
+ * (app/server-giro-2026-10-02.sql, 2c), e qui serve solo per il testo del
+ * riepilogo (summaryRule). Dalla passata 10 l'app non chiama più
+ * confirm_booking_attendance dopo la prenotazione.
  */
 export function confirmsOnBooking(iso: string, now: Date): boolean {
   return new Date(iso).getTime() - now.getTime() <= CLIENT_CONFIRM_WINDOW_HOURS * HOUR_MS;

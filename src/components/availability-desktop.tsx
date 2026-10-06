@@ -11,14 +11,14 @@
 //   - Salvataggio dalla barra in basso con saveWeek (availability-actions.ts):
 //     rilegge, scrive solo quello che cambia, prima inserisce e poi cancella.
 //   - Uscire con orari non salvati chiede conferma, come nel Profilo.
+// Dalla passata 11 del lato cliente bozza, lettura e salvataggio stanno in
+// use-availability-draft.ts, e il telefono usa gli stessi.
 // ----------------------------------------------------------------------------
 
-import { useQueryClient } from "@tanstack/react-query";
 import { useBlocker } from "@tanstack/react-router";
 import { AlertCircle, Clock, Loader2 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { toast } from "sonner";
 import { AvailabilityExceptionsDesktop } from "@/components/availability-exceptions-desktop";
 import { AvailabilityPreviewCard, BookingRulesCard } from "@/components/availability-preview-card";
 import { AvailabilityWeekCard } from "@/components/availability-week-card";
@@ -35,40 +35,14 @@ import { CoachPage } from "@/components/coach-page";
 import { GcalSyncPill } from "@/components/gcal-sync-pill";
 import { PageTitle } from "@/components/page-title";
 import { Skeleton } from "@/components/ui/skeleton";
-import { WeekSaveIncompleteError, saveWeek, slotsOfRows } from "@/lib/availability-actions";
-import { supabaseAvailabilityStore } from "@/lib/availability-store";
-import {
-  changedDays,
-  dirtyLabel,
-  weekErrors,
-  weekFromRows,
-  weekSlots,
-  type WeekDraft,
-} from "@/lib/availability-week";
+import { useAvailabilityDraft } from "@/hooks/use-availability-draft";
 import { useAuth } from "@/lib/auth";
-import { useCoachAvailability, useCoachEventTypes, type AvailabilityRow } from "@/lib/queries";
-import { toastWithUndo } from "@/lib/toast";
-import { cn, errorMessage } from "@/lib/utils";
+import { SAVE_BAR_POSITION } from "@/lib/save-bar";
+import { useCoachEventTypes } from "@/lib/queries";
+import { cn } from "@/lib/utils";
 
 const CARD =
   "flex min-w-0 flex-col rounded-[28px] bg-white p-6 shadow-[0px_4px_20px_rgba(0,86,133,0.05)]";
-
-// Una scrittura dell'orario alla volta, anche fra «Ripristina» di un toast e
-// «Salva orari» (e fra due montaggi della pagina): saveWeek rilegge e poi
-// scrive, e due giri intrecciati lascerebbero nel database le due settimane
-// insieme.
-let weekWrites: Promise<unknown> = Promise.resolve();
-function oneAtATime<T>(task: () => Promise<T>): Promise<T> {
-  const run = weekWrites.then(task, task);
-  weekWrites = run.catch(() => undefined);
-  return run;
-}
-
-function sortRows(rows: readonly AvailabilityRow[]): AvailabilityRow[] {
-  return [...rows].sort(
-    (a, b) => a.day_of_week - b.day_of_week || a.start_time.localeCompare(b.start_time),
-  );
-}
 
 export function AvailabilityDesktop({
   onHoldChange,
@@ -78,11 +52,8 @@ export function AvailabilityDesktop({
 }) {
   const { user } = useAuth();
   const meId = user?.id;
-  const qc = useQueryClient();
-  const availabilityKey = useMemo(() => ["trainer_availability", meId], [meId]);
 
   // --------------------------------------------------------------- orario
-  const availQ = useCoachAvailability(meId, { fresh: true });
   const [openedAt] = useState(() => Date.now());
   // «Adesso» avanza: sessioni cominciate e periodi finiti escono da soli.
   const [now, setNow] = useState(() => new Date(openedAt));
@@ -90,98 +61,18 @@ export function AvailabilityDesktop({
     const t = window.setInterval(() => setNow(new Date()), 60_000);
     return () => window.clearInterval(t);
   }, []);
-  // Solo una lettura fatta dopo l'apertura: la cache può essere vecchia di
-  // minuti, e una rilettura fallita lascia in cache il dato di prima.
-  const fresh =
-    availQ.isFetchedAfterMount && availQ.data !== undefined && availQ.dataUpdatedAt >= openedAt;
-  const saved = useMemo(
-    () => (fresh && availQ.data ? weekFromRows(availQ.data) : null),
-    [fresh, availQ.data],
-  );
-  // Con una rilettura in corso restano gli scheletri: lo stato d'errore di
-  // prima non è ancora la risposta.
-  const readFailed = !fresh && availQ.isError && availQ.fetchStatus === "idle";
+  // La bozza, la lettura fresca e il salvataggio: use-availability-draft.ts,
+  // gli stessi del telefono.
+  const draft = useAvailabilityDraft(meId);
+  const { week, errors, withErrors, dirty, dirtyText, saving, readFailed } = draft;
   const typesQ = useCoachEventTypes(meId);
-
-  const [edits, setEdits] = useState<WeekDraft | null>(null);
-  const week = edits ?? saved;
-  const errors = useMemo(() => (week ? weekErrors(week) : {}), [week]);
-  const withErrors = Object.keys(errors).length > 0;
-  const changed = saved && edits ? changedDays(saved, edits) : [];
-  const dirty = changed.length > 0;
-  const dirtyText = dirtyLabel(changed.length, withErrors);
-  // Scritture in corso (salvataggio o «Ripristina»): barra e card ferme.
-  const [pending, setPending] = useState(0);
-  const saving = pending > 0;
-  const savingRef = useRef(false);
 
   const dirtyRef = useRef(dirty);
   dirtyRef.current = dirty;
 
-  function edit(next: (w: WeekDraft) => WeekDraft) {
-    if (!saved) return;
-    // Una bozza tornata uguale al salvato torna a seguire le letture nuove.
-    setEdits((prev) => {
-      const w = next(prev ?? saved);
-      return changedDays(saved, w).length === 0 ? null : w;
-    });
-  }
-
-  function applyRows(rows: readonly AvailabilityRow[]) {
-    qc.setQueryData(availabilityKey, sortRows(rows));
-  }
-
-  async function track<T>(task: () => Promise<T>): Promise<T> {
-    setPending((n) => n + 1);
-    try {
-      return await oneAtATime(task);
-    } finally {
-      setPending((n) => n - 1);
-    }
-  }
-
-  async function undoSave(before: AvailabilityRow[]) {
-    if (!meId) return;
-    try {
-      const res = await track(() => saveWeek(supabaseAvailabilityStore, meId, slotsOfRows(before)));
-      applyRows(res.after);
-      toast.success("Orari di prima ripristinati.");
-    } catch (e) {
-      if (e instanceof WeekSaveIncompleteError) applyRows(e.actual);
-      toast.error(errorMessage(e));
-    } finally {
-      void qc.invalidateQueries({ queryKey: availabilityKey });
-    }
-  }
-
-  async function save(): Promise<boolean> {
-    if (!meId || !edits || withErrors || saving || savingRef.current) return false;
-    savingRef.current = true;
-    try {
-      const target = weekSlots(edits);
-      const res = await track(() => saveWeek(supabaseAvailabilityStore, meId, target));
-      applyRows(res.after);
-      setEdits(null);
-      toastWithUndo("Orari salvati. I clienti vedono i nuovi slot.", () => {
-        void undoSave(res.before);
-      });
-      return true;
-    } catch (e) {
-      // Salvataggio a metà: il salvato diventa quello che il database ha
-      // davvero, la bozza resta quella da salvare, e il prossimo salvataggio
-      // toglie le righe vecchie.
-      if (e instanceof WeekSaveIncompleteError) applyRows(e.actual);
-      toast.error(errorMessage(e));
-      return false;
-    } finally {
-      savingRef.current = false;
-      void qc.invalidateQueries({ queryKey: availabilityKey });
-    }
-  }
-
-  function discard() {
-    setEdits(null);
-  }
+  const edit = draft.edit;
+  const save = draft.save;
+  const discard = draft.discard;
 
   const blocker = useBlocker({
     shouldBlockFn: ({ current, next }) => dirtyRef.current && current.pathname !== next.pathname,
@@ -228,11 +119,7 @@ export function AvailabilityDesktop({
                   <AlertCircle className="size-4 text-danger-text" aria-hidden />
                   Non riesco a leggere l'orario settimanale.
                 </p>
-                <button
-                  type="button"
-                  onClick={() => void availQ.refetch()}
-                  className={dialogSecondaryButton}
-                >
+                <button type="button" onClick={draft.retry} className={dialogSecondaryButton}>
                   Riprova
                 </button>
               </div>
@@ -266,7 +153,10 @@ export function AvailabilityDesktop({
           <div
             role="region"
             aria-label="Modifiche non salvate"
-            className="fixed bottom-6 left-[calc(256px+24px)] right-6 z-40 flex flex-wrap items-center justify-between gap-4 rounded-[20px] bg-[#191c1f] py-3.5 pl-5 pr-4 text-white shadow-[0_20px_60px_rgba(0,0,0,0.3)]"
+            className={cn(
+              SAVE_BAR_POSITION,
+              "z-40 flex flex-wrap items-center justify-between gap-4 rounded-[20px] bg-[#191c1f] py-3.5 pl-5 pr-4 text-white shadow-[0_20px_60px_rgba(0,0,0,0.3)]",
+            )}
           >
             <span className="flex items-center gap-2.5 text-sm font-semibold">
               <Clock className="size-[18px]" aria-hidden />

@@ -174,8 +174,7 @@ function AdminPage() {
               variant="ghost"
               size="sm"
               onClick={async () => {
-                await signOut();
-                navigate({ to: "/auth" });
+                if (await signOut()) navigate({ to: "/auth" });
               }}
             >
               <LogOut className="size-4" /> Esci

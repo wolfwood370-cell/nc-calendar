@@ -34,6 +34,7 @@ export interface MemBlock {
   start_date: string;
   end_date: string;
   deleted_at: string | null;
+  sequence_order?: number;
 }
 
 export interface MemExtra extends OrderedExtraCredit {
@@ -177,22 +178,32 @@ export function createMemoryCalendar(db: MemDb): MemoryCalendar {
    * durata; end_at si ricalcola sempre.
    */
   function applyDurations(b: MemBooking, op: "insert" | "update", typeSet: boolean) {
+    // Riga per riga come set_booking_duration_defaults (giro del 02/10/2026),
+    // anche con duration_min o buffer_min nulli e con una tipologia che non
+    // c'è più: dalla passata 11 del lato cliente. Prima una riga di Google
+    // senza durata restava senza durata, e un margine nullo dava un end_at
+    // NaN, invece dei 60 minuti e dello 0 del trigger.
+    const row = b as unknown as { duration_min: number | null; buffer_min: number | null };
     if (b.event_type_id && typeSet) {
       const t = db.types.find((x) => x.id === b.event_type_id);
-      if (t) {
-        b.buffer_min = t.buffer_minutes;
-        const explicit60 =
-          op === "insert" &&
-          b.end_at != null &&
-          Date.parse(b.end_at) - Date.parse(b.scheduled_at) === 60 * 60_000;
-        if (
-          !b.google_event_id &&
-          (b.duration_min == null || (b.duration_min === 60 && !explicit60))
-        ) {
-          b.duration_min = t.duration;
-        }
+      const etDuration = t?.duration ?? null;
+      const etBuffer = t?.buffer_minutes ?? null;
+      if (etBuffer !== null) row.buffer_min = etBuffer;
+      const explicit60 =
+        op === "insert" &&
+        b.end_at != null &&
+        Date.parse(b.end_at) - Date.parse(b.scheduled_at) === 60 * 60_000;
+      if (
+        !b.google_event_id &&
+        (row.duration_min == null || (row.duration_min === 60 && !explicit60))
+      ) {
+        row.duration_min = etDuration ?? row.duration_min ?? 60;
+      } else if (row.duration_min == null) {
+        row.duration_min = etDuration ?? 60;
       }
     }
+    row.duration_min = row.duration_min ?? 60;
+    row.buffer_min = row.buffer_min ?? 0;
     b.end_at = new Date(
       Date.parse(b.scheduled_at) + (b.duration_min + b.buffer_min) * 60_000,
     ).toISOString();
@@ -219,21 +230,45 @@ export function createMemoryCalendar(db: MemDb): MemoryCalendar {
     }
   }
 
-  function takeBlockCredit(b: MemBooking) {
-    const blk = block(b.block_id!);
-    if (!blk) throw new PgError("P0001", "Blocco di allenamento non trovato.");
-    const w = week(localDate(b.scheduled_at), blk.start_date);
-    const ids = new Set(clientBlocks(b.client_id!).map((x) => x.id));
+  /**
+   * validate_booking_block_allocation come è dal giro del server del
+   * 02/10/2026 (app/server-giro-2026-10-02.sql, 3a): fra i blocchi del
+   * cliente che contengono la data, prima quello passato, poi per inizio e
+   * sequence_order; dentro il blocco l'ordine del server con la settimana del
+   * blocco dell'allocazione. Senza credito block_id torna vuoto e paga un
+   * extra (takeExtraCredit). Fino alla passata 11 del lato cliente qui c'era
+   * la regola di prima: tutti i blocchi, e un rifiuto senza credito.
+   */
+  function takeBlockCredit(b: MemBooking): boolean {
+    const day = localDate(b.scheduled_at);
+    const inside = clientBlocks(b.client_id!).filter(
+      (x) => x.start_date.slice(0, 10) <= day && day <= x.end_date.slice(0, 10),
+    );
+    const rank = (blockId: string): [number, string, number] => {
+      const x = inside.find((y) => y.id === blockId)!;
+      return [x.id === b.block_id ? 0 : 1, x.start_date.slice(0, 10), x.sequence_order ?? 0];
+    };
+    const ids = new Set(inside.map((x) => x.id));
     const cands = db.allocations.filter(
       (a) =>
         ids.has(a.block_id) &&
         a.quantity_assigned > a.quantity_booked &&
         inPool(a, b.event_type_id, b.session_type),
     );
-    const a = serverSort(cands, b.event_type_id, () => w)[0];
-    if (!a) throw new PgError("P0001", "Credito di blocco non disponibile per questa tipologia.");
+    const startOf = (a: OrderedAllocation) => inside.find((y) => y.id === a.block_id)!.start_date;
+    const sorted = serverSort(cands, b.event_type_id, (a) => week(day, startOf(a))).sort((p, q) => {
+      const [p0, p1, p2] = rank(p.block_id);
+      const [q0, q1, q2] = rank(q.block_id);
+      return p0 - q0 || p1.localeCompare(q1) || p2 - q2;
+    });
+    const a = sorted[0];
+    if (!a) {
+      b.block_id = null;
+      return false;
+    }
     if (a.block_id !== b.block_id) b.block_id = a.block_id;
     a.quantity_booked += 1;
+    return true;
   }
 
   function takeExtraCredit(b: MemBooking) {
@@ -472,8 +507,7 @@ export function createMemoryCalendar(db: MemDb): MemoryCalendar {
           };
           applyDurations(b, "insert", true);
           if (hasClient(b)) {
-            if (b.block_id) takeBlockCredit(b);
-            else takeExtraCredit(b);
+            if (!b.block_id || !takeBlockCredit(b)) takeExtraCredit(b);
           }
           checkOverlap(b);
           db.bookings.push(b);

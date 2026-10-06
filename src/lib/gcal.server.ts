@@ -189,9 +189,14 @@ export async function gcalUpdate(input: UpdateEventInput): Promise<{ ok: true }>
   return { ok: true };
 }
 
-export async function gcalDelete(googleEventId: string): Promise<{ ok: true }> {
+export async function gcalDelete(
+  googleEventId: string,
+  // "none" per togliere un evento appena creato in più (passata 11,
+  // gcal-repair.ts): nessuno deve ricevere la cancellazione di un doppione.
+  opts: { sendUpdates?: "all" | "none" } = {},
+): Promise<{ ok: true }> {
   const url = new URL(`${GATEWAY_BASE}${CALENDAR_PATH}/${encodeURIComponent(googleEventId)}`);
-  url.searchParams.set("sendUpdates", "all");
+  url.searchParams.set("sendUpdates", opts.sendUpdates ?? "all");
 
   const res = await fetch(url.toString(), {
     method: "DELETE",

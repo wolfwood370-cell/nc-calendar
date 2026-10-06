@@ -12,6 +12,8 @@ import {
   shouldReleaseOnAuthEvent,
 } from "@/lib/push";
 import { setSentryUser, setSentryRoleTag } from "@/lib/sentry";
+import { signOutChecked } from "@/lib/sign-out";
+import { toast } from "sonner";
 
 // M10: validate the role coming from the DB through a Zod enum instead of
 // blindly casting `as Role`. Stray DB values (case mismatch, typo, future
@@ -28,7 +30,11 @@ interface AuthCtx {
   user: User | null;
   role: Role | null;
   loading: boolean;
-  signOut: () => Promise<void>;
+  /**
+   * Esce: true se la sessione non è più su questo dispositivo. Non lancia mai;
+   * se non riesce lo dice con un toast (passata 11 del lato cliente).
+   */
+  signOut: () => Promise<boolean>;
 }
 
 const Ctx = createContext<AuthCtx | null>(null);
@@ -109,24 +115,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSentryRoleTag(resolvedRole);
   }
 
-  const signOut = async () => {
+  const signOut = async (): Promise<boolean> => {
     leaving.current = true;
     const at = Date.now();
-    markLeaving(at, knownSession.current);
-    let done = false;
-    try {
-      const { error } = await supabase.auth.signOut();
-      done = !error;
-    } finally {
-      // Uscita non riuscita (un errore restituito o un'eccezione): il segno non
-      // nomina più la sessione, e vale solo il margine di dieci secondi. Di
-      // solito la sessione resta viva (con la rete giù auth-js la tiene), e se
-      // poi scade o la si revoca altrove il telefono si libera. Se invece
-      // auth-js l'ha già tolta (il rinnovo del token rifiutato), una scheda
-      // ferma che riceve SIGNED_OUT dopo i dieci secondi libera il telefono,
-      // come per una sessione scaduta (passata 10).
-      if (!done) markLeaving(at);
-      leaving.current = false;
+    const known = knownSession.current;
+    markLeaving(at, known);
+    // L'esito si guarda (sign-out.ts, passata 11 del lato cliente): con la
+    // rete giù auth-js tiene la sessione, e l'app non deve fare finta di
+    // essere uscita.
+    const done = await signOutChecked(supabase.auth);
+    // Uscita non riuscita: il segno non nomina più la sessione, e vale solo il
+    // margine di dieci secondi. Se poi la sessione scade o la si revoca altrove
+    // il telefono si libera (passata 10). La sessione resta, e lo si dice.
+    if (!done) markLeaving(at, null, known);
+    leaving.current = false;
+    if (!done) {
+      toast.error("Uscita non riuscita. Controlla la connessione e riprova.");
+      return false;
     }
     setSession(null);
     setUser(null);
@@ -139,6 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // device cannot momentarily display the previous user's queries.
     queryClient.clear();
     queryClient.removeQueries();
+    return true;
   };
 
   return <Ctx.Provider value={{ session, user, role, loading, signOut }}>{children}</Ctx.Provider>;

@@ -67,6 +67,12 @@ export interface CalendarHeaderProps {
   onClearTypes: () => void;
   /** Click "Refresh" → forza refetch dei booking. */
   onRefresh: () => void;
+  /**
+   * Una sincronizzazione partita da «Aggiorna» è in corso: il pulsante gira e
+   * non riparte (passata 11 del lato cliente; prima due tocchi davano due
+   * riconciliazioni e due toast, mentre il desktop aveva già `syncing`).
+   */
+  refreshing?: boolean;
   /** Timestamp ISO dell'ultima sincronizzazione Google (null = mai). */
   lastSyncAt: number | null;
   /** Errore sulla query principale dei booking (mostra banner rosso). */
@@ -107,6 +113,7 @@ export function CalendarHeader({
   onToggleType,
   onClearTypes,
   onRefresh,
+  refreshing = false,
   lastSyncAt,
   hasBookingsError,
   onRetryBookings,
@@ -160,11 +167,13 @@ export function CalendarHeader({
           </span>
           <button
             onClick={onRefresh}
-            className="size-8 rounded-full hover:bg-surface-container flex items-center justify-center text-on-surface-variant"
+            disabled={refreshing}
+            aria-busy={refreshing}
+            className="size-8 rounded-full hover:bg-surface-container flex items-center justify-center text-on-surface-variant disabled:opacity-60"
             aria-label="Aggiorna"
             title="Aggiorna calendario"
           >
-            <RefreshCw className="size-4" />
+            <RefreshCw className={refreshing ? "size-4 animate-spin" : "size-4"} />
           </button>
         </div>
       </div>

@@ -108,8 +108,7 @@ function ClientLayout() {
                 onClick={async () => {
                   // Le notifiche di chi esce non arrivano più a questo dispositivo (passata 08).
                   await forgetPushForUser(session.user.id);
-                  await signOut();
-                  navigate({ to: "/auth" });
+                  if (await signOut()) navigate({ to: "/auth" });
                 }}
               >
                 <LogOut className="size-4" /> Esci
