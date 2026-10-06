@@ -46,8 +46,8 @@ I tre file in `app\`: `git hash-object` → `de4d18c8…`, `64b1e75e…`, `d8b1a
 `git diff --name-status origin/main HEAD`:
 
 ```
-M	.gitignore
 A	.claude/settings.json
+M	.gitignore
 A	CLAUDE.md
 M	docs/ULTIMO-RITORNO.md
 ```
