@@ -28,7 +28,8 @@
 //      passata 10.
 //   4. Gli effetti di contorno, senza aspettarli: l'evento di Google Calendar
 //      (gcalCreateEvent, lato server; l'invito arriva all'email del cliente),
-//      l'avviso al coach (booking-notifications), la push al cliente.
+//      l'avviso al coach (booking-notifications), la push al cliente, che dalla
+//      passata 12 apre la sessione e ha il testo della campanella (bookedNotice).
 //   5. Dopo, riuscita o no, invalidateBookingScope: dopo un 23P01 l'orario
 //      deve sparire, dopo un P0001 i crediti devono essere quelli del server.
 // Il doppio tocco lo ferma confirmingRef: il secondo tocco riceve la stessa
@@ -42,6 +43,7 @@ import type { CreditWindow } from "@/lib/booking-rules";
 import { NOTICE_GONE, bookingErrorMessage, noticeOk } from "@/lib/client-book";
 import { gcalCreateEvent } from "@/lib/gcal.functions";
 import type { SessionType } from "@/lib/mock-data";
+import { bookedNotice } from "@/lib/notifications";
 import { sendPush } from "@/lib/push";
 import { invalidateBookingScope } from "@/lib/query-keys";
 
@@ -130,12 +132,14 @@ function announce(b: {
         },
       })
       .catch((e) => console.error("booking-notifications failed", e));
-    sendPush({
-      profileId: b.meId,
-      title: "Prenotazione confermata",
-      body: `${b.type.name} — ${new Date(b.iso).toLocaleString("it-IT", { dateStyle: "medium", timeStyle: "short" })}`,
-      url: "/client",
+    // La push apre la sessione, e dice quello che dice la campanella
+    // (bookedNotice, passata 12): prima apriva la Home.
+    const notice = bookedNotice({
+      bookingId: b.bookingId,
+      label: b.type.name,
+      start: new Date(b.iso),
     });
+    sendPush({ profileId: b.meId, title: notice.title, body: notice.body, url: notice.url });
   } catch (e) {
     console.error("booking-notifications / send-push failed", e);
   }

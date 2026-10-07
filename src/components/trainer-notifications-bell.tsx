@@ -388,6 +388,14 @@ export function TrainerNotificationsBell() {
           <SheetContent
             side="bottom"
             className="rounded-t-[32px] bg-surface-container-lowest border-t border-outline-variant/20 p-0 max-h-[80vh] overflow-y-auto"
+            // Passata 12: l'ultima notifica sopra la zona del gesto, che con
+            // viewport-fit=cover (__root.tsx) sul telefono vale 34 px, e i lati
+            // fuori dal foro della fotocamera di un telefono in orizzontale.
+            style={{
+              paddingBottom: "env(safe-area-inset-bottom, 0px)",
+              paddingLeft: "env(safe-area-inset-left, 0px)",
+              paddingRight: "env(safe-area-inset-right, 0px)",
+            }}
           >
             <SheetHeader className="px-6 pt-6 pb-3 text-left">
               <SheetTitle className="text-lg font-semibold text-on-surface flex items-center gap-2">

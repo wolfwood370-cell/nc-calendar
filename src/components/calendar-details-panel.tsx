@@ -81,6 +81,13 @@ export function CalendarDetailsPanel(p: CalendarDetailsPanelProps) {
     <aside
       aria-label="Dettagli evento"
       className="fixed bottom-0 right-0 top-14 z-[60] flex w-[390px] max-w-[100vw] flex-col overflow-auto border-l border-surface-container bg-white shadow-[-20px_0_60px_rgba(0,0,0,0.12)]"
+      // Passata 12: sul telefono in orizzontale (da md in su) il pannello
+      // arriva al bordo, sotto la tacca; il fondo resta fino al bordo e il
+      // contenuto sta nella zona sicura, a destra e in basso.
+      style={{
+        paddingRight: "env(safe-area-inset-right, 0px)",
+        paddingBottom: "env(safe-area-inset-bottom, 0px)",
+      }}
     >
       <div className="flex items-center justify-between gap-3 px-5 pt-[18px]">
         <span className="flex items-center gap-2 text-[13px] font-semibold text-on-surface-variant">

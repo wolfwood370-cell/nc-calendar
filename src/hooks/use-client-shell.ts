@@ -69,6 +69,7 @@ import {
   clientNotificationList,
   clientNotificationsReadKey,
   clientReminders,
+  coachCreatedBookingIds,
   nextReadIds,
   parseReadIds,
   unreadCount,
@@ -202,6 +203,12 @@ export function useClientShellState(): ClientShellState {
   const feedback = feedbackQ.data ?? null;
   const pathStartDate = profileQ.data?.path_start_date ?? null;
   const { client, state } = bookState;
+  // Le sessioni che una riga del coach racconta già; null finché le righe non
+  // arrivano: allora niente voce delle sessioni prenotate (passata 12).
+  const coachCreated = useMemo(
+    () => (rowsQ.data ? coachCreatedBookingIds(rowsQ.data) : null),
+    [rowsQ.data],
+  );
 
   const reminders = useMemo(
     () =>
@@ -216,11 +223,24 @@ export function useClientShellState(): ClientShellState {
               pathStartDate,
               bia,
               coach,
+              coachCreated,
             },
             now,
           )
         : [],
-    [userId, bookings, eventTypes, feedback, client, state, pathStartDate, bia, coach, now],
+    [
+      userId,
+      bookings,
+      eventTypes,
+      feedback,
+      client,
+      state,
+      pathStartDate,
+      bia,
+      coach,
+      coachCreated,
+      now,
+    ],
   );
   const badge = useMemo(() => sessionsBadge(bookings, now), [bookings, now]);
 

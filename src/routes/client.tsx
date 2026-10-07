@@ -18,17 +18,10 @@ import { CLIENT_TABS, activeClientTab, showsTabBar } from "@/lib/client-shell";
 import { forgetPushForUser } from "@/lib/push";
 
 export const Route = createFileRoute("/client")({
-  // viewport-fit a «cover» solo sulle route del cliente: senza, su iPhone
-  // env(safe-area-inset-*) vale 0 e barra, intestazioni, fogli e toast non
-  // vedono l'indicatore Home. Con «cover» la pagina va anche sotto la tacca in
-  // orizzontale: il layout e la barra tengono i margini di sinistra e destra.
-  // TanStack tiene, per ogni name, il meta della route più interna: le pagine
-  // del coach restano col viewport della radice.
-  head: () => ({
-    meta: [
-      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
-    ],
-  }),
+  // viewport-fit a «cover» sta nella radice per tutta l'app (passata 12,
+  // __root.tsx): senza, su iPhone env(safe-area-inset-*) vale 0. Con «cover»
+  // la pagina va anche sotto la tacca in orizzontale: il layout e la barra
+  // tengono i margini di sinistra e destra.
   component: ClientLayout,
 });
 

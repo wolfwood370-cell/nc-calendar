@@ -76,6 +76,14 @@ export function CalendarContextPanel({
         <SheetContent
           side="right"
           className="bg-surface-container-lowest w-full sm:max-w-md rounded-l-[32px] border-l-0 p-0 flex flex-col gap-0"
+          // Passata 12: il foglio è largo tutto lo schermo sul telefono; con
+          // viewport-fit=cover (__root.tsx) il contenuto sta nella zona sicura.
+          style={{
+            paddingTop: "env(safe-area-inset-top, 0px)",
+            paddingRight: "env(safe-area-inset-right, 0px)",
+            paddingBottom: "env(safe-area-inset-bottom, 0px)",
+            paddingLeft: "env(safe-area-inset-left, 0px)",
+          }}
         >
           <SheetHeader className="p-6 border-b border-outline-variant/30 bg-surface-container-lowest/80 backdrop-blur-md text-left space-y-0">
             <SheetTitle className="text-lg font-bold text-aura-primary flex items-center gap-2">

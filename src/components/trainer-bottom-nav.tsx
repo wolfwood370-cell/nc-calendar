@@ -35,9 +35,16 @@ export function TrainerBottomNav() {
   return (
     <nav
       // Flat white surface with a thin top border — no drop shadow per the
-      // spec. Safe-area inset keeps the nav above iOS home indicator.
+      // spec. Safe-area inset keeps the nav above iOS home indicator: vale
+      // davvero solo con viewport-fit=cover, che dalla passata 12 sta nella
+      // radice (__root.tsx); prima sulle pagine del coach valeva 0 (nf-021).
+      // I lati per un telefono in orizzontale sotto md, come la barra del cliente.
       className="fixed bottom-0 inset-x-0 z-50 block md:hidden bg-surface-container-lowest border-t border-outline-variant/20"
-      style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+      style={{
+        paddingBottom: "env(safe-area-inset-bottom, 0px)",
+        paddingLeft: "env(safe-area-inset-left, 0px)",
+        paddingRight: "env(safe-area-inset-right, 0px)",
+      }}
       aria-label="Navigazione principale"
     >
       <div className="flex items-center justify-around h-16 px-2">

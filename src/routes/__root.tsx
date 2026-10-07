@@ -62,7 +62,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      // viewport-fit a «cover» per tutta l'app (passata 12 del lato cliente,
+      // nf-021): senza, su iPhone env(safe-area-inset-*) vale 0, e la barra in
+      // basso del coach finiva sulla lineetta di sistema (misurato sul telefono
+      // il 07/10/2026: le etichette a 15 punti dal fondo, la lineetta ne occupa
+      // 34). Fino alla 11 stava solo sulle route del cliente (client.tsx), e
+      // TanStack tiene, per ogni name, il meta della route più interna: le
+      // pagine del coach, «/» e «/auth» restavano senza. Con «cover» la pagina
+      // va anche sotto la tacca in orizzontale: i layout del coach
+      // (trainer.tsx) e del cliente (client.tsx) tengono i margini di sinistra
+      // e destra, la barra in basso, i toast, i fogli e i pannelli fissi
+      // tengono la loro zona. Nell'app installata la barra di stato resta
+      // «default» (nessun apple-mobile-web-app-status-bar-style): la pagina
+      // comincia sotto di lei, e l'inset in alto in verticale vale 0.
+      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { name: "theme-color", content: "#3b82f6" },
       { title: "NC Calendar" },
       {

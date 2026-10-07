@@ -107,6 +107,7 @@ const input = (over: Partial<ClientReminderInput> = {}): ClientReminderInput => 
   pathStartDate: null,
   bia: [],
   coach: NICOLO,
+  coachCreated: null,
   ...over,
 });
 

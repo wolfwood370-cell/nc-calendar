@@ -37,8 +37,27 @@ type ToasterProps = ComponentProps<typeof Toaster>;
 /** Quanto resta un toast del cliente senza azione (README, V1: circa 3 s). */
 const CLIENT_TOAST_DURATION = 3200;
 
-/** Le props di prima: coach, admin, accesso. */
-const APP_TOASTER: ToasterProps = { richColors: true, position: "top-right" };
+/**
+ * Gli scostamenti di Sonner (24 px sul computer, 16 sotto i 600 px) più la zona
+ * sicura: con viewport-fit=cover in tutta l'app (passata 12, __root.tsx) sul
+ * telefono in orizzontale il toast in alto a destra finiva sotto la tacca.
+ */
+function safeOffset(px: number) {
+  return {
+    top: `calc(${px}px + env(safe-area-inset-top, 0px))`,
+    right: `calc(${px}px + env(safe-area-inset-right, 0px))`,
+    bottom: `calc(${px}px + env(safe-area-inset-bottom, 0px))`,
+    left: `calc(${px}px + env(safe-area-inset-left, 0px))`,
+  };
+}
+
+/** Le props di prima: coach, admin, accesso; con la zona sicura dalla passata 12. */
+const APP_TOASTER: ToasterProps = {
+  richColors: true,
+  position: "top-right",
+  offset: safeOffset(24),
+  mobileOffset: safeOffset(16),
+};
 
 const CLIENT_ICONS: ToasterProps["icons"] = {
   success: <CircleCheck className="size-[18px] text-toast-ok" />,

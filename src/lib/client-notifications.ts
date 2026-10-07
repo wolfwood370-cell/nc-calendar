@@ -3,7 +3,9 @@
 // ----------------------------------------------------------------------------
 // Due fonti, in una lista sola ordinata dalla più recente:
 //   1. i promemoria, calcolati qui dai dati che la cornice legge già: la
-//      presenza da confermare (una voce per sessione «Da confermare»), i
+//      sessione appena prenotata (passata 12, nf-023: la stessa voce della
+//      push, bookedNotice), la presenza da confermare (una voce per sessione
+//      «Da confermare»), i
 //      crediti da usare prima della fine del blocco (gli stessi numeri
 //      dell'avviso della Home, creditsWarningParts) oppure quasi finiti (1 o
 //      2, i numeri di Prenota), il blocco o il percorso appena iniziato, la
@@ -44,6 +46,7 @@ import { canRate, getClientSessionStatus } from "@/lib/client-session-status";
 import { sessionName, type SessionBooking, type SessionEventType } from "@/lib/client-sessions";
 import { blockTiming } from "@/lib/current-block";
 import {
+  bookedNotice,
   describeClientNotification,
   formatAgo,
   type ClientNotificationView,
@@ -53,6 +56,7 @@ import type { RenewalClient } from "@/lib/renewal";
 import { formatDayRel, formatLongDay } from "@/lib/session-time";
 
 export type ClientReminderKind =
+  | "booked"
   | "confirm"
   | "use"
   | "low"
@@ -115,6 +119,14 @@ export interface ClientReminderInput {
   } | null;
   /** profiles.path_start_date: il blocco che comincia quel giorno apre un percorso. */
   pathStartDate: string | null;
+  /**
+   * Gli id delle sessioni che hanno una riga booking.created_by_coach fra
+   * quelle lette (coachCreatedBookingIds): lì la voce è l'azione del coach,
+   * «Nuova sessione in agenda». null finché le righe non arrivano (o se la
+   * lettura è persa): allora niente voce delle sessioni prenotate, che per un
+   * attimo comparirebbe anche per quelle inserite dal coach.
+   */
+  coachCreated: ReadonlySet<string> | null;
   /** Le misurazioni BIA in ordine di measured_on, come le dà useBiaMeasurements. */
   bia: readonly Pick<BiaMeasurement, "measured_on" | "weight_kg" | "muscle_kg" | "created_at">[];
   coach: BookCoach;
@@ -162,6 +174,78 @@ function planName(pathType: RenewalClient["path_type"]): string {
 /** «61,2»: a una cifra decimale, con la virgola, senza zeri in coda («70», «25»). */
 function kg(v: number): string {
   return String(Math.round(v * 10) / 10).replace(".", ",");
+}
+
+/**
+ * Da quando i trigger della 08 (server-cli-08-notifiche-2026-10-04.sql)
+ * scrivono la riga di una sessione inserita dal coach: applicati il 05/10/2026
+ * fra le 12:45 e le 12:52 di Roma. Una sessione creata prima non ha la riga
+ * anche se l'ha inserita il coach, quindi non diventa una voce. Dal 12/10/2026,
+ * con la finestra di 7 giorni, non esclude più niente.
+ */
+const BOOKED_SINCE_MS = Date.UTC(2026, 9, 5, 10, 52);
+
+/**
+ * Le sessioni prenotate da poco (passata 12, nf-023): la push «Sessione
+ * prenotata» arrivava al telefono e la campanella non l'aveva. Una voce per
+ * sessione in programma, non ancora iniziata, creata negli ultimi 7 giorni (e
+ * non prima di BOOKED_SINCE_MS), senza titolo e senza una riga del coach che la
+ * racconta (coachCreated). Chi la crea non è scritto nella sessione: una
+ * sessione inserita dal coach nell'app ha la sua riga dal server della 08, e
+ * una importata da Google, che la riga non ce l'ha (il trigger esce senza
+ * utente), ha il titolo dell'evento, mentre quella del cliente non ne ha mai
+ * (enforce_client_booking_insert lo rimette a NULL; è la stessa regola di
+ * canRate). Titolo, testo e destinazione sono quelli della push
+ * (bookedNotice); il momento è la creazione. Senza righe lette, nessuna voce.
+ * Limiti dichiarati: se un cliente ha più di 30 righe nuove la riga del coach
+ * può restare fuori dalla lettura (use-notifications.ts, PAGE_SIZE), e al
+ * ritorno sull'app, finché le righe non arrivano, una sessione appena inserita
+ * dal coach può comparire per un attimo; il testo, «Sessione prenotata», resta
+ * vero anche lì.
+ */
+function bookedReminders(input: ClientReminderInput, now: Date): ClientReminder[] {
+  const coach = input.coachCreated;
+  if (!coach) return [];
+  const t = now.getTime();
+  return input.bookings
+    .filter((b) => {
+      if (b.status !== "scheduled" || coach.has(b.id) || !(startOf(b) > t)) return false;
+      if (b.title != null) return false;
+      const created = b.created_at ? new Date(b.created_at) : null;
+      if (!created || !isValid(created) || created.getTime() < BOOKED_SINCE_MS) return false;
+      return t - created.getTime() < NEWS_DAYS * DAY_MS;
+    })
+    .map((b): ClientReminder => {
+      const notice = bookedNotice({
+        bookingId: b.id,
+        label: nameOf(b, input.eventTypes),
+        start: new Date(b.scheduled_at),
+      });
+      return {
+        id: `booked-${b.id}`,
+        kind: "booked",
+        title: notice.title,
+        body: notice.body,
+        at: new Date(b.created_at as string),
+        target: { to: "/client/bookings/$bookingId", bookingId: b.id },
+      };
+    });
+}
+
+/**
+ * Gli id delle sessioni che le righe lette dicono inserite dal coach
+ * (booking.created_by_coach, anche da un'assegnazione o da un ripristino).
+ */
+export function coachCreatedBookingIds(
+  rows: readonly Pick<NotificationRow, "type" | "payload">[],
+): Set<string> {
+  const ids = new Set<string>();
+  for (const r of rows) {
+    if (r.type !== "booking.created_by_coach") continue;
+    const id = (r.payload as Record<string, unknown> | null)?.booking_id;
+    if (typeof id === "string" && id) ids.add(id);
+  }
+  return ids;
 }
 
 /**
@@ -308,8 +392,8 @@ function feedbackReminder(input: ClientReminderInput, now: Date): ClientReminder
 
 /**
  * I promemoria di adesso, in quest'ordine prima dell'ordinamento della lista:
- * le conferme (per inizio), i crediti da usare oppure quasi finiti, il blocco
- * o il percorso appena iniziato, la BIA, la valutazione.
+ * le sessioni prenotate, le conferme (per inizio), i crediti da usare oppure
+ * quasi finiti, il blocco o il percorso appena iniziato, la BIA, la valutazione.
  */
 export function clientReminders(input: ClientReminderInput, now: Date): ClientReminder[] {
   const single = [
@@ -318,7 +402,7 @@ export function clientReminders(input: ClientReminderInput, now: Date): ClientRe
     biaReminder(input, now),
     feedbackReminder(input, now),
   ].filter((r): r is ClientReminder => r !== null);
-  return [...confirmReminders(input, now), ...single];
+  return [...bookedReminders(input, now), ...confirmReminders(input, now), ...single];
 }
 
 export interface ClientNotificationItem {

@@ -55,6 +55,8 @@ const WARNING = "bg-warning-text/10 text-warning-text";
 const PRIMARY = "bg-primary-container/10 text-primary-container";
 const SUCCESS = "bg-success-text/10 text-success-text";
 const KIND: Record<ClientNotificationKind, { icon: LucideIcon; tile: string }> = {
+  // La sessione prenotata (passata 12): l'icona e il colore di «Prenotata».
+  booked: { icon: CalendarCheck, tile: PRIMARY },
   confirm: { icon: CalendarCheck, tile: WARNING },
   use: { icon: Hourglass, tile: WARNING },
   low: { icon: Coins, tile: WARNING },
