@@ -170,7 +170,17 @@ function AuthPage() {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center p-5 bg-surface">
+    // Passata 12: con viewport-fit=cover (__root.tsx) i 20 px di margine più la
+    // zona sicura: in fondo la riga dei termini stava sulla lineetta di sistema.
+    <div
+      className="relative min-h-screen flex items-center justify-center p-5 bg-surface"
+      style={{
+        paddingTop: "calc(20px + env(safe-area-inset-top, 0px))",
+        paddingRight: "calc(20px + env(safe-area-inset-right, 0px))",
+        paddingBottom: "calc(20px + env(safe-area-inset-bottom, 0px))",
+        paddingLeft: "calc(20px + env(safe-area-inset-left, 0px))",
+      }}
+    >
       {/* Ambient glow background */}
       <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] right-[-10%] w-[400px] h-[400px] rounded-full bg-primary-fixed-dim/20 blur-[120px]" />

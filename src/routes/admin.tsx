@@ -154,7 +154,16 @@ function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    // Passata 12: con viewport-fit=cover (__root.tsx) i margini della zona
+    // sicura, come i layout del coach e del cliente.
+    <div
+      className="min-h-screen bg-background"
+      style={{
+        paddingLeft: "env(safe-area-inset-left, 0px)",
+        paddingRight: "env(safe-area-inset-right, 0px)",
+        paddingBottom: "env(safe-area-inset-bottom, 0px)",
+      }}
+    >
       <header className="h-14 border-b bg-background/80 backdrop-blur sticky top-0 z-10">
         <div className="mx-auto max-w-6xl h-full px-4 flex items-center justify-between">
           <div className="flex items-center gap-2">

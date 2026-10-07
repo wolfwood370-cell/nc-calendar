@@ -245,6 +245,33 @@ export function describeClientNotification(
   };
 }
 
+/** Il dettaglio di una sessione del cliente, come indirizzo (la push lo apre). */
+export function clientBookingPath(bookingId: string): string {
+  return `/client/bookings/${encodeURIComponent(bookingId)}`;
+}
+
+/**
+ * La sessione prenotata dal cliente (passata 12 del lato cliente, nf-022 e
+ * nf-023): la stessa voce nella push che arriva al telefono e nella
+ * campanella. Il testo è quello delle azioni del coach, «Sessione PT · mar 29
+ * set alle 11:10», in ora locale; l'indirizzo è il dettaglio della sessione.
+ * Fino alla 11 la push diceva «Prenotazione confermata» e apriva la Home
+ * (url "/client"), e la campanella non la mostrava: «confermata» si
+ * confondeva con «Conferma la tua presenza», che per una sessione oltre le 48
+ * ore arriva dopo.
+ */
+export function bookedNotice(b: { bookingId: string; label: string; start: Date }): {
+  title: string;
+  body: string;
+  url: string;
+} {
+  return {
+    title: "Sessione prenotata",
+    body: `${filled(b.label) ?? "Sessione"} · ${clientDay(b.start)} alle ${clientTime(b.start)}`,
+    url: clientBookingPath(b.bookingId),
+  };
+}
+
 /** «adesso», «25 min fa», «1 ora fa», «3 ore fa», «ieri», «4 giorni fa». */
 export function formatAgo(iso: string, now: Date = new Date()): string {
   const minutes = Math.round((now.getTime() - new Date(iso).getTime()) / 60_000);

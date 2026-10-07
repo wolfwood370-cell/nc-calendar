@@ -67,7 +67,17 @@ function TrainerLayout() {
   return (
     // Design handoff: su desktop la pagina ha il gradiente del mock
     // (135deg #f2f3f8→#e7e8ec) che traspare sotto sidebar/header glass.
-    <div className="min-h-screen flex w-full bg-background md:bg-[linear-gradient(135deg,#f2f3f8,#e7e8ec)]">
+    // Passata 12 (nf-021): con viewport-fit=cover (__root.tsx) in orizzontale
+    // la pagina va sotto la tacca; i margini di sinistra e destra tengono
+    // barra laterale, intestazione e contenuto nella zona sicura, come il
+    // layout del cliente (client.tsx).
+    <div
+      className="min-h-screen flex w-full bg-background md:bg-[linear-gradient(135deg,#f2f3f8,#e7e8ec)]"
+      style={{
+        paddingLeft: "env(safe-area-inset-left)",
+        paddingRight: "env(safe-area-inset-right)",
+      }}
+    >
       {/* Sidebar: desktop only, sticky a tutta altezza. On mobile the
           TrainerBottomNav at the bottom of the viewport replaces it. */}
       <div className="hidden md:block">
@@ -83,11 +93,14 @@ function TrainerLayout() {
         {/* Desktop header (percorso, ricerca, «Nuovo», notifiche). The
             mobile views render their own glassmorphic header inside each page. */}
         <TrainerHeader />
-        {/* pb on mobile clears the bottom nav (64px nav + safe-area).
+        {/* Sotto md lo spazio della barra in basso: 64 px, la zona del gesto
+            e 24 (passata 12: prima 88 px fissi, senza la zona del gesto, che
+            con viewport-fit=cover sul telefono vale 34 px).
             Desktop: mock = main #f8f9fe dentro il gradiente di pagina; il
             padding resta 24px perché molte route lo compensano con -m-6
-            per i propri sfondi full-bleed. */}
-        <main className="p-0 md:p-6 pb-[88px] md:pb-6 md:bg-surface">
+            per i propri sfondi full-bleed; sotto si aggiunge la zona del gesto
+            (21 px sul telefono in orizzontale, 0 sul computer). */}
+        <main className="p-0 md:p-6 pb-[calc(88px+env(safe-area-inset-bottom,0px))] md:pb-[calc(24px+env(safe-area-inset-bottom,0px))] md:bg-surface">
           {/* key sul pathname: rimonta la vista a ogni navigazione così
               l'animazione page-enter (design handoff) riparte. */}
           <div key={path} className="page-enter">
