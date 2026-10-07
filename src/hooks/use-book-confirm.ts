@@ -28,7 +28,9 @@
 //      passata 10.
 //   4. Gli effetti di contorno, senza aspettarli: l'evento di Google Calendar
 //      (gcalCreateEvent, lato server; l'invito arriva all'email del cliente),
-//      l'avviso al coach (booking-notifications), la push al cliente, che dalla
+//      l'avviso al coach (booking-notifications, che dalla passata 13 porta
+//      l'id della sessione: la campanella del coach apre la sessione nel
+//      Calendario, non solo il giorno), la push al cliente, che dalla
 //      passata 12 apre la sessione e ha il testo della campanella (bookedNotice).
 //   5. Dopo, riuscita o no, invalidateBookingScope: dopo un 23P01 l'orario
 //      deve sparire, dopo un P0001 i crediti devono essere quelli del server.
@@ -87,9 +89,10 @@ export interface UseBookConfirmReturn {
  * senza che un loro errore arrivi al foglio: l'evento sul calendario della
  * piattaforma (lato server: se online chiede la stanza di Meet, sendUpdates=all
  * manda l'invito al cliente; colore e descrizione della tipologia, GCAL-FIX
- * dell'08/06/2026), l'avviso al coach, la push al cliente.
+ * dell'08/06/2026), l'avviso al coach, la push al cliente. Esportata per il
+ * suo test (use-book-confirm.test.ts).
  */
-function announce(b: {
+export function announce(b: {
   bookingId: string;
   meId: string;
   coachId: string;
@@ -129,6 +132,9 @@ function announce(b: {
           scheduled_at: b.iso,
           session_label: b.type.name,
           meeting_link: null,
+          // Finisce nel payload della notifica (booking-notifications), e la
+          // riga «Nuova prenotazione» apre la sessione (passata 13).
+          booking_id: b.bookingId,
         },
       })
       .catch((e) => console.error("booking-notifications failed", e));

@@ -26,7 +26,18 @@
 //     l'id già scritto né l'errore.
 //   - reconcileWith: gli annullamenti e gli spostamenti trovati su Google.
 //     Un annullamento non riuscito si conta fra le sessioni non aggiornate,
-//     come uno spostamento non riuscito; prima non lo contava nessuno.
+//     come uno spostamento non riuscito; prima non lo contava nessuno. Dal
+//     giro del server del 07/10/2026 reconcile_gcal_cancel e
+//     reconcile_gcal_move restituiscono l'esito (text): 'cancelled' e 'moved'
+//     si contano come annullate e spostate; 'overlap' è uno spostamento che
+//     finirebbe sopra un'altra sessione, che il server non fa (la sessione
+//     resta all'orario di prima), e si conta a parte (overlaps);
+//     'not_scheduled' e 'not_found' vogliono dire una sessione già cambiata o
+//     eliminata nel frattempo, e non si contano. Prima le due RPC erano void e
+//     uno spostamento sovrapposto si contava come spostato. Col server di
+//     prima (data nullo, anche dopo un ritorno indietro della migrazione) si
+//     conta come allora; un esito che l'app non conosce vale come nullo, e va
+//     nei log.
 // ----------------------------------------------------------------------------
 
 import { isAllDayEvent } from "@/lib/all-day-event";
@@ -145,14 +156,49 @@ export interface ReconcileEvent {
 export interface ReconcileCounts {
   cancelled: number;
   moved: number;
+  /**
+   * Spostamenti di Google che finirebbero sopra un'altra sessione: il server
+   * non li fa, e la sessione resta all'orario di prima ('overlap').
+   */
+  overlaps: number;
   /** Sessioni non aggiornate per un errore: spostamenti e annullamenti. */
   conflicts: number;
 }
 
+/**
+ * La risposta di reconcile_gcal_cancel o reconcile_gcal_move: `data` è
+ * l'esito (text) dal giro del server del 07/10/2026, nullo col server di
+ * prima (void).
+ */
+export interface ReconcileRpcResult {
+  data?: unknown;
+  error: unknown;
+}
+
 export interface ReconcileDeps {
-  cancel: (bookingId: string) => Promise<{ error: unknown }>;
-  move: (bookingId: string, newStartISO: string) => Promise<{ error: unknown }>;
+  cancel: (bookingId: string) => Promise<ReconcileRpcResult>;
+  move: (bookingId: string, newStartISO: string) => Promise<ReconcileRpcResult>;
   logError?: (what: string, detail: unknown) => void;
+}
+
+/**
+ * L'esito di una RPC riuscita: "done" (annullata o spostata, anche col server
+ * di prima, che non dice niente), "overlap" (solo per lo spostamento: la
+ * sessione resta dov'era), "unchanged" (la sessione non era più in programma,
+ * o non c'era più). Un valore sconosciuto vale come nullo, e va nei log.
+ */
+function outcomeOf(
+  rpc: "reconcile_gcal_cancel" | "reconcile_gcal_move",
+  data: unknown,
+  bookingId: string,
+  logError: ReconcileDeps["logError"],
+): "done" | "overlap" | "unchanged" {
+  if (data === null || data === undefined) return "done";
+  if (data === (rpc === "reconcile_gcal_cancel" ? "cancelled" : "moved")) return "done";
+  if (rpc === "reconcile_gcal_move" && data === "overlap") return "overlap";
+  if (data === "not_scheduled" || data === "not_found") return "unchanged";
+  logError?.(`${rpc}: esito sconosciuto`, { id: bookingId, data });
+  return "done";
 }
 
 export async function reconcileWith(
@@ -162,16 +208,17 @@ export async function reconcileWith(
 ): Promise<ReconcileCounts> {
   let cancelled = 0;
   let moved = 0;
+  let overlaps = 0;
   let conflicts = 0;
   for (const ev of events) {
     const booking = byEventId.get(ev.id);
     if (!booking) continue; // evento Google non abbinato a una sessione: niente import
     if (ev.status === "cancelled") {
-      const { error } = await deps.cancel(booking.id);
+      const { data, error } = await deps.cancel(booking.id);
       if (error) {
         deps.logError?.("reconcile_gcal_cancel failed", { id: booking.id, error });
         conflicts++;
-      } else {
+      } else if (outcomeOf("reconcile_gcal_cancel", data, booking.id, deps.logError) === "done") {
         cancelled++;
       }
       continue;
@@ -179,17 +226,19 @@ export async function reconcileWith(
     // Spostamento: confronto sugli istanti, tolleranza 60 secondi.
     if (ev.startMs !== null && Number.isFinite(booking.scheduledMs)) {
       if (Math.abs(ev.startMs - booking.scheduledMs) > 60_000) {
-        const { error } = await deps.move(booking.id, new Date(ev.startMs).toISOString());
+        const { data, error } = await deps.move(booking.id, new Date(ev.startMs).toISOString());
         if (error) {
           deps.logError?.("reconcile_gcal_move failed", { id: booking.id, error });
           conflicts++;
         } else {
-          moved++;
+          const outcome = outcomeOf("reconcile_gcal_move", data, booking.id, deps.logError);
+          if (outcome === "done") moved++;
+          else if (outcome === "overlap") overlaps++;
         }
       }
     }
   }
-  return { cancelled, moved, conflicts };
+  return { cancelled, moved, overlaps, conflicts };
 }
 
 /**

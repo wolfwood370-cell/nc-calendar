@@ -6,8 +6,10 @@
 // pausa, use-coach-notes.ts), con lo stato «Salvataggio automatico» /
 // «Salvataggio…» / «Salvato». In più: se si lascia la pagina prima degli
 // 800 ms, la modifica si salva lo stesso invece di perdersi.
-// Le Limitazioni (K4) non ci sono: senza una colonna loro non si salvano, e
-// in un campo che serve ad altro si mescolerebbero con le note.
+// Le Limitazioni (K4) non ci sono ancora: la colonna c'è dal giro del server
+// del 02/10/2026 (coach_client_notes.limitations, nei tipi dal 04/10), ma la
+// pagina non la legge né la scrive; il campo arriva con una passata del
+// Profilo.
 // ----------------------------------------------------------------------------
 
 import { Target } from "lucide-react";

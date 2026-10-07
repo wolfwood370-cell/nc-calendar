@@ -6,15 +6,19 @@
 // «Notifica» invece di rompere la campanella. describeNotification prepara
 // i testi della riga desktop e il giorno dell'evento da aprire nel Calendario
 // (audit S4), o il cliente di cui aprire il profilo per un acquisto di
-// Booster (passata 06). Formati e soglie come in Coach Header.dc.html /
-// nc-store.js.
+// Booster (passata 06). Dal giro del server del 07/10/2026 anche
+// l'annullamento e il ripristino del cliente, che aprono il Calendario sul
+// giorno della sessione. describeMobileNotification dà i testi della riga del
+// telefono. Formati e soglie come in Coach Header.dc.html / nc-store.js.
 // ----------------------------------------------------------------------------
 
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import type {
+  BookingCancelledPayload,
   BookingCreatedPayload,
   BookingRescheduledPayload,
+  BookingRestoredPayload,
   BoosterPurchasedPayload,
   NotificationRow,
 } from "@/hooks/use-notifications";
@@ -58,12 +62,41 @@ export function isBoosterPurchasedPayload(
   );
 }
 
+/**
+ * L'annullamento del cliente (giro del server del 07/10/2026): nome, orario e
+ * tipologia, e `late` booleano (a meno di 24 ore, il credito resta scalato).
+ */
+export function isBookingCancelledPayload(
+  p: Record<string, unknown>,
+): p is Record<string, unknown> & BookingCancelledPayload {
+  return (
+    typeof (p as { client_name?: unknown }).client_name === "string" &&
+    typeof (p as { scheduled_at?: unknown }).scheduled_at === "string" &&
+    typeof (p as { session_label?: unknown }).session_label === "string" &&
+    typeof (p as { late?: unknown }).late === "boolean"
+  );
+}
+
+/** Il ripristino del cliente (giro del server del 07/10/2026): nome, orario e tipologia. */
+export function isBookingRestoredPayload(
+  p: Record<string, unknown>,
+): p is Record<string, unknown> & BookingRestoredPayload {
+  return (
+    typeof (p as { client_name?: unknown }).client_name === "string" &&
+    typeof (p as { scheduled_at?: unknown }).scheduled_at === "string" &&
+    typeof (p as { session_label?: unknown }).session_label === "string"
+  );
+}
+
 export interface NotificationView {
-  kind: "created" | "rescheduled" | "purchase" | "other";
+  kind: "created" | "rescheduled" | "purchase" | "cancelled" | "restored" | "other";
   title: string;
   /** «Cliente · Tipologia»; vuoto se il payload non si legge. */
   body: string;
-  /** «mer 30 set · 18:00» oppure «lun 28 set 09:00 → mar 29 set 10:00». */
+  /**
+   * «mer 30 set · 18:00», «lun 28 set 09:00 → mar 29 set 10:00», oppure per
+   * un annullamento «mer 30 set · 18:00 · credito restituito».
+   */
   when: string | null;
   /** Giorno dell'evento (YYYY-MM-DD; per una sessione spostata il nuovo) da aprire nel Calendario. */
   date: string | null;
@@ -134,7 +167,74 @@ export function describeNotification(
     };
   }
 
+  if (n.type === "booking.cancelled" && isBookingCancelledPayload(p)) {
+    const at = toDate(p.scheduled_at);
+    if (at) {
+      return {
+        kind: "cancelled",
+        title: p.late ? "Annullata a meno di 24 ore" : "Sessione annullata",
+        body: withType(p.client_name, p.session_label),
+        when: `${dayTime(at)} · ${p.late ? "credito scalato" : "credito restituito"}`,
+        date: toIsoDate(at),
+        bookingId,
+      };
+    }
+  }
+
+  if (n.type === "booking.restored" && isBookingRestoredPayload(p)) {
+    const at = toDate(p.scheduled_at);
+    if (at) {
+      return {
+        kind: "restored",
+        title: "Sessione ripristinata",
+        body: withType(p.client_name, p.session_label),
+        when: dayTime(at),
+        date: toIsoDate(at),
+        bookingId,
+      };
+    }
+  }
+
   return { kind: "other", title: "Notifica", body: "", when: null, date: null, bookingId: null };
+}
+
+/**
+ * Titolo e testo di una riga della campanella del coach sul telefono
+ * (NotificationItem): il testo va a capo dove c'è «\n». La prenotazione e lo
+ * spostamento hanno i testi di sempre del telefono; l'annullamento, il
+ * ripristino e l'acquisto quelli di describeNotification, col quando sotto
+ * come sul desktop. Un tipo che la campanella non conosce, o un payload che
+ * non ha la forma attesa: «Notifica» col tipo grezzo, come prima.
+ */
+export function describeMobileNotification(n: Pick<NotificationRow, "type" | "payload">): {
+  title: string;
+  body: string;
+} {
+  const p = n.payload;
+  // Le date con toDate: una che non si legge dà «Notifica» invece di far
+  // cadere tutta la campanella (format di date-fns lancia RangeError).
+  if (n.type === "booking.created" && isBookingCreatedPayload(p)) {
+    const at = toDate(p.scheduled_at);
+    if (at) {
+      const when = format(at, "EEE d MMM · HH:mm", { locale: it });
+      return {
+        title: "Nuova prenotazione",
+        body: `${p.client_name} · ${p.session_label}\n${when}`,
+      };
+    }
+  }
+  if (n.type === "booking.rescheduled" && isBookingRescheduledPayload(p)) {
+    const from = toDate(p.old_scheduled_at);
+    const to = toDate(p.new_scheduled_at);
+    if (from && to) {
+      const oldWhen = format(from, "d MMM · HH:mm", { locale: it });
+      const newWhen = format(to, "d MMM · HH:mm", { locale: it });
+      return { title: "Sessione spostata", body: `${p.client_name}\n${oldWhen} → ${newWhen}` };
+    }
+  }
+  const view = describeNotification(n);
+  if (view.kind === "other") return { title: "Notifica", body: n.type };
+  return { title: view.title, body: view.when ? `${view.body}\n${view.when}` : view.body };
 }
 
 // ----------------------------------------------------------------------------

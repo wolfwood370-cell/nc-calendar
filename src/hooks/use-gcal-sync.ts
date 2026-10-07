@@ -22,6 +22,7 @@ import {
   fullSyncMeasure,
   fullSyncOutcome,
   quickSyncMessage,
+  quickSyncNeedsNotice,
   runFullSync,
   runQuickSync,
   type GcalSyncApi,
@@ -119,7 +120,9 @@ export function useGcalSync(coachId: string | undefined, opts: GcalSyncOptions =
     } else {
       console.error("gcalReconcile (calendar) failed", r.failure);
     }
-    if (r.changed) {
+    // Anche con le sole sovrapposizioni (passata 13): nell'app non cambia
+    // niente, ma Google e l'app restano diversi e il coach deve saperlo.
+    if (quickSyncNeedsNotice(r)) {
       qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(coachId) });
       qc.invalidateQueries({ queryKey: queryKeys.bookings.unassignedAll(coachId) });
       notifySync(quickSyncMessage(r));

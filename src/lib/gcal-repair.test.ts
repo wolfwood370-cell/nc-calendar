@@ -6,6 +6,8 @@ import {
   writeBackEventId,
   yearStartISO,
   type PageResult,
+  type ReconcileEvent,
+  type ReconcileRpcResult,
 } from "@/lib/gcal-repair";
 
 type Row = { id: string; scheduled_at: string };
@@ -203,7 +205,7 @@ describe("riconciliazione · annullamenti e spostamenti (passata 11)", () => {
         move: async () => ({ error: null }),
       },
     );
-    expect(r).toEqual({ cancelled: 1, moved: 1, conflicts: 1 });
+    expect(r).toEqual({ cancelled: 1, moved: 1, overlaps: 0, conflicts: 1 });
   });
 
   it("uno spostamento non riuscito, e uno entro un minuto che non è uno spostamento", async () => {
@@ -223,6 +225,121 @@ describe("riconciliazione · annullamenti e spostamenti (passata 11)", () => {
       },
     );
     expect(moves).toEqual(["b2@2026-10-08T10:00:00.000Z"]);
-    expect(r).toEqual({ cancelled: 0, moved: 0, conflicts: 1 });
+    expect(r).toEqual({ cancelled: 0, moved: 0, overlaps: 0, conflicts: 1 });
+  });
+});
+
+// Dal giro del server del 07/10/2026 reconcile_gcal_cancel e reconcile_gcal_move
+// restituiscono l'esito (text). Il ritorno indietro della migrazione le rimette
+// void: data nullo, e si conta come prima.
+describe("riconciliazione · l'esito delle due RPC (passata 13)", () => {
+  const byEventId = new Map([
+    ["e1", { id: "b1", scheduledMs: Date.parse("2026-10-07T08:00:00Z") }],
+    ["e2", { id: "b2", scheduledMs: Date.parse("2026-10-08T08:00:00Z") }],
+    ["e3", { id: "b3", scheduledMs: Date.parse("2026-10-09T08:00:00Z") }],
+    ["e4", { id: "b4", scheduledMs: Date.parse("2026-10-10T08:00:00Z") }],
+  ]);
+  const cancelledOnGoogle = (id: string): ReconcileEvent => ({
+    id,
+    status: "cancelled",
+    startMs: null,
+  });
+  /** Spostata su Google di due ore. */
+  const movedOnGoogle = (id: string): ReconcileEvent => ({
+    id,
+    status: "confirmed",
+    startMs: byEventId.get(id)!.scheduledMs + 2 * 3_600_000,
+  });
+
+  /** Le RPC finte, con una risposta per sessione, e i log raccolti. */
+  async function run(events: ReconcileEvent[], answers: Record<string, ReconcileRpcResult>) {
+    const logs: Array<[string, unknown]> = [];
+    const calls: string[] = [];
+    const answer = (rpc: string) => async (id: string) => {
+      calls.push(`${rpc}:${id}`);
+      return answers[id] ?? { data: null, error: null };
+    };
+    const counts = await reconcileWith(events, byEventId, {
+      cancel: answer("cancel"),
+      move: answer("move"),
+      logError: (what, detail) => logs.push([what, detail]),
+    });
+    return { counts, logs, calls };
+  }
+
+  it("annullata, spostata e sovrapposta: ognuna nel suo conto, e la sovrapposta non è spostata", async () => {
+    const { counts, logs, calls } = await run(
+      [cancelledOnGoogle("e1"), movedOnGoogle("e2"), movedOnGoogle("e3"), movedOnGoogle("e4")],
+      {
+        b1: { data: "cancelled", error: null },
+        b2: { data: "moved", error: null },
+        b3: { data: "overlap", error: null },
+        b4: { data: "overlap", error: null },
+      },
+    );
+    expect(calls).toEqual(["cancel:b1", "move:b2", "move:b3", "move:b4"]);
+    expect(counts).toEqual({ cancelled: 1, moved: 1, overlaps: 2, conflicts: 0 });
+    expect(logs).toEqual([]);
+  });
+
+  it("not_scheduled e not_found: la sessione era già cambiata o eliminata, e non si conta", async () => {
+    const { counts, logs } = await run(
+      [cancelledOnGoogle("e1"), cancelledOnGoogle("e2"), movedOnGoogle("e3"), movedOnGoogle("e4")],
+      {
+        b1: { data: "not_scheduled", error: null },
+        b2: { data: "not_found", error: null },
+        b3: { data: "not_scheduled", error: null },
+        b4: { data: "not_found", error: null },
+      },
+    );
+    expect(counts).toEqual({ cancelled: 0, moved: 0, overlaps: 0, conflicts: 0 });
+    expect(logs).toEqual([]);
+  });
+
+  it("il server di prima (void): data nullo o assente si conta come allora", async () => {
+    const { counts, logs } = await run(
+      [cancelledOnGoogle("e1"), cancelledOnGoogle("e2"), movedOnGoogle("e3"), movedOnGoogle("e4")],
+      {
+        b1: { data: null, error: null },
+        b2: { error: null },
+        b3: { data: null, error: null },
+        b4: { error: null },
+      },
+    );
+    expect(counts).toEqual({ cancelled: 2, moved: 2, overlaps: 0, conflicts: 0 });
+    expect(logs).toEqual([]);
+  });
+
+  it("un esito sconosciuto vale come nullo, e va nei log", async () => {
+    const { counts, logs } = await run(
+      [cancelledOnGoogle("e1"), cancelledOnGoogle("e2"), movedOnGoogle("e3"), movedOnGoogle("e4")],
+      {
+        b1: { data: "boh", error: null },
+        // 'overlap' è un esito dello spostamento, non dell'annullamento.
+        b2: { data: "overlap", error: null },
+        b3: { data: "cancelled", error: null },
+        b4: { data: 42, error: null },
+      },
+    );
+    expect(counts).toEqual({ cancelled: 2, moved: 2, overlaps: 0, conflicts: 0 });
+    expect(logs).toEqual([
+      ["reconcile_gcal_cancel: esito sconosciuto", { id: "b1", data: "boh" }],
+      ["reconcile_gcal_cancel: esito sconosciuto", { id: "b2", data: "overlap" }],
+      ["reconcile_gcal_move: esito sconosciuto", { id: "b3", data: "cancelled" }],
+      ["reconcile_gcal_move: esito sconosciuto", { id: "b4", data: 42 }],
+    ]);
+  });
+
+  it("un errore resta un conflitto, qualunque cosa dica data", async () => {
+    const error = { message: "no" };
+    const { counts, logs } = await run([cancelledOnGoogle("e1"), movedOnGoogle("e2")], {
+      b1: { data: "cancelled", error },
+      b2: { data: "overlap", error },
+    });
+    expect(counts).toEqual({ cancelled: 0, moved: 0, overlaps: 0, conflicts: 2 });
+    expect(logs).toEqual([
+      ["reconcile_gcal_cancel failed", { id: "b1", error }],
+      ["reconcile_gcal_move failed", { id: "b2", error }],
+    ]);
   });
 });

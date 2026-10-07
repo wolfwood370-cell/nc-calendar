@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   describeClientNotification,
+  describeMobileNotification,
   describeNotification,
   formatAgo,
   formatUnreadBadge,
@@ -121,6 +122,235 @@ describe("describeNotification · acquisto di un Booster", () => {
     ["nomeNumero", "booster.purchased", { ...PAYLOAD, client_name: 42 }],
   ])("%s → riga neutra", (_name, type, payload) => {
     expect(describeNotification({ type, payload })).toEqual(NEUTRAL);
+  });
+});
+
+// L'annullamento e il ripristino del cliente (giro del server del 07/10/2026):
+// le righe che il server scrive per il coach solo quando agisce il cliente.
+// Aprono il Calendario sul giorno della sessione, con la sessione.
+const cancelledRow = (payload: Record<string, unknown> = {}) => ({
+  type: "booking.cancelled",
+  payload: {
+    booking_id: BOOKING_ID,
+    client_name: "Chiara Russo",
+    session_label: "Personal Training",
+    scheduled_at: at(10, 20, 9),
+    late: false,
+    ...payload,
+  },
+});
+const restoredRow = (payload: Record<string, unknown> = {}) => ({
+  type: "booking.restored",
+  payload: {
+    booking_id: BOOKING_ID,
+    client_name: "Chiara Russo",
+    session_label: "Personal Training",
+    scheduled_at: at(10, 20, 9),
+    ...payload,
+  },
+});
+/** Una data ISO come arriva da jsonb: l'offset al posto della Z, con o senza i microsecondi. */
+const fromJsonb = (iso: string, micro: boolean) =>
+  iso.replace(".000Z", micro ? ".123456+00:00" : "+00:00");
+
+describe("describeNotification · annullamento e ripristino del cliente", () => {
+  const NEUTRAL = {
+    kind: "other",
+    title: "Notifica",
+    body: "",
+    when: null,
+    date: null,
+    bookingId: null,
+  };
+
+  it("annullata in tempo: «Sessione annullata», credito restituito", () => {
+    expect(describeNotification(cancelledRow())).toEqual({
+      kind: "cancelled",
+      title: "Sessione annullata",
+      body: "Chiara Russo · Personal Training",
+      when: "mar 20 ott · 09:00 · credito restituito",
+      date: "2026-10-20",
+      bookingId: BOOKING_ID,
+    });
+  });
+
+  it("annullata a meno di 24 ore: «Annullata a meno di 24 ore», credito scalato", () => {
+    expect(describeNotification(cancelledRow({ late: true }))).toEqual({
+      kind: "cancelled",
+      title: "Annullata a meno di 24 ore",
+      body: "Chiara Russo · Personal Training",
+      when: "mar 20 ott · 09:00 · credito scalato",
+      date: "2026-10-20",
+      bookingId: BOOKING_ID,
+    });
+  });
+
+  it("ripristinata: «Sessione ripristinata», col solo orario", () => {
+    expect(describeNotification(restoredRow())).toEqual({
+      kind: "restored",
+      title: "Sessione ripristinata",
+      body: "Chiara Russo · Personal Training",
+      when: "mar 20 ott · 09:00",
+      date: "2026-10-20",
+      bookingId: BOOKING_ID,
+    });
+  });
+
+  it("le date di jsonb, con l'offset e coi microsecondi, si leggono", () => {
+    for (const micro of [false, true]) {
+      const scheduled_at = fromJsonb(at(10, 20, 9), micro);
+      expect(scheduled_at).toMatch(micro ? /\.123456\+00:00$/ : /:00\+00:00$/);
+      expect(describeNotification(cancelledRow({ scheduled_at }))).toMatchObject({
+        when: "mar 20 ott · 09:00 · credito restituito",
+        date: "2026-10-20",
+      });
+      expect(describeNotification(cancelledRow({ scheduled_at, late: true })).when).toBe(
+        "mar 20 ott · 09:00 · credito scalato",
+      );
+      expect(describeNotification(restoredRow({ scheduled_at }))).toMatchObject({
+        when: "mar 20 ott · 09:00",
+        date: "2026-10-20",
+      });
+    }
+  });
+
+  it("il giorno da aprire è quello dell'ora locale, non la data scritta nella stringa", () => {
+    // Mezzanotte e mezza a Roma è ancora il giorno prima in UTC; le 23:30 a
+    // Los Angeles sono già il giorno dopo.
+    const night = fromJsonb(at(10, 21, 0, 30), true);
+    const late = fromJsonb(at(10, 20, 23, 30), true);
+    expect(describeNotification(cancelledRow({ scheduled_at: night }))).toMatchObject({
+      when: "mer 21 ott · 00:30 · credito restituito",
+      date: "2026-10-21",
+    });
+    expect(describeNotification(restoredRow({ scheduled_at: late }))).toMatchObject({
+      when: "mar 20 ott · 23:30",
+      date: "2026-10-20",
+    });
+    // Anche il ripristino: a Roma si distingue con la mezzanotte e mezza.
+    expect(describeNotification(restoredRow({ scheduled_at: night }))).toMatchObject({
+      when: "mer 21 ott · 00:30",
+      date: "2026-10-21",
+    });
+  });
+
+  it("senza tipologia il testo è il nome; senza booking_id si apre comunque il giorno", () => {
+    expect(describeNotification(cancelledRow({ session_label: "" })).body).toBe("Chiara Russo");
+    expect(describeNotification(restoredRow({ booking_id: undefined }))).toMatchObject({
+      kind: "restored",
+      date: "2026-10-20",
+      bookingId: null,
+    });
+    expect(describeNotification(cancelledRow({ booking_id: 7 })).bookingId).toBeNull();
+  });
+
+  it.each<[string, { type: string; payload: Record<string, unknown> }]>([
+    ["annullata senza late", cancelledRow({ late: undefined })],
+    ["annullata con late stringa", cancelledRow({ late: "true" })],
+    ["annullata con late 1", cancelledRow({ late: 1 })],
+    ["annullata senza orario", cancelledRow({ scheduled_at: undefined })],
+    ["annullata con un orario che non è una data", cancelledRow({ scheduled_at: "ieri" })],
+    ["annullata col nome numero", cancelledRow({ client_name: 42 })],
+    ["annullata senza tipologia", cancelledRow({ session_label: undefined })],
+    ["ripristinata senza orario", restoredRow({ scheduled_at: undefined })],
+    ["ripristinata con un orario che non è una data", restoredRow({ scheduled_at: "ieri" })],
+    ["ripristinata senza nome", restoredRow({ client_name: undefined })],
+    ["ripristinata con la tipologia numero", restoredRow({ session_label: 3 })],
+    ["un ripristino scritto come annullamento", { ...restoredRow(), type: "booking.cancelled" }],
+    ["ripristinata col payload vuoto", { type: "booking.restored", payload: {} }],
+  ])("%s → riga neutra", (_name, row) => {
+    expect(describeNotification(row)).toEqual(NEUTRAL);
+  });
+});
+
+// La riga del telefono (NotificationItem): fino al giro del 07/10/2026 i tipi
+// nuovi avrebbero mostrato «Notifica» col tipo grezzo.
+describe("describeMobileNotification · la riga della campanella sul telefono", () => {
+  it("annullamento e ripristino: titolo, testo e quando come sul desktop, su due righe", () => {
+    expect(describeMobileNotification(cancelledRow())).toEqual({
+      title: "Sessione annullata",
+      body: "Chiara Russo · Personal Training\nmar 20 ott · 09:00 · credito restituito",
+    });
+    expect(describeMobileNotification(cancelledRow({ late: true }))).toEqual({
+      title: "Annullata a meno di 24 ore",
+      body: "Chiara Russo · Personal Training\nmar 20 ott · 09:00 · credito scalato",
+    });
+    expect(describeMobileNotification(restoredRow())).toEqual({
+      title: "Sessione ripristinata",
+      body: "Chiara Russo · Personal Training\nmar 20 ott · 09:00",
+    });
+  });
+
+  it("prenotazione, spostamento e acquisto: i testi di prima", () => {
+    expect(
+      describeMobileNotification({
+        type: "booking.created",
+        payload: {
+          client_name: "Chiara Russo",
+          session_label: "Personal Training",
+          scheduled_at: at(9, 30, 18),
+        },
+      }),
+    ).toEqual({
+      title: "Nuova prenotazione",
+      body: "Chiara Russo · Personal Training\nmer 30 set · 18:00",
+    });
+    expect(
+      describeMobileNotification({
+        type: "booking.rescheduled",
+        payload: {
+          booking_id: BOOKING_ID,
+          client_name: "Giulia Bianchi",
+          session_label: "Personal Training",
+          old_scheduled_at: at(9, 28, 9),
+          new_scheduled_at: at(9, 29, 10),
+        },
+      }),
+    ).toEqual({
+      title: "Sessione spostata",
+      body: "Giulia Bianchi\n28 set · 09:00 → 29 set · 10:00",
+    });
+    expect(
+      describeMobileNotification({
+        type: "booster.purchased",
+        payload: {
+          client_id: "c1",
+          client_name: "Giulia Bianchi",
+          quantity: 3,
+          session_label: "PT",
+        },
+      }),
+    ).toEqual({ title: "Acquisto Booster", body: "Giulia Bianchi · +3 PT" });
+  });
+
+  it("un tipo sconosciuto o un payload malformato: «Notifica» col tipo grezzo, come prima", () => {
+    expect(describeMobileNotification({ type: "booking.no_show", payload: {} })).toEqual({
+      title: "Notifica",
+      body: "booking.no_show",
+    });
+    expect(describeMobileNotification(cancelledRow({ late: "no" }))).toEqual({
+      title: "Notifica",
+      body: "booking.cancelled",
+    });
+    expect(describeMobileNotification({ type: "booking.restored", payload: {} })).toEqual({
+      title: "Notifica",
+      body: "booking.restored",
+    });
+  });
+
+  it("una data che non si legge: «Notifica» col tipo grezzo, e la campanella non cade", () => {
+    expect(
+      describeMobileNotification({
+        type: "booking.created",
+        payload: { client_name: "Giulia Bianchi", session_label: "PT", scheduled_at: "x" },
+      }),
+    ).toEqual({ title: "Notifica", body: "booking.created" });
+    expect(
+      describeMobileNotification({
+        type: "booking.rescheduled",
+        payload: { client_name: "Giulia Bianchi", old_scheduled_at: "x", new_scheduled_at: "y" },
+      }),
+    ).toEqual({ title: "Notifica", body: "booking.rescheduled" });
   });
 });
 
@@ -352,6 +582,8 @@ describe("describeClientNotification · le azioni del coach, per il cliente", ()
       "booster.purchased",
       { client_id: "c1", client_name: "Chiara", quantity: 1, session_label: "PT" },
     ],
+    ["annullamento del cliente, una riga del coach", "booking.cancelled", cancelledRow().payload],
+    ["ripristino del cliente, una riga del coach", "booking.restored", restoredRow().payload],
     ["payload vuoto", "booking.moved_by_coach", {}],
   ])("%s → null", (_name, type, payload) => {
     expect(describeClientNotification({ type, payload }, "Nicolò")).toBeNull();

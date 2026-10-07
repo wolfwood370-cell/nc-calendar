@@ -1,93 +1,180 @@
-# Lato cliente · Passata 12 · I tre difetti del telefono, sul PC
+# Lato cliente · Passata 13 · La parte nell'app del giro del server
 
-Ramo `redesign/cliente-12-telefono`, base `origin/main` = `ae4ec3a61a5be23b36b575467800efaad8314c49` (PR #94, la passata 11, unita). Sonnet 5.5. Il codice è la patch di Cowork applicata com'è: D9 19/19.
+Il ramo `redesign/cliente-13-giro-server` porta la correzione di Cowork identica (19 file, D8 19/19) sopra `main` @ `093e88d`. **Non va unito prima della migrazione del giro**: l'app nuova chiama `save_path_schedule`, che sul server nasce con la migrazione.
 
-## IL PIANO
+## Il piano
 
-0. ☑ **La base** (§2): fetch, base controllata (`ae4ec3a`), ramo creato, librerie com'erano, cancelli sulla base prima di toccare niente. Nessun commit.
-1. ☑ `7dd6cb9` **La correzione** (§3): `git apply --index` della patch (sha256 `2aaf3199143ed734…`, 19 file), typecheck 0, commit, poi D9 19/19 sul commit.
-2. ☑ **I cancelli, i controlli, le prove rosse**: tutti come attesi, nessun commit di prova.
-3. ☑ **Il browser**: `giro12-cowork.mjs` 23/23 sul ramo e 6/23 sulla base (i KO attesi); giri 11, 10, 10b e 08 verdi sul ramo. Nessun commit. ⚠️ Una deviazione sul banco (B7), vedi §9.
-4. ☑ **Chiusura**: questo file, push, PR (non unita), `rm -rf dist .output`.
+- [x] **0 · La base**: `git fetch origin`, `origin/main` = `093e88d`, ramo creato da lì, `bun.lock` uguale alla base (`d93afed…`), cancelli sulla base: typecheck 0, lint 0 errori e 13 avvisi, 1483 test in 76 file a Roma, build. Nessun commit.
+- [x] **1 · La correzione**: `919dc62`. Patch applicata (sha256 `587b9e9de50a8038…`), 19 file, albero `f48d8703…` come atteso, typecheck 0, D8 19/19 sul commit.
+- [x] **2 · Cancelli, controlli, prove rosse**: tutti verdi, nessun commit di prova.
+- [x] **3 · La giunzione col server**: 26 su 26, nessun commit.
+- [x] **4 · Chiusura**: questo file, push, PR aperta e non unita.
 
 ## 1 · Dove ho girato
 
-`uname -s`: `MINGW64_NT-10.0-26300` · node v24.12.0 · bun 1.3.14 · `git hash-object bun.lock` = `d93afeddf8068057f6d78347267b94b9ffacace6`, uguale a `git rev-parse ae4ec3a:bun.lock`. La patch non tocca `package.json`, `bun.lock`, `supabase/` né `src/integrations/` (0 file). Nessuna installazione.
+- `uname -s`: `MINGW64_NT-10.0-26300` (Git Bash); suite nei tre fusi, rosse e giunzione da PowerShell 5.1.
+- node `v24.12.0`, bun `1.3.14`.
+- Lock: `git hash-object bun.lock` = `d93afeddf8068057f6d78347267b94b9ffacace6`, uguale a `git rev-parse 093e88d:bun.lock`. Nessuna installazione.
 
 ## 2 · Base, ramo e commit
 
-- Base `ae4ec3a61a5be23b36b575467800efaad8314c49`. `git log --oneline ae4ec3a..origin/main`, all'ultimo fetch: vuoto.
-- ⚠️ Il `main` locale era fermo a `3d29634` (PR #72), indietro di 230 commit rispetto a `origin/main`: il ramo è nato da `origin/main` come chiede il prompt, e solo dopo il cambio di ramo `bun.lock` del working tree è diventato uguale a quello della base (prima, `git hash-object bun.lock` dava `702e49ad…`). `node_modules` è invariato e i cancelli sulla base sono verdi.
-- Ramo `redesign/cliente-12-telefono`, con `git switch --no-track`:
-  - `7dd6cb9` Passata 12: la zona sicura del telefono in tutta l'app, la push che apre la sessione, la sessione prenotata nella campanella
-  - il commit di chiusura che riscrive questo file; il suo hash e il numero della PR sono nella PR e nel messaggio di Claude Code.
+- Base: `origin/main` = `093e88d11368e0394e666858b696ffa52235b4ce`.
+- Ramo: `redesign/cliente-13-giro-server`.
+  - `919dc62` Passata 13: la parte nell'app del giro del server: la campanella del coach, l'id della prenotazione, il calendario del percorso, la riconciliazione con Google
+  - il commit di questo ritorno: «Riscrive docs/ULTIMO-RITORNO.md per la passata 13»
+- Albero del commit della correzione (`git rev-parse HEAD~1^{tree}` a lavoro chiuso): `f48d8703a8a90ebd0637b7ff4cfbff1d75c38849`.
+- PR: vedi il link nell'intestazione della PR stessa (aperta con `gh pr create`, non unita).
 
 ## 3 · Manifesto
 
-`git diff --name-status origin/main HEAD` a correzione committata: 19 file, 1 nuovo, 18 modificati (+525 −35).
+**Nuovi (3)**: `src/lib/path-schedule.ts`, `src/lib/path-schedule.test.ts`, `src/hooks/use-book-confirm.test.ts`.
 
-- **NUOVI (1):** `src/lib/booked-notice.test.ts` (13 test).
-- **MODIFICATI (18):** `src/components/calendar-context-panel.tsx`, `src/components/calendar-details-panel.tsx`, `src/components/client-toaster.tsx`, `src/components/trainer-bottom-nav.tsx`, `src/components/trainer-notifications-bell.tsx`, `src/hooks/use-book-confirm.ts`, `src/hooks/use-client-shell.ts`, `src/lib/client-notifications.test.ts` (una riga: `coachCreated: null`), `src/lib/client-notifications.ts`, `src/lib/notifications.ts`, `src/lib/save-bar.ts`, `src/routes/__root.tsx`, `src/routes/admin.tsx`, `src/routes/auth.tsx`, `src/routes/client.notifications.tsx`, `src/routes/client.tsx`, `src/routes/trainer.index.tsx`, `src/routes/trainer.tsx`; più `docs/ULTIMO-RITORNO.md` col commit di chiusura (20 file in tutto).
-- **NON TOCCATI:** `package.json`, `bun.lock`, `supabase/`, `src/integrations/`, `AGENTS.md`, `CLAUDE.md`, `.claude/`, `.gitignore`.
+**Modificati (16)**:
+
+- `src/components/client-profile-desktop.tsx`, `src/components/client-profile-mobile.tsx`
+- `src/components/coach-notes-card.tsx`, `src/components/profile-notes-card.tsx`
+- `src/components/trainer-notifications-bell.tsx`
+- `src/hooks/use-book-confirm.ts`, `src/hooks/use-gcal-sync.ts`, `src/hooks/use-notifications.ts`
+- `src/lib/client-session-detail.ts`
+- `src/lib/gcal-repair.ts`, `src/lib/gcal-repair.test.ts`
+- `src/lib/gcal-sync-run.ts`, `src/lib/gcal-sync-run.test.ts`
+- `src/lib/gcal.functions.ts`
+- `src/lib/notifications.ts`, `src/lib/notifications.test.ts`
+
+`git diff --stat 093e88d 919dc62`: 19 file, 1111 inserzioni, 145 cancellazioni.
+
+**Non toccati**: `src/integrations/`, `supabase/`, `package.json`, `bun.lock` (D9 0).
 
 ## 4 · I cancelli
 
-| cancello                        | base `ae4ec3a`        | ramo                      |
-| ------------------------------- | --------------------- | ------------------------- |
-| typecheck                       | 0                     | 0                         |
-| lint                            | 0 errori, 13 avvisi   | 0 errori, **13** avvisi   |
-| test, Roma (sonda `-120`)       | 75 file, 1470 passati | **76 file, 1483 passati** |
-| test, UTC (sonda `0`)           | —                     | 76 file, 1483 passati     |
-| test, Los Angeles (sonda `420`) | —                     | 76 file, 1483 passati     |
-| build (`LOVABLE_SANDBOX=1`)     | 0                     | 0                         |
+|                                           | Sulla base `093e88d` | Sul ramo            |
+| ----------------------------------------- | -------------------- | ------------------- |
+| typecheck (`tsc --noEmit`)                | 0 errori             | 0 errori            |
+| lint                                      | 0 errori, 13 avvisi  | 0 errori, 13 avvisi |
+| suite a Roma (sonda `-120`)               | 1483 in 76 file      | **1528 in 78 file** |
+| suite UTC (sonda `0`)                     | non misurata         | **1528 in 78 file** |
+| suite Los Angeles (sonda `420`)           | non misurata         | **1528 in 78 file** |
+| build (`LOVABLE_SANDBOX=1 bun run build`) | uscita 0             | uscita 0            |
 
-Avvisi per regola, uguali sulla base e sul ramo: 9 `react-refresh/only-export-components` + 4 `react-hooks/exhaustive-deps`. UTC e Los Angeles da PowerShell, una suite per volta, con la sonda prima di ognuna. Nessun timeout di `clock.test.ts`.
+Avvisi del lint, uguali sulla base e sul ramo: 9 `react-refresh/only-export-components`, 4 `react-hooks/exhaustive-deps`.
 
-## 5 · I controlli (acceptance)
+## 5 · Acceptance (controlli di Cowork)
 
-Sulla base `ae4ec3a` l'uscita (worktree staccata) è **identica** a `oggi-controlli-cli-12-2026-10-07.txt`: D6 0/11, D7 0, D8 0, D9 0/19.
+Sulla base l'uscita è quella di `oggi-controlli-cli-13-2026-10-07.txt` (D8 0/19, D6 0): verificato prima di applicare la patch. A lavoro committato `diff` con l'atteso: **vuoto**.
 
-A lavoro committato (commit `7dd6cb9`), `diff /tmp/ctl12.txt atteso-controlli-cli-12-2026-10-07.txt` è **vuoto**: D0-D5 come attesi, `D6 test nuovi · booked-notice.test.ts 11/11`, `D7 file cambiati: 19 · fuori dall'elenco: 0`, `D8 righe tolte dai test di prima: 0`, `D9 file uguali al ramo di Cowork: 19/19`. Col ritorno committato D7 salirà a 20, con 0 fuori dall'elenco, come dice il prompt.
+```
+D0 Campanella · i due tipi 2 · le guardie 2 · late booleano 1 · titoli: annullata 1 ripristinata 1 · il credito 1 · il giorno da aprire 3 · icone 2 · il telefono dalla funzione 1 · rami scritti a mano nella campanella 0 · le date del telefono con toDate 3 · la campanella rilegge le sessioni 1
+D1 Prenotazione · l'id della sessione nell'avviso al coach 1
+D2 Percorso · l'RPC 1 · le settimane coi quattro campi 1 · l'errore al chiamante 1 · i due profili: desktop 1 telefono 1 · scritture dirette rimaste: settimane 0 data d'inizio 0
+D3 Riconciliazione · overlaps nei conti 1 · gli esiti: nullo come prima 1 sovrapposta 1 già cambiata 1 sconosciuto nei log 1 · il server passa data 2 · «tranne» nel codice 0 · la rapida 1 · avviso: rapida 1 completa 1 · la sincronizzazione automatica le dice 2
+D4 Commenti · frasi vecchie rimaste 0 · frasi nuove 5
+D5 test nuovi · notifications.test.ts 10/10 · path-schedule.test.ts 3/3 · use-book-confirm.test.ts 1/1 · gcal-repair.test.ts 5/5 · gcal-sync-run.test.ts 7/7
+D6 file cambiati, senza il ritorno: 19 · fuori dall'elenco: 0
+D7 righe tolte dai test di prima: 13 · fuori dalle attese: 0
+D8 file uguali al ramo di Cowork: 19/19
+D9 intoccabili cambiati (src/integrations, supabase, package.json, bun.lock): 0
+```
 
 ## 6 · Le prove rosse
 
-`py -3 rosse-cli-12-2026-10-07.py <clone>`, da PowerShell, a `7dd6cb9`. Cadono tutte:
+Lanciate a lavoro committato (`py -3 rosse-cli-13-2026-10-07.py`), uscita 0, `git status --short` vuoto dopo. Ultima riga:
 
-- R1 il titolo di prima (3 test) · R2 la push apre la Home (2) · R3 id senza codifica (1) · R4 senza nome della tipologia (1) · R5 ogni riga con un `booking_id` vale come sessione del coach (1) · R6 la voce prima che arrivino le righe (1) · R7 due voci per una sessione del coach (2) · R8 la voce resta per sempre (1) · R9 anche le annullate (1) · R10 anche le già iniziate (1) · R11 il momento è l'inizio (2) · R12 la campanella senza la sessione prenotata (5) · R13 una importata da Google diventa «Sessione prenotata» (1) · R14 una sessione del coach creata prima dei trigger della 08 (1).
-- Ultima riga: `rosse come attese: 14 su 14 · a file rimessi, uscita 0 · Test Files  1 passed (1) · Tests  13 passed (13)`.
-- Dopo le rosse `git status --short` è vuoto.
+`rosse come attese: 20 su 20 · a file rimessi, uscita 0 · Test Files  5 passed (5) · Tests  134 passed (134)`
 
-## 7 · Il browser
+```
+R1 ROSSA · il tardivo ha lo stesso titolo dell'annullamento in tempo
+    cadono 2: describeNotification · annullamento e ripristino del cliente > annullata a meno di 24 ore: «Annullata a meno di 24 ore», credito scalato | describeMobileNotification · la riga della campanella sul telefono > annullamento e ripristino: titolo, testo e quando come sul desktop, su due righe
+R2 ROSSA · il credito al contrario
+    cadono 5: describeNotification · annullamento e ripristino del cliente > annullata in tempo: «Sessione annullata», credito restituito | describeNotification · annullamento e ripristino del cliente > annullata a meno di 24 ore: «Annullata a meno di 24 ore», credito scalato | describeNotification · annullamento e ripristino del cliente > le date di jsonb, con l'offset e coi microsecondi, si leggono | describeNotification · annullamento e ripristino del cliente > il giorno da aprire è quello dell'ora locale, non la data scritta nella stringa | describeMobileNotification · la riga della campanella sul telefono > annullamento e ripristino: titolo, testo e quando come sul desktop, su due righe
+R3 ROSSA · il ripristino senza l'orario
+    cadono 4: describeNotification · annullamento e ripristino del cliente > ripristinata: «Sessione ripristinata», col solo orario | describeNotification · annullamento e ripristino del cliente > le date di jsonb, con l'offset e coi microsecondi, si leggono | describeNotification · annullamento e ripristino del cliente > il giorno da aprire è quello dell'ora locale, non la data scritta nella stringa | describeMobileNotification · la riga della campanella sul telefono > annullamento e ripristino: titolo, testo e quando come sul desktop, su due righe
+R4 ROSSA · un annullamento senza late (o con late non booleano) si mostra lo stesso
+    cadono 5: describeNotification · annullamento e ripristino del cliente > annullata senza late → riga neutra | describeNotification · annullamento e ripristino del cliente > annullata con late stringa → riga neutra | describeNotification · annullamento e ripristino del cliente > annullata con late 1 → riga neutra | describeNotification · annullamento e ripristino del cliente > un ripristino scritto come annullamento → riga neutra | describeMobileNotification · la riga della campanella sul telefono > un tipo sconosciuto o un payload malformato: «Notifica» col tipo grezzo, come prima
+R5 ROSSA · il giorno da aprire letto dalla stringa (UTC) invece che dall'ora locale
+    cadono 1: describeNotification · annullamento e ripristino del cliente > il giorno da aprire è quello dell'ora locale, non la data scritta nella stringa
+R6 ROSSA · sul telefono l'annullamento senza l'orario
+    cadono 1: describeMobileNotification · la riga della campanella sul telefono > annullamento e ripristino: titolo, testo e quando come sul desktop, su due righe
+R7 ROSSA · l'avviso della prenotazione senza l'id della sessione (la campanella apre solo il giorno)
+    cadono 1: announce · l'avviso al coach > booking-notifications riceve l'id della sessione appena inserita
+R8 ROSSA · le settimane passano coi campi del componente (client_id, coach_id)
+    cadono 1: savePathSchedule > una chiamata sola, coi tre argomenti e le settimane coi soli quattro campi
+R9 ROSSA · un errore del server non arriva al chiamante (il toast direbbe «salvato»)
+    cadono 5: savePathSchedule > l'errore 42501 arriva al chiamante, col suo messaggio per il toast | savePathSchedule > l'errore P0001 arriva al chiamante, col suo messaggio per il toast | savePathSchedule > l'errore 23505 arriva al chiamante, col suo messaggio per il toast | savePathSchedule > l'errore 23502 arriva al chiamante, col suo messaggio per il toast | savePathSchedule > l'errore PGRST202 arriva al chiamante, col suo messaggio per il toast
+R10 ROSSA · la sovrapposta si conta come spostata (com'era col server muto)
+    cadono 1: riconciliazione · l'esito delle due RPC (passata 13) > annullata, spostata e sovrapposta: ognuna nel suo conto, e la sovrapposta non è spostata
+R11 ROSSA · col server di prima (void) niente si conta più
+    cadono 2: riconciliazione · annullamenti e spostamenti (passata 11) > un annullamento non riuscito si conta fra le sessioni non aggiornate | riconciliazione · l'esito delle due RPC (passata 13) > il server di prima (void): data nullo o assente si conta come allora
+R12 ROSSA · una sessione già cambiata si conta come annullata o spostata
+    cadono 1: riconciliazione · l'esito delle due RPC (passata 13) > not_scheduled e not_found: la sessione era già cambiata o eliminata, e non si conta
+R13 ROSSA · un esito sconosciuto passa in silenzio
+    cadono 1: riconciliazione · l'esito delle due RPC (passata 13) > un esito sconosciuto vale come nullo, e va nei log
+R14 ROSSA · la sincronizzazione rapida tace le sovrapposizioni
+    cadono 2: sincronizzazione rapida > solo sovrapposizioni: non è «nessuna differenza», ed è un avviso | sincronizzazione rapida > sovrapposizioni con spostamenti, annullamenti e ripristini: dopo le spostate, e un avviso
+R15 ROSSA · con le sole sovrapposizioni la completa dice «Nessuna differenza con Google.»
+    cadono 2: sincronizzazione completa: l'esito > solo sovrapposizioni: quante sono rimaste all'orario di prima e perché, mai «nessuna differenza» | sincronizzazione completa: l'esito > sovrapposizioni con spostamenti e annullamenti: le allineate senza le sovrapposte
+R16 ROSSA · le sovrapposizioni non sono un avviso nella rapida
+    cadono 2: sincronizzazione rapida > solo sovrapposizioni: non è «nessuna differenza», ed è un avviso | sincronizzazione rapida > sovrapposizioni con spostamenti, annullamenti e ripristini: dopo le spostate, e un avviso
+R17 ROSSA · la sincronizzazione automatica tace le sole sovrapposizioni (RA-3 del revisore)
+    cadono 1: sincronizzazione rapida > la sincronizzazione automatica parla anche con le sole sovrapposizioni, e tace senza differenze
+R18 ROSSA · sul telefono una data che non si legge fa cadere la campanella (RA-6)
+    cadono 1: describeMobileNotification · la riga della campanella sul telefono > una data che non si legge: «Notifica» col tipo grezzo, e la campanella non cade
+R19 ROSSA · il conto delle settimane è quello locale, non quello del server (RA-7)
+    cadono 1: savePathSchedule > una chiamata sola, coi tre argomenti e le settimane coi soli quattro campi
+R20 ROSSA · il ripristino apre il giorno UTC, non quello locale (RA-7)
+    cadono 1: describeNotification · annullamento e ripristino del cliente > il giorno da aprire è quello dell'ora locale, non la data scritta nella stringa
+rosse come attese: 20 su 20 · a file rimessi, uscita 0 · Test Files  5 passed (5) · Tests  134 passed (134)
+```
 
-Banco: copia di `banco-cli-2026-09-30` fuori dal repo, con `lib-windows.mjs` → `lib.mjs` (Playwright e Chromium ai percorsi del PC, tutti presenti). Un solo dev server alla volta, repo non toccato durante i giri.
+## 7 · La giunzione col server
 
-| giro                 | ramo         | base `ae4ec3a`                                                   |
-| -------------------- | ------------ | ---------------------------------------------------------------- |
-| `giro12-cowork.mjs`  | **23 su 23** | **6 su 23**: KO B1, B2, B3, B4, B5, B6, B7, B9, B10, B12 (17 KO) |
-| `giro11-cowork.mjs`  | 19 su 19     | —                                                                |
-| `giro10-cowork.mjs`  | 30 su 30     | —                                                                |
-| `giro10b-cowork.mjs` | 9 su 9       | —                                                                |
-| `giro08.mjs`         | 79 su 79     | —                                                                |
+Sonda del fuso (senza `TZ`): `-120`. Comando: `npx --yes tsx@4.21.0 --tsconfig tsconfig.json giunzione-giro2.ts giunzione-righe-2026-10-07.txt`, uscita 0.
 
-Sul ramo, in fondo: zero richieste esterne bloccate, zero funzioni server, zero errori di pagina. Il `ESITO` della base conta 17 KO nelle 10 prove elencate (B1, B3, B5, B6, B10 ne hanno più d'uno), esattamente le prove attese dal prompt.
+```
+ok      J1 booking.cancelled titolo: "Sessione annullata"
+ok      J1 booking.cancelled testo: "Cliente A · Sessione PT"
+ok      J1 booking.cancelled quando (sab 10 ott · 07:00 · credito restituito): true
+ok      J1 booking.cancelled giorno da aprire: "2026-10-10"
+ok      J1 booking.cancelled sessione da aprire: "d0000000-0000-4000-8000-0000000000a1"
+ok      J1 booking.cancelled telefono: "Sessione annullata|Cliente A · Sessione PT\nsab 10 ott · 07:00 · credito restituito"
+ok      J2 booking.cancelled titolo: "Annullata a meno di 24 ore"
+ok      J2 booking.cancelled testo: "Cliente A · Sessione PT"
+ok      J2 booking.cancelled quando (mer 7 ott · 20:00 · credito scalato): true
+ok      J2 booking.cancelled giorno da aprire: "2026-10-07"
+ok      J2 booking.cancelled sessione da aprire: "d0000000-0000-4000-8000-0000000000a2"
+ok      J3 booking.restored titolo: "Sessione ripristinata"
+ok      J3 booking.restored testo: "Cliente A · Sessione PT"
+ok      J3 booking.restored quando (sab 10 ott · 07:00): true
+ok      J3 booking.restored giorno da aprire: "2026-10-10"
+ok      J3 booking.restored sessione da aprire: "d0000000-0000-4000-8000-0000000000a1"
+ok      J3 booking.cancelled titolo: "Sessione annullata"
+ok      J3 booking.cancelled testo: "Cliente A · Sessione PT"
+ok      J3 booking.cancelled quando (sab 10 ott · 07:00 · credito restituito): true
+ok      J3 booking.cancelled giorno da aprire: "2026-10-10"
+ok      J3 booking.cancelled sessione da aprire: "d0000000-0000-4000-8000-0000000000a1"
+ok      J4 booking.cancelled titolo: "Sessione annullata"
+ok      J4 booking.cancelled testo: "Cliente · Sessione PT"
+ok      J4 booking.cancelled quando (sab 10 ott · 07:00 · credito restituito): true
+ok      J4 booking.cancelled giorno da aprire: "2026-10-10"
+ok      J4 booking.cancelled sessione da aprire: "d0000000-0000-4000-8000-0000000000a1"
+ESITO: 26 su 26
+```
 
 ## 8 · Non fatto, e perché
 
-- Nessun controllo sul telefono vero: la zona sicura è emulata con `Emulation.setSafeAreaInsetsOverride`. La prova sul telefono resta a Nicolò.
-- Nessun Publish, nessun merge.
+- Browser, database, Google, Supabase, Stripe: esclusi dal prompt (§7, §8). La prova sul telefono la fa Nicolò dopo il Publish.
+- La prova rossa della giunzione (21 su 26 senza il fuso): fatta da Cowork, non rifatta.
 
-## 9 · Divergenze dal prompt, con la misura
+## 9 · Divergenze dal prompt
 
-1. **`REPO` nel banco.** `lib-windows.mjs` ha il percorso del clone scritto a mano (`export const REPO = "C:/Coworks/…/nc-calendar"`) e ignora la variabile `REPO=…` del prompt. Il primo giro «sulla base» ha quindi servito il clone (cioè il ramo): 22/23, B7 in KO, **non è il giro della base**. Nella mia copia di `lib.mjs` ora è `process.env.REPO ?? "<clone>"`; il giro della base è stato rifatto su `base-12` (6/23). Il banco di Cowork in `app/` non è toccato.
-2. **B7 ballerino nel banco, non nell'app.** Il primo giro completo sul ramo ha dato 23/23. Poi B7 è uscito KO in modo ripetibile («Effettuando l'accesso, accetti i nostri…» a `[45,833,345,849]`, coperto dalla lineetta) in diversi run in cui B7 veniva dopo un'altra prova (un giro completo e due parziali, B12+B7 e B1+B7; da solo passava; con la diagnostica B1+B7 è passato una volta e B12+B7 è caduto tre volte su tre). La misura: `innerHeight 844`, `scrollHeight 919`, `scrollY 0` prima e dopo `inFondo` (il primo `window.scrollTo` è ignorato, probabilmente il ripristino dello scroll del router dopo il caricamento), e **al secondo `inFondo` la pagina scorre (`scrollY 75`) e B7 passa**: con la pagina davvero in fondo, la riga dei termini è a `[758,790]`, sopra la lineetta (810). Nella mia copia di `zona-sicura.mjs`, `inFondo` ora scorre, aspetta 1,5 s e scorre di nuovo. Con questa copia: ramo 23/23, base 6/23. Senza, il giro del ramo è 23/23 o 22/23 a seconda dell'ordine. Cowork decida se portare il ritocco nel banco.
-3. Il `main` locale era indietro (§2): nessun effetto sul ramo, che nasce da `origin/main`.
+- La build l'ho lanciata con `LOVABLE_SANDBOX=1` (come negli arnesi delle passate precedenti su Windows); senza la variabile non l'ho provata.
+- La suite sulla base l'ho misurata solo a Roma (come chiede il §2); UTC e Los Angeles solo sul ramo.
+- Il `main` locale era indietro (`3d29634`, PR #72) rispetto a `origin/main` (`093e88d`); il ramo nasce da `origin/main`, il `main` locale non è stato toccato.
 
 ## 10 · Trovati e non toccati
 
-- `src/routes/auth.tsx` (la pagina `/auth`): in verticale, appena caricata, il primo `scrollTo(0, scrollHeight)` non porta in fondo (misurato: `scrollY` resta 0 con `scrollHeight` 919 > 844). Non è la correzione della 12 e non ho verificato se un utente col dito lo noti: se il router ripristina lo scroll a 0 dopo il caricamento, scorrere a mano funziona. Da guardare, non da curare qui.
+Nessun difetto trovato nel codice della patch: non ho riletto il codice a mano (non richiesto), mi sono fermato ai controlli, alle rosse e alla giunzione.
 
 ## 11 · Resta a Nicolò
 
-- Il **merge** della PR (il link è nel messaggio di Claude Code), dopo la verifica di Cowork.
-- Il **Publish** da Lovable.
-- La **prova sul telefono**: tacca e lineetta in verticale e in orizzontale (coach, `/auth`, `/admin`), la push «Sessione prenotata» che apre la sessione, e la voce nella campanella.
+1. La seduta del giro del server: backup, letture, migrazione (dall'editor SQL di Lovable).
+2. Poi il merge di questa PR, il Publish e la prova sul telefono (campanella con annullamento e ripristino, prenotazione che apre la sessione, calendario del percorso, sincronizzazione con Google con una sovrapposta).

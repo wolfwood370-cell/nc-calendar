@@ -4,6 +4,7 @@ import {
   fullSyncOutcome,
   fullSyncWindow,
   quickSyncMessage,
+  quickSyncNeedsNotice,
   quickSyncOutcome,
   REPAIR_MAX_PASSES,
   runFullSync,
@@ -72,7 +73,15 @@ describe("sincronizzazione rapida", () => {
         [{ ok: true, created: 3, failed: 0, total: 3 }],
       ),
     );
-    expect(r).toMatchObject({ ok: true, changed: true, moved: 2, cancelled: 1, created: 3 });
+    // Il server di prima non scrive overlaps: vale 0.
+    expect(r).toMatchObject({
+      ok: true,
+      changed: true,
+      moved: 2,
+      cancelled: 1,
+      overlaps: 0,
+      created: 3,
+    });
     expect(quickSyncMessage(r)).toEqual({
       tone: "success",
       title: "Sincronizzato con Google Calendar.",
@@ -182,6 +191,72 @@ describe("sincronizzazione rapida", () => {
       title: "Sincronizzato con Google Calendar.",
       description: "2 eventi non ricreati · 1 sessione non aggiornata",
     });
+  });
+
+  // Passata 13: uno spostamento di Google che finirebbe sopra un'altra
+  // sessione il server non lo fa (reconcile_gcal_move 'overlap'), e la rapida
+  // lo dice in breve, con il tono d'avviso dei conflitti.
+  it("solo sovrapposizioni: non è «nessuna differenza», ed è un avviso", async () => {
+    const r = await runQuickSync(
+      fakeApi([{ ok: true, cancelled: 0, moved: 0, overlaps: 1, conflicts: 0 }], [PUSH_NONE]),
+    );
+    // Nell'app non è cambiato niente: changed resta falso.
+    expect(r).toMatchObject({ ok: true, failure: null, overlaps: 1, changed: false });
+    expect(quickSyncMessage(r)).toEqual({
+      tone: "warning",
+      title: "Sincronizzato con Google Calendar.",
+      description: "1 sessione rimasta all'orario di prima (nuovo orario occupato)",
+    });
+    const two = await runQuickSync(
+      fakeApi([{ ok: true, cancelled: 0, moved: 0, overlaps: 2, conflicts: 0 }], [PUSH_NONE]),
+    );
+    expect(quickSyncMessage(two).description).toBe(
+      "2 sessioni rimaste all'orario di prima (nuovi orari occupati)",
+    );
+  });
+
+  it("la sincronizzazione automatica parla anche con le sole sovrapposizioni, e tace senza differenze", async () => {
+    const overlaps = await runQuickSync(
+      fakeApi([{ ok: true, cancelled: 0, moved: 0, overlaps: 1, conflicts: 0 }], [PUSH_NONE]),
+    );
+    expect(overlaps.changed).toBe(false);
+    expect(quickSyncNeedsNotice(overlaps)).toBe(true);
+    const moved = await runQuickSync(
+      fakeApi([{ ok: true, cancelled: 0, moved: 1, overlaps: 0, conflicts: 0 }], [PUSH_NONE]),
+    );
+    expect(quickSyncNeedsNotice(moved)).toBe(true);
+    const none = await runQuickSync(
+      fakeApi([{ ok: true, cancelled: 0, moved: 0, overlaps: 0, conflicts: 0 }], [PUSH_NONE]),
+    );
+    expect(quickSyncNeedsNotice(none)).toBe(false);
+  });
+
+  it("sovrapposizioni con spostamenti, annullamenti e ripristini: dopo le spostate, e un avviso", async () => {
+    const r = await runQuickSync(
+      fakeApi(
+        [{ ok: true, cancelled: 1, moved: 2, overlaps: 2, conflicts: 0, checked: 9 }],
+        [{ ok: true, created: 1, failed: 0, total: 1 }],
+      ),
+    );
+    expect(r).toMatchObject({ ok: true, changed: true, moved: 2, overlaps: 2, cancelled: 1 });
+    expect(quickSyncMessage(r)).toEqual({
+      tone: "warning",
+      title: "Sincronizzato con Google Calendar.",
+      description:
+        "2 spostate su Google · 2 sessioni rimaste all'orario di prima (nuovi orari occupati) · 1 annullata su Google · 1 evento ricreato su Google",
+    });
+  });
+
+  it("con la riconciliazione saltata o fallita le sovrapposizioni non contano", async () => {
+    const skipped = await runQuickSync(
+      fakeApi([{ ...EMPTY_GUARD, overlaps: 3 }], [{ ok: true, created: 1, failed: 0, total: 1 }]),
+    );
+    expect(skipped.overlaps).toBe(0);
+    expect(quickSyncMessage(skipped).description).toBe("1 evento ricreato su Google");
+    const failed = await runQuickSync(
+      fakeApi([{ ok: false, error: "x", overlaps: 3 }], [PUSH_NONE]),
+    );
+    expect(failed.overlaps).toBe(0);
   });
 });
 
@@ -475,21 +550,86 @@ describe("sincronizzazione completa: l'esito", () => {
     ]);
   });
 
-  it("la frase delle sovrapposizioni solo con spostate", () => {
-    const text = (moved: number, cancelled: number) =>
-      fullSyncOutcome(full({ reconcile: { ok: true, cancelled, moved, conflicts: 0, checked: 9 } }))
-        .lines[1];
+  // La frase delle differenze (passata 13). Fino al giro del server del
+  // 07/10/2026 l'esito di uno spostamento non si sapeva, e la frase diceva
+  // «tranne» quelli che finirebbero sopra un'altra sessione. Ora quelli si
+  // contano (overlaps): mai fra le allineate, e con il loro perché.
+  const text = (moved: number, cancelled: number, overlaps = 0) =>
+    fullSyncOutcome(
+      full({ reconcile: { ok: true, cancelled, moved, overlaps, conflicts: 0, checked: 9 } }),
+    ).lines[1];
+
+  it("senza sovrapposizioni: le allineate, senza «tranne»", () => {
     expect(text(2, 1)).toBe(
-      "Su Google risultavano 2 spostate e 1 annullata, e l'app le ha allineate, tranne gli spostamenti che finirebbero sopra un'altra sessione: quelli restano all'orario di prima.",
+      "Su Google risultavano 2 spostate e 1 annullata, e l'app le ha allineate.",
     );
-    expect(text(1, 0)).toBe(
-      "Su Google risultava 1 spostata, e l'app l'ha allineata, tranne se lo spostamento finirebbe sopra un'altra sessione: in quel caso resta all'orario di prima.",
-    );
+    expect(text(1, 0)).toBe("Su Google risultava 1 spostata, e l'app l'ha allineata.");
     expect(text(1, 2)).toBe(
-      "Su Google risultavano 1 spostata e 2 annullate, e l'app le ha allineate, tranne se lo spostamento finirebbe sopra un'altra sessione: in quel caso resta all'orario di prima.",
+      "Su Google risultavano 1 spostata e 2 annullate, e l'app le ha allineate.",
     );
-    expect(text(0, 3)).not.toMatch(/sopra un'altra sessione/);
+    expect(text(0, 3)).toBe("Su Google risultavano 3 annullate, e l'app le ha aggiornate.");
     expect(text(0, 0)).toBe("Nessuna differenza con Google.");
+    for (const [m, c] of [
+      [2, 1],
+      [1, 0],
+      [1, 2],
+      [0, 3],
+    ] as const) {
+      expect(text(m, c)).not.toMatch(/tranne|sopra un'altra sessione|rimast/);
+    }
+  });
+
+  it("solo sovrapposizioni: quante sono rimaste all'orario di prima e perché, mai «nessuna differenza»", () => {
+    expect(text(0, 0, 1)).toBe(
+      "Su Google risultava 1 spostata, ma nell'app è rimasta all'orario di prima: il nuovo orario è occupato da un'altra sessione.",
+    );
+    expect(text(0, 0, 2)).toBe(
+      "Su Google risultavano 2 spostate, ma nell'app sono rimaste all'orario di prima: i nuovi orari sono occupati da altre sessioni.",
+    );
+    const o = fullSyncOutcome(
+      full({
+        reconcile: { ok: true, cancelled: 0, moved: 0, overlaps: 1, conflicts: 0, checked: 9 },
+      }),
+    );
+    expect(o).toEqual({
+      kind: "problems",
+      tone: "warning",
+      title: "Sincronizzazione completata con qualche problema",
+      lines: [
+        "Controllate 9 sessioni in programma dal 1° gennaio.",
+        "Su Google risultava 1 spostata, ma nell'app è rimasta all'orario di prima: il nuovo orario è occupato da un'altra sessione.",
+        "Nessun evento da ricreare su Google.",
+      ],
+    });
+    expect(o.lines.join(" ")).not.toMatch(/Nessuna differenza|allineat/);
+  });
+
+  it("sovrapposizioni con spostamenti e annullamenti: le allineate senza le sovrapposte", () => {
+    expect(text(1, 0, 1)).toBe(
+      "Su Google risultavano 2 spostate: l'app ne ha allineata 1, e 1 spostata è rimasta all'orario di prima perché il nuovo orario è occupato da un'altra sessione.",
+    );
+    expect(text(2, 1, 1)).toBe(
+      "Su Google risultavano 3 spostate e 1 annullata: l'app ne ha allineate 3, e 1 spostata è rimasta all'orario di prima perché il nuovo orario è occupato da un'altra sessione.",
+    );
+    expect(text(1, 0, 2)).toBe(
+      "Su Google risultavano 3 spostate: l'app ne ha allineata 1, e 2 spostate sono rimaste all'orario di prima perché i nuovi orari sono occupati da altre sessioni.",
+    );
+    // Coi soli annullamenti fatti l'app li ha «aggiornati».
+    expect(text(0, 2, 1)).toBe(
+      "Su Google risultavano 1 spostata e 2 annullate: l'app ne ha aggiornate 2, e 1 spostata è rimasta all'orario di prima perché il nuovo orario è occupato da un'altra sessione.",
+    );
+    expect(text(0, 1, 1)).toBe(
+      "Su Google risultavano 1 spostata e 1 annullata: l'app ne ha aggiornata 1, e 1 spostata è rimasta all'orario di prima perché il nuovo orario è occupato da un'altra sessione.",
+    );
+    // Una completa con sovrapposizioni ha «qualche problema», come coi conflitti.
+    expect(
+      fullSyncOutcome(
+        full({
+          reconcile: { ok: true, cancelled: 1, moved: 2, overlaps: 1, conflicts: 0, checked: 9 },
+          repair: { created: 1 },
+        }),
+      ),
+    ).toMatchObject({ kind: "problems", tone: "warning" });
   });
 
   it("precedenza: vince il primo caso che vale", () => {

@@ -391,8 +391,9 @@ export interface DetailToast {
 }
 
 /**
- * Il toast dopo l'annullamento, col was_late del server. Nessun avviso al
- * coach: oggi cancel_booking non ne manda.
+ * Il toast dopo l'annullamento, col was_late del server. Dal giro del server
+ * del 07/10/2026 il coach riceve l'avviso nella campanella (lo scrive il
+ * database, booking.cancelled); il toast non lo promette, come i testi della 04.
  */
 export function cancelToast(wasLate: boolean): DetailToast {
   return wasLate

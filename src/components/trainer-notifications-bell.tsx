@@ -7,21 +7,27 @@
 // Popover of the coach header: a row marks the notification read and opens
 // the Calendar on the event's day with the event selected (audit S4).
 // Un acquisto di Booster (booster.purchased, passata 06 del cliente) apre
-// invece il profilo del cliente, da tutte e due.
+// invece il profilo del cliente, da tutte e due. L'annullamento e il
+// ripristino del cliente (booking.cancelled e booking.restored, giro del
+// server del 07/10/2026) aprono il Calendario come una prenotazione.
 // ----------------------------------------------------------------------------
 
 import * as React from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import {
   Bell,
   BellOff,
+  CalendarCheck,
   CalendarPlus,
+  CalendarX,
   CheckCheck,
   ChevronRight,
   Repeat,
   Sparkles,
+  type LucideIcon,
 } from "lucide-react";
-import { format, formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import { it } from "date-fns/locale";
 
 import {
@@ -32,13 +38,14 @@ import {
   type NotificationRow,
 } from "@/hooks/use-notifications";
 import { useAuth } from "@/lib/auth";
+import { queryKeys } from "@/lib/query-keys";
 import {
+  describeMobileNotification,
   describeNotification,
   formatAgo,
   formatUnreadBadge,
-  isBookingCreatedPayload,
-  isBookingRescheduledPayload,
   notificationsBellLabel,
+  type NotificationView,
 } from "@/lib/notifications";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -116,11 +123,20 @@ const DesktopBellButton = React.forwardRef<HTMLButtonElement, BellButtonProps>(
 
 // ---- Desktop row -------------------------------------------------------
 
+/** L'icona della riga: una per ogni kind di describeNotification. */
+const KIND_ICON: Record<NotificationView["kind"], LucideIcon> = {
+  created: CalendarPlus,
+  rescheduled: Repeat,
+  purchase: Sparkles,
+  cancelled: CalendarX,
+  restored: CalendarCheck,
+  other: CalendarPlus,
+};
+
 function ActivityRow({ n, onOpen }: { n: NotificationRow; onOpen: () => void }) {
   const isUnread = n.read_at == null;
   const view = describeNotification(n);
-  const Icon =
-    view.kind === "rescheduled" ? Repeat : view.kind === "purchase" ? Sparkles : CalendarPlus;
+  const Icon = KIND_ICON[view.kind];
 
   return (
     <button
@@ -203,28 +219,7 @@ function ActivityList({
 function NotificationItem({ n, onClick }: { n: NotificationRow; onClick: () => void }) {
   const isUnread = n.read_at == null;
   const ago = formatDistanceToNow(new Date(n.created_at), { addSuffix: true, locale: it });
-
-  let title = "Notifica";
-  let body = n.type;
-
-  if (n.type === "booking.created" && isBookingCreatedPayload(n.payload)) {
-    const p = n.payload;
-    const when = format(new Date(p.scheduled_at), "EEE d MMM · HH:mm", { locale: it });
-    title = "Nuova prenotazione";
-    body = `${p.client_name} · ${p.session_label}\n${when}`;
-  } else if (n.type === "booking.rescheduled" && isBookingRescheduledPayload(n.payload)) {
-    const p = n.payload;
-    const oldWhen = format(new Date(p.old_scheduled_at), "d MMM · HH:mm", { locale: it });
-    const newWhen = format(new Date(p.new_scheduled_at), "d MMM · HH:mm", { locale: it });
-    title = "Sessione spostata";
-    body = `${p.client_name}\n${oldWhen} → ${newWhen}`;
-  } else {
-    const view = describeNotification(n);
-    if (view.kind === "purchase") {
-      title = view.title;
-      body = view.body;
-    }
-  }
+  const { title, body } = describeMobileNotification(n);
 
   return (
     <button
@@ -321,6 +316,7 @@ function NotificationsList({
 export function TrainerNotificationsBell() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const qc = useQueryClient();
   // Sheet (mobile) e Popover (desktop) portalano entrambi in <body> a
   // prescindere dal wrapper `md:hidden` / `hidden md:block`: con un
   // singolo `open` condiviso il click sulla campanella apriva ANCHE il
@@ -355,6 +351,11 @@ export function TrainerNotificationsBell() {
       openProfile(clientId);
       return;
     }
+    // La sessione della notifica può mancare dalla cache del Calendario già
+    // aperto (prenotata, annullata o ripristinata dopo l'ultima lettura): si
+    // rilegge, e l'effetto `event` del desktop aspetta il caricamento invece
+    // di dire «Evento non trovato» o di mostrare lo stato vecchio.
+    void qc.invalidateQueries({ queryKey: queryKeys.bookings.coach(userId) });
     void navigate({
       to: "/trainer/calendar",
       search: date ? { date, event: bookingId ?? undefined } : {},

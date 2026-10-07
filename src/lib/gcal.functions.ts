@@ -398,6 +398,8 @@ export const gcalDeleteEvent = createServerFn({ method: "POST" })
 // Confronta le sessioni 'scheduled' future (finestra now-1h .. now+16g) con
 // gli eventi Google: se un evento e cancelled -> annulla la sessione + rimborsa
 // (RPC reconcile_gcal_cancel); se l'orario e cambiato -> allinea (reconcile_gcal_move).
+// Dal giro del server del 07/10/2026 le due RPC restituiscono l'esito, e uno
+// spostamento sopra un'altra sessione non si fa e si conta in `overlaps`.
 // SICUREZZA: cancella SOLO su status="cancelled" esplicito; se la GET fallisce
 // o la lista e vuota con booking attesi -> NON tocca nulla (anti-wipe).
 // ----------------------------------------------------------------------------
@@ -405,6 +407,8 @@ type ReconcileResult = {
   ok: boolean;
   cancelled?: number;
   moved?: number;
+  /** Spostamenti di Google rimasti fuori: il nuovo orario è occupato da un'altra sessione. */
+  overlaps?: number;
   conflicts?: number;
   checked?: number; // sessioni confrontate con Google (passata 09)
   skipped?: string;
@@ -463,7 +467,9 @@ export const gcalReconcileEvents = createServerFn({ method: "POST" })
         return { ok: false, error: "Lettura prenotazioni fallita" };
       }
       const rows = bookings ?? [];
-      if (rows.length === 0) return { ok: true, cancelled: 0, moved: 0, conflicts: 0, checked: 0 };
+      if (rows.length === 0) {
+        return { ok: true, cancelled: 0, moved: 0, overlaps: 0, conflicts: 0, checked: 0 };
+      }
 
       const byEventId = new Map<string, { id: string; scheduledMs: number }>();
       for (const b of rows) {
@@ -485,22 +491,37 @@ export const gcalReconcileEvents = createServerFn({ method: "POST" })
       // (errore gateway/paginazione) -> non riconciliare nulla.
       if (events.length === 0 && byEventId.size > 0) {
         console.warn("gcalReconcile: lista Google vuota con booking attesi, skip (anti-wipe)");
-        return { ok: true, skipped: "empty-list-guard", cancelled: 0, moved: 0, conflicts: 0 };
+        return {
+          ok: true,
+          skipped: "empty-list-guard",
+          cancelled: 0,
+          moved: 0,
+          overlaps: 0,
+          conflicts: 0,
+        };
       }
 
       // Annullamenti e spostamenti (gcal-repair.ts): un annullamento non
-      // riuscito si conta fra le sessioni non aggiornate (passata 11).
-      const { cancelled, moved, conflicts } = await reconcileWith(events, byEventId, {
-        cancel: async (id) =>
-          await supabaseAdmin.rpc("reconcile_gcal_cancel", { p_booking_id: id }),
-        move: async (id, at) =>
-          await supabaseAdmin.rpc("reconcile_gcal_move", {
+      // riuscito si conta fra le sessioni non aggiornate (passata 11). Le RPC
+      // passano anche `data`, l'esito del giro del server del 07/10/2026
+      // ('moved', 'overlap', ...): nullo col server di prima, che era void.
+      const { cancelled, moved, overlaps, conflicts } = await reconcileWith(events, byEventId, {
+        cancel: async (id) => {
+          const { data, error } = await supabaseAdmin.rpc("reconcile_gcal_cancel", {
+            p_booking_id: id,
+          });
+          return { data, error };
+        },
+        move: async (id, at) => {
+          const { data, error } = await supabaseAdmin.rpc("reconcile_gcal_move", {
             p_booking_id: id,
             p_new_scheduled_at: at,
-          }),
+          });
+          return { data, error };
+        },
         logError: (what, detail) => console.error(what, detail),
       });
-      return { ok: true, cancelled, moved, conflicts, checked: rows.length };
+      return { ok: true, cancelled, moved, overlaps, conflicts, checked: rows.length };
     } catch (e) {
       console.error("gcalReconcileEvents failed", e);
       return { ok: false, error: e instanceof Error ? e.message : String(e) };
