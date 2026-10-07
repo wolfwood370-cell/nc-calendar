@@ -98,7 +98,8 @@ export function CoachNotesCard({ coachId, clientId }: { coachId: string; clientI
         </div>
       </div>
 
-      {/* Chip Limitazioni: campo non ancora nei dati — variante neutra del mock */}
+      {/* Chip Limitazioni: la colonna c'è (coach_client_notes.limitations), ma la
+          pagina non la legge ancora: variante neutra del mock */}
       <div className="flex items-start gap-2.5 bg-surface rounded-2xl px-3.5 py-3">
         <TriangleAlert className="size-4 shrink-0 mt-0.5 text-outline" aria-hidden />
         <div>

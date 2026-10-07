@@ -57,6 +57,7 @@ import { extraTotals } from "@/lib/extra-credits";
 import { backToListSearch } from "@/lib/client-list";
 import { getRenewalInfo, type RenewalClient } from "@/lib/renewal";
 import type { PackageMode } from "@/lib/package-actions";
+import { savePathSchedule } from "@/lib/path-schedule";
 import { queryKeys } from "@/lib/query-keys";
 import { sessionLabel, type SessionType } from "@/lib/mock-data";
 import { toast } from "sonner";
@@ -615,6 +616,8 @@ export function ClientProfileMobile() {
     setAutoRenewSaving(false);
   }
 
+  // Data d'inizio e settimane in una transazione sola (savePathSchedule,
+  // passata 13): prima erano tre scritture separate.
   async function saveSchedule() {
     if (!user) return;
     if (!pathStart) {
@@ -623,30 +626,7 @@ export function ClientProfileMobile() {
     }
     setSaving(true);
     try {
-      const { error: pErr } = await supabase
-        .from("profiles")
-        .update({ path_start_date: toIso(pathStart) })
-        .eq("id", clientId);
-      if (pErr) throw pErr;
-
-      const { error: dErr } = await supabase
-        .from("weekly_schedule")
-        .delete()
-        .eq("client_id", clientId);
-      if (dErr) throw dErr;
-
-      if (rows.length > 0) {
-        const payload = rows.map((r) => ({
-          client_id: clientId,
-          coach_id: user.id,
-          week_number: r.week_number,
-          block_number: r.block_number,
-          monday_date: r.monday_date,
-          shifted: r.shifted,
-        }));
-        const { error: iErr } = await supabase.from("weekly_schedule").insert(payload);
-        if (iErr) throw iErr;
-      }
+      await savePathSchedule({ clientId, pathStartDate: toIso(pathStart), rows });
       setOriginalRows(rows.map((r) => ({ ...r })));
       toast.success("Calendario salvato");
     } catch (e) {

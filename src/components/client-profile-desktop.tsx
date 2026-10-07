@@ -9,9 +9,12 @@
 // altra pagina, chiusura): dialog «Salvare le modifiche al percorso?» con
 // useBlocker di TanStack Router.
 // Scritture: le sessioni con gli helper del Calendario (profile-session.ts);
-// il calendario del percorso con saveSchedule di prima; il rinnovo automatico
-// con la stessa scrittura di prima su profiles.auto_renew_blocks.
-// Le Limitazioni (K4) restano fuori: servono una colonna e una migrazione.
+// il calendario del percorso con savePathSchedule (path-schedule.ts: l'RPC
+// save_path_schedule, data d'inizio e settimane in una transazione sola, dalla
+// passata 13); il rinnovo automatico con la stessa scrittura di prima su
+// profiles.auto_renew_blocks.
+// Le Limitazioni (K4) restano fuori: la colonna c'è (coach_client_notes.
+// limitations, nei tipi dal 04/10/2026), ma la pagina non la mostra né la scrive.
 // ----------------------------------------------------------------------------
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -84,6 +87,7 @@ import {
 } from "@/lib/client-profile";
 import { clientPlanLabel } from "@/lib/client-search";
 import type { PackageMode } from "@/lib/package-actions";
+import { savePathSchedule } from "@/lib/path-schedule";
 import { loadClientProfile, type ProfileBooking, type ProfileOrphan } from "@/lib/profile-load";
 import {
   ignoreOrphan,
@@ -215,7 +219,10 @@ export function ClientProfileDesktop({
 
   const [savingSchedule, setSavingSchedule] = useState(false);
 
-  /** saveSchedule di prima (trainer.clients.$id.tsx:682-721 su main). */
+  /**
+   * Data d'inizio e settimane del percorso in una transazione sola
+   * (savePathSchedule, passata 13); i toast sono quelli di prima.
+   */
   async function saveSchedule(): Promise<boolean> {
     if (!user) return false;
     if (!sched.start) {
@@ -226,29 +233,7 @@ export function ClientProfileDesktop({
     const start = sched.start;
     setSavingSchedule(true);
     try {
-      const { error: pErr } = await supabase
-        .from("profiles")
-        .update({ path_start_date: start })
-        .eq("id", clientId);
-      if (pErr) throw pErr;
-      const { error: dErr } = await supabase
-        .from("weekly_schedule")
-        .delete()
-        .eq("client_id", clientId);
-      if (dErr) throw dErr;
-      if (rows.length > 0) {
-        const { error: iErr } = await supabase.from("weekly_schedule").insert(
-          rows.map((r) => ({
-            client_id: clientId,
-            coach_id: user.id,
-            week_number: r.week_number,
-            block_number: r.block_number,
-            monday_date: r.monday_date,
-            shifted: r.shifted,
-          })),
-        );
-        if (iErr) throw iErr;
-      }
+      await savePathSchedule({ clientId, pathStartDate: start, rows });
       setSched((prev) => ({ ...prev, saved: rows, savedStart: start }));
       toast.success("Calendario del percorso salvato.");
       refresh();

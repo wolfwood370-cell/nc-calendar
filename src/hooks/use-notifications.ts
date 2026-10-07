@@ -3,10 +3,11 @@
 // ----------------------------------------------------------------------------
 // Bound to the `notifications` table introduced in
 // supabase/migrations/20260524100000_notifications.sql. Writes happen
-// server-side (booking-notifications Edge Function with service role, and
-// stripe-webhook for the Booster purchases, passata 06);
-// the client only reads its own rows (RLS) and toggles read_at via the
-// mark_notification_read / mark_all_notifications_read RPCs.
+// server-side (booking-notifications Edge Function with service role,
+// stripe-webhook for the Booster purchases, passata 06, and from the server
+// round of 07/10/2026 the database itself when a client cancels or restores
+// a session); the client only reads its own rows (RLS) and toggles read_at
+// via the mark_notification_read / mark_all_notifications_read RPCs.
 //
 // Realtime: the notifications table is published on supabase_realtime
 // (the migration adds it). The channel filter `recipient_id=eq.<uid>`
@@ -57,7 +58,34 @@ export interface BoosterPurchasedPayload {
   package_type?: string | null;
 }
 
-export type NotificationType = "booking.created" | "booking.rescheduled" | "booster.purchased";
+/**
+ * Il cliente ha annullato una sessione (giro del server del 07/10/2026): la
+ * riga c'è solo quando agisce il cliente. `late` vero: annullata a meno di 24
+ * ore dall'inizio, e il credito resta scalato. Il server scrive sempre
+ * booking_id; la guardia non lo pretende, e senza si apre solo il giorno.
+ */
+export interface BookingCancelledPayload {
+  booking_id?: string;
+  client_name: string;
+  session_label: string;
+  scheduled_at: string; // ISO, da jsonb con l'offset (a volte coi microsecondi)
+  late: boolean;
+}
+
+/** Il «Ripristina» del cliente, entro 10 minuti dall'annullamento (giro del server del 07/10/2026). */
+export interface BookingRestoredPayload {
+  booking_id?: string;
+  client_name: string;
+  session_label: string;
+  scheduled_at: string; // ISO, da jsonb con l'offset (a volte coi microsecondi)
+}
+
+export type NotificationType =
+  | "booking.created"
+  | "booking.rescheduled"
+  | "booster.purchased"
+  | "booking.cancelled"
+  | "booking.restored";
 
 export interface NotificationRow {
   id: string;

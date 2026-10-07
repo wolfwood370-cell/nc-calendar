@@ -101,6 +101,12 @@ export interface QuickSync {
   /** Dalla riconciliazione, solo se è riuscita. */
   cancelled: number;
   moved: number;
+  /**
+   * Spostate su Google e rimaste all'orario di prima nell'app, perché il nuovo
+   * orario è occupato da un'altra sessione (giro del server del 07/10/2026; 0
+   * col server di prima, che non lo diceva). Nell'app non cambia niente.
+   */
+  overlaps: number;
   conflicts: number;
   /** Dal ripristino, solo se è riuscito. */
   created: number;
@@ -113,6 +119,7 @@ export function quickSyncOf(pull: ReconcileResult, push: RepairResult): QuickSyn
   const pullDone = pull.ok && !pull.skipped;
   const cancelled = pullDone ? (pull.cancelled ?? 0) : 0;
   const moved = pullDone ? (pull.moved ?? 0) : 0;
+  const overlaps = pullDone ? (pull.overlaps ?? 0) : 0;
   const conflicts = pullDone ? (pull.conflicts ?? 0) : 0;
   const created = push.ok ? (push.created ?? 0) : 0;
   const notCreated = push.ok ? (push.failed ?? 0) : 0;
@@ -129,6 +136,7 @@ export function quickSyncOf(pull: ReconcileResult, push: RepairResult): QuickSyn
     failure,
     cancelled,
     moved,
+    overlaps,
     conflicts,
     created,
     notCreated,
@@ -175,10 +183,31 @@ function conflictsText(n: number): string {
   return plural(n, "sessione non aggiornata", "sessioni non aggiornate");
 }
 
-/** «2 spostate su Google · 1 annullata su Google · 3 eventi ricreati su Google · …». */
+/**
+ * La sincronizzazione automatica (all'apertura del Calendario) dice qualcosa
+ * quando nell'app è cambiato qualcosa, o quando Google e l'app restano diversi
+ * perché uno spostamento finirebbe sopra un'altra sessione (passata 13): in
+ * quel caso nell'app non cambia niente, ma il coach deve saperlo.
+ */
+export function quickSyncNeedsNotice(r: QuickSync): boolean {
+  return r.changed || r.overlaps > 0;
+}
+
+/** «1 sessione rimasta all'orario di prima (nuovo orario occupato)», per la rapida. */
+function overlapsShortText(n: number): string {
+  return n === 1
+    ? "1 sessione rimasta all'orario di prima (nuovo orario occupato)"
+    : `${n} sessioni rimaste all'orario di prima (nuovi orari occupati)`;
+}
+
+/**
+ * «2 spostate su Google · 1 sessione rimasta all'orario di prima (nuovo orario
+ * occupato) · 1 annullata su Google · 3 eventi ricreati su Google · …».
+ */
 function quickParts(r: QuickSync): string[] {
   const parts: string[] = [];
   if (r.moved > 0) parts.push(`${plural(r.moved, "spostata", "spostate")} su Google`);
+  if (r.overlaps > 0) parts.push(overlapsShortText(r.overlaps));
   if (r.cancelled > 0) parts.push(`${plural(r.cancelled, "annullata", "annullate")} su Google`);
   if (r.created > 0) parts.push(`${createdText(r.created)} su Google`);
   if (r.notCreated > 0) parts.push(notCreatedText(r.notCreated));
@@ -200,7 +229,9 @@ export function quickSyncMessage(r: QuickSync): SyncMessage {
   if (r.failure === "google") return { tone: "warning", title: GOOGLE_DOWN_TEXT, description };
   if (r.failure === "empty") return { tone: "warning", title: GOOGLE_EMPTY_TEXT, description };
   if (!description) return { tone: "info", title: "Sincronizzato: nessuna differenza trovata." };
-  const problems = r.notCreated + r.conflicts > 0;
+  // Una sessione rimasta all'orario di prima è un avviso come un conflitto:
+  // Google e l'app restano diversi finché il coach non sceglie un orario.
+  const problems = r.notCreated + r.conflicts + r.overlaps > 0;
   return {
     tone: problems ? "warning" : "success",
     title: "Sincronizzato con Google Calendar.",
@@ -314,23 +345,37 @@ export interface FullSyncOutcome {
   lines: string[];
 }
 
-/** «Su Google risultavano 2 spostate e 1 annullata, e l'app le ha allineate, tranne …». */
-function differencesText(moved: number, cancelled: number): string {
-  const n = moved + cancelled;
+/**
+ * Le differenze trovate su Google e cosa ne ha fatto l'app: «Su Google
+ * risultavano 2 spostate e 1 annullata, e l'app le ha allineate.». Fino al
+ * giro del server del 07/10/2026 l'esito di uno spostamento non si sapeva, e
+ * la frase diceva «tranne» quelli che finirebbero sopra un'altra sessione;
+ * ora quelli (overlaps) si contano fra le spostate su Google ma non fra le
+ * allineate, e la frase dice quanti sono rimasti all'orario di prima e perché.
+ */
+function differencesText(moved: number, cancelled: number, overlaps: number): string {
+  const seenMoved = moved + overlaps;
+  const n = seenMoved + cancelled;
   if (n === 0) return "Nessuna differenza con Google.";
   const what: string[] = [];
-  if (moved > 0) what.push(plural(moved, "spostata", "spostate"));
+  if (seenMoved > 0) what.push(plural(seenMoved, "spostata", "spostate"));
   if (cancelled > 0) what.push(plural(cancelled, "annullata", "annullate"));
   const head = `Su Google ${n === 1 ? "risultava" : "risultavano"} ${what.join(" e ")}`;
-  if (moved === 0) return `${head}, e l'app ${n === 1 ? "l'ha aggiornata" : "le ha aggiornate"}.`;
-  // Il server conta come spostata anche una sessione che si sovrapporrebbe a
-  // un'altra e resta dov'era (reconcile_gcal_move esce senza errore).
-  const done = n === 1 ? "l'ha allineata" : "le ha allineate";
-  const unless =
-    moved === 1
-      ? "tranne se lo spostamento finirebbe sopra un'altra sessione: in quel caso resta all'orario di prima"
-      : "tranne gli spostamenti che finirebbero sopra un'altra sessione: quelli restano all'orario di prima";
-  return `${head}, e l'app ${done}, ${unless}.`;
+  // Con uno spostamento fatto l'app «allinea», con i soli annullamenti «aggiorna».
+  const stem = moved > 0 ? "allineat" : "aggiornat";
+  const participle = (count: number) => `${stem}${count === 1 ? "a" : "e"}`;
+  if (overlaps === 0) return `${head}, e l'app ${n === 1 ? "l'ha" : "le ha"} ${participle(n)}.`;
+  const occupied =
+    overlaps === 1
+      ? "il nuovo orario è occupato da un'altra sessione"
+      : "i nuovi orari sono occupati da altre sessioni";
+  const done = n - overlaps;
+  if (done === 0) {
+    const kept = overlaps === 1 ? "è rimasta" : "sono rimaste";
+    return `${head}, ma nell'app ${kept} all'orario di prima: ${occupied}.`;
+  }
+  const kept = overlaps === 1 ? "1 spostata è rimasta" : `${overlaps} spostate sono rimaste`;
+  return `${head}: l'app ne ha ${participle(done)} ${done}, e ${kept} all'orario di prima perché ${occupied}.`;
 }
 
 function summaryLines(r: FullSync): string[] {
@@ -343,7 +388,7 @@ function summaryLines(r: FullSync): string[] {
         : `Controllate ${pull.checked} sessioni in programma dal 1° gennaio.`,
     );
   }
-  lines.push(differencesText(pull.moved ?? 0, pull.cancelled ?? 0));
+  lines.push(differencesText(pull.moved ?? 0, pull.cancelled ?? 0, pull.overlaps ?? 0));
   if (r.repair.created > 0) lines.push(`${createdText(r.repair.created)} su Google.`);
   else if (r.repair.complete && r.repair.notCreated === 0)
     lines.push("Nessun evento da ricreare su Google.");
@@ -413,7 +458,10 @@ export function fullSyncOutcome(r: FullSync): FullSyncOutcome {
       ],
     };
   }
-  const problems = r.repair.notCreated + (r.reconcile.conflicts ?? 0) > 0;
+  // Le sessioni rimaste all'orario di prima contano come i conflitti: Google e
+  // l'app restano diversi (come il tono della rapida, quickSyncMessage).
+  const problems =
+    r.repair.notCreated + (r.reconcile.conflicts ?? 0) + (r.reconcile.overlaps ?? 0) > 0;
   if (problems) {
     return {
       kind: "problems",
