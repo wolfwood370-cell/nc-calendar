@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   CLIENT_BOOKING_HORIZON_DAYS,
   CLIENT_CONFIRM_WINDOW_HOURS,
-  CLIENT_FEEDBACK_DAYS,
   CLIENT_FREE_CANCEL_HOURS,
   CLIENT_MIN_NOTICE_HOURS,
   CLIENT_RESCHEDULE_CUTOFF_HOURS,
@@ -20,14 +19,13 @@ import {
 import { getMoveWindow } from "@/lib/client-credits";
 
 describe("regole di prenotazione", () => {
-  it("i numeri del cliente, per prenotare, spostare, annullare, confermare e valutare", () => {
+  it("i numeri del cliente, per prenotare, spostare, annullare e confermare", () => {
     expect(CLIENT_MIN_NOTICE_HOURS).toBe(24);
     expect(CLIENT_BOOKING_HORIZON_DAYS).toBe(14);
     expect(CLIENT_RESCHEDULE_CUTOFF_HOURS).toBe(24);
     expect(CLIENT_RESCHEDULE_WINDOW_DAYS).toBe(CLIENT_BOOKING_HORIZON_DAYS);
     expect(CLIENT_FREE_CANCEL_HOURS).toBe(24);
     expect(CLIENT_CONFIRM_WINDOW_HOURS).toBe(48);
-    expect(CLIENT_FEEDBACK_DAYS).toBe(14);
   });
 
   it("preavviso: 0 dà «Nessuno», 1 ora al singolare, e la card mostra «24 ore»", () => {

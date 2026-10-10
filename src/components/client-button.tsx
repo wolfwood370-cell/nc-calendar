@@ -17,7 +17,7 @@
 // aria-disabled e non disabled, con l'aspetto di disabled e il tocco ignorato:
 // a un pulsante disabled il browser toglie il focus, che finisce sul body, e
 // chi usa la tastiera o uno screen reader riparte da capo. disabled resta per
-// ciò che non si può ancora fare (nessun orario scelto, nessuna stella).
+// ciò che non si può ancora fare (nessun orario scelto).
 // components/ui/button.tsx resta com'è: lo usa il lato coach.
 // ----------------------------------------------------------------------------
 

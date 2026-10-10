@@ -12,7 +12,6 @@ import {
   isVisibleSession,
   parseSessionsTab,
   pastGroups,
-  ratingsById,
   sessionRow,
   splitSessions,
   tileText,
@@ -96,20 +95,11 @@ const GIULIA: SessionBooking[] = [
   }),
   s("x1", "pt", at(2026, 9, 24, 10), "cancelled", { deleted_at: DELETED }),
 ];
-const RATINGS: ReadonlyMap<string, number> = new Map([
-  ["p4", 5],
-  ["p5", 4],
-]);
-
 const SESSION = new Map(GIULIA.map((b) => [b.id, b]));
-const row = (
-  id: string,
-  ratings: ReadonlyMap<string, number> | null = RATINGS,
-  now: Date = NOW,
-): SessionRowModel => {
+const row = (id: string, now: Date = NOW): SessionRowModel => {
   const b = SESSION.get(id);
   if (!b) throw new Error(`sessione ${id} assente`);
-  return sessionRow(b, TYPES, ratings, now);
+  return sessionRow(b, TYPES, now);
 };
 const cells = (r: SessionRowModel) => [r.dow, r.day, r.range, r.type, r.chip];
 const ids = (list: readonly SessionBooking[]) => list.map((b) => b.id);
@@ -325,35 +315,23 @@ describe("sessionRow", () => {
     expect(row("p10").ariaLabel.startsWith("Sabato 10 ottobre, ")).toBe(true);
   });
 
-  it("valutate: le stelle e niente «Da valutare»; da valutare solo dove canRate", () => {
+  it("le svolte recenti: il chip dello stato, senza valutazione né stelle (passata 14)", () => {
     expect(row("p4").chip).toBe("Svolta");
-    expect(row("p4").rating).toBe("5 su 5");
-    expect(row("p4").ariaLabel).toBe(
-      "Mercoledì 23 settembre, 11:00–12:00, Sessione PT, svolta, valutata 5 su 5",
-    );
-    expect(row("p5").rating).toBe("4 su 5");
+    expect(row("p4").ariaLabel).toBe("Mercoledì 23 settembre, 11:00–12:00, Sessione PT, svolta");
+    expect(Object.keys(row("p4"))).not.toContain("rating");
 
     expect(cells(row("p6"))).toEqual([
       "ven",
       "18",
       "07:30–07:45",
       "BIA (Bioimpedenziometria)",
-      "Da valutare",
+      "Svolta",
     ]);
-    expect(row("p6").chipTone.bg).toBe("bg-rating-soft");
-    expect(row("p6").chipTone.fg).toBe("text-rating-text");
+    expect(row("p6").chipTone).toEqual({ bg: "bg-success-soft", fg: "text-success-text" });
     expect(row("p6").tile?.fg).toBe("var(--color-aura-primary)");
-    expect(row("p6").rating).toBeNull();
     expect(row("p6").ariaLabel).toBe(
-      "Venerdì 18 settembre, 07:30–07:45, BIA (Bioimpedenziometria), da valutare",
+      "Venerdì 18 settembre, 07:30–07:45, BIA (Bioimpedenziometria), svolta",
     );
-  });
-
-  it("valutazioni non lette: niente «Da valutare» e niente stelle", () => {
-    expect(row("p6", null).chip).toBe("Svolta");
-    expect(row("p4", null).rating).toBeNull();
-    expect(row("p4", null).ariaLabel).not.toContain("valutata");
-    expect(row("p4", null).ariaLabel.endsWith(", svolta")).toBe(true);
   });
 
   it("la consulenza senza tipologia", () => {
@@ -366,20 +344,8 @@ describe("sessionRow", () => {
     const loose = s("z", "sparita", at(2026, 9, 24, 9), "completed", {
       session_type: "Functional Test",
     });
-    expect(sessionRow(loose, TYPES, RATINGS, NOW).type).toBe("Test funzionale");
-    expect(sessionRow(loose, TYPES, RATINGS, NOW).tile?.fg).toBe("#005685");
-  });
-
-  it("ratingsById: null finché le valutazioni non ci sono", () => {
-    expect(ratingsById(undefined)).toBeNull();
-    const map = ratingsById([
-      { booking_id: "p4", rating: 5 },
-      { booking_id: "p5", rating: 4 },
-    ]);
-    expect(map && [...map]).toEqual([
-      ["p4", 5],
-      ["p5", 4],
-    ]);
+    expect(sessionRow(loose, TYPES, NOW).type).toBe("Test funzionale");
+    expect(sessionRow(loose, TYPES, NOW).tile?.fg).toBe("#005685");
   });
 });
 
@@ -456,8 +422,8 @@ describe("l'ora è quella del parametro", () => {
     const split = splitSessions(list, now);
     expect(groups(upcomingGroups(split.upcoming, now))).toEqual([["Questa settimana", ["y1"]]]);
     expect(ids(split.past)).toEqual(["y3", "y2"]);
-    expect(sessionRow(list[1]!, TYPES, new Map(), now).chip).toBe("In verifica");
-    expect(sessionRow(list[2]!, TYPES, new Map(), now).chip).toBe("Da valutare");
+    expect(sessionRow(list[1]!, TYPES, now).chip).toBe("In verifica");
+    expect(sessionRow(list[2]!, TYPES, now).chip).toBe("Svolta");
     expect(attendanceSummary(list, now)).toEqual({
       title: "Presenza 100% nelle ultime 8 settimane",
       sub: "1 sessione svolta · 0 assenze",

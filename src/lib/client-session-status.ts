@@ -3,8 +3,8 @@
 // audit T1, T5 e O3)
 // ----------------------------------------------------------------------------
 // Un elenco solo di stati, etichette, righe del dettaglio e icone, più quando
-// una sessione si sposta, si annulla senza perdere il credito e si valuta. Le
-// soglie sono quelle del server, lette da booking-rules.ts:
+// una sessione si sposta e si annulla senza perdere il credito. Le soglie sono
+// quelle del server, lette da booking-rules.ts:
 //   - spostare: reschedule_booking rifiuta se l'inizio è prima di now() + 24
 //     ore, quindi a 24 ore esatte si sposta ancora;
 //   - annullare: cancel_booking segna tardivo da now() >= inizio − 24 ore,
@@ -28,7 +28,6 @@ import {
 } from "lucide-react";
 import {
   CLIENT_CONFIRM_WINDOW_HOURS,
-  CLIENT_FEEDBACK_DAYS,
   CLIENT_FREE_CANCEL_HOURS,
   CLIENT_RESCHEDULE_CUTOFF_HOURS,
 } from "@/lib/booking-rules";
@@ -168,25 +167,4 @@ export function isFreeCancel(b: Pick<BookingRow, "scheduled_at">, now: Date): bo
 export function freeUntilLabel(b: Pick<BookingRow, "scheduled_at">): string {
   const d = new Date(startOf(b) - CLIENT_FREE_CANCEL_HOURS * HOUR_MS);
   return `${formatLongDay(d).toLowerCase()} alle ${format(d, "HH:mm")}`;
-}
-
-/**
- * Svolta, creata nell'app e iniziata negli ultimi 14 giorni. «Creata
- * nell'app» vuol dire senza titolo: il titolo lo scrivono l'importazione da
- * Google, gli impegni personali e le sessioni senza cliente, mentre le
- * prenotazioni del cliente e del coach non ne hanno. google_event_id non
- * distingue: ce l'hanno anche le sessioni create nell'app.
- */
-export function canRate(
-  b: Pick<BookingRow, "status" | "scheduled_at" | "title">,
-  now: Date,
-): boolean {
-  const start = startOf(b);
-  const t = now.getTime();
-  return (
-    b.status === "completed" &&
-    b.title == null &&
-    start <= t &&
-    start >= t - CLIENT_FEEDBACK_DAYS * 24 * HOUR_MS
-  );
 }

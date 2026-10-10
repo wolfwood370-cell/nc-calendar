@@ -1,6 +1,6 @@
 // ----------------------------------------------------------------------------
 // Il dettaglio della sessione (lato cliente, passata 04, audit D1-D5, O3, O4,
-// B2, H9 e V11)
+// B2 e V11)
 // ----------------------------------------------------------------------------
 // La lettura della sessione e della sua tipologia, con la chiave
 // ["booking-detail", id] (queryKeys.bookings.detail): la rinfrescano le azioni

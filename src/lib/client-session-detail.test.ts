@@ -7,7 +7,6 @@ import type { CreditWindow } from "@/lib/booking-rules";
 import { NO_COACH, type BookCoach, type BookOption, type BookState } from "@/lib/client-book";
 import {
   LOCKED_TITLE,
-  RATING_NOTE_MAX,
   absentHint,
   actionErrorText,
   canRebook,
@@ -31,10 +30,7 @@ import {
   moveNoSlotsText,
   moveRule,
   moveToast,
-  ratingState,
-  ratingToast,
   sessionMinutes,
-  starsLabel,
   statusCard,
   tileIcon,
   type DetailBooking,
@@ -215,8 +211,7 @@ const nameOf = (b: DetailBooking) => sessionName(b, typeOf(b));
 
 /**
  * Le azioni e il resto di una sessione, nell'ordine del prompt: pulsanti,
- * card dello stato, invito, valutazione (senza e con un voto), Annulla. Una
- * voce che manca è falsa o nulla.
+ * card dello stato, invito, Annulla. Una voce che manca è falsa o nulla.
  */
 const facts = (b: DetailBooking): string[] => {
   const place = detailPlace(typeOf(b));
@@ -232,11 +227,6 @@ const facts = (b: DetailBooking): string[] => {
     if (card.rebook) out.push("rebook");
   }
   if (inviteText(b, EMAIL, NOW)) out.push("invito");
-  const unrated = ratingState(b, false, NOW);
-  const rated = ratingState(b, true, NOW);
-  if (unrated.show) out.push("valutazione");
-  else if (rated.show) out.push("valutazione:col-voto");
-  if (unrated.editable) out.push("modificabile");
   if (panel.manage) {
     const free = cancelSheet(b, nameOf(b), NOW).free;
     out.push(free ? "annulla:gratis" : "annulla:tardi");
@@ -294,12 +284,12 @@ const EXPECTED: Record<string, Expected> = {
   d7: {
     day: "Mercoledì 23 settembre",
     time: "11:00–12:00 · 60 min",
-    facts: ["status:done", "rebook", "valutazione", "modificabile"],
+    facts: ["status:done", "rebook"],
   },
   d7b: {
     day: "Venerdì 11 settembre",
     time: "09:00–10:00 · 60 min",
-    facts: ["status:done", "rebook", "valutazione:col-voto"],
+    facts: ["status:done", "rebook"],
   },
   d8: {
     day: "Venerdì 25 settembre",
@@ -339,12 +329,12 @@ const EXPECTED: Record<string, Expected> = {
   d16: {
     day: "Martedì 22 settembre",
     time: "15:00–16:00 · 60 min",
-    facts: ["status:done", "valutazione:col-voto"],
+    facts: ["status:done"],
   },
   d17: {
     day: "Venerdì 18 settembre",
     time: "07:30–07:45 · 15 min",
-    facts: ["status:done", "valutazione", "modificabile"],
+    facts: ["status:done"],
   },
   d18: {
     day: "Oggi, lunedì 28 settembre",
@@ -354,7 +344,7 @@ const EXPECTED: Record<string, Expected> = {
   d19: {
     day: "Venerdì 25 settembre",
     time: "09:00–09:45 · 45 min",
-    facts: ["status:done", "valutazione", "modificabile"],
+    facts: ["status:done"],
   },
   d20: {
     day: "Domani, martedì 29 settembre",
@@ -373,7 +363,7 @@ describe("il dettaglio di ogni sessione", () => {
   });
 
   for (const [id, want] of Object.entries(EXPECTED)) {
-    it(`${id}: giorno, orario, azioni, card, invito, valutazione e Annulla`, () => {
+    it(`${id}: giorno, orario, azioni, card, invito e Annulla`, () => {
       const b = session(id);
       expect(detailWhen(b, NOW)).toEqual({ day: want.day, time: want.time });
       expect(facts(b)).toEqual(want.facts);
@@ -384,12 +374,6 @@ describe("il dettaglio di ogni sessione", () => {
     for (const b of SESSIONS) {
       const panel = detailPanel(b, detailPlace(typeOf(b))?.online ?? false, NOW);
       expect(panel.join && panel.confirm, b.id).toBe(false);
-    }
-  });
-
-  it("la modificabilità della valutazione non dipende dal voto", () => {
-    for (const b of SESSIONS) {
-      expect(ratingState(b, true, NOW).editable, b.id).toBe(ratingState(b, false, NOW).editable);
     }
   });
 });
@@ -565,8 +549,6 @@ describe("i testi del dettaglio", () => {
     });
     expect(coachNoteTitle(COACH)).toBe("Nota di Nicolò");
     expect(coachNoteTitle(NO_COACH)).toBe("Nota del coach");
-    expect(ratingToast(COACH)).toBe("Grazie: Nicolò vedrà la tua valutazione.");
-    expect(ratingToast(NO_COACH)).toBe("Grazie: il tuo coach vedrà la tua valutazione.");
   });
 
   it("l'invito solo con l'evento Google, senza titolo e con l'email", () => {
@@ -579,9 +561,7 @@ describe("i testi del dettaglio", () => {
     expect(inviteText(session("d3"), EMAIL, NOW)).toBeNull();
   });
 
-  it("le stelle e i toast dell'annullamento", () => {
-    expect(starsLabel(1)).toBe("1 stella");
-    expect(starsLabel(4)).toBe("4 stelle");
+  it("i toast dell'annullamento", () => {
     expect(cancelToast(false)).toEqual({
       tone: "success",
       text: "Sessione annullata: il credito è tornato disponibile.",
@@ -768,11 +748,5 @@ describe("inviteText · l'email del server (passata 09)", () => {
     expect(inviteText(session("d1"), EMAIL, NOW)).not.toBeNull();
     expect(inviteText(session("d1"), "giulia b@example.com", NOW)).toBeNull();
     expect(inviteText(session("d1"), '"giulia"@example.com', NOW)).toBeNull();
-  });
-});
-
-describe("la nota della valutazione (passata 10)", () => {
-  it("RATING_NOTE_MAX è il limite del server: char_length(note) <= 1000 (session_feedback_note_length)", () => {
-    expect(RATING_NOTE_MAX).toBe(1000);
   });
 });

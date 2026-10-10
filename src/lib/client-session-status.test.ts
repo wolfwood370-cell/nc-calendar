@@ -11,7 +11,6 @@ import { describe, expect, it } from "vitest";
 import {
   CLIENT_STATUS_TONE,
   canMove,
-  canRate,
   freeUntilLabel,
   getClientSessionStatus,
   isFreeCancel,
@@ -132,7 +131,7 @@ describe("getClientSessionStatus · un elenco solo di stati", () => {
   });
 });
 
-describe("spostare, annullare, valutare", () => {
+describe("spostare e annullare", () => {
   it("canMove: a 23:59 no, a 24:00 sì; solo se in programma", () => {
     expect(canMove(booking(), before(23 * HOUR + 59 * MIN))).toBe(false);
     expect(canMove(booking(), before(24 * HOUR))).toBe(true);
@@ -146,15 +145,5 @@ describe("spostare, annullare, valutare", () => {
 
   it("freeUntilLabel: l'inizio meno 24 ore", () => {
     expect(freeUntilLabel(booking())).toBe("mercoledì 30 settembre alle 10:00");
-  });
-
-  it("canRate: svolta, senza titolo, iniziata negli ultimi 14 giorni", () => {
-    const done = booking({ status: "completed" });
-    expect(canRate(done, after(14 * DAY - MIN))).toBe(true);
-    expect(canRate(done, after(14 * DAY + MIN))).toBe(false);
-    // Un titolo vuol dire importata da Google (o impegno personale).
-    expect(canRate(booking({ status: "completed", title: "Allenamento" }), after(DAY))).toBe(false);
-    expect(canRate(booking(), after(DAY))).toBe(false);
-    expect(canRate(done, before(MIN))).toBe(false);
   });
 });

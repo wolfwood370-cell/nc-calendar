@@ -1,6 +1,6 @@
 // ----------------------------------------------------------------------------
 // Il dettaglio della sessione, in un file solo (lato cliente, passata 04, audit
-// D1, D3, D4, O3, O4, B2, H9 e V11)
+// D1, D3, D4, O3, O4, B2 e V11)
 // ----------------------------------------------------------------------------
 // Tutto quello che mostrano il dettaglio e i fogli Sposta e Annulla, sopra gli
 // helper delle passate prima: stati e soglie della 00 (client-session-status.ts),
@@ -15,8 +15,8 @@
 //     a 24 ore prima; dopo, il riquadro «Mancano meno di 24 ore»), e la card
 //     delle svolte, assenti, annullate e in verifica;
 //   - le informazioni: la nota del coach e l'invito del calendario;
-//   - la valutazione, Annulla, Sposta (i giorni di getClientSlotDays senza
-//     l'orario in cui la sessione è adesso) e gli errori delle azioni.
+//   - Annulla, Sposta (i giorni di getClientSlotDays senza l'orario in cui la
+//     sessione è adesso) e gli errori delle azioni.
 // Il coach è quello di BookCoach (useMyCoach nella pagina, da get_my_coach):
 // senza nome (NO_COACH) i testi dicono «il tuo coach». Puro: niente hook,
 // niente rete, niente Sentry; l'ora entra come parametro, sempre l'ultimo.
@@ -42,7 +42,6 @@ import {
 import {
   CLIENT_STATUS_TONE,
   canMove,
-  canRate,
   freeUntilLabel,
   getClientSessionStatus,
   isFreeCancel,
@@ -304,7 +303,7 @@ export function absentHint(coach: BookCoach): { text: string; href: string | nul
  * (inviteEmail, la regola del server, dalla 09). L'invito lo manda la
  * creazione dell'evento, col cliente invitato all'email del suo profilo
  * (gcal.functions.ts); le sessioni col titolo sono importate da Google o
- * impegni del coach, e lì il cliente non è invitato (la regola di canRate).
+ * impegni del coach, e lì il cliente non è invitato.
  */
 export function inviteText(
   b: DetailBooking,
@@ -320,45 +319,6 @@ export function inviteText(
 export function coachNoteTitle(coach: BookCoach): string {
   const first = coachFirstName(coach);
   return first ? `Nota di ${first}` : "Nota del coach";
-}
-
-// ----------------------------------------------------------------------------
-// La valutazione
-// ----------------------------------------------------------------------------
-
-export interface RatingState {
-  /** La card: svolta, e valutabile o già valutata. */
-  show: boolean;
-  /** Le stelle si scelgono: canRate della 00 (entro 14 giorni, creata nell'app). */
-  editable: boolean;
-}
-
-export function ratingState(
-  b: Pick<DetailBooking, "status" | "scheduled_at" | "title">,
-  hasFeedback: boolean,
-  now: Date,
-): RatingState {
-  const editable = canRate(b, now);
-  return { show: b.status === "completed" && (editable || hasFeedback), editable };
-}
-
-/**
- * La nota della valutazione, al più: dal giro del server del 02/10/2026
- * session_feedback rifiuta una nota più lunga (session_feedback_note_length,
- * char_length(note) <= 1000), e col rifiuto si perderebbe anche il voto. Lo
- * applica maxLength sull'area di testo, che conta le unità UTF-16: mai più
- * dei caratteri che conta il server (passata 10).
- */
-export const RATING_NOTE_MAX = 1000;
-
-/** Il nome di una stella: «1 stella», «4 stelle». */
-export function starsLabel(n: number): string {
-  return n === 1 ? "1 stella" : `${n} stelle`;
-}
-
-/** Il toast dopo il salvataggio. */
-export function ratingToast(coach: BookCoach): string {
-  return `Grazie: ${coachFirstName(coach) ?? "il tuo coach"} vedrà la tua valutazione.`;
 }
 
 // ----------------------------------------------------------------------------

@@ -8,10 +8,10 @@
 // pagine che vogliono l'ora. Una lettura sola e un orologio solo (useNow, così
 // il badge compare quando una sessione entra nelle 48 ore).
 // Dalla 08 le notifiche hanno due fonti (client-notifications.ts):
-//   - i promemoria, calcolati qui dalle sessioni, dalle valutazioni, dalla BIA
-//     (col suo canale realtime), dallo stato dei crediti di Prenota
-//     (useClientBookState) e dal coach (useMyCoach): le stesse chiavi delle
-//     pagine, quindi le stesse letture in cache;
+//   - i promemoria, calcolati qui dalle sessioni, dalla BIA (col suo canale
+//     realtime), dallo stato dei crediti di Prenota (useClientBookState) e dal
+//     coach (useMyCoach): le stesse chiavi delle pagine, quindi le stesse
+//     letture in cache;
 //   - le azioni del coach, righe di notifications col loro canale realtime
 //     (useNotifications, lo stesso hook del coach, che non cambia). Una riga
 //     nuova fa rileggere sessioni e crediti (invalidateBookingScope): le
@@ -25,8 +25,8 @@
 // use-notifications.ts, e la cache si segna prima della risposta; se la RPC
 // fallisce, le righe si rileggono.
 // La pagina mostra lo scheletro finché non sono arrivate tutte le letture da
-// cui vengono le voci (le righe, le sessioni, le valutazioni, la BIA, lo stato
-// dei crediti e il profilo di qui), e la card con «Riprova» se una è persa:
+// cui vengono le voci (le righe, le sessioni, la BIA, lo stato dei crediti e il
+// profilo di qui), e la card con «Riprova» se una è persa:
 // «Nessuna notifica», o una lista a metà, detti prima di aver letto sarebbero
 // falsi. Una cliente con la sola voce dei crediti, senza lo stato dei crediti
 // nel cancello, vedrebbe «Nessuna notifica» finché non arriva, e per sempre se
@@ -64,7 +64,6 @@ import {
   type NotificationRow,
 } from "@/hooks/use-notifications";
 import { useNow } from "@/hooks/use-now";
-import { useClientFeedback } from "@/hooks/use-session-feedback";
 import {
   clientNotificationList,
   clientNotificationsReadKey,
@@ -187,7 +186,6 @@ export function useClientShellState(): ClientShellState {
   });
   const bookingsQ = useClientBookings(userId ?? undefined);
   const eventTypesQ = useCoachEventTypes(profileQ.data?.coach_id ?? null);
-  const feedbackQ = useClientFeedback(userId);
   const biaQ = useBiaMeasurements(userId);
   const { coach } = useMyCoach();
   const bookState = useClientBookState(now, coach);
@@ -199,8 +197,6 @@ export function useClientShellState(): ClientShellState {
   const eventTypes = eventTypesQ.data ?? NO_EVENT_TYPES;
   const bia = biaQ.data ?? NO_BIA;
   const rows = rowsQ.data ?? NO_ROWS;
-  // null finché non arrivano: niente voce della valutazione (client-notifications.ts).
-  const feedback = feedbackQ.data ?? null;
   const pathStartDate = profileQ.data?.path_start_date ?? null;
   const { client, state } = bookState;
   // Le sessioni che una riga del coach racconta già; null finché le righe non
@@ -218,7 +214,6 @@ export function useClientShellState(): ClientShellState {
               clientId: userId,
               bookings,
               eventTypes,
-              feedback,
               book: client && state ? { client, state } : null,
               pathStartDate,
               bia,
@@ -228,19 +223,7 @@ export function useClientShellState(): ClientShellState {
             now,
           )
         : [],
-    [
-      userId,
-      bookings,
-      eventTypes,
-      feedback,
-      client,
-      state,
-      pathStartDate,
-      bia,
-      coach,
-      coachCreated,
-      now,
-    ],
+    [userId, bookings, eventTypes, client, state, pathStartDate, bia, coach, coachCreated, now],
   );
   const badge = useMemo(() => sessionsBadge(bookings, now), [bookings, now]);
 
@@ -337,38 +320,33 @@ export function useClientShellState(): ClientShellState {
     !!userId &&
     (!arrivedRead(rowsQ) ||
       !arrivedRead(bookingsQ) ||
-      !arrivedRead(feedbackQ) ||
       !arrivedRead(biaQ) ||
       !arrivedRead(profileQ) ||
       bookState.loading);
   const notificationsLost =
     lostRead(rowsQ) ||
     lostRead(bookingsQ) ||
-    lostRead(feedbackQ) ||
     lostRead(biaQ) ||
     lostRead(profileQ) ||
     bookState.failed;
   const notificationsRetrying =
     rowsQ.isFetching ||
     bookingsQ.isFetching ||
-    feedbackQ.isFetching ||
     biaQ.isFetching ||
     profileQ.isFetching ||
     bookState.retrying;
   const refetchRows = rowsQ.refetch;
   const refetchBookings = bookingsQ.refetch;
-  const refetchFeedback = feedbackQ.refetch;
   const refetchBia = biaQ.refetch;
   const refetchProfile = profileQ.refetch;
   const retryBookState = bookState.retry;
   const retryNotifications = useCallback(() => {
     void refetchRows();
     void refetchBookings();
-    void refetchFeedback();
     void refetchBia();
     void refetchProfile();
     retryBookState();
-  }, [refetchRows, refetchBookings, refetchFeedback, refetchBia, refetchProfile, retryBookState]);
+  }, [refetchRows, refetchBookings, refetchBia, refetchProfile, retryBookState]);
 
   return useMemo(
     () => ({

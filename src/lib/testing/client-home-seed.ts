@@ -174,7 +174,6 @@ export interface Person {
   blocks: ClientBlock[];
   bookings: BookingRow[];
   extras: PoolExtra[];
-  feedback: { booking_id: string; rating: number }[];
 }
 
 /** Le sessioni di useClientBookingsForCredits: deleted_at vuoto, o annullate tardi. */
@@ -230,7 +229,6 @@ export const GIULIA: Person = {
     }),
   ],
   extras: [],
-  feedback: [{ booking_id: "g-done-4", rating: 4 }],
 };
 
 /** Abbonamento col rinnovo, il blocco 4 finisce il 04/10. */
@@ -253,7 +251,6 @@ export const MARTA: Person = {
     }),
   ],
   extras: [],
-  feedback: [],
 };
 
 /** Cliente libera: crediti del coach senza scadenza, nessun blocco. */
@@ -269,7 +266,6 @@ export const ELENA: Person = {
     s("e-done-2", "pt", null, "completed", at(2026, 9, 19, 10)),
   ],
   extras: [extra("pt", 6, 4), extra("call", 1, 1)],
-  feedback: [],
 };
 
 /** Percorso concluso il 06/09. */
@@ -282,7 +278,6 @@ export const DAVIDE: Person = {
   ],
   bookings: [s("d-done", "pt", "d2", "completed", at(2026, 9, 2, 9))],
   extras: [],
-  feedback: [],
 };
 
 export const lucaBlocks = (l2End: string, l3Start: string, l3End: string): ClientBlock[] => [
@@ -305,7 +300,6 @@ export const LUCA: Person = {
     s("l-today", "pt", "l2", "scheduled", at(2026, 9, 28, 17)),
   ],
   extras: [],
-  feedback: [],
 };
 
 /** Un blocco senza allocazioni, e il nome di soli spazi. */
@@ -315,7 +309,6 @@ export const SARA: Person = {
   blocks: [block("s1", 1, "2026-09-14", "2026-10-11")],
   bookings: [],
   extras: [],
-  feedback: [],
 };
 
 /** Crediti del blocco finiti, il percorso finisce col blocco il 03/10. */
@@ -342,7 +335,6 @@ export const GIORGIO: Person = {
     s("r-bia-extra", "bia", null, "scheduled", at(2026, 9, 29, 15)),
   ],
   extras: [extra("bia", 2, 1)],
-  feedback: [{ booking_id: "r-done-3", rating: 5 }],
 };
 
 /** Il blocco 2 finisce il 05/10: 7 giorni esatti. */
@@ -360,7 +352,6 @@ export const PAOLA: Person = {
     s("p-next", "pt", "p2", "scheduled", at(2026, 10, 1, 9)),
   ],
   extras: [],
-  feedback: [],
 };
 
 /** Il primo blocco inizia il 05/10. */
@@ -370,7 +361,6 @@ export const NINA: Person = {
   blocks: [block("n1", 1, "2026-10-05", "2026-11-01", [alloc("n1", "pt", 8, 0)])],
   bookings: [],
   extras: [],
-  feedback: [],
 };
 
 /** Le nove persone della 05, per nome. */

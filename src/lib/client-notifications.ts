@@ -8,8 +8,8 @@
 //      «Da confermare»), i
 //      crediti da usare prima della fine del blocco (gli stessi numeri
 //      dell'avviso della Home, creditsWarningParts) oppure quasi finiti (1 o
-//      2, i numeri di Prenota), il blocco o il percorso appena iniziato, la
-//      misurazione BIA più recente e la valutazione in sospeso (canRate);
+//      2, i numeri di Prenota), il blocco o il percorso appena iniziato e la
+//      misurazione BIA più recente;
 //   2. le azioni del coach sulle sessioni e sui crediti del cliente: le righe
 //      di notifications che scrivono i trigger del server della 08, lette da
 //      describeClientNotification (notifications.ts).
@@ -34,15 +34,13 @@
 // come parametro, sempre l'ultimo.
 // ----------------------------------------------------------------------------
 
-import { addMinutes, differenceInCalendarDays, format, parseISO, subHours } from "date-fns";
+import { differenceInCalendarDays, format, parseISO, subHours } from "date-fns";
 import type { BiaMeasurement } from "@/hooks/use-bia";
 import type { NotificationRow } from "@/hooks/use-notifications";
-import type { SessionFeedback } from "@/hooks/use-session-feedback";
 import { CLIENT_CONFIRM_WINDOW_HOURS } from "@/lib/booking-rules";
 import { coachFirstName, type BookCoach, type BookState } from "@/lib/client-book";
 import { creditsWarningParts, creditsWarningText } from "@/lib/client-home";
-import { sessionMinutes } from "@/lib/client-session-detail";
-import { canRate, getClientSessionStatus } from "@/lib/client-session-status";
+import { getClientSessionStatus } from "@/lib/client-session-status";
 import { sessionName, type SessionBooking, type SessionEventType } from "@/lib/client-sessions";
 import { blockTiming } from "@/lib/current-block";
 import {
@@ -53,17 +51,9 @@ import {
 } from "@/lib/notifications";
 import type { BookingRow } from "@/lib/queries";
 import type { RenewalClient } from "@/lib/renewal";
-import { formatDayRel, formatLongDay } from "@/lib/session-time";
+import { formatDayRel } from "@/lib/session-time";
 
-export type ClientReminderKind =
-  | "booked"
-  | "confirm"
-  | "use"
-  | "low"
-  | "feedback"
-  | "bia"
-  | "renewed"
-  | "path";
+export type ClientReminderKind = "booked" | "confirm" | "use" | "low" | "bia" | "renewed" | "path";
 export type ClientCoachKind = ClientNotificationView["kind"];
 export type ClientNotificationKind = ClientReminderKind | ClientCoachKind;
 
@@ -103,12 +93,6 @@ export interface ClientReminderInput {
   /** Le sessioni della cornice (useClientBookings: deleted_at vuoto). */
   bookings: readonly ReminderBooking[];
   eventTypes: readonly Pick<SessionEventType, "id" | "name">[];
-  /**
-   * Le valutazioni del cliente; null finché non sono arrivate: allora niente
-   * voce della valutazione, che per un attimo comparirebbe anche per una
-   * sessione già valutata.
-   */
-  feedback: readonly Pick<SessionFeedback, "booking_id">[] | null;
   /**
    * Lo stato dei crediti di Prenota (useClientBookState); null finché non c'è:
    * allora niente voci sui crediti, sul blocco e sul percorso.
@@ -194,8 +178,8 @@ const BOOKED_SINCE_MS = Date.UTC(2026, 9, 5, 10, 52);
  * sessione inserita dal coach nell'app ha la sua riga dal server della 08, e
  * una importata da Google, che la riga non ce l'ha (il trigger esce senza
  * utente), ha il titolo dell'evento, mentre quella del cliente non ne ha mai
- * (enforce_client_booking_insert lo rimette a NULL; è la stessa regola di
- * canRate). Titolo, testo e destinazione sono quelli della push
+ * (enforce_client_booking_insert lo rimette a NULL; è la stessa regola
+ * dell'invito, inviteText). Titolo, testo e destinazione sono quelli della push
  * (bookedNotice); il momento è la creazione. Senza righe lette, nessuna voce.
  * Limiti dichiarati: se un cliente ha più di 30 righe nuove la riga del coach
  * può restare fuori dalla lettura (use-notifications.ts, PAGE_SIZE), e al
@@ -368,39 +352,15 @@ function biaReminder(input: ClientReminderInput, now: Date): ClientReminder | nu
 }
 
 /**
- * La valutazione in sospeso, solo con le valutazioni arrivate: la più recente
- * fra le sessioni che si valutano (canRate: svolte, senza titolo, negli ultimi
- * 14 giorni) e non ancora valutate. La data è la sua fine.
- */
-function feedbackReminder(input: ClientReminderInput, now: Date): ClientReminder | null {
-  if (!input.feedback) return null;
-  const rated = new Set(input.feedback.map((f) => f.booking_id));
-  const pending = input.bookings
-    .filter((b) => canRate(b, now) && !rated.has(b.id))
-    .sort((a, b) => startOf(b) - startOf(a) || byId(a.id, b.id))[0];
-  if (!pending) return null;
-  const start = new Date(pending.scheduled_at);
-  return {
-    id: `fb-${pending.id}`,
-    kind: "feedback",
-    title: "Com'è andata?",
-    body: `Valuta la sessione di ${formatLongDay(start).toLowerCase()}`,
-    at: addMinutes(start, sessionMinutes(pending)),
-    target: { to: "/client/bookings/$bookingId", bookingId: pending.id },
-  };
-}
-
-/**
  * I promemoria di adesso, in quest'ordine prima dell'ordinamento della lista:
  * le sessioni prenotate, le conferme (per inizio), i crediti da usare oppure
- * quasi finiti, il blocco o il percorso appena iniziato, la BIA, la valutazione.
+ * quasi finiti, il blocco o il percorso appena iniziato, la BIA.
  */
 export function clientReminders(input: ClientReminderInput, now: Date): ClientReminder[] {
   const single = [
     creditReminder(input, now),
     blockReminder(input, now),
     biaReminder(input, now),
-    feedbackReminder(input, now),
   ].filter((r): r is ClientReminder => r !== null);
   return [...bookedReminders(input, now), ...confirmReminders(input, now), ...single];
 }
@@ -533,10 +493,10 @@ export const READ_IDS_CAP = 200;
  * tutte come lette» (`mark` = "all": i promemoria di adesso). Si aggiunge e
  * basta: con la regola di prima (tenere solo i promemoria di adesso) un
  * promemoria che mancava solo perché la sua lettura non era ancora arrivata
- * (lo stato dei crediti, le valutazioni) tornava non letto. Un id già
- * presente va in fondo, una volta sola; oltre READ_IDS_CAP escono i primi, i
- * più vecchi, che sono di situazioni finite (una sessione passata, un blocco
- * chiuso).
+ * (lo stato dei crediti; fino alla passata 14 anche le valutazioni) tornava
+ * non letto. Un id già presente va in fondo, una volta sola; oltre
+ * READ_IDS_CAP escono i primi, i più vecchi, che sono di situazioni finite (una
+ * sessione passata, un blocco chiuso).
  */
 export function nextReadIds(
   readIds: readonly string[],

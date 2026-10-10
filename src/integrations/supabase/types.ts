@@ -1018,62 +1018,6 @@ export type Database = {
         }
         Relationships: []
       }
-      session_feedback: {
-        Row: {
-          booking_id: string
-          client_id: string
-          created_at: string
-          id: string
-          note: string | null
-          rating: number
-        }
-        Insert: {
-          booking_id: string
-          client_id: string
-          created_at?: string
-          id?: string
-          note?: string | null
-          rating: number
-        }
-        Update: {
-          booking_id?: string
-          client_id?: string
-          created_at?: string
-          id?: string
-          note?: string | null
-          rating?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "session_feedback_booking_id_fkey"
-            columns: ["booking_id"]
-            isOneToOne: true
-            referencedRelation: "bookings"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "session_feedback_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "client_block_status"
-            referencedColumns: ["client_id"]
-          },
-          {
-            foreignKeyName: "session_feedback_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "client_exhaustion_forecast"
-            referencedColumns: ["client_id"]
-          },
-          {
-            foreignKeyName: "session_feedback_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       trainer_availability: {
         Row: {
           coach_id: string

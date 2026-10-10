@@ -98,15 +98,12 @@
   --color-assign-line: #f59e0b;
 
   /* Redesign lato cliente (design_handoff_cliente_mobile, passata 00): testo
-     dentro i riquadri warning-soft, barra dei crediti persi, chip e stelle
-     della valutazione, toast e fondo dietro i fogli. credit-lost sul bianco fa
-     2,15:1: accanto alla barra il numero va scritto. */
+     dentro i riquadri warning-soft, barra dei crediti persi, toast e fondo
+     dietro i fogli. credit-lost sul bianco fa 2,15:1: accanto alla barra il
+     numero va scritto. I token della valutazione (rating-*) li ha tolti la
+     passata 14, con la valutazione. */
   --color-warning-ink: #9a3412;
   --color-credit-lost: #f59e0b;
-  --color-rating-soft: #fef3c7;
-  --color-rating-text: #92400e;
-  --color-rating-star: #d97706;
-  --color-rating-star-line: #b45309;
   --color-toast: #191c1f;
   --color-toast-ok: #6ee7b7;
   --color-toast-warn: #fdba74;

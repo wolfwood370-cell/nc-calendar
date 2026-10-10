@@ -1,18 +1,16 @@
 // ----------------------------------------------------------------------------
-// Sessioni, in un file solo (lato cliente, passata 03, audit N1, T1, T5, H9 e
-// V13)
+// Sessioni, in un file solo (lato cliente, passata 03, audit N1, T1, T5 e V13)
 // ----------------------------------------------------------------------------
 // Tutto quello che la pagina Sessioni mostra, sopra gli helper della 00
-// (getClientSessionStatus, canRate, getAttendance, formatLongDay,
-// formatTimeRange):
+// (getClientSessionStatus, getAttendance, formatLongDay, formatTimeRange):
 //   - quali sessioni si vedono (isVisibleSession) e in quale scheda: «In
 //     programma» le prenotate, da confermare, confermate e in corso, in ordine
 //     di inizio; «Passate» tutte le altre, dalla più recente, annullate future
 //     comprese. Ogni sessione visibile sta in una scheda sola;
 //   - i gruppi: per settimana di calendario da lunedì (le in programma) e per
 //     mese locale (le passate);
-//   - la riga (sessionRow): tipologia, giorno, orario, chip, colori, voto e
-//     nome accessibile;
+//   - la riga (sessionRow): tipologia, giorno, orario, chip, colori e nome
+//     accessibile;
 //   - la presenza (clientAttendance, e il suo testo attendanceSummary):
 //     getAttendance sulle stesse sessioni che conta il coach, importate da
 //     Google comprese; il Profilo (07) legge la stessa clientAttendance;
@@ -27,7 +25,6 @@ import { ATTENDANCE_WEEKS, getAttendance, type Attendance } from "@/lib/attendan
 import { typeColor, typeTint, type BookState } from "@/lib/client-book";
 import {
   CLIENT_STATUS_TONE,
-  canRate,
   getClientSessionStatus,
   type ClientSessionStatusKey,
 } from "@/lib/client-session-status";
@@ -207,19 +204,15 @@ export interface SessionRowModel {
   range: string;
   /** «Sessione PT», «Call di consulenza · online» */
   type: string;
-  /** «Da valutare» o l'etichetta dello stato della 00. */
+  /** L'etichetta dello stato della 00. */
   chip: string;
   /** Classi dei token per il chip. */
   chipTone: { bg: string; fg: string };
   /** Fondo e testo del riquadro della data; null per le annullate (il componente usa i token). */
   tile: { bg: string; fg: string } | null;
-  /** «5 su 5»; null senza voto. */
-  rating: string | null;
   /** Il nome accessibile del pulsante. */
   ariaLabel: string;
 }
-
-const RATING_TONE = { bg: "bg-rating-soft", fg: "text-rating-text" };
 
 // Il contrasto WCAG, con la formula di luminance in event-colors.ts (lì è
 // privata). La tinta al 10% (#rrggbb1a, alfa 26/255) è composta sul bianco
@@ -286,15 +279,10 @@ export function sessionName(
   return b.category === "consulenza" ? "Consulenza" : sessionLabel(b.session_type);
 }
 
-/**
- * La riga di una sessione. `ratings`: dall'id della sessione al voto; null =
- * valutazioni non lette (in caricamento o in errore), e allora niente «Da
- * valutare» né stelle. Il nome è sessionName.
- */
+/** La riga di una sessione. Il nome è sessionName. */
 export function sessionRow(
   b: SessionBooking,
   eventTypes: readonly SessionEventType[],
-  ratings: ReadonlyMap<string, number> | null,
   now: Date,
 ): SessionRowModel {
   const start = new Date(b.scheduled_at);
@@ -304,16 +292,12 @@ export function sessionRow(
   const range = formatTimeRange(start, b.duration_min);
 
   const status = getClientSessionStatus(b, now);
-  const toRate = ratings !== null && canRate(b, now) && !ratings.has(b.id);
-  const vote = ratings?.get(b.id);
-  const rating = vote === undefined ? null : `${vote} su 5`;
   const cancelled = status.key === "cancelled" || status.key === "late";
   const color = eventType?.color ?? null;
 
   const aria = [formatLongDay(start), range, name];
   if (online) aria.push("online");
-  aria.push(toRate ? "da valutare" : status.label.toLowerCase());
-  if (rating) aria.push(`valutata ${rating}`);
+  aria.push(status.label.toLowerCase());
 
   return {
     id: b.id,
@@ -321,19 +305,11 @@ export function sessionRow(
     day: format(start, "d"),
     range,
     type: online ? `${name} · online` : name,
-    chip: toRate ? "Da valutare" : status.label,
-    chipTone: toRate ? RATING_TONE : CLIENT_STATUS_TONE[status.key],
+    chip: status.label,
+    chipTone: CLIENT_STATUS_TONE[status.key],
     tile: cancelled ? null : { bg: typeTint(color), fg: tileText(color) },
-    rating,
     ariaLabel: aria.join(", "),
   };
-}
-
-/** Le valutazioni del cliente come le vuole sessionRow; null finché non ci sono. */
-export function ratingsById(
-  feedback: readonly { booking_id: string; rating: number }[] | undefined,
-): ReadonlyMap<string, number> | null {
-  return feedback ? new Map(feedback.map((f) => [f.booking_id, f.rating])) : null;
 }
 
 // ----------------------------------------------------------------------------

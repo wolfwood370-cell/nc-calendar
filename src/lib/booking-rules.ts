@@ -58,9 +58,6 @@ export const CLIENT_FREE_CANCEL_HOURS = 24;
 /** Da quante ore prima dell'inizio si chiede al cliente di confermare la presenza. */
 export const CLIENT_CONFIRM_WINDOW_HOURS = 48;
 
-/** Per quanti giorni dall'inizio una sessione svolta si può valutare. */
-export const CLIENT_FEEDBACK_DAYS = 14;
-
 /** 0 → «Nessuno», 1 → «1 ora», N → «N ore». */
 export function noticeLabel(hours: number): string {
   if (hours <= 0) return "Nessuno";
