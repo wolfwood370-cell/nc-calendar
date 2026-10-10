@@ -1,5 +1,5 @@
 // ----------------------------------------------------------------------------
-// Sessioni (lato cliente, passata 03, audit N1, T1, T5, H9 e V13)
+// Sessioni (lato cliente, passata 03, audit N1, T1, T5 e V13)
 // ----------------------------------------------------------------------------
 // Due schede, «In programma» e «Passate», con la scelta nell'URL (`tab`,
 // cambiata con replace: nessuna voce nuova nella cronologia, e resta dopo un
@@ -8,8 +8,7 @@
 // stessa scheda. Ogni numero, testo e gruppo viene da client-sessions.ts; le
 // sessioni, le tipologie e i crediti della card vuota da useClientBookState,
 // lo stesso di Prenota (le sessioni con le annullate tardi, e le incoerenze
-// dei crediti le manda lui); i voti da useClientFeedback, con la chiave della
-// cornice.
+// dei crediti le manda lui).
 // Gli stati, nell'ordine: sessioni perse (la card dell'errore, mai «Nessuna
 // sessione…» per una lettura che non è arrivata, né qui né nell'intestazione);
 // elenco non pronto (lo scheletro); l'elenco della scheda, o la sua card vuota.
@@ -32,12 +31,10 @@ import { AuraLineSkeleton, AuraSkeleton } from "@/components/ui/aura-skeleton";
 import { useClientBookState } from "@/hooks/use-client-book-state";
 import { useClientShell } from "@/hooks/use-client-shell";
 import { useMyCoach } from "@/hooks/use-my-coach";
-import { useClientFeedback } from "@/hooks/use-session-feedback";
 import {
   attendanceSummary,
   parseSessionsTab,
   pastGroups,
-  ratingsById,
   sessionRow,
   splitSessions,
   upcomingEmpty,
@@ -94,9 +91,10 @@ function ClientSessionsPage() {
 
   // Il coach dei testi (get_my_coach): lo vuole lo stato dei crediti; la card vuota non lo nomina.
   const { coach } = useMyCoach();
-  const { meId, coachId, profileArrived, bookingsQ, eventTypesQ, failed, state } =
-    useClientBookState(now, coach);
-  const feedbackQ = useClientFeedback(meId);
+  const { coachId, profileArrived, bookingsQ, eventTypesQ, failed, state } = useClientBookState(
+    now,
+    coach,
+  );
 
   // Persa: in errore e senza dati. Una rilettura fallita coi dati di prima
   // tiene l'elenco (TanStack Query tiene i dati). Rileggendo una lettura
@@ -114,7 +112,6 @@ function ClientSessionsPage() {
     bookingsQ.data !== undefined && profileArrived && (coachId === null || typesArrived);
 
   const eventTypes = eventTypesQ.data ?? NO_EVENT_TYPES;
-  const ratings = useMemo(() => ratingsById(feedbackQ.data), [feedbackQ.data]);
   const lists = useMemo(
     () => (bookingsQ.data ? splitSessions(bookingsQ.data, now) : null),
     [bookingsQ.data, now],
@@ -125,9 +122,9 @@ function ClientSessionsPage() {
     return byTab.map((g) => ({
       key: g.key,
       label: g.label,
-      rows: g.items.map((b) => sessionRow(b, eventTypes, ratings, now)),
+      rows: g.items.map((b) => sessionRow(b, eventTypes, now)),
     }));
-  }, [lists, tab, eventTypes, ratings, now]);
+  }, [lists, tab, eventTypes, now]);
   const attendance = useMemo(
     () => (tab === "passate" && bookingsQ.data ? attendanceSummary(bookingsQ.data, now) : null),
     [tab, bookingsQ.data, now],

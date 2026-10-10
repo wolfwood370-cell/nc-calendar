@@ -15,11 +15,6 @@ const TYPES: SessionEventType[] = [
   { id: "pt", name: "Sessione PT", color: "#D50000", location_type: "physical" },
   { id: "call", name: "Call di consulenza", color: "#039BE5", location_type: "online" },
 ];
-const RATINGS: ReadonlyMap<string, number> = new Map([
-  ["p4", 5],
-  ["p5", 4],
-]);
-
 const s = (
   id: string,
   typeId: string,
@@ -42,7 +37,7 @@ const s = (
 const html = (b: SessionBooking) =>
   renderToStaticMarkup(
     createElement(ClientSessionRow, {
-      row: sessionRow(b, TYPES, RATINGS, NOW),
+      row: sessionRow(b, TYPES, NOW),
       onOpen: () => {},
     }),
   );
@@ -81,12 +76,13 @@ describe("ClientSessionRow", () => {
     expect(markup).toContain(">In corso<");
   });
 
-  it("valutata: la stella, il voto e il voto nel nome accessibile", () => {
+  it("svolta: il chip dello stato, senza stella né voto (passata 14)", () => {
     const markup = html(s("p4", "pt", at(9, 23, 11), "completed"));
-    expect(markup).toContain('fill="var(--color-rating-star)"');
-    expect(markup).toContain("5 su 5");
-    expect(buttonTag(markup)).toMatch(/aria-label="[^"]*, svolta, valutata 5 su 5"/);
     expect(markup).toContain(">Svolta<");
+    expect(buttonTag(markup)).toMatch(/aria-label="[^"]*, svolta"/);
+    // Una sola icona: la freccia. La stella del voto era la seconda.
+    expect(markup.match(/<svg/g)).toHaveLength(1);
+    expect(markup).not.toContain("su 5");
   });
 
   it("annullata: il riquadro sul fondo neutro, senza colori della tipologia", () => {
@@ -96,11 +92,5 @@ describe("ClientSessionRow", () => {
     expect(tile).not.toContain("style=");
     expect(tile).toContain("bg-surface-container-low");
     expect(markup).not.toContain("#D50000");
-  });
-
-  it("niente stella senza voto", () => {
-    const markup = html(s("u2", "pt", at(9, 30, 10), "scheduled"));
-    expect(markup).not.toContain("--color-rating-star");
-    expect(markup).not.toContain("su 5");
   });
 });

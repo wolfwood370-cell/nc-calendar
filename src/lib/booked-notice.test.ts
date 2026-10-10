@@ -50,7 +50,6 @@ const input = (over: Partial<ClientReminderInput> = {}): ClientReminderInput => 
   clientId: "giulia",
   bookings: [],
   eventTypes: EVENT_TYPES,
-  feedback: [],
   book: null,
   pathStartDate: null,
   bia: [],

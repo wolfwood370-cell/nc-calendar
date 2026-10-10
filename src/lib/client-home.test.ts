@@ -26,14 +26,12 @@ import {
   homeGreeting,
   homeNext,
   homeNextCard,
-  homeRating,
   homeSections,
   installHiddenKey,
   noNextCard,
   othersLabel,
   progressModel,
   progressNote,
-  ratingSubtitle,
   type CreditRow,
   type FirstFree,
   type HomeNextCard,
@@ -195,7 +193,6 @@ interface Person {
   blocks: ClientBlock[];
   bookings: BookingRow[];
   extras: PoolExtra[];
-  feedback: { booking_id: string; rating: number }[];
 }
 
 const GIULIA: Person = {
@@ -242,7 +239,6 @@ const GIULIA: Person = {
     }),
   ],
   extras: [],
-  feedback: [{ booking_id: "g-done-4", rating: 4 }],
 };
 
 const MARTA: Person = {
@@ -264,7 +260,6 @@ const MARTA: Person = {
     }),
   ],
   extras: [],
-  feedback: [],
 };
 
 const ELENA: Person = {
@@ -279,7 +274,6 @@ const ELENA: Person = {
     s("e-done-2", "pt", null, "completed", at(2026, 9, 19, 10)),
   ],
   extras: [extra("pt", 6, 4), extra("call", 1, 1)],
-  feedback: [],
 };
 
 const DAVIDE: Person = {
@@ -291,7 +285,6 @@ const DAVIDE: Person = {
   ],
   bookings: [s("d-done", "pt", "d2", "completed", at(2026, 9, 2, 9))],
   extras: [],
-  feedback: [],
 };
 
 const lucaBlocks = (l2End: string, l3Start: string, l3End: string): ClientBlock[] => [
@@ -314,7 +307,6 @@ const LUCA: Person = {
     s("l-today", "pt", "l2", "scheduled", at(2026, 9, 28, 17)),
   ],
   extras: [],
-  feedback: [],
 };
 
 const SARA: Person = {
@@ -323,7 +315,6 @@ const SARA: Person = {
   blocks: [block("s1", 1, "2026-09-14", "2026-10-11")],
   bookings: [],
   extras: [],
-  feedback: [],
 };
 
 const GIORGIO: Person = {
@@ -349,7 +340,6 @@ const GIORGIO: Person = {
     s("r-bia-extra", "bia", null, "scheduled", at(2026, 9, 29, 15)),
   ],
   extras: [extra("bia", 2, 1)],
-  feedback: [{ booking_id: "r-done-3", rating: 5 }],
 };
 
 const PAOLA: Person = {
@@ -366,7 +356,6 @@ const PAOLA: Person = {
     s("p-next", "pt", "p2", "scheduled", at(2026, 10, 1, 9)),
   ],
   extras: [],
-  feedback: [],
 };
 
 const NINA: Person = {
@@ -375,7 +364,6 @@ const NINA: Person = {
   blocks: [block("n1", 1, "2026-10-05", "2026-11-01", [alloc("n1", "pt", 8, 0)])],
   bookings: [],
   extras: [],
-  feedback: [],
 };
 
 // ---------------------------------------------------------------------------
@@ -399,13 +387,11 @@ const home = (p: Person, blocks: ClientBlock[] = p.blocks) => {
     coach: NO_COACH,
   });
   const next = homeNext(bookings, NOW);
-  const rating = homeRating(bookings, p.feedback, null, NOW);
   const sections = homeSections({
     state,
     hasNext: next.next !== null,
-    hasRating: rating !== null,
   });
-  return { bookings, state, next, rating, sections };
+  return { bookings, state, next, sections };
 };
 
 const optionFacts = (state: BookState) =>
@@ -481,15 +467,13 @@ interface Want {
   rows: string[][];
   lost: boolean;
   footer: [string, string];
-  /** La sessione da valutare e i due sottotitoli, senza coach e col coach. */
-  rating: [string, string, string] | null;
 }
 
 const WANT: Record<string, [Person, Want]> = {
   Giulia: [
     GIULIA,
     {
-      sections: ["next", "credits", "rating"],
+      sections: ["next", "credits"],
       greeting: "Ciao Giulia",
       options: [
         ["pt", "prenotabile", 3, false, "60 min · 3 disponibili"],
@@ -559,11 +543,6 @@ const WANT: Record<string, [Person, Want]> = {
       ],
       lost: true,
       footer: [BUY, BUY],
-      rating: [
-        "g-done-5",
-        "Personal Training di lunedì 28 settembre. La valutazione arriva al tuo coach.",
-        "Personal Training di lunedì 28 settembre. La valutazione arriva a Nicolò.",
-      ],
     },
   ],
   Marta: [
@@ -608,13 +587,12 @@ const WANT: Record<string, [Person, Want]> = {
       ],
       lost: false,
       footer: [BUY, BUY],
-      rating: null,
     },
   ],
   Elena: [
     ELENA,
     {
-      sections: ["next", "credits", "rating"],
+      sections: ["next", "credits"],
       greeting: "Ciao Elena",
       options: [["pt", "prenotabile", 2, false, "60 min · 2 disponibili"]],
       blocked: null,
@@ -648,11 +626,6 @@ const WANT: Record<string, [Person, Want]> = {
       ],
       lost: false,
       footer: [ASK, ASK_COACH],
-      rating: [
-        "e-done-1",
-        "Personal Training di sabato 26 settembre. La valutazione arriva al tuo coach.",
-        "Personal Training di sabato 26 settembre. La valutazione arriva a Nicolò.",
-      ],
     },
   ],
   Davide: [
@@ -686,13 +659,12 @@ const WANT: Record<string, [Person, Want]> = {
       ],
       lost: false,
       footer: [ASK, ASK_COACH],
-      rating: null,
     },
   ],
   Luca: [
     LUCA,
     {
-      sections: ["next", "credits", "rating"],
+      sections: ["next", "credits"],
       greeting: "Ciao Luca",
       options: [["pt", "prenotabile", 8, true, "60 min · 8 disponibili"]],
       blocked: null,
@@ -731,11 +703,6 @@ const WANT: Record<string, [Person, Want]> = {
       ],
       lost: false,
       footer: [BUY, BUY],
-      rating: [
-        "l-done-5",
-        "Personal Training di mercoledì 23 settembre. La valutazione arriva al tuo coach.",
-        "Personal Training di mercoledì 23 settembre. La valutazione arriva a Nicolò.",
-      ],
     },
   ],
   Sara: [
@@ -759,13 +726,12 @@ const WANT: Record<string, [Person, Want]> = {
       rows: [],
       lost: false,
       footer: [BUY, BUY],
-      rating: null,
     },
   ],
   Giorgio: [
     GIORGIO,
     {
-      sections: ["next", "credits", "rating"],
+      sections: ["next", "credits"],
       greeting: "Ciao Giorgio",
       options: [
         ["pt", "esaurita", 0, false, "Crediti esauriti"],
@@ -825,17 +791,12 @@ const WANT: Record<string, [Person, Want]> = {
       ],
       lost: true,
       footer: [ASK, ASK_COACH],
-      rating: [
-        "r-done-2",
-        "Personal Training di martedì 15 settembre. La valutazione arriva al tuo coach.",
-        "Personal Training di martedì 15 settembre. La valutazione arriva a Nicolò.",
-      ],
     },
   ],
   Paola: [
     PAOLA,
     {
-      sections: ["next", "credits", "rating"],
+      sections: ["next", "credits"],
       greeting: "Ciao Paola",
       options: [["pt", "prenotabile", 2, false, "60 min · 2 disponibili"]],
       blocked: null,
@@ -873,11 +834,6 @@ const WANT: Record<string, [Person, Want]> = {
       ],
       lost: false,
       footer: [BUY, BUY],
-      rating: [
-        "p-done-3",
-        "Personal Training di martedì 22 settembre. La valutazione arriva al tuo coach.",
-        "Personal Training di martedì 22 settembre. La valutazione arriva a Nicolò.",
-      ],
     },
   ],
   Nina: [
@@ -909,7 +865,6 @@ const WANT: Record<string, [Person, Want]> = {
       ],
       lost: false,
       footer: [ASK, ASK_COACH],
-      rating: null,
     },
   ],
 };
@@ -993,20 +948,6 @@ for (const [who, [person, want]] of Object.entries(WANT)) {
         footerText(creditsFooter(h.state.canBuy, NO_COACH)),
         footerText(creditsFooter(h.state.canBuy, COACH)),
       ]).toEqual(want.footer);
-    });
-
-    it("la valutazione", () => {
-      const r = h.rating;
-      if (!want.rating) {
-        expect(r).toBeNull();
-        return;
-      }
-      expect(r?.booking.id).toBe(want.rating[0]);
-      expect([r?.rating, r?.note]).toEqual([null, null]);
-      if (!r) return;
-      const name = sessionName(r.booking, typeOf(r.booking.event_type_id));
-      expect(ratingSubtitle(name, r.booking, NO_COACH)).toBe(want.rating[1]);
-      expect(ratingSubtitle(name, r.booking, COACH)).toBe(want.rating[2]);
     });
   });
 }
@@ -1431,52 +1372,18 @@ describe("progressModel", () => {
 });
 
 // ---------------------------------------------------------------------------
-// La valutazione, le sezioni, Luca al confine, il resto
+// Le sezioni, Luca al confine, il resto
 // ---------------------------------------------------------------------------
 
-describe("homeRating su Giulia", () => {
-  const bookings = forCredits(GIULIA.bookings);
-  const rated = [...GIULIA.feedback, { booking_id: "g-done-5", rating: 5, note: "Bene" }];
-  const pick = (r: ReturnType<typeof homeRating>) => r && [r.booking.id, r.rating, r.note];
-
-  it("«pending»: la più recente senza valutazione", () => {
-    expect(pick(homeRating(bookings, GIULIA.feedback, null, NOW))).toEqual([
-      "g-done-5",
-      null,
-      null,
-    ]);
-  });
-
-  it("«kept»: quella mostrata resta, col voto e la nota appena salvati", () => {
-    expect(pick(homeRating(bookings, rated, "g-done-5", NOW))).toEqual(["g-done-5", 5, "Bene"]);
-  });
-
-  it("«keptGoneAfterRated»: senza shownId, la prossima da valutare", () => {
-    expect(pick(homeRating(bookings, rated, null, NOW))).toEqual(["g-done-3", null, null]);
-  });
-
-  it("«notRead»: valutazioni non lette, niente", () => {
-    expect(homeRating(bookings, undefined, null, NOW)).toBeNull();
-  });
-
-  it("«shownNotRateable»: una mostrata che non si valuta non conta", () => {
-    expect(pick(homeRating(bookings, GIULIA.feedback, "g-imported", NOW))).toEqual([
-      "g-done-5",
-      null,
-      null,
-    ]);
-  });
-});
-
 describe("homeSections", () => {
-  it("«concludedWithNext»: il percorso concluso e la prossima, niente crediti né valutazione", () => {
+  it("«concludedWithNext»: il percorso concluso e la prossima, niente crediti", () => {
     const { state } = home(DAVIDE);
-    expect(homeSections({ state, hasNext: true, hasRating: true })).toEqual(["concluded", "next"]);
+    expect(homeSections({ state, hasNext: true })).toEqual(["concluded", "next"]);
   });
 
-  it("«noCreditsNoNext»: nessun credito, nessuna prossima, la valutazione", () => {
+  it("«noCreditsNoNext»: nessun credito, nessuna prossima", () => {
     const { state } = home(SARA);
-    expect(homeSections({ state, hasNext: false, hasRating: true })).toEqual(["no-next", "rating"]);
+    expect(homeSections({ state, hasNext: false })).toEqual(["no-next"]);
   });
 });
 

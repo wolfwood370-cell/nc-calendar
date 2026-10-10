@@ -1,6 +1,6 @@
 // ----------------------------------------------------------------------------
 // ClientBookingDetailView — il dettaglio della sessione (lato cliente, passata
-// 04, audit D1-D5, O3, O4, B2, H9 e V11)
+// 04, audit D1-D5, O3, O4, B2 e V11)
 // ----------------------------------------------------------------------------
 // Sotto l'intestazione della pagina, una colonna con gap 16:
 //   - l'intestazione della sessione (D3): il chip dello stato, la tipologia
@@ -10,7 +10,6 @@
 //     nella videochiamata, confermare la presenza, Sposta e Annulla, il
 //     riquadro delle 24 ore, o la card delle svolte, assenti, annullate e in
 //     verifica;
-//   - la valutazione (H9), la stessa della Home;
 //   - le informazioni (D4, O4), solo quelle che ci sono: la nota del coach,
 //     «Cosa aspettarti», l'invito del calendario. Nessun pulsante per
 //     aggiungere l'evento al calendario (D2): l'invito si aggiorna da solo.
@@ -43,14 +42,12 @@ import { useMemo, useRef, useState, type ReactNode } from "react";
 import { ClientButton } from "@/components/client-button";
 import { ClientCancelSheet } from "@/components/client-cancel-sheet";
 import { ClientMoveSheet, type MoveBooking } from "@/components/client-move-sheet";
-import { ClientSessionRating } from "@/components/client-session-rating";
 import { useClientBookState } from "@/hooks/use-client-book-state";
 import { useClientShell } from "@/hooks/use-client-shell";
 import { useConfirmAttendance } from "@/hooks/use-confirm-attendance";
 import { useMoveUndo } from "@/hooks/use-move-undo";
 import { useMyCoach } from "@/hooks/use-my-coach";
 import { useRestoreBooking } from "@/hooks/use-restore-booking";
-import { useClientFeedback } from "@/hooks/use-session-feedback";
 import { typeTint, withCoachLine, writeOnWhatsApp } from "@/lib/client-book";
 import {
   LOCKED_TITLE,
@@ -66,7 +63,6 @@ import {
   freeCancelNote,
   inviteText,
   lockedText,
-  ratingState,
   sessionMinutes,
   statusCard,
   tileIcon,
@@ -103,8 +99,7 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
   const qc = useQueryClient();
   // Il coach dei testi (get_my_coach), come in Prenota: senza nome «il tuo coach».
   const { coach } = useMyCoach();
-  const { meId, profile, state } = useClientBookState(now, coach);
-  const feedbackQ = useClientFeedback(meId);
+  const { profile, state } = useClientBookState(now, coach);
   const confirmAttendance = useConfirmAttendance(coach);
   const restore = useRestoreBooking();
   const [sheet, setSheet] = useState<"move" | "cancel" | null>(null);
@@ -114,7 +109,6 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
   const eventType = booking.event_type;
   const name = sessionName(booking, eventType);
   const email = profile?.email ?? null;
-  const feedback = feedbackQ.data?.find((f) => f.booking_id === booking.id);
   const model = useMemo(() => {
     const place = detailPlace(eventType);
     const panel = detailPanel(booking, place?.online ?? false, now);
@@ -125,10 +119,9 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
       panel,
       card: panel.status ? statusCard(booking, canRebook(booking, state), now) : null,
       invite: inviteText(booking, email, now),
-      rating: ratingState(booking, feedback !== undefined, now),
     };
-  }, [booking, eventType, now, state, email, feedback]);
-  const { status, when, place, panel, card, invite, rating } = model;
+  }, [booking, eventType, now, state, email]);
+  const { status, when, place, panel, card, invite } = model;
 
   const StatusIcon = status.icon;
   const TypeIcon = iconForType(name);
@@ -137,8 +130,6 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
   const absent = absentHint(coach);
   const note = booking.trainer_notes?.trim() || null;
   const description = eventType?.description?.trim() || null;
-  // La colonna note arriva col 02/10: la riga di select("*") la porta solo da lì.
-  const savedNote = (feedback as { note?: string | null } | undefined)?.note ?? null;
   const hasActions = panel.join || panel.confirm || panel.manage !== null || card !== null;
 
   const detailKey = queryKeys.bookings.detail(booking.id);
@@ -372,18 +363,6 @@ export function ClientBookingDetailView({ booking }: ClientBookingDetailViewProp
             </section>
           )}
         </div>
-      )}
-
-      {rating.show && meId && feedbackQ.data !== undefined && (
-        <ClientSessionRating
-          bookingId={booking.id}
-          clientId={meId}
-          rating={feedback?.rating ?? null}
-          note={savedNote}
-          editable={rating.editable}
-          coach={coach}
-          layout="detail"
-        />
       )}
 
       {(note || description || invite) && (

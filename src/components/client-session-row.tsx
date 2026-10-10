@@ -3,21 +3,17 @@
 // ----------------------------------------------------------------------------
 // Un pulsante a tutta larghezza, come le righe delle Notifiche: il riquadro
 // della data (50×52, raggio 14) nel colore della tipologia, le annullate sul
-// fondo neutro; orario, tipologia con l'ellissi e, se valutata, la stella col
-// voto; il chip dello stato e la freccia. Alta almeno 72, raggio 18, bordo
-// delle card. I testi, lo stato, il chip e i colori della tipologia vengono da
-// sessionRow (client-sessions.ts); qui solo i token fissi (il fondo neutro
-// delle annullate, la stella, la freccia) e nessun colore esadecimale. Niente
-// Link: la pagina naviga lei, e la riga si rende anche fuori da un router
-// (client-session-row.test.ts).
+// fondo neutro; orario e tipologia con l'ellissi; il chip dello stato e la
+// freccia. Alta almeno 72, raggio 18, bordo delle card. I testi, lo stato, il
+// chip e i colori della tipologia vengono da sessionRow (client-sessions.ts);
+// qui solo i token fissi (il fondo neutro delle annullate, la freccia) e nessun
+// colore esadecimale. Niente Link: la pagina naviga lei, e la riga si rende
+// anche fuori da un router (client-session-row.test.ts).
 // ----------------------------------------------------------------------------
 
 import { ChevronRight } from "lucide-react";
 import type { SessionRowModel } from "@/lib/client-sessions";
 import { cn } from "@/lib/utils";
-
-// La stella della valutazione, il path del prototipo (Cliente Sessioni.dc.html).
-const STAR_PATH = "M12 17.3 6.2 21l1.6-6.6L2.4 9.6l6.8-.5L12 3l2.8 6.1 6.8.5-5.4 4.8 1.6 6.6z";
 
 export interface ClientSessionRowProps {
   row: SessionRowModel;
@@ -48,14 +44,6 @@ export function ClientSessionRow({ row, onOpen }: ClientSessionRowProps) {
       <span className="flex min-w-0 flex-1 flex-col gap-[3px]">
         <span className="text-[15px] font-bold tabular-nums">{row.range}</span>
         <span className="truncate text-[13px] text-on-surface-variant">{row.type}</span>
-        {row.rating && (
-          <span className="flex items-center gap-1 text-xs font-semibold text-on-surface-variant">
-            <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
-              <path d={STAR_PATH} fill="var(--color-rating-star)" />
-            </svg>
-            {row.rating}
-          </span>
-        )}
       </span>
       <span
         className={cn(

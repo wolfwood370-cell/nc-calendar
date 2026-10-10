@@ -41,16 +41,11 @@ export const queryKeys = {
     root: ["event_types"] as const,
     coach: (coachId: string | null | undefined) => ["event_types", coachId] as const,
   },
-  // Design handoff — nuove tabelle (BIA, feedback, note coach)
+  // Design handoff — nuove tabelle (BIA, note coach)
   bia: {
     root: ["bia_measurements"] as const,
     client: (clientId: string | null | undefined) =>
       ["bia_measurements", "client", clientId] as const,
-  },
-  sessionFeedback: {
-    root: ["session_feedback"] as const,
-    client: (clientId: string | null | undefined) =>
-      ["session_feedback", "client", clientId] as const,
   },
   coachNotes: (coachId: string | null | undefined, clientId: string | null | undefined) =>
     ["coach_client_notes", coachId, clientId] as const,

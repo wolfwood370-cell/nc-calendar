@@ -102,7 +102,6 @@ const input = (over: Partial<ClientReminderInput> = {}): ClientReminderInput => 
   clientId: "giulia",
   bookings: [],
   eventTypes: EVENT_TYPES,
-  feedback: [],
   book: null,
   pathStartDate: null,
   bia: [],
@@ -409,68 +408,26 @@ describe("clientReminders · la BIA", () => {
   });
 });
 
-describe("clientReminders · la valutazione", () => {
-  const done = (id: string, start: Date, over: Partial<ReminderBooking> = {}) =>
-    session(id, start, { status: "completed", ...over });
-
-  it("la più recente fra le sessioni da valutare, con la data della sua fine", () => {
+describe("clientReminders · le sessioni svolte (passata 14)", () => {
+  it("nessuna voce per una sessione svolta, recente o no, creata nell'app o importata", () => {
+    const done = (id: string, start: Date, over: Partial<ReminderBooking> = {}) =>
+      session(id, start, { status: "completed", ...over });
     const items = clientReminders(
       input({
         bookings: [
-          done("vecchia", new Date(2026, 8, 24, 9)),
           done("ieri", new Date(2026, 8, 27, 9), { duration_min: 45 }),
+          done("vecchia", new Date(2026, 8, 10, 9)),
+          done("google", new Date(2026, 8, 26, 9), { title: "Allenamento" }),
         ],
       }),
       NOW,
     );
-    expect(items).toEqual([
-      {
-        id: "fb-ieri",
-        kind: "feedback",
-        title: "Com'è andata?",
-        body: "Valuta la sessione di domenica 27 settembre",
-        at: new Date(2026, 8, 27, 9, 45),
-        target: { to: "/client/bookings/$bookingId", bookingId: "ieri" },
-      },
-    ]);
-    const [noLength] = clientReminders(
-      input({ bookings: [done("zero", new Date(2026, 8, 27, 9), { duration_min: 0 })] }),
-      NOW,
-    );
-    expect(noLength?.at).toEqual(new Date(2026, 8, 27, 10));
-  });
-
-  it("prima che le valutazioni arrivino (feedback null): niente voce", () => {
-    const bookings = [done("ieri", new Date(2026, 8, 27, 9))];
-    expect(clientReminders(input({ bookings, feedback: null }), NOW)).toEqual([]);
-  });
-
-  it("valutata, importata da Google (col titolo) o di più di 14 giorni fa: niente voce", () => {
-    const rated = clientReminders(
-      input({
-        bookings: [done("ieri", new Date(2026, 8, 27, 9))],
-        feedback: [{ booking_id: "ieri" }],
-      }),
-      NOW,
-    );
-    const imported = clientReminders(
-      input({ bookings: [done("google", new Date(2026, 8, 27, 9), { title: "Allenamento" })] }),
-      NOW,
-    );
-    const old = clientReminders(
-      input({ bookings: [done("vecchia", new Date(2026, 8, 10, 9))] }),
-      NOW,
-    );
-    const absent = clientReminders(
-      input({ bookings: [session("assente", new Date(2026, 8, 27, 9), { status: "no_show" })] }),
-      NOW,
-    );
-    expect([rated, imported, old, absent]).toEqual([[], [], [], []]);
+    expect(items).toEqual([]);
   });
 });
 
 describe("clientReminders · l'ordine prima della lista", () => {
-  it("le conferme, i crediti, il blocco, la BIA, la valutazione", () => {
+  it("le conferme, i crediti, il blocco, la BIA", () => {
     const items = clientReminders(
       input({
         bookings: [
@@ -482,7 +439,7 @@ describe("clientReminders · l'ordine prima della lista", () => {
       }),
       NOW,
     );
-    expect(items.map((i) => i.kind)).toEqual(["confirm", "low", "renewed", "bia", "feedback"]);
+    expect(items.map((i) => i.kind)).toEqual(["confirm", "low", "renewed", "bia"]);
   });
 });
 
@@ -561,15 +518,21 @@ describe("clientNotificationList · le due fonti in una lista", () => {
   });
 
   it("il nome accessibile non mette il punto dopo «?»", () => {
-    const feedback = clientReminders(
-      input({ bookings: [session("ieri", new Date(2026, 8, 27, 9), { status: "completed" })] }),
-      NOW,
-    );
+    // Nessun promemoria ha più un titolo con «?» (passata 14): la regola si
+    // prova su una voce scritta qui.
+    const asked: ClientReminder = {
+      id: "prova",
+      kind: "bia",
+      title: "Tutto bene?",
+      body: "Un testo",
+      at: new Date(2026, 8, 27, 10),
+      target: { to: "/client" },
+    };
     const [item] = clientNotificationList(
-      { reminders: feedback, rows: [], readIds: [], coach: NICOLO, bookingIds: null },
+      { reminders: [asked], rows: [], readIds: [], coach: NICOLO, bookingIds: null },
       NOW,
     );
-    expect(item?.aria).toBe("Non letta. Com'è andata? Valuta la sessione di domenica 27 settembre");
+    expect(item?.aria).toBe("Non letta. Tutto bene? Un testo");
   });
 
   it("un promemoria letto resta letto finché il suo id non cambia", () => {

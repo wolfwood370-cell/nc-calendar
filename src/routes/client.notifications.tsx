@@ -11,7 +11,6 @@ import {
   Layers,
   Repeat,
   Rocket,
-  Star,
   type LucideIcon,
 } from "lucide-react";
 import { BookRetryCard } from "@/components/book-blocked-card";
@@ -60,7 +59,6 @@ const KIND: Record<ClientNotificationKind, { icon: LucideIcon; tile: string }> =
   confirm: { icon: CalendarCheck, tile: WARNING },
   use: { icon: Hourglass, tile: WARNING },
   low: { icon: Coins, tile: WARNING },
-  feedback: { icon: Star, tile: "bg-rating-star-line/10 text-rating-star-line" },
   moved: { icon: Repeat, tile: PRIMARY },
   cancelled: { icon: CalendarX, tile: "bg-danger-text/10 text-danger-text" },
   created: { icon: CalendarPlus, tile: PRIMARY },

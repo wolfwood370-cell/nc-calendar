@@ -1,6 +1,6 @@
 // ----------------------------------------------------------------------------
-// La Home, in un file solo (lato cliente, passata 05, audit H1-H7, H9, H10,
-// N1, V1, V2, V8, V9, V10)
+// La Home, in un file solo (lato cliente, passata 05, audit H1-H7, H10, N1,
+// V1, V2, V8, V9, V10)
 // ----------------------------------------------------------------------------
 // Tutto quello che la Home mostra, sopra gli helper delle passate prima: le
 // sessioni della 03 (splitSessions, sessionName), stato, luogo, riquadro e
@@ -19,8 +19,7 @@
 //   - i crediti: intestazione, segmenti del percorso, l'avviso dei crediti da
 //     prenotare, una riga per tipologia col numero di Prenota (H1), la barra
 //     del blocco della riga e il fondo (Booster o il coach);
-//   - la valutazione, i progressi BIA, le sezioni e la chiave della card
-//     d'installazione.
+//   - i progressi BIA, le sezioni e la chiave della card d'installazione.
 // Il coach è un BookCoach (useMyCoach nella pagina, da get_my_coach): senza
 // nome i testi dicono «il tuo coach», e senza WhatsApp niente link a vuoto.
 // Puro: niente hook, niente rete, niente orologio (il tempo entra come
@@ -52,16 +51,9 @@ import {
   type DetailPlace,
   type DetailStatus,
 } from "@/lib/client-session-detail";
-import { canRate } from "@/lib/client-session-status";
-import {
-  isVisibleSession,
-  sessionName,
-  splitSessions,
-  type SessionBooking,
-} from "@/lib/client-sessions";
+import { sessionName, splitSessions, type SessionBooking } from "@/lib/client-sessions";
 import type { ClientSlotDay } from "@/lib/client-slots";
 import { blockTiming, toIsoDate } from "@/lib/current-block";
-import type { BookingRow } from "@/lib/queries";
 import { isValidBlock, type RenewalBlock, type RenewalClient } from "@/lib/renewal";
 import {
   formatDayRel,
@@ -73,10 +65,6 @@ import {
 
 /** Quanti giorni prima della fine del blocco compare l'avviso dei crediti da prenotare. */
 const WARNING_DAYS = 7;
-
-function startMs(b: Pick<BookingRow, "scheduled_at">): number {
-  return new Date(b.scheduled_at).getTime();
-}
 
 /** «1 svolta» · «5 svolte». */
 function plural(n: number, one: string, many: string): string {
@@ -507,54 +495,6 @@ export function creditsFooter(
 }
 
 // ----------------------------------------------------------------------------
-// La valutazione
-// ----------------------------------------------------------------------------
-
-/**
- * La sessione da valutare nella Home: null finché le valutazioni non sono
- * lette. Fra le sessioni visibili che si valutano (canRate della 00: svolte,
- * create nell'app, negli ultimi 14 giorni), dalla più recente: quella già
- * mostrata (shownId), col voto e la nota se ci sono, così dopo «Invia
- * valutazione» la card resta invece di sparire alla rilettura; altrimenti la
- * prima senza valutazione.
- */
-export function homeRating<
-  T extends Pick<BookingRow, "id" | "status" | "scheduled_at" | "title" | "deleted_at">,
->(
-  bookings: readonly T[],
-  feedback: readonly { booking_id: string; rating: number }[] | undefined,
-  shownId: string | null,
-  now: Date,
-): { booking: T; rating: number | null; note: string | null } | null {
-  if (!feedback) return null;
-  const rateable = bookings
-    .filter((b) => isVisibleSession(b) && canRate(b, now))
-    .sort((a, b) => startMs(b) - startMs(a) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-  const shown = shownId ? rateable.find((b) => b.id === shownId) : undefined;
-  if (shown) {
-    const saved = feedback.find((f) => f.booking_id === shown.id);
-    return {
-      booking: shown,
-      rating: saved?.rating ?? null,
-      // La colonna note arriva col 02/10: la riga di select("*") la porta solo da lì.
-      note: (saved as { note?: string | null } | undefined)?.note ?? null,
-    };
-  }
-  const pending = rateable.find((b) => !feedback.some((f) => f.booking_id === b.id));
-  return pending ? { booking: pending, rating: null, note: null } : null;
-}
-
-/** Sotto «Com'è andata?»: la sessione e a chi arriva la valutazione. */
-export function ratingSubtitle(
-  name: string,
-  b: Pick<BookingRow, "scheduled_at">,
-  coach: BookCoach,
-): string {
-  const day = formatLongDay(new Date(b.scheduled_at)).toLowerCase();
-  return `${name} di ${day}. La valutazione arriva ${coachTo(coach)}.`;
-}
-
-// ----------------------------------------------------------------------------
 // I progressi
 // ----------------------------------------------------------------------------
 
@@ -664,25 +604,23 @@ export function progressNote(coach: BookCoach): string {
 // Le sezioni e la card d'installazione
 // ----------------------------------------------------------------------------
 
-export type HomeSection = "concluded" | "next" | "no-next" | "credits" | "rating";
+export type HomeSection = "concluded" | "next" | "no-next" | "credits";
 
 /**
  * Le sezioni che dipendono dai crediti, nell'ordine. A percorso concluso la
  * card del percorso (e la prossima sessione, se c'è): niente crediti,
- * «Prenota», Store né valutazione (H7). Altrimenti la prossima sessione o
- * nessuna, i crediti se ci sono opzioni, la valutazione. Progressi e
- * installazione li aggiunge la pagina, indipendenti dalla lettura dei crediti.
+ * «Prenota» né Store (H7). Altrimenti la prossima sessione o nessuna, e i
+ * crediti se ci sono opzioni. Progressi e installazione li aggiunge la pagina,
+ * indipendenti dalla lettura dei crediti.
  */
 export function homeSections(input: {
   state: Pick<BookState, "blocked" | "options">;
   hasNext: boolean;
-  hasRating: boolean;
 }): HomeSection[] {
-  const { state, hasNext, hasRating } = input;
+  const { state, hasNext } = input;
   if (state.blocked?.kind === "concluso") return hasNext ? ["concluded", "next"] : ["concluded"];
   const sections: HomeSection[] = [hasNext ? "next" : "no-next"];
   if (state.options.length > 0) sections.push("credits");
-  if (hasRating) sections.push("rating");
   return sections;
 }
 
